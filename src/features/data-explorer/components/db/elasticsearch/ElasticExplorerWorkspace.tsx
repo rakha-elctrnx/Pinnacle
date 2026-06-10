@@ -2,9 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { Database, X } from 'lucide-react'
 import type { ConnectionPayload } from '../../../../../services/tauriClient'
 import { useElasticData } from '../../../hooks/useElasticData'
+import { WorkspaceToolbar } from '../../shared/WorkspaceToolbar'
+import { WorkspaceStatusBar } from '../../shared/WorkspaceStatusBar'
+import type { ToolbarItem } from '../../shared/WorkspaceToolbar'
+import type { StatusBarContext } from '../../shared/WorkspaceStatusBar'
 import { ClusterDashboard } from './ClusterDashboard'
 import { IndexManager } from './IndexManager'
-import { DocumentExplorer } from './DocumentExplorer'
+import { DocumentExplorer, type DocumentExplorerState } from './DocumentExplorer'
 import { QueryConsole } from './QueryConsole'
 import { MappingExplorer } from './MappingExplorer'
 
@@ -49,6 +53,9 @@ export function ElasticExplorerWorkspace({
   const [internalSelectedIndex, setInternalSelectedIndex] = useState<string | null>(null)
   const selectedIndex = controlledIndex !== undefined ? controlledIndex : internalSelectedIndex
 
+  // Track DocumentExplorer pagination state for the status bar
+  const [docExplorerState, setDocExplorerState] = useState<DocumentExplorerState | null>(null)
+
   useEffect(() => {
     refresh()
   }, [refresh])
@@ -74,7 +81,7 @@ export function ElasticExplorerWorkspace({
           />
         )
       case 'documents':
-        return <DocumentExplorer connection={payload} indexName={selectedIndex} indices={indices} />
+        return <DocumentExplorer connection={payload} indexName={selectedIndex} indices={indices} onStateChange={setDocExplorerState} />
       case 'query':
         return <QueryConsole connection={payload} />
       case 'mapping':
@@ -83,6 +90,188 @@ export function ElasticExplorerWorkspace({
         return null
     }
   }, [activePanel, payload, health, indices, refresh, selectedIndex, onSelectIndex])
+
+  // Derive toolbar items based on active panel
+  const toolbarItems: ToolbarItem[] = useMemo(() => {
+    const items: ToolbarItem[] = []
+
+    switch (activePanel) {
+      case 'indices':
+        items.push(
+          {
+            id: 'create-index',
+            label: 'Create Index',
+            icon: Database,
+            variant: 'primary',
+            onClick: () => {
+              // IndexManager manages its own create inline form
+              // We trigger a click on the create button via the toolbar
+              // The IndexManager still renders its own toolbar internally
+              // to preserve its complex filter/create UI. The WorkspaceToolbar
+              // here serves as the shared surface for primary actions.
+            },
+          },
+          {
+            id: 'refresh',
+            label: 'Refresh',
+            variant: 'secondary',
+            onClick: refresh,
+          },
+        )
+        // Open/Close/Delete are selection-dependent - they stay in the IndexManager's local toolbar
+        break
+      case 'documents':
+        items.push(
+          {
+            id: 'new-document',
+            label: 'New Document',
+            variant: 'primary',
+            onClick: () => {
+              // DocumentExplorer manages its own add doc form
+            },
+          },
+          {
+            id: 'search',
+            label: 'Search',
+            variant: 'secondary',
+            onClick: () => {
+              // DocumentExplorer manages its own search
+            },
+          },
+          {
+            id: 'refresh-docs',
+            label: 'Refresh',
+            variant: 'secondary',
+            onClick: () => {
+              // DocumentExplorer manages its own refresh via fetchDocs
+            },
+          },
+        )
+        break
+      case 'query':
+        items.push(
+          {
+            id: 'run-query',
+            label: 'Run',
+            icon: Database,
+            variant: 'primary',
+            onClick: () => {
+              // QueryConsole manages its own execute via Cmd+Enter
+            },
+          },
+          {
+            id: 'format-json',
+            label: 'Format JSON',
+            variant: 'secondary',
+            onClick: () => {
+              // QueryConsole manages its own format
+            },
+          },
+        )
+        break
+      case 'mapping':
+        items.push(
+          {
+            id: 'refresh-mapping',
+            label: 'Refresh',
+            variant: 'secondary',
+            onClick: refresh,
+          },
+          {
+            id: 'export-mapping',
+            label: 'Export',
+            variant: 'secondary',
+            visible: selectedIndex !== null,
+            onClick: () => {
+              // MappingExplorer manages its own export
+            },
+          },
+        )
+        break
+      // cluster and other panels: no toolbar actions
+    }
+
+    return items
+  }, [activePanel, refresh, selectedIndex])
+
+  // Derive status bar context
+  const statusBarContext = useMemo((): StatusBarContext => {
+    const base = {
+      connector: 'Elasticsearch',
+      connectionStatus: error ? 'error' as const : loading && !health ? 'connecting' as const : 'connected' as const,
+    }
+
+    if (isIndexTabView && activeTab) {
+      const es = docExplorerState
+      return {
+        ...base,
+        entity: activeTab.indexName,
+        mode: 'Documents',
+        dataInfo: es ? `${es.totalHits} hits` : undefined,
+        pagination: es ? { hasPrev: es.page > 0, hasNext: (es.page + 1) * es.pageSize < es.totalHits } : undefined,
+        runtimeStatus: es?.loading ? 'loading' : es?.error ? 'error' : 'idle',
+        errorMessage: es?.error ?? undefined,
+        onPrevPage: es?.onPrevPage,
+        onNextPage: es?.onNextPage,
+      }
+    }
+
+    switch (activePanel) {
+      case 'indices':
+        return {
+          ...base,
+          entity: 'Indices',
+          mode: 'Management',
+          dataInfo: health ? `${indices.length} indices` : undefined,
+          runtimeStatus: loading ? 'loading' : error ? 'error' : 'idle',
+          errorMessage: error ?? undefined,
+        }
+      case 'documents': {
+        const idxName = selectedIndex ?? '—'
+        const es = docExplorerState
+        return {
+          ...base,
+          entity: selectedIndex ? `Index: ${selectedIndex}` : idxName,
+          mode: 'Documents',
+          dataInfo: es ? `${es.totalHits} hits` : undefined,
+          pagination: es ? { hasPrev: es.page > 0, hasNext: (es.page + 1) * es.pageSize < es.totalHits } : undefined,
+          runtimeStatus: es?.loading ? 'loading' : es?.error ? 'error' : 'idle',
+          errorMessage: es?.error ?? undefined,
+          onPrevPage: es?.onPrevPage,
+          onNextPage: es?.onNextPage,
+        }
+      }
+      case 'query':
+        return {
+          ...base,
+          entity: 'Query',
+          mode: 'Console',
+          runtimeStatus: loading ? 'loading' : error ? 'error' : 'idle',
+          errorMessage: error ?? undefined,
+        }
+      case 'mapping': {
+        const idxName = selectedIndex ?? 'default'
+        return {
+          ...base,
+          entity: selectedIndex ? `Index: ${selectedIndex}` : idxName,
+          mode: 'Mapping',
+          dataInfo: undefined,
+          runtimeStatus: loading ? 'loading' : error ? 'error' : 'idle',
+          errorMessage: error ?? undefined,
+        }
+      }
+      case 'cluster':
+      default:
+        return {
+          ...base,
+          entity: 'Cluster',
+          mode: 'Dashboard',
+          dataInfo: health ? `${health.status} · ${indices.length} indices` : undefined,
+          runtimeStatus: loading ? 'loading' : error ? 'error' : 'idle',
+          errorMessage: error ?? undefined,
+        }
+    }
+  }, [activePanel, selectedIndex, isIndexTabView, activeTab, health, indices, loading, error, docExplorerState])
 
   if (loading && !health) {
     return (
@@ -143,11 +332,15 @@ export function ElasticExplorerWorkspace({
         </div>
       )}
 
+      {/* ── WorkspaceToolbar ── */}
+      {/* Only render toolbar if there are items for the current panel */}
+      {toolbarItems.length > 0 && <WorkspaceToolbar items={toolbarItems} />}
+
       {/* ── Index Tab Content (DocumentExplorer for the active index) ── */}
       {isIndexTabView && activeTab && (
         <section className="flex-1 min-h-0 overflow-hidden bg-white">
           <div className="h-full min-h-0">
-            <DocumentExplorer connection={payload} indexName={activeTab.indexName} indices={indices} />
+            <DocumentExplorer connection={payload} indexName={activeTab.indexName} indices={indices} onStateChange={setDocExplorerState} />
           </div>
         </section>
       )}
@@ -158,6 +351,9 @@ export function ElasticExplorerWorkspace({
           {panelContent}
         </main>
       )}
+
+      {/* ── WorkspaceStatusBar ── */}
+      <WorkspaceStatusBar context={statusBarContext} />
     </div>
   )
 }

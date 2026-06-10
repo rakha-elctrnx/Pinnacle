@@ -1,12 +1,12 @@
 ---
-name: "QA Handoff Checklist"
-description: "Prepare a QA-ready handoff from task or bug execution. Use when implementation is complete per milestone and you need structured QA verification checks, evidence, risks, and follow-up notes."
-argument-hint: "Which .ai task or bug file should be prepared for QA handoff?"
+name: "Audit Task"
+description: "Run QA handoff checklist, pre-done auto audit, DoD verification, and final status decision for an existing .ai task/bug by ID."
+argument-hint: "Enter work item ID only, for example: task-003 or bug-002"
 agent: "agent"
 model: "GPT-5 (copilot)"
 ---
 
-Prepare a QA handoff package for the specified work item in `.ai/`.
+Run QA finalization workflow for the provided work item ID.
 
 Use these references:
 - [Dev Delivery](../skills/dev/SKILL.md)
@@ -14,6 +14,16 @@ Use these references:
 - [Pre-Done Auto Audit Checklist](../../.ai/templates/pre-done-auto-audit-checklist.md)
 - [Taskboard PM QA](../skills/qa/SKILL.md)
 - [Canonical Status Model and Definition Of Done](../../.ai/README.md)
+
+Input format:
+- The input is a short ID only, such as `task-003` or `bug-002`.
+
+Resolution rules:
+- Resolve the ID to exactly one file in `.ai/` with filename prefix match:
+  - `task-003` -> `.ai/task-003-*.md`
+  - `bug-002` -> `.ai/bug-002-*.md`
+- If more than one file matches, stop and ask which file to use.
+- If no file matches, stop and report that the work item was not found.
 
 Requirements:
 - Read the target task or bug file and summarize the latest implementation state.

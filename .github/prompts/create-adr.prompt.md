@@ -1,5 +1,5 @@
 ---
-name: "Create ADR From Feature Idea"
+name: "Create ADR"
 description: "Turn a feature idea into an ADR. Use when you want a fast invocation for system analysis, business flow, technical flow, user impact, and roadmap implications."
 argument-hint: "What feature idea should be turned into an ADR?"
 agent: "agent"

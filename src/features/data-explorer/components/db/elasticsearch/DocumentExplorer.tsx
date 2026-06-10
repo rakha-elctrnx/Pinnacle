@@ -9,13 +9,25 @@ import {
 import { Search, Plus, Trash2, RefreshCw, FileJson, Table, X, Save } from 'lucide-react'
 import Editor from '@monaco-editor/react'
 
+export interface DocumentExplorerState {
+  totalHits: number
+  page: number
+  pageSize: number
+  loading: boolean
+  error: string | null
+  onPrevPage: () => void
+  onNextPage: () => void
+}
+
 interface Props {
   connection: ConnectionPayload
   indexName: string | null
   indices: ElasticIndex[]
+  /** Callback to sync pagination state to parent for WorkspaceStatusBar */
+  onStateChange?: (state: DocumentExplorerState) => void
 }
 
-export function DocumentExplorer({ connection, indexName, indices }: Props) {
+export function DocumentExplorer({ connection, indexName, indices, onStateChange }: Props) {
   const [internalIndex, setInternalIndex] = useState<string | null>(null)
   const currentIndex = indexName ?? internalIndex
   const [documents, setDocuments] = useState<ElasticDocumentHit[]>([])
@@ -88,6 +100,19 @@ export function DocumentExplorer({ connection, indexName, indices }: Props) {
     setPage(newPage)
     fetchDocs(currentIndex, searchQuery, newPage * pageSize)
   }, [currentIndex, searchQuery, fetchDocs])
+
+  // Sync pagination state to parent for WorkspaceStatusBar
+  useEffect(() => {
+    onStateChange?.({
+      totalHits,
+      page,
+      pageSize,
+      loading,
+      error,
+      onPrevPage: () => handlePageChange(page - 1),
+      onNextPage: () => handlePageChange(page + 1),
+    })
+  }, [totalHits, page, pageSize, loading, error, onStateChange, handlePageChange])
 
   const handleAddDocument = useCallback(async () => {
     if (!currentIndex) return
