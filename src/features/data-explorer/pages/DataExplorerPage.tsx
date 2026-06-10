@@ -1,573 +1,98 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useConnectionStore } from '../../../state/connectionStore'
-import type { ConnectionProfile, ElasticIndex } from '../../../types/domain'
-import type { ConnectionStatus, ContextMenuState, TableInfoTab, QueryResultTab, DetailStat } from '../types'
-import { downloadTextFile } from '../utils'
-import { useExplorerData } from '../hooks/useExplorerData'
-import { useQueryExecution } from '../hooks/useQueryExecution'
+import { useDataExplorerOrchestrator } from '../hooks/useDataExplorerOrchestrator'
 import { ConnectionSidebar } from '../components/ConnectionSidebar'
 import { DetailsPanel } from '../components/DetailsPanel'
 import { SqlExplorerWorkspace } from '../components/db/sql/SqlExplorerWorkspace'
 import { RedisWorkspaceNotice } from '../components/db/redis/RedisWorkspaceNotice'
 import { RabbitMqWorkspaceNotice } from '../components/db/rabbitmq/RabbitMqWorkspaceNotice'
-import { elasticListIndices } from '../../../services/tauriClient'
 import { ElasticExplorerWorkspace } from '../components/db/elasticsearch/ElasticExplorerWorkspace'
-import type { ElasticPanel, ElasticIndexTab } from '../components/db/elasticsearch/ElasticExplorerWorkspace'
 import { MongodbWorkspaceNotice } from '../components/db/mongodb/MongodbWorkspaceNotice'
 import { ConnectionWizardModal } from '../components/ConnectionWizardModal'
 import { ContextMenu } from '../components/ContextMenu'
 
-interface OpenedTableTab {
-  id: string
-  label: string
-}
-
 export function DataExplorerPage() {
-  const search = useConnectionStore((state) => state.search)
-  const setSearch = useConnectionStore((state) => state.setSearch)
-  const items = useConnectionStore((state) => state.items)
-  const upsert = useConnectionStore((state) => state.upsert)
-  const remove = useConnectionStore((state) => state.remove)
+  const {
+    // Store state
+    search,
+    setSearch,
+    items,
 
-  // Selection & expansion state
-  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null)
-  const [expandedConnectionId, setExpandedConnectionId] = useState<string | null>(null)
-  const [selectedTreeNode, setSelectedTreeNode] = useState<string | null>(null)
-  const [expandedTreePaths, setExpandedTreePaths] = useState<string[]>([])
+    // Derived connection data
+    groupedConnections,
+    recentConnections,
+    selectedConnection,
 
-  // Modal & context menu state
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
-  const contextMenuRef = useRef<HTMLDivElement>(null)
-
-  // Connection statuses & refresh time
-  const [connectionStatuses, setConnectionStatuses] = useState<Record<string, ConnectionStatus>>({})
-  const [lastRefreshedAt, setLastRefreshedAt] = useState(() => new Date().toLocaleTimeString())
-
-  // Table info tab
-  const [tableInfoTab, setTableInfoTab] = useState<TableInfoTab>('data')
-  const [queryResultTab, setQueryResultTab] = useState<QueryResultTab>('results')
-  const [openedTableTabs, setOpenedTableTabs] = useState<OpenedTableTab[]>([])
-  const [activeTableTabId, setActiveTableTabId] = useState<string | null>(null)
-  const [isSqlTableListView, setIsSqlTableListView] = useState(false)
-  const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState(false)
-  const [elasticPanel, setElasticPanel] = useState<ElasticPanel>('cluster')
-  const [selectedElasticIndex, setSelectedElasticIndex] = useState<string | null>(null)
-  const [elasticIndices, setElasticIndices] = useState<Record<string, ElasticIndex[]>>({})
-  const [elasticIndicesError, setElasticIndicesError] = useState<Record<string, string>>({})
-  const [openedElasticTabs, setOpenedElasticTabs] = useState<ElasticIndexTab[]>([])
-  const [activeElasticTabId, setActiveElasticTabId] = useState<string | null>(null)
-
-  // Sidebar resize state
-  const [sidebarWidth, setSidebarWidth] = useState(280)
-  const [isResizing, setIsResizing] = useState(false)
-
-  // ── Fetch Elasticsearch indices when an ES connection is expanded ──
-  useEffect(() => {
-    if (!expandedConnectionId) return
-    const conn = items.find((item) => item.id === expandedConnectionId)
-    if (!conn || conn.type !== 'elasticsearch') return
-
-    const payload = {
-      type: conn.type,
-      host: conn.host,
-      port: conn.port,
-      database: conn.database ?? '',
-      username: conn.username,
-      password: conn.password,
-      ssl: conn.ssl ?? false,
-    }
-
-    elasticListIndices(payload)
-      .then((indices) => {
-        setElasticIndicesError((prev) => {
-          const next = { ...prev }
-          delete next[conn.id]
-          return next
-        })
-        setElasticIndices((prev) => ({
-          ...prev,
-          [conn.id]: indices ?? [],
-        }))
-      })
-      .catch((err) => {
-        setElasticIndicesError((prev) => ({
-          ...prev,
-          [conn.id]: err instanceof Error ? err.message : String(err),
-        }))
-      })
-  }, [expandedConnectionId, items])
-
-  // ── Elasticsearch indices retry handler ───────────────────────────
-  const handleRetryElasticIndices = useCallback((connectionId: string) => {
-    const conn = items.find((item) => item.id === connectionId)
-    if (!conn || conn.type !== 'elasticsearch') return
-
-    const payload = {
-      type: conn.type,
-      host: conn.host,
-      port: conn.port,
-      database: conn.database ?? '',
-      username: conn.username,
-      password: conn.password,
-      ssl: conn.ssl ?? false,
-    }
-
-    setElasticIndicesError((prev) => {
-      const next = { ...prev }
-      delete next[conn.id]
-      return next
-    })
-
-    elasticListIndices(payload)
-      .then((indices) => {
-        setElasticIndices((prev) => ({
-          ...prev,
-          [conn.id]: indices ?? [],
-        }))
-      })
-      .catch((err) => {
-        setElasticIndicesError((prev) => ({
-          ...prev,
-          [conn.id]: err instanceof Error ? err.message : String(err),
-        }))
-      })
-  }, [items])
-
-  // ── Sidebar resize handlers ────────────────────────────────────────
-
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    setIsResizing(true)
-  }, [])
-
-  useEffect(() => {
-    if (!isResizing) return
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const newWidth = Math.min(500, Math.max(200, e.clientX))
-      setSidebarWidth(newWidth)
-    }
-
-    const handleMouseUp = () => {
-      setIsResizing(false)
-    }
-
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-    }
-  }, [isResizing])
-
-  // ── Derived state ──────────────────────────────────────────────────
-
-  const filtered = useMemo(
-    () =>
-      items.filter((item) =>
-        `${item.name} ${item.host} ${item.type} ${item.tags.join(' ')}`
-          .toLowerCase()
-          .includes(search.toLowerCase()),
-      ),
-    [items, search],
-  )
-
-  const groupedConnections = useMemo(() => {
-    return filtered.reduce<Record<string, ConnectionProfile[]>>((acc, item) => {
-      const group = item.tags[0] || 'Ungrouped'
-      acc[group] = acc[group] ? [...acc[group], item] : [item]
-      return acc
-    }, {})
-  }, [filtered])
-
-  const effectiveSelectedConnectionId = selectedConnectionId
-
-  const selectedConnection = useMemo(
-    () => items.find((item) => item.id === effectiveSelectedConnectionId) ?? null,
-    [items, effectiveSelectedConnectionId],
-  )
-
-  const selectedConnectionStatus: ConnectionStatus = selectedConnection
-    ? (connectionStatuses[selectedConnection.id] ?? 'disconnected')
-    : 'disconnected'
-
-  const recentConnections = useMemo(
-    () => [...items].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)).slice(0, 5),
-    [items],
-  )
-
-  // ── Hooks ──────────────────────────────────────────────────────────
-
-  const explorerData = useExplorerData({
+    // Selection state
+    selectedConnectionId,
     expandedConnectionId,
-    selectedConnection,
-    setConnectionStatuses,
-  })
+    selectedTreeNode,
+    expandedTreePaths,
+    connectionStatuses,
 
-  const {
-    realTableColumns,
-    realTableRows,
-    realTableStats,
-    realTableStructure,
-    realTableIndexes,
-    realDbStats,
-    selectedTable,
-    selectedDatabase,
-    tableDataLoading,
-    sqlTableList,
-    sqlTableListLoading,
-    getTreeNodesForConnection,
-    handleTreeNodeClick,
-    fetchSqlTableList,
-    refreshConnectionData,
-  } = explorerData
+    // Modal state
+    isAddModalOpen,
+    editingId,
+    contextMenu,
+    contextMenuRef,
 
-  const queryExecution = useQueryExecution({
-    selectedConnection,
-    selectedSchema: explorerData.selectedSchema,
-    selectedDatabase,
-    setConnectionStatuses,
-  })
+    // Workspace state
+    isDetailsPanelOpen,
+    elasticPanel,
+    selectedElasticIndex,
+    elasticIndices,
+    elasticIndicesError,
+    openedElasticTabs,
+    activeElasticTabId,
+    openedTableTabs,
+    activeTableTabId,
+    isSqlTableListView,
+    tableInfoTab,
+    queryResultTab,
+    lastRefreshedAt,
 
-  const {
-    queryTabs,
-    activeQueryTabId,
-    activeQueryTab,
-    queryDatabase,
-    querySchema,
-    onQueryDatabaseChange,
-    onQuerySchemaChange,
-    queryTabsDirty,
-    isRunningQuery,
-    queryResult,
-    queryMessages,
-    queryHistoryByConnection,
-    savedQueriesByConnection,
-    addQueryTab,
-    closeQueryTab,
-    openQueryTabFromTree,
-    updateActiveQuery,
-    saveActiveQuery,
-    applySavedQueryToActiveTab,
-    setActiveQueryTabId,
-    handleRunQuery,
-  } = queryExecution
+    // Sidebar
+    isResizing,
 
-  const detailsStats = useMemo((): DetailStat[] => {
-    if (realDbStats.length > 0) return realDbStats
-    if (!selectedConnection) return []
-    return [
-      { label: 'Status', value: connectionStatuses[selectedConnection.id] ?? 'disconnected' },
-    ]
-  }, [realDbStats, selectedConnection, connectionStatuses])
+    // Hooks
+    explorerData,
+    queryExecution,
 
-  // ── Context menu click-outside ─────────────────────────────────────
+    // Detail stats
+    detailsStats,
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (contextMenuRef.current && !contextMenuRef.current.contains(event.target as Node)) {
-        setContextMenu(null)
-      }
-    }
-    if (contextMenu) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [contextMenu])
+    // Handlers & setters
+    openCreateWizard,
+    handleConnectionSelectionChange,
+    handleOpenEditModal,
+    handleDuplicateConnection,
+    handleExportConnection,
+    handleRefreshConnection,
+    handleCloseConnection,
+    handleSaveConnection,
+    handleToggleTreeNode,
+    handleFetchDatabaseDetails,
+    wrappedHandleTreeNodeClick,
+    handleCloseTableTab,
+    handleActiveTableTabChange,
+    handleActiveQueryTabIdChange,
+    handleCloseElasticTab,
+    handleActiveElasticTabIdChange,
+    handleResizeStart,
+    handleRetryElasticIndices,
 
-  // ── Handlers ───────────────────────────────────────────────────────
+    setExpandedConnectionId,
+    setContextMenu,
+    setSelectedTreeNode,
+    setElasticPanel,
+    setSelectedElasticIndex,
+    setIsDetailsPanelOpen,
+    setTableInfoTab,
+    setQueryResultTab,
+    setOpenedElasticTabs,
+    setActiveElasticTabId,
 
-  const openCreateWizard = () => {
-    setEditingId(null)
-    setIsAddModalOpen(true)
-  }
-
-  const handleConnectionSelectionChange = (id: string | null) => {
-    setSelectedConnectionId(id)
-    setOpenedTableTabs([])
-    setActiveTableTabId(null)
-    setIsSqlTableListView(false)
-    setSelectedTreeNode(null)
-    setElasticPanel('cluster')
-    setSelectedElasticIndex(null)
-    setOpenedElasticTabs([])
-    setActiveElasticTabId(null)
-    explorerData.setSelectedTable(null)
-  }
-
-  const handleOpenEditModal = (itemId: string) => {
-    setEditingId(itemId)
-    setIsAddModalOpen(true)
-  }
-
-  const handleDuplicateConnection = (itemId: string) => {
-    const item = items.find((profile) => profile.id === itemId)
-    if (!item) return
-    const now = new Date().toISOString()
-    upsert({
-      ...item,
-      id: crypto.randomUUID(),
-      name: `${item.name} Copy`,
-      createdAt: now,
-      updatedAt: now,
-    })
-  }
-
-  const handleExportConnection = (itemId: string) => {
-    const item = items.find((profile) => profile.id === itemId)
-    if (!item) return
-    const exported = {
-      ...item,
-      password: 'redacted',
-      encryptedPasswordRef: 'redacted',
-    }
-    downloadTextFile(
-      `${item.name.replaceAll(' ', '_')}.connection.json`,
-      JSON.stringify(exported, null, 2),
-      'application/json',
-    )
-  }
-
-  const handleRefreshConnection = async (itemId: string) => {
-    const item = items.find((profile) => profile.id === itemId)
-    if (!item) return
-
-    setLastRefreshedAt(new Date().toLocaleTimeString())
-
-    if (item.type === 'postgresql' || item.type === 'mysql') {
-      await refreshConnectionData(item.id, item)
-      return
-    }
-
-    setConnectionStatuses((prev) => ({
-      ...prev,
-      [item.id]: 'connected',
-    }))
-  }
-
-  const handleCloseConnection = (itemId: string) => {
-    setConnectionStatuses((prev) => ({
-      ...prev,
-      [itemId]: 'disconnected',
-    }))
-
-    if (selectedConnectionId === itemId) {
-      handleConnectionSelectionChange(null)
-    }
-
-    if (expandedConnectionId === itemId) {
-      setExpandedConnectionId(null)
-    }
-  }
-
-  const handleSaveConnection = (profile: ConnectionProfile) => {
-    upsert(profile)
-    setConnectionStatuses((prev) => ({
-      ...prev,
-      [profile.id]: 'idle',
-    }))
-    handleConnectionSelectionChange(profile.id)
-    setEditingId(null)
-    setIsAddModalOpen(false)
-  }
-
-  // Override the handleTreeNodeClick to also set the table info tab
-  const handleToggleTreeNode = (path: string) => {
-    setExpandedTreePaths((prev) =>
-      prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path],
-    )
-  }
-
-  const handleFetchDatabaseDetails = (dbName: string) => {
-    if (selectedConnection) {
-      const treeData = explorerData.treeDataMap[selectedConnection.id]
-      const db = treeData?.databases.find((d) => d.name === dbName)
-      if (db && !db.loaded) {
-        explorerData.fetchDatabaseDetails(selectedConnection.id, selectedConnection, dbName)
-      }
-    }
-  }
-
-  /** Map sidebar label to elastic panel key */
-  const ELASTIC_LABEL_TO_PANEL: Record<string, ElasticPanel> = {
-    'Cluster': 'cluster',
-    'Indices': 'indices',
-    'Query Console': 'query',
-    'Mapping': 'mapping',
-  }
-
-  const wrappedHandleTreeNodeClick = (nodeLabel: string, databaseName?: string, nodePath?: string) => {
-    if (nodePath?.endsWith('/Queries')) {
-      openQueryTabFromTree(databaseName)
-      setIsSqlTableListView(false)
-      return
-    }
-
-    if (
-      nodePath?.endsWith('/Tables') &&
-      (selectedConnection?.type === 'postgresql' || selectedConnection?.type === 'mysql')
-    ) {
-      const pathParts = nodePath.split('/').filter(Boolean)
-      const targetDatabase = databaseName || pathParts[0] || selectedConnection.database
-      const targetSchema =
-        selectedConnection.type === 'postgresql' && pathParts.length >= 3
-          ? pathParts[pathParts.length - 2]
-          : undefined
-
-      setSelectedTreeNode(nodeLabel)
-      setActiveTableTabId(null)
-      setIsSqlTableListView(true)
-
-      if (targetDatabase) {
-        void fetchSqlTableList(selectedConnection, targetDatabase, targetSchema)
-        onQueryDatabaseChange(targetDatabase)
-        onQuerySchemaChange(targetSchema || '')
-      }
-
-      return
-    }
-
-    // Handle elasticsearch sidebar navigation
-    if (selectedConnection?.type === 'elasticsearch') {
-      // Check if clicking an index child (path like "Indices/indexName")
-      if (nodePath?.startsWith('Indices/')) {
-        setElasticPanel('documents')
-        setSelectedElasticIndex(nodeLabel)
-        setSelectedTreeNode(nodeLabel)
-        // Open or activate an index tab (like SQL table tabs)
-        const existingTab = openedElasticTabs.find((tab) => tab.indexName === nodeLabel)
-        if (existingTab) {
-          setActiveElasticTabId(existingTab.id)
-        } else {
-          const tabId = crypto.randomUUID()
-          setOpenedElasticTabs((prev) => [...prev, { id: tabId, indexName: nodeLabel }])
-          setActiveElasticTabId(tabId)
-        }
-        return
-      }
-      if (ELASTIC_LABEL_TO_PANEL[nodeLabel]) {
-        setElasticPanel(ELASTIC_LABEL_TO_PANEL[nodeLabel])
-        setSelectedElasticIndex(null)
-        setSelectedTreeNode(nodeLabel)
-        // Clear active elastic tab when switching to non-index panels
-        setActiveElasticTabId(null)
-        return
-      }
-    }
-
-    setSelectedTreeNode(nodeLabel)
-    const isTable = handleTreeNodeClick(nodeLabel, databaseName)
-    if (isTable) {
-      setIsSqlTableListView(false)
-      const existingTab = openedTableTabs.find((tab) => tab.label === nodeLabel)
-      if (existingTab) {
-        setActiveTableTabId(existingTab.id)
-      } else {
-        const tabId = crypto.randomUUID()
-        setOpenedTableTabs((prev) => [...prev, { id: tabId, label: nodeLabel }])
-        setActiveTableTabId(tabId)
-      }
-      setTableInfoTab('data')
-
-      // Auto-fill database and schema selectors in query editor
-      // based on the database/schema context of the clicked table
-      const treeData = explorerData.treeDataMap[selectedConnection?.id ?? '']
-      if (treeData) {
-        if (selectedConnection?.type === 'postgresql') {
-          for (const db of treeData.databases) {
-            for (const schema of db.schemas) {
-              if (schema.tables.includes(nodeLabel)) {
-                onQueryDatabaseChange(db.name)
-                onQuerySchemaChange(schema.name)
-                break
-              }
-            }
-          }
-        } else if (selectedConnection?.type === 'mysql') {
-          for (const db of treeData.databases) {
-            const allTables = db.schemas[0]?.tables ?? []
-            if (allTables.includes(nodeLabel)) {
-              onQueryDatabaseChange(db.name)
-              onQuerySchemaChange('')
-              break
-            }
-          }
-        }
-      }
-    }
-  }
-
-  const handleCloseTableTab = (tabId: string) => {
-    setOpenedTableTabs((prev) => {
-      const nextTabs = prev.filter((tab) => tab.id !== tabId)
-
-      if (activeTableTabId === tabId) {
-        const fallbackTab = nextTabs[nextTabs.length - 1] ?? null
-        setActiveTableTabId(fallbackTab?.id ?? null)
-        if (fallbackTab) {
-          setSelectedTreeNode(fallbackTab.label)
-          handleTreeNodeClick(fallbackTab.label)
-        } else {
-          explorerData.setSelectedTable(null)
-        }
-      }
-
-      return nextTabs
-    })
-  }
-
-  const handleActiveTableTabChange = (tabId: string) => {
-    const targetTab = openedTableTabs.find((tab) => tab.id === tabId)
-    if (!targetTab) return
-
-    setActiveTableTabId(tabId)
-    setIsSqlTableListView(false)
-    setSelectedTreeNode(targetTab.label)
-    handleTreeNodeClick(targetTab.label)
-    setTableInfoTab('data')
-  }
-
-  const handleActiveQueryTabIdChange = (tabId: string) => {
-    setActiveTableTabId(null) // clear table selection when switching to query
-    setIsSqlTableListView(false)
-    setActiveQueryTabId(tabId)
-  }
-
-  const handleCloseElasticTab = (tabId: string) => {
-    setOpenedElasticTabs((prev) => {
-      const nextTabs = prev.filter((tab) => tab.id !== tabId)
-
-      if (activeElasticTabId === tabId) {
-        const fallbackTab = nextTabs[nextTabs.length - 1] ?? null
-        setActiveElasticTabId(fallbackTab?.id ?? null)
-        if (fallbackTab) {
-          setSelectedElasticIndex(fallbackTab.indexName)
-        } else {
-          setSelectedElasticIndex(null)
-        }
-      }
-
-      return nextTabs
-    })
-  }
-
-  const handleActiveElasticTabIdChange = (tabId: string) => {
-    const targetTab = openedElasticTabs.find((tab) => tab.id === tabId)
-    if (!targetTab) return
-
-    setActiveElasticTabId(tabId)
-    setSelectedElasticIndex(targetTab.indexName)
-    setSelectedTreeNode(targetTab.indexName)
-  }
-
-  // ── Render ─────────────────────────────────────────────────────────
+    handleDeleteConnection,
+    handleCloseAddModal,
+  } = useDataExplorerOrchestrator()
 
   return (
     <div className="h-full flex flex-col">
@@ -575,7 +100,7 @@ export function DataExplorerPage() {
         <div className="flex h-full min-h-0 flex-col lg:flex-row">
           {/* Sidebar with dynamic width */}
           <div
-            style={{ width: sidebarWidth }}
+            style={{ width: 280 }}
             className="hidden lg:block shrink-0 overflow-x-hidden overflow-y-auto border-r border-slate-200 min-w-0"
           >
             <ConnectionSidebar
@@ -586,20 +111,20 @@ export function DataExplorerPage() {
               expandedConnectionId={expandedConnectionId}
               treeLoading={explorerData.treeLoading}
               selectedTreeNode={selectedTreeNode}
-              savedQueries={savedQueriesByConnection}
+              savedQueries={queryExecution.savedQueriesByConnection}
               onOpenCreateWizard={openCreateWizard}
               onSelectConnection={handleConnectionSelectionChange}
               onToggleExpand={(id) => setExpandedConnectionId(expandedConnectionId === id ? null : id)}
               onContextMenu={(event, itemId) =>
                 setContextMenu({ x: event.clientX, y: event.clientY, itemId })
               }
-              getTreeNodesForConnection={getTreeNodesForConnection}
+              getTreeNodesForConnection={explorerData.getTreeNodesForConnection}
               onTreeNodeClick={wrappedHandleTreeNodeClick}
               onSelectedTreeNode={setSelectedTreeNode}
               expandedTreePaths={expandedTreePaths}
               onToggleTreeNode={handleToggleTreeNode}
               onFetchDatabaseDetails={handleFetchDatabaseDetails}
-              onUseSavedQuery={applySavedQueryToActiveTab}
+              onUseSavedQuery={queryExecution.applySavedQueryToActiveTab}
               elasticIndices={elasticIndices}
               elasticIndicesError={elasticIndicesError}
               onRetryElasticIndices={handleRetryElasticIndices}
@@ -616,20 +141,20 @@ export function DataExplorerPage() {
               expandedConnectionId={expandedConnectionId}
               treeLoading={explorerData.treeLoading}
               selectedTreeNode={selectedTreeNode}
-              savedQueries={savedQueriesByConnection}
+              savedQueries={queryExecution.savedQueriesByConnection}
               onOpenCreateWizard={openCreateWizard}
               onSelectConnection={handleConnectionSelectionChange}
               onToggleExpand={(id) => setExpandedConnectionId(expandedConnectionId === id ? null : id)}
               onContextMenu={(event, itemId) =>
                 setContextMenu({ x: event.clientX, y: event.clientY, itemId })
               }
-              getTreeNodesForConnection={getTreeNodesForConnection}
+              getTreeNodesForConnection={explorerData.getTreeNodesForConnection}
               onTreeNodeClick={wrappedHandleTreeNodeClick}
               onSelectedTreeNode={setSelectedTreeNode}
               expandedTreePaths={expandedTreePaths}
               onToggleTreeNode={handleToggleTreeNode}
               onFetchDatabaseDetails={handleFetchDatabaseDetails}
-              onUseSavedQuery={applySavedQueryToActiveTab}
+              onUseSavedQuery={queryExecution.applySavedQueryToActiveTab}
               elasticIndices={elasticIndices}
               elasticIndicesError={elasticIndicesError}
               onRetryElasticIndices={handleRetryElasticIndices}
@@ -647,11 +172,7 @@ export function DataExplorerPage() {
             <div className="absolute inset-y-0 -left-1 -right-1" />
           </div>
 
-          <main
-            className={[
-              'flex-1 min-w-0 flex flex-col overflow-hidden border-b border-slate-200 lg:border-b-0',
-            ].join(' ')}
-          >
+          <main className="flex-1 min-w-0 flex flex-col overflow-hidden border-b border-slate-200 lg:border-b-0">
             {!selectedConnection ? (
               <section className="flex items-center justify-center h-full">
                 <div className="flex flex-col items-center gap-4 text-center max-w-md px-6">
@@ -686,58 +207,60 @@ export function DataExplorerPage() {
                   <SqlExplorerWorkspace
                     selectedConnection={selectedConnection}
                     lastRefreshedAt={lastRefreshedAt}
-                    selectedTable={selectedTable}
+                    selectedTable={explorerData.selectedTable}
                     tableInfoTab={tableInfoTab}
                     onTableInfoTabChange={setTableInfoTab}
-                    realTableStats={realTableStats}
-                    tableDataLoading={tableDataLoading}
-                    realTableStructure={realTableStructure}
-                    realTableIndexes={realTableIndexes}
-                    realTableColumns={realTableColumns}
-                    realTableRows={realTableRows}
-                    sqlTableList={sqlTableList}
-                    sqlTableListLoading={sqlTableListLoading}
+                    realTableStats={explorerData.realTableStats}
+                    tableDataLoading={explorerData.tableDataLoading}
+                    realTableStructure={explorerData.realTableStructure}
+                    realTableIndexes={explorerData.realTableIndexes}
+                    realTableColumns={explorerData.realTableColumns}
+                    realTableRows={explorerData.realTableRows}
+                    sqlTableList={explorerData.sqlTableList}
+                    sqlTableListLoading={explorerData.sqlTableListLoading}
                     isSqlTableListView={isSqlTableListView}
-                    queryTabs={queryTabs}
-                    queryTabsDirty={queryTabsDirty}
-                    activeQueryTab={activeQueryTab}
-                    activeQueryTabId={activeQueryTabId}
+                    queryTabs={queryExecution.queryTabs}
+                    queryTabsDirty={queryExecution.queryTabsDirty}
+                    activeQueryTab={queryExecution.activeQueryTab}
+                    activeQueryTabId={queryExecution.activeQueryTabId}
                     treeData={explorerData.treeDataMap[selectedConnection.id] ?? null}
                     selectedConnectionType={selectedConnection.type}
-                    queryDatabase={queryDatabase}
-                    querySchema={querySchema}
-                    onQueryDatabaseChange={onQueryDatabaseChange}
-                    onQuerySchemaChange={onQuerySchemaChange}
-                    isRunningQuery={isRunningQuery}
-                    queryResult={queryResult}
-                    queryMessages={queryMessages}
+                    queryDatabase={queryExecution.queryDatabase}
+                    querySchema={queryExecution.querySchema}
+                    onQueryDatabaseChange={queryExecution.onQueryDatabaseChange}
+                    onQuerySchemaChange={queryExecution.onQuerySchemaChange}
+                    isRunningQuery={queryExecution.isRunningQuery}
+                    queryResult={queryExecution.queryResult}
+                    queryMessages={queryExecution.queryMessages}
                     queryResultTab={queryResultTab}
                     queryHistoryByConnection={
-                      queryHistoryByConnection[selectedConnection.id] ?? []
+                      queryExecution.queryHistoryByConnection[selectedConnection.id] ?? []
                     }
-                    savedQueries={savedQueriesByConnection[selectedConnection.id] ?? []}
+                    savedQueries={queryExecution.savedQueriesByConnection[selectedConnection.id] ?? []}
                     openedTableTabs={openedTableTabs}
                     activeTableTabId={activeTableTabId}
                     selectedConnectionId={selectedConnectionId}
                     onSelectedConnectionIdChange={handleConnectionSelectionChange}
                     onExpandedConnectionIdChange={setExpandedConnectionId}
                     recentConnections={recentConnections}
-                    selectedConnectionStatus={selectedConnectionStatus}
+                    selectedConnectionStatus={
+                      connectionStatuses[selectedConnection.id] ?? 'disconnected'
+                    }
                     isDetailsPanelOpen={isDetailsPanelOpen}
                     onToggleDetailsPanel={() => setIsDetailsPanelOpen((prev) => !prev)}
                     onActiveQueryTabIdChange={handleActiveQueryTabIdChange}
-                    onCloseQueryTab={closeQueryTab}
+                    onCloseQueryTab={queryExecution.closeQueryTab}
                     onActiveTableTabIdChange={handleActiveTableTabChange}
                     onCloseTableTab={handleCloseTableTab}
-                    onAddQueryTab={addQueryTab}
+                    onAddQueryTab={queryExecution.addQueryTab}
                     onSelectTableFromList={(tableName) => {
-                      wrappedHandleTreeNodeClick(tableName, queryDatabase || selectedDatabase)
+                      wrappedHandleTreeNodeClick(tableName, queryExecution.queryDatabase || explorerData.selectedDatabase)
                     }}
-                    onUpdateActiveQuery={updateActiveQuery}
-                    onSaveQuery={saveActiveQuery}
-                    onUseSavedQuery={applySavedQueryToActiveTab}
+                    onUpdateActiveQuery={queryExecution.updateActiveQuery}
+                    onSaveQuery={queryExecution.saveActiveQuery}
+                    onUseSavedQuery={queryExecution.applySavedQueryToActiveTab}
                     onQueryResultTabChange={setQueryResultTab}
-                    onRunQuery={handleRunQuery}
+                    onRunQuery={queryExecution.handleRunQuery}
                   />
                 )}
 
@@ -772,7 +295,6 @@ export function DataExplorerPage() {
                       setElasticPanel('documents')
                       setSelectedElasticIndex(name)
                       setSelectedTreeNode(name)
-                      // Open or activate an index tab (like sidebar does)
                       const existingTab = openedElasticTabs.find((tab) => tab.indexName === name)
                       if (existingTab) {
                         setActiveElasticTabId(existingTab.id)
@@ -813,11 +335,7 @@ export function DataExplorerPage() {
             onCloseConnection={handleCloseConnection}
             onDuplicate={handleDuplicateConnection}
             onExport={handleExportConnection}
-            onDelete={(itemId) => {
-              remove(itemId)
-              if (selectedConnectionId === itemId) setSelectedConnectionId(null)
-              if (expandedConnectionId === itemId) setExpandedConnectionId(null)
-            }}
+            onDelete={handleDeleteConnection}
             onClose={() => setContextMenu(null)}
           />
         </div>
@@ -828,10 +346,7 @@ export function DataExplorerPage() {
           editingId={editingId}
           existingProfile={editingId ? items.find((p) => p.id === editingId) ?? null : null}
           onSave={handleSaveConnection}
-          onClose={() => {
-            setEditingId(null)
-            setIsAddModalOpen(false)
-          }}
+          onClose={handleCloseAddModal}
         />
       )}
     </div>
