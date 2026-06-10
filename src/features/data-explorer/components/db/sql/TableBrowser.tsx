@@ -265,25 +265,28 @@ export function TableBrowser({
                     onClick={() => setSelectedRow(rowIndex)}
                     aria-label={`Select row ${rowIndex + 1}`}
                   />
-                  {displayColumns.map((column) => (
-                    <td
-                      key={`${rowIndex}-${column}`}
-                      className="border-b border-r border-slate-100 p-0.5"
-                    >
-                      <div
-                        contentEditable
-                        suppressContentEditableWarning
-                        spellCheck={false}
-                        className="max-w-full truncate px-2 py-1 outline-none focus:bg-white focus:ring-1 focus:ring-blue-300"
-                        onFocus={() => handleCellFocus(rowIndex)}
-                        onBlur={() => handleCellBlur(rowIndex)}
-                        onKeyDown={handleCellKeyDown}
-                        title={String(row[column] ?? '')}
+                  {displayColumns.map((column) => {
+                    const isNULL = row[column] === null || row[column] === undefined
+                    return (
+                      <td
+                        key={`${rowIndex}-${column}`}
+                        className="border-b border-r border-slate-100 p-0.5"
                       >
-                        {String(row[column] ?? '')}
-                      </div>
-                    </td>
-                  ))}
+                        <div
+                          contentEditable
+                          suppressContentEditableWarning
+                          spellCheck={false}
+                          className={`max-w-full ${isNULL ? 'text-slate-400' : ''} truncate px-2 py-1 outline-none focus:bg-white focus:ring-1 focus:ring-blue-300`}
+                          onFocus={() => handleCellFocus(rowIndex)}
+                          onBlur={() => handleCellBlur(rowIndex)}
+                          onKeyDown={handleCellKeyDown}
+                          title={String(row[column] ?? '')}
+                        >
+                          {String(row[column] ?? 'NULL')}
+                        </div>
+                      </td>
+                    )
+                  })}
                 </tr>
               ))}
               {displayRows.length > MAX_DISPLAY_ROWS && (
