@@ -46,6 +46,10 @@ interface ConnectionSidebarProps {
   onUseSavedQuery?: (sql: string) => void;
   /** Elasticsearch indices per connection id */
   elasticIndices?: Record<string, ElasticIndex[]>;
+  /** Elasticsearch indices fetch errors per connection id */
+  elasticIndicesError?: Record<string, string>;
+  /** Callback to retry fetching Elasticsearch indices */
+  onRetryElasticIndices?: (connectionId: string) => void;
 }
 
 const CATEGORY_LABELS = [
@@ -344,6 +348,8 @@ export function ConnectionSidebar({
   onFetchDatabaseDetails,
   onUseSavedQuery,
   elasticIndices,
+  elasticIndicesError,
+  onRetryElasticIndices,
 }: ConnectionSidebarProps) {
   return (
     <aside className="h-full overflow-x-hidden overflow-y-auto min-w-0">
@@ -456,7 +462,22 @@ export function ConnectionSidebar({
                     </button>
                     {expandedConnectionId === item.id && (
                       <div className="border-l-2 border-blue-200">
-                        {treeNodes.length === 0 && !treeLoading[item.id] && (
+                        {elasticIndicesError?.[item.id] && (
+                          <div className="mx-2 my-1 rounded border border-red-200 bg-red-50 px-2 py-1.5">
+                            <p className="text-[11px] text-red-600 font-medium">Failed to load indices</p>
+                            <p className="text-[10px] text-red-400 truncate mt-0.5">{elasticIndicesError[item.id]}</p>
+                            {onRetryElasticIndices && (
+                              <button
+                                type="button"
+                                onClick={() => onRetryElasticIndices(item.id)}
+                                className="mt-1 text-[10px] font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                              >
+                                Retry
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {treeNodes.length === 0 && !treeLoading[item.id] && !elasticIndicesError?.[item.id] && (
                           <p className="px-2 py-1 text-[11px] text-slate-400 italic">
                             No metadata available
                           </p>

@@ -6,6 +6,10 @@ export function isSqlConnectionType(type: ConnectionType): type is SqlConnection
   return type === 'postgresql' || type === 'mysql'
 }
 
+export function isElasticsearchType(type: ConnectionType): boolean {
+  return type === 'elasticsearch'
+}
+
 export function downloadTextFile(name: string, content: string, mimeType: string) {
   const blob = new Blob([content], { type: mimeType })
   const url = URL.createObjectURL(blob)

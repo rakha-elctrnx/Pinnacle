@@ -55,6 +55,7 @@ export function DataExplorerPage() {
   const [elasticPanel, setElasticPanel] = useState<ElasticPanel>('cluster')
   const [selectedElasticIndex, setSelectedElasticIndex] = useState<string | null>(null)
   const [elasticIndices, setElasticIndices] = useState<Record<string, ElasticIndex[]>>({})
+  const [elasticIndicesError, setElasticIndicesError] = useState<Record<string, string>>({})
   const [openedElasticTabs, setOpenedElasticTabs] = useState<ElasticIndexTab[]>([])
   const [activeElasticTabId, setActiveElasticTabId] = useState<string | null>(null)
 
@@ -80,15 +81,59 @@ export function DataExplorerPage() {
 
     elasticListIndices(payload)
       .then((indices) => {
+        setElasticIndicesError((prev) => {
+          const next = { ...prev }
+          delete next[conn.id]
+          return next
+        })
         setElasticIndices((prev) => ({
           ...prev,
           [conn.id]: indices ?? [],
         }))
       })
-      .catch(() => {
-        // silently ignore – sidebar will show empty children
+      .catch((err) => {
+        setElasticIndicesError((prev) => ({
+          ...prev,
+          [conn.id]: err instanceof Error ? err.message : String(err),
+        }))
       })
   }, [expandedConnectionId, items])
+
+  // ── Elasticsearch indices retry handler ───────────────────────────
+  const handleRetryElasticIndices = useCallback((connectionId: string) => {
+    const conn = items.find((item) => item.id === connectionId)
+    if (!conn || conn.type !== 'elasticsearch') return
+
+    const payload = {
+      type: conn.type,
+      host: conn.host,
+      port: conn.port,
+      database: conn.database ?? '',
+      username: conn.username,
+      password: conn.password,
+      ssl: conn.ssl ?? false,
+    }
+
+    setElasticIndicesError((prev) => {
+      const next = { ...prev }
+      delete next[conn.id]
+      return next
+    })
+
+    elasticListIndices(payload)
+      .then((indices) => {
+        setElasticIndices((prev) => ({
+          ...prev,
+          [conn.id]: indices ?? [],
+        }))
+      })
+      .catch((err) => {
+        setElasticIndicesError((prev) => ({
+          ...prev,
+          [conn.id]: err instanceof Error ? err.message : String(err),
+        }))
+      })
+  }, [items])
 
   // ── Sidebar resize handlers ────────────────────────────────────────
 
@@ -556,6 +601,8 @@ export function DataExplorerPage() {
               onFetchDatabaseDetails={handleFetchDatabaseDetails}
               onUseSavedQuery={applySavedQueryToActiveTab}
               elasticIndices={elasticIndices}
+              elasticIndicesError={elasticIndicesError}
+              onRetryElasticIndices={handleRetryElasticIndices}
             />
           </div>
 
@@ -584,6 +631,8 @@ export function DataExplorerPage() {
               onFetchDatabaseDetails={handleFetchDatabaseDetails}
               onUseSavedQuery={applySavedQueryToActiveTab}
               elasticIndices={elasticIndices}
+              elasticIndicesError={elasticIndicesError}
+              onRetryElasticIndices={handleRetryElasticIndices}
             />
           </div>
 

@@ -326,6 +326,27 @@ export function SqlExplorerWorkspace({
 
       </div>
 
+      {/* ── Context Bar ── */}
+      <div className="shrink-0 flex items-center gap-3 border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] text-slate-500">
+        <span className="inline-flex items-center gap-1 rounded bg-slate-200 px-1.5 py-0.5 font-semibold text-slate-600">
+          {selectedConnection.name}
+        </span>
+        <span className="text-slate-400">·</span>
+        <span>{selectedConnection.host}:{selectedConnection.port}</span>
+        <span className="text-slate-400">·</span>
+        <span>DB: {queryDatabase || selectedConnection.database}</span>
+        {querySchema && (
+          <>
+            <span className="text-slate-400">·</span>
+            <span>Schema: {querySchema}</span>
+          </>
+        )}
+        <span className="text-slate-400">·</span>
+        <span className="font-medium text-slate-600">
+          {isTableView ? 'Table View' : showTableListView ? 'Table List' : 'Query Editor'}
+        </span>
+      </div>
+
       <footer className="shrink-0 border border-slate-200 bg-gray-200 px-3 py-1.5 text-[11px] text-slate-600 backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">

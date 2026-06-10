@@ -34,6 +34,8 @@ export function DocumentExplorer({ connection, indexName, indices }: Props) {
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null)
   const [panelHeight, setPanelHeight] = useState(250)
   const resizeRef = useRef<HTMLDivElement | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [confirmDeleteDoc, setConfirmDeleteDoc] = useState<string | null>(null)
   const pageSize = 30
 
   const fetchDocs = useCallback(async (idx: string, q?: string, from?: number) => {
@@ -89,6 +91,7 @@ export function DocumentExplorer({ connection, indexName, indices }: Props) {
 
   const handleAddDocument = useCallback(async () => {
     if (!currentIndex) return
+    setActionError(null)
     try {
       const body = JSON.parse(newDocJson)
       await elasticIndexDocument({ connection, indexName: currentIndex, document: body })
@@ -96,7 +99,7 @@ export function DocumentExplorer({ connection, indexName, indices }: Props) {
       setNewDocJson('{\n  \n}')
       fetchDocs(currentIndex, searchQuery, page * pageSize)
     } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : String(err)}`)
+      setActionError(err instanceof Error ? err.message : String(err))
     }
   }, [currentIndex, newDocJson, connection, fetchDocs, searchQuery, page])
 
@@ -168,16 +171,23 @@ export function DocumentExplorer({ connection, indexName, indices }: Props) {
     document.body.style.userSelect = 'none'
   }, [panelHeight])
 
-  const handleDeleteDocument = useCallback(async (docId: string) => {
-    if (!currentIndex || !confirm('Delete this document?')) return
+  const handleDeleteDocument = useCallback((docId: string) => {
+    if (!currentIndex) return
+    setConfirmDeleteDoc(docId)
+  }, [currentIndex])
+
+  const confirmDeleteDocument = useCallback(async () => {
+    if (!currentIndex || !confirmDeleteDoc) return
+    setActionError(null)
     try {
-      await elasticDeleteDocument({ connection, indexName: currentIndex, docId })
-      if (selectedDocId === docId) setSelectedDocId(null)
+      await elasticDeleteDocument({ connection, indexName: currentIndex, docId: confirmDeleteDoc })
+      if (selectedDocId === confirmDeleteDoc) setSelectedDocId(null)
+      setConfirmDeleteDoc(null)
       fetchDocs(currentIndex, searchQuery, page * pageSize)
     } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : String(err)}`)
+      setActionError(err instanceof Error ? err.message : String(err))
     }
-  }, [currentIndex, connection, fetchDocs, searchQuery, page, selectedDocId])
+  }, [currentIndex, confirmDeleteDoc, connection, fetchDocs, searchQuery, page, selectedDocId])
 
   // Extract level-1 field names from all documents as columns
   const sourceColumns = Array.from(
@@ -294,6 +304,40 @@ export function DocumentExplorer({ connection, indexName, indices }: Props) {
           )}
         </div>
       </div>
+
+      {/* Action error banner */}
+      {actionError && (
+        <div className="flex items-center justify-between gap-2 border-b border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-600">
+          <span className="truncate">{actionError}</span>
+          <button
+            onClick={() => setActionError(null)}
+            className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-red-500 hover:bg-red-100"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Delete document confirmation */}
+      {confirmDeleteDoc && (
+        <div className="flex items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700">
+          <span>Delete document <code className="font-mono">{confirmDeleteDoc}</code>?</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={confirmDeleteDocument}
+              className="rounded px-2 py-0.5 text-[11px] font-medium text-white bg-red-500 hover:bg-red-600"
+            >
+              Confirm
+            </button>
+            <button
+              onClick={() => setConfirmDeleteDoc(null)}
+              className="rounded px-2 py-0.5 text-[11px] font-medium text-slate-500 hover:bg-slate-100"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Create document form */}
       {showAddDoc && (
