@@ -9,17 +9,19 @@ import {
 import type { ConnectionProfile } from '../../../../../types/domain'
 import type {
   ConnectionStatus,
-  SavedQuery,
-  TableStats,
-  TableInfoTab,
-  QueryTab,
+  ExplorerTreeData,
   QueryResult,
   QueryResultTab,
-  ExplorerTreeData,
+  QueryTab,
+  SavedQuery,
+  SqlTableListItem,
+  TableStats,
+  TableInfoTab,
 } from '../../../types'
 import { statusStyle } from '../../../constants'
 import { TableBrowser } from './TableBrowser'
 import { QueryEditor } from './QueryEditor'
+import { SqlTableList } from './SqlTableList'
 
 interface SqlExplorerWorkspaceProps {
   selectedConnection: ConnectionProfile | null
@@ -33,6 +35,9 @@ interface SqlExplorerWorkspaceProps {
   realTableIndexes: string[]
   realTableColumns: string[]
   realTableRows: Record<string, string>[]
+  sqlTableListLoading: boolean
+  sqlTableList: SqlTableListItem[]
+  isSqlTableListView: boolean
   queryTabs: QueryTab[]
   queryTabsDirty: Record<string, boolean>
   activeQueryTab: QueryTab | null
@@ -63,6 +68,7 @@ interface SqlExplorerWorkspaceProps {
   onActiveTableTabIdChange: (id: string) => void
   onCloseTableTab: (id: string) => void
   onAddQueryTab: () => void
+  onSelectTableFromList: (tableName: string) => void
   onUpdateActiveQuery: (value: string) => void
   onSaveQuery: () => void
   onUseSavedQuery: (sql: string) => void
@@ -82,6 +88,9 @@ export function SqlExplorerWorkspace({
   realTableIndexes,
   realTableColumns,
   realTableRows,
+  sqlTableListLoading,
+  sqlTableList,
+  isSqlTableListView,
   queryTabs,
   queryTabsDirty,
   activeQueryTab,
@@ -112,6 +121,7 @@ export function SqlExplorerWorkspace({
   onActiveTableTabIdChange,
   onCloseTableTab,
   onAddQueryTab,
+  onSelectTableFromList,
   onUpdateActiveQuery,
   onSaveQuery,
   onUseSavedQuery,
@@ -151,6 +161,7 @@ export function SqlExplorerWorkspace({
 
   // Determine whether we're showing a table or query based on which tab type is active
   const isTableView = activeTableTabId !== null && openedTableTabs.some((t) => t.id === activeTableTabId)
+  const showTableListView = isSqlTableListView && !isTableView
   const hasContent = openedTableTabs.length > 0 || queryTabs.length > 0
 
   return (
@@ -224,7 +235,7 @@ export function SqlExplorerWorkspace({
         </div>
       )}
 
-      {!hasContent && (
+      {!hasContent && !showTableListView && (
         <section className="flex flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-4 text-center max-w-md px-6">
             <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200">
@@ -272,7 +283,15 @@ export function SqlExplorerWorkspace({
         </section>
       )}
 
-      {!isTableView && hasContent && (
+      {showTableListView && (
+        <SqlTableList
+          rows={sqlTableList}
+          loading={sqlTableListLoading}
+          onSelectTable={onSelectTableFromList}
+        />
+      )}
+
+      {!isTableView && !showTableListView && hasContent && (
         <section>
           {activeQueryTab && (
           <QueryEditor

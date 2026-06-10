@@ -49,6 +49,8 @@ Thumbs.db
 # ESLint
 .eslintcache
 
+.ai
+
 # Optional
 *.tgz
 *.tar.gz

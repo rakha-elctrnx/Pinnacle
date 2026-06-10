@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import { executeSql } from '../../../services/tauriClient'
 import type { ConnectionProfile } from '../../../types/domain'
-import type { ExplorerTreeData, TreeNode, TreeSchema, TreeDatabase, TableStats, DetailStat, ConnectionStatus } from '../types'
+import type {
+  ExplorerTreeData,
+  TreeNode,
+  TreeSchema,
+  TreeDatabase,
+  TableStats,
+  DetailStat,
+  ConnectionStatus,
+  SqlTableListItem,
+} from '../types'
 import { isSqlConnectionType, getConnPayload, sqlString, quoteIdentifier } from '../utils'
 
 interface UseExplorerDataParams {
@@ -24,11 +33,14 @@ interface UseExplorerDataReturn {
   selectedDatabase: string
   selectedTable: string | null
   tableDataLoading: boolean
+  sqlTableListLoading: boolean
+  sqlTableList: SqlTableListItem[]
   setSelectedSchema: (schema: string) => void
   setSelectedDatabase: (db: string) => void
   setSelectedTable: (table: string | null) => void
   getTreeNodesForConnection: (conn: ConnectionProfile) => TreeNode[]
   handleTreeNodeClick: (nodeLabel: string, databaseName?: string) => boolean
+  fetchSqlTableList: (conn: ConnectionProfile, databaseName: string, schemaName?: string) => Promise<void>
   fetchDatabaseDetails: (connId: string, conn: ConnectionProfile, dbName: string) => Promise<void>
   refreshConnectionData: (connId: string, conn: ConnectionProfile) => Promise<void>
 }
@@ -52,6 +64,8 @@ export function useExplorerData({
   const [selectedDatabase, setSelectedDatabase] = useState<string>('')
   const [selectedTable, setSelectedTable] = useState<string | null>(null)
   const [tableDataLoading, setTableDataLoading] = useState(false)
+  const [sqlTableListLoading, setSqlTableListLoading] = useState(false)
+  const [sqlTableList, setSqlTableList] = useState<SqlTableListItem[]>([])
 
   // Fetch all database names for a connection
   const fetchTreeData = useCallback(
@@ -274,6 +288,65 @@ export function useExplorerData({
     [],
   )
 
+  const fetchSqlTableList = useCallback(
+    async (conn: ConnectionProfile, databaseName: string, schemaName?: string) => {
+      if (!isSqlConnectionType(conn.type)) return
+      setSqlTableListLoading(true)
+
+      try {
+        const payload = { ...getConnPayload(conn), database: databaseName || conn.database }
+
+        const listRes = await executeSql({
+          connection: payload,
+          sql:
+            conn.type === 'postgresql'
+              ? `SELECT
+                   c.relname AS table_name,
+                   c.oid::text AS oid,
+                   pg_get_userbyid(c.relowner) AS owner,
+                   CASE c.relkind
+                     WHEN 'r' THEN 'BASE TABLE'
+                     WHEN 'p' THEN 'PARTITIONED TABLE'
+                     WHEN 'f' THEN 'FOREIGN TABLE'
+                     ELSE c.relkind::text
+                   END AS table_type,
+                   COALESCE(st.n_live_tup::bigint, c.reltuples::bigint, 0)::text AS row_count
+                 FROM pg_class c
+                 JOIN pg_namespace n ON n.oid = c.relnamespace
+                 LEFT JOIN pg_stat_user_tables st ON st.relid = c.oid
+                 WHERE n.nspname = ${sqlString(schemaName || 'public')}
+                   AND c.relkind IN ('r', 'p', 'f')
+                 ORDER BY c.relname`
+              : `SELECT
+                   table_name,
+                   '-' AS oid,
+                   '-' AS owner,
+                   table_type,
+                   COALESCE(table_rows, 0) AS row_count
+                 FROM information_schema.tables
+                 WHERE table_schema = ${sqlString(databaseName)}
+                 ORDER BY table_name`,
+        })
+
+        setSqlTableList(
+          listRes.rows.map((row) => ({
+            tableName: String(row.table_name || ''),
+            oid: String(row.oid || '-'),
+            owner: String(row.owner || '-'),
+            tableType: String(row.table_type || '-'),
+            rowCount: String(row.row_count || '0'),
+          })),
+        )
+      } catch (error) {
+        console.error('Failed to fetch SQL table list:', error)
+        setSqlTableList([])
+      } finally {
+        setSqlTableListLoading(false)
+      }
+    },
+    [],
+  )
+
   // Fetch database list when connection expands
   useEffect(() => {
     if (expandedConnectionId && selectedConnection && isSqlConnectionType(selectedConnection.type)) {
@@ -401,11 +474,14 @@ export function useExplorerData({
     selectedDatabase,
     selectedTable,
     tableDataLoading,
+    sqlTableListLoading,
+    sqlTableList,
     setSelectedSchema,
     setSelectedDatabase,
     setSelectedTable,
     getTreeNodesForConnection,
     handleTreeNodeClick,
+    fetchSqlTableList,
     fetchDatabaseDetails,
     refreshConnectionData: fetchTreeData,
   }

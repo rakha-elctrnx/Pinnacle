@@ -211,6 +211,11 @@ function TreeNodeItem({
       onTreeNodeClick(node.label, databaseName, nodePath);
     } else {
       onToggleTreeNode(nodePath);
+      if (node.label === "Tables") {
+        onSelectedTreeNode(node.label);
+        const databaseName = parentPath.split("/")[0];
+        onTreeNodeClick(node.label, databaseName, nodePath);
+      }
     }
   };
 

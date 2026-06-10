@@ -50,6 +50,7 @@ export function DataExplorerPage() {
   const [queryResultTab, setQueryResultTab] = useState<QueryResultTab>('results')
   const [openedTableTabs, setOpenedTableTabs] = useState<OpenedTableTab[]>([])
   const [activeTableTabId, setActiveTableTabId] = useState<string | null>(null)
+  const [isSqlTableListView, setIsSqlTableListView] = useState(false)
   const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState(false)
   const [elasticPanel, setElasticPanel] = useState<ElasticPanel>('cluster')
   const [selectedElasticIndex, setSelectedElasticIndex] = useState<string | null>(null)
@@ -175,8 +176,11 @@ export function DataExplorerPage() {
     selectedTable,
     selectedDatabase,
     tableDataLoading,
+    sqlTableList,
+    sqlTableListLoading,
     getTreeNodesForConnection,
     handleTreeNodeClick,
+    fetchSqlTableList,
     refreshConnectionData,
   } = explorerData
 
@@ -244,6 +248,7 @@ export function DataExplorerPage() {
     setSelectedConnectionId(id)
     setOpenedTableTabs([])
     setActiveTableTabId(null)
+    setIsSqlTableListView(false)
     setSelectedTreeNode(null)
     setElasticPanel('cluster')
     setSelectedElasticIndex(null)
@@ -356,6 +361,31 @@ export function DataExplorerPage() {
   const wrappedHandleTreeNodeClick = (nodeLabel: string, databaseName?: string, nodePath?: string) => {
     if (nodePath?.endsWith('/Queries')) {
       openQueryTabFromTree(databaseName)
+      setIsSqlTableListView(false)
+      return
+    }
+
+    if (
+      nodePath?.endsWith('/Tables') &&
+      (selectedConnection?.type === 'postgresql' || selectedConnection?.type === 'mysql')
+    ) {
+      const pathParts = nodePath.split('/').filter(Boolean)
+      const targetDatabase = databaseName || pathParts[0] || selectedConnection.database
+      const targetSchema =
+        selectedConnection.type === 'postgresql' && pathParts.length >= 3
+          ? pathParts[pathParts.length - 2]
+          : undefined
+
+      setSelectedTreeNode(nodeLabel)
+      setActiveTableTabId(null)
+      setIsSqlTableListView(true)
+
+      if (targetDatabase) {
+        void fetchSqlTableList(selectedConnection, targetDatabase, targetSchema)
+        onQueryDatabaseChange(targetDatabase)
+        onQuerySchemaChange(targetSchema || '')
+      }
+
       return
     }
 
@@ -390,6 +420,7 @@ export function DataExplorerPage() {
     setSelectedTreeNode(nodeLabel)
     const isTable = handleTreeNodeClick(nodeLabel, databaseName)
     if (isTable) {
+      setIsSqlTableListView(false)
       const existingTab = openedTableTabs.find((tab) => tab.label === nodeLabel)
       if (existingTab) {
         setActiveTableTabId(existingTab.id)
@@ -452,6 +483,7 @@ export function DataExplorerPage() {
     if (!targetTab) return
 
     setActiveTableTabId(tabId)
+    setIsSqlTableListView(false)
     setSelectedTreeNode(targetTab.label)
     handleTreeNodeClick(targetTab.label)
     setTableInfoTab('data')
@@ -459,6 +491,7 @@ export function DataExplorerPage() {
 
   const handleActiveQueryTabIdChange = (tabId: string) => {
     setActiveTableTabId(null) // clear table selection when switching to query
+    setIsSqlTableListView(false)
     setActiveQueryTabId(tabId)
   }
 
@@ -613,6 +646,9 @@ export function DataExplorerPage() {
                     realTableIndexes={realTableIndexes}
                     realTableColumns={realTableColumns}
                     realTableRows={realTableRows}
+                    sqlTableList={sqlTableList}
+                    sqlTableListLoading={sqlTableListLoading}
+                    isSqlTableListView={isSqlTableListView}
                     queryTabs={queryTabs}
                     queryTabsDirty={queryTabsDirty}
                     activeQueryTab={activeQueryTab}
@@ -645,6 +681,9 @@ export function DataExplorerPage() {
                     onActiveTableTabIdChange={handleActiveTableTabChange}
                     onCloseTableTab={handleCloseTableTab}
                     onAddQueryTab={addQueryTab}
+                    onSelectTableFromList={(tableName) => {
+                      wrappedHandleTreeNodeClick(tableName, queryDatabase || selectedDatabase)
+                    }}
                     onUpdateActiveQuery={updateActiveQuery}
                     onSaveQuery={saveActiveQuery}
                     onUseSavedQuery={applySavedQueryToActiveTab}
@@ -683,6 +722,16 @@ export function DataExplorerPage() {
                     onSelectIndex={(name: string) => {
                       setElasticPanel('documents')
                       setSelectedElasticIndex(name)
+                      setSelectedTreeNode(name)
+                      // Open or activate an index tab (like sidebar does)
+                      const existingTab = openedElasticTabs.find((tab) => tab.indexName === name)
+                      if (existingTab) {
+                        setActiveElasticTabId(existingTab.id)
+                      } else {
+                        const tabId = crypto.randomUUID()
+                        setOpenedElasticTabs((prev) => [...prev, { id: tabId, indexName: name }])
+                        setActiveElasticTabId(tabId)
+                      }
                     }}
                     openedElasticTabs={openedElasticTabs}
                     activeElasticTabId={activeElasticTabId}

@@ -31,6 +31,7 @@ export function DocumentExplorer({ connection, indexName, indices }: Props) {
   const [editJson, setEditJson] = useState('')
   const [editError, setEditError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(null)
   const [panelHeight, setPanelHeight] = useState(250)
   const resizeRef = useRef<HTMLDivElement | null>(null)
   const pageSize = 30
@@ -99,11 +100,25 @@ export function DocumentExplorer({ connection, indexName, indices }: Props) {
     }
   }, [currentIndex, newDocJson, connection, fetchDocs, searchQuery, page])
 
+  const selectedDoc = documents.find((doc) => doc._id === selectedDocId) ?? null
+
+  const handleRowClick = useCallback((doc: ElasticDocumentHit) => {
+    setSelectedDocId((prev) => (prev === doc._id ? null : doc._id))
+  }, [])
+
   const handleRowDoubleClick = useCallback((doc: ElasticDocumentHit) => {
+    setSelectedDocId(doc._id)
     setEditingDoc(doc)
     setEditJson(JSON.stringify(doc._source ?? {}, null, 2))
     setEditError(null)
   }, [])
+
+  const handleEditSelected = useCallback(() => {
+    if (!selectedDoc) return
+    setEditingDoc(selectedDoc)
+    setEditJson(JSON.stringify(selectedDoc._source ?? {}, null, 2))
+    setEditError(null)
+  }, [selectedDoc])
 
   const handleSaveEdit = useCallback(async () => {
     if (!currentIndex || !editingDoc) return
@@ -157,11 +172,12 @@ export function DocumentExplorer({ connection, indexName, indices }: Props) {
     if (!currentIndex || !confirm('Delete this document?')) return
     try {
       await elasticDeleteDocument({ connection, indexName: currentIndex, docId })
+      if (selectedDocId === docId) setSelectedDocId(null)
       fetchDocs(currentIndex, searchQuery, page * pageSize)
     } catch (err) {
       alert(`Error: ${err instanceof Error ? err.message : String(err)}`)
     }
-  }, [currentIndex, connection, fetchDocs, searchQuery, page])
+  }, [currentIndex, connection, fetchDocs, searchQuery, page, selectedDocId])
 
   // Extract level-1 field names from all documents as columns
   const sourceColumns = Array.from(
@@ -257,6 +273,25 @@ export function DocumentExplorer({ connection, indexName, indices }: Props) {
           >
             <Plus size={13} />
           </button>
+          {selectedDoc && (
+            <>
+              <div className="mx-1.5 h-3.5 w-px bg-slate-200" />
+              <button
+                onClick={handleEditSelected}
+                title="Edit selected document"
+                className="rounded-md p-1.5 text-slate-400 transition-all hover:bg-emerald-50 hover:text-emerald-600 hover:shadow-[inset_0_0_0_1px_theme(colors.emerald.200)]"
+              >
+                <FileJson size={13} />
+              </button>
+              <button
+                onClick={() => handleDeleteDocument(selectedDoc._id)}
+                title="Delete selected document"
+                className="rounded-md p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-500 hover:shadow-[inset_0_0_0_1px_theme(colors.red.200)]"
+              >
+                <Trash2 size={13} />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -343,7 +378,11 @@ export function DocumentExplorer({ connection, indexName, indices }: Props) {
                 return (
                   <tr
                     key={doc._id}
-                    className="text-slate-700 even:bg-slate-50/50 hover:bg-blue-50/40 cursor-pointer select-none"
+                    className={[
+                      'text-slate-700 even:bg-slate-50/50 hover:bg-blue-50/40 cursor-pointer select-none',
+                      selectedDocId === doc._id ? 'bg-blue-100/80' : '',
+                    ].join(' ')}
+                    onClick={() => handleRowClick(doc)}
                     onDoubleClick={() => handleRowDoubleClick(doc)}
                   >
                     <td className="border-b border-r border-slate-100 px-2 py-1.5 font-mono text-[11px] text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis">
@@ -390,7 +429,11 @@ export function DocumentExplorer({ connection, indexName, indices }: Props) {
             {documents.map((doc) => (
               <div
                 key={doc._id}
-                className="rounded-md border border-slate-200 bg-white p-2.5 even:bg-slate-50/50 hover:bg-blue-50/40 transition-colors cursor-pointer select-none"
+                className={[
+                  'rounded-md border border-slate-200 bg-white p-2.5 even:bg-slate-50/50 hover:bg-blue-50/40 transition-colors cursor-pointer select-none',
+                  selectedDocId === doc._id ? 'border-blue-300 bg-blue-50/80' : '',
+                ].join(' ')}
+                onClick={() => handleRowClick(doc)}
                 onDoubleClick={() => handleRowDoubleClick(doc)}
               >
                 <div className="flex items-center justify-between mb-1.5">

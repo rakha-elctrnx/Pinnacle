@@ -31,6 +31,14 @@ export interface TableStats {
   indexes: string
 }
 
+export interface SqlTableListItem {
+  tableName: string
+  oid: string
+  owner: string
+  tableType: string
+  rowCount: string
+}
+
 export interface DetailStat {
   label: string
   value: string
