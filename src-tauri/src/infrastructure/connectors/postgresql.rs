@@ -134,6 +134,13 @@ fn extract_pg_value(row: &sqlx::postgres::PgRow, column_name: &str) -> serde_jso
         return serde_json::Value::String(v.to_string());
     }
 
+    // handle decimal types from postgresql to floating point numbers in JSON
+    if let Ok(Some(v)) = row.try_get::<Option<Decimal>, _>(column_name) {
+        if let Ok(f) = v.to_string().parse::<f64>() {
+            return serde_json::json!(f);
+        }
+    }
+
     // TODO : handle date/time types more robustly, respecting the original timezone and formatting
     if let Ok(Some(v)) = row.try_get::<Option<chrono::DateTime<Utc>>, _>(column_name) {
         return serde_json::json!(v.to_string());
@@ -143,16 +150,21 @@ fn extract_pg_value(row: &sqlx::postgres::PgRow, column_name: &str) -> serde_jso
     if let Ok(Some(v)) = row.try_get::<Option<chrono::NaiveDate>, _>(column_name) {
         return serde_json::json!(v.to_string());
     }
+
+    // handle array columns as arrays of strings
+    if let Ok(Some(v)) = row.try_get::<Option<Vec<String>>, _>(column_name) {
+        return serde_json::json!(v);
+    }
+
+    // handle array columns as arrays
+    if let Ok(Some(v)) = row.try_get::<Option<Vec<serde_json::Value>>, _>(column_name) {
+        return serde_json::json!(v);
+    }
+
     // handle JSONB columns in PostgreSQL
     if let Ok(Some(v)) = row.try_get::<Option<serde_json::Value>, _>(column_name) {
         // stringify JSON values to preserve formatting and avoid issues with nested structures
         return serde_json::Value::String(v.to_string());
-    }
-    // handle decimal types from postgresql to floating point numbers in JSON
-    if let Ok(Some(v)) = row.try_get::<Option<Decimal>, _>(column_name) {
-        if let Ok(f) = v.to_string().parse::<f64>() {
-            return serde_json::json!(f);
-        }
     }
 
     if let Ok(Some(v)) = row.try_get::<Option<serde_json::Value>, _>(column_name) {
