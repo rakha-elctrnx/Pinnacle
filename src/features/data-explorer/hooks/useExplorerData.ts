@@ -43,6 +43,8 @@ interface UseExplorerDataReturn {
   fetchSqlTableList: (conn: ConnectionProfile, databaseName: string, schemaName?: string) => Promise<void>
   fetchDatabaseDetails: (connId: string, conn: ConnectionProfile, dbName: string) => Promise<void>
   refreshConnectionData: (connId: string, conn: ConnectionProfile) => Promise<void>
+  /** Reset all cached/fetched data associated with a specific connection ID. */
+  resetConnectionData: (connId: string) => void
 }
 
 export function useExplorerData({
@@ -412,6 +414,28 @@ export function useExplorerData({
     [treeDataMap],
   )
 
+  const resetConnectionData = useCallback((connId: string) => {
+    // Clear tree data for this connection
+    setTreeDataMap((prev) => {
+      const next = { ...prev }
+      delete next[connId]
+      return next
+    })
+
+    // Clear table-level detail data — these are only meaningful for the currently
+    // selected connection, so reset them unconditionally.
+    setRealTableColumns([])
+    setRealTableRows([])
+    setRealTableStats(null)
+    setRealTableStructure([])
+    setRealTableIndexes([])
+    setRealDbStats([])
+    setSelectedTable(null)
+    setSelectedSchema('public')
+    setSelectedDatabase('')
+    setSqlTableList([])
+  }, [])
+
   const handleTreeNodeClick = useCallback(
     (nodeLabel: string, databaseName?: string) => {
       if (selectedConnection && isSqlConnectionType(selectedConnection.type)) {
@@ -484,5 +508,6 @@ export function useExplorerData({
     fetchSqlTableList,
     fetchDatabaseDetails,
     refreshConnectionData: fetchTreeData,
+    resetConnectionData,
   }
 }

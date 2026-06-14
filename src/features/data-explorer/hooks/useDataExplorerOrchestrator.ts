@@ -59,6 +59,7 @@ export interface DataExplorerOrchestratorResult {
   selectedElasticIndex: string | null
   elasticIndices: Record<string, ElasticIndex[]>
   elasticIndicesError: Record<string, string>
+  elasticLoading: Record<string, boolean>
   openedElasticTabs: ElasticIndexTab[]
   activeElasticTabId: string | null
   openedTableTabs: OpenedTableTab[]
@@ -135,6 +136,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   const [selectedElasticIndex, setSelectedElasticIndex] = useState<string | null>(null)
   const [elasticIndices, setElasticIndices] = useState<Record<string, ElasticIndex[]>>({})
   const [elasticIndicesError, setElasticIndicesError] = useState<Record<string, string>>({})
+  const [elasticLoading, setElasticLoading] = useState<Record<string, boolean>>({})
   const [openedElasticTabs, setOpenedElasticTabs] = useState<ElasticIndexTab[]>([])
   const [activeElasticTabId, setActiveElasticTabId] = useState<string | null>(null)
   const [sidebarWidth, setSidebarWidth] = useState(280)
@@ -167,6 +169,8 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       ssl: conn.ssl ?? false,
     }
 
+    setElasticLoading((prev) => ({ ...prev, [conn.id]: true }))
+
     elasticListIndices(payload)
       .then((indices) => {
         setElasticIndicesError((prev) => {
@@ -184,6 +188,13 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
           ...prev,
           [conn.id]: err instanceof Error ? err.message : String(err),
         }))
+      })
+      .finally(() => {
+        setElasticLoading((prev) => {
+          const next = { ...prev }
+          delete next[conn.id]
+          return next
+        })
       })
   }, [expandedConnectionId, items])
 
@@ -208,6 +219,8 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       return next
     })
 
+    setElasticLoading((prev) => ({ ...prev, [conn.id]: true }))
+
     elasticListIndices(payload)
       .then((indices) => {
         setElasticIndices((prev) => ({
@@ -220,6 +233,13 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
           ...prev,
           [conn.id]: err instanceof Error ? err.message : String(err),
         }))
+      })
+      .finally(() => {
+        setElasticLoading((prev) => {
+          const next = { ...prev }
+          delete next[conn.id]
+          return next
+        })
       })
   }, [items])
 
@@ -352,6 +372,46 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     if (expandedConnectionId === itemId) {
       setExpandedConnectionId(null)
     }
+
+    // ── Full lifecycle reset for the closed connection ──────────────
+
+    // 1. Clear tree expansion paths
+    setExpandedTreePaths([])
+
+    // 2. Clear explorer tree data + table detail data
+    explorerData.resetConnectionData(itemId)
+
+    // 3. Clear query execution data (tabs, result, messages)
+    queryExecution.resetQueryData()
+
+    // 4. Clear Elasticsearch index cache and loading state
+    setElasticIndices((prev) => {
+      const next = { ...prev }
+      delete next[itemId]
+      return next
+    })
+    setElasticIndicesError((prev) => {
+      const next = { ...prev }
+      delete next[itemId]
+      return next
+    })
+    setElasticLoading((prev) => {
+      const next = { ...prev }
+      delete next[itemId]
+      return next
+    })
+
+    // 5. Clear open tabs
+    setOpenedTableTabs([])
+    setActiveTableTabId(null)
+    setOpenedElasticTabs([])
+    setActiveElasticTabId(null)
+
+    // 6. Clear tree selection and panel state
+    setSelectedTreeNode(null)
+    setSelectedElasticIndex(null)
+    setElasticPanel('cluster')
+    setIsSqlTableListView(false)
   }
 
   const handleSaveConnection = (profile: ConnectionProfile) => {
@@ -575,6 +635,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     selectedElasticIndex,
     elasticIndices,
     elasticIndicesError,
+    elasticLoading,
     openedElasticTabs,
     activeElasticTabId,
     openedTableTabs,

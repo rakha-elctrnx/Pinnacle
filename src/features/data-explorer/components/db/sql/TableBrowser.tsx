@@ -1,8 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  Loader2,
-} from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { TableInfoTab } from '../../../types'
+import { CenteredLoadingState } from '../../shared/CenteredLoadingState'
 
 interface TableBrowserProps {
   selectedTable: string | null
@@ -23,32 +21,35 @@ const TABLE_INFO_TABS: TableInfoTab[] = [
   'relationships',
 ]
 
-function useColumnResizer(columnCount: number) {
+const DEFAULT_COL_WIDTH = 150
+const MIN_COL_WIDTH = 80
+const MAX_COL_WIDTH = 360
+const ESTIMATED_CHAR_WIDTH_PX = 8
+const COLUMN_HORIZONTAL_PADDING_PX = 32
+
+function useColumnResizer(initialWidths: number[]) {
   const [widths, setWidths] = useState<number[]>(() =>
-    Array.from({ length: columnCount }, () => 150),
+    [...initialWidths],
   )
   const startXRef = useRef(0)
-  const startIndexRef = useRef(0)
   const startWidthRef = useRef(0)
-  const nextWidthRef = useRef(0)
 
   const onMouseDown = useCallback(
     (index: number, e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
       startXRef.current = e.clientX
-      startIndexRef.current = index
-      startWidthRef.current = widths[index] ?? 150
-      nextWidthRef.current = widths[index + 1] ?? 150
+      startWidthRef.current = widths[index] ?? DEFAULT_COL_WIDTH
 
       const onMouseMove = (ev: MouseEvent) => {
         const delta = ev.clientX - startXRef.current
-        const newLeft = Math.max(40, startWidthRef.current + delta)
-        const newRight = Math.max(40, nextWidthRef.current - delta)
+        const newWidth = Math.min(
+          MAX_COL_WIDTH,
+          Math.max(MIN_COL_WIDTH, startWidthRef.current + delta),
+        )
         setWidths((prev) => {
           const next = [...prev]
-          next[index] = newLeft
-          if (index + 1 < next.length) next[index + 1] = newRight
+          next[index] = newWidth
           return next
         })
       }
@@ -64,15 +65,16 @@ function useColumnResizer(columnCount: number) {
     [widths],
   )
 
-  // Reset widths when column count changes
-  const resetWidths = useCallback((count: number) => {
+  // Sync widths when auto-sized result changes.
+  const syncWidths = useCallback((nextWidths: number[]) => {
     setWidths((prev) => {
-      if (prev.length === count) return prev
-      return Array.from({ length: count }, (_, i) => prev[i] ?? 150)
+      if (prev.length !== nextWidths.length) return [...nextWidths]
+      const hasDiff = prev.some((width, index) => width !== nextWidths[index])
+      return hasDiff ? [...nextWidths] : prev
     })
   }, [])
 
-  return { widths, onMouseDown, resetWidths }
+  return { widths, onMouseDown, syncWidths }
 }
 
 const MAX_DISPLAY_ROWS = 100
@@ -91,15 +93,63 @@ export function TableBrowser({
     ? 'h-full min-h-0 flex flex-col overflow-hidden'
     : 'rounded-xl border border-slate-200 bg-white p-3'
 
-  const colResizer = useColumnResizer(displayColumns.length)
+  const colTypeMap = useMemo(
+    () =>
+      Object.fromEntries(
+        realTableStructure.map((col) => [
+          String(col.column_name ?? col.Field ?? ''),
+          String(col.data_type ?? col.Type ?? ''),
+        ]),
+      ),
+    [realTableStructure],
+  )
+
+  const previewRows = useMemo(
+    () => displayRows.slice(0, MAX_DISPLAY_ROWS),
+    [displayRows],
+  )
+
+  const autoColumnWidths = useMemo(
+    () =>
+      displayColumns.map((column) => {
+        const maxValueLength = previewRows.reduce((longest, row) => {
+          const valueText = row[column] == null ? '(null)' : String(row[column])
+          return Math.max(longest, valueText.length)
+        }, 0)
+
+        const maxChars = Math.max(
+          column.length,
+          (colTypeMap[column] ?? '').length,
+          maxValueLength,
+        )
+
+        const estimatedWidth =
+          maxChars * ESTIMATED_CHAR_WIDTH_PX + COLUMN_HORIZONTAL_PADDING_PX
+
+        return Math.max(MIN_COL_WIDTH, Math.min(MAX_COL_WIDTH, estimatedWidth))
+      }),
+    [colTypeMap, displayColumns, previewRows],
+  )
+
+  const { widths, onMouseDown, syncWidths } = useColumnResizer(autoColumnWidths)
+  const boundedWidths = useMemo(
+    () =>
+      widths.map((width) =>
+        Math.min(MAX_COL_WIDTH, Math.max(MIN_COL_WIDTH, width)),
+      ),
+    [widths],
+  )
+  const tableWidth = useMemo(
+    () => 10 + boundedWidths.reduce((total, width) => total + width, 0),
+    [boundedWidths],
+  )
   const [activeRow, setActiveRow] = useState<number | null>(null)
   const [selectedRow, setSelectedRow] = useState<number | null>(null)
 
-  // Keep widths in sync when column count changes
+  // Keep widths in sync with auto-sized values when data/columns change.
   useEffect(() => {
-    colResizer.resetWidths(displayColumns.length)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayColumns.length])
+    syncWidths(autoColumnWidths)
+  }, [autoColumnWidths, syncWidths])
 
   const handleCellFocus = useCallback((rowIndex: number) => {
     setActiveRow(rowIndex)
@@ -113,7 +163,7 @@ export function TableBrowser({
   )
 
   const handleCellKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
         e.currentTarget.blur()
@@ -122,14 +172,22 @@ export function TableBrowser({
     [],
   )
 
-  const colTypeMap = Object.fromEntries(
-    realTableStructure.map((col) => [
-      String(col.column_name ?? col.Field ?? ''),
-      String(col.data_type ?? col.Type ?? ''),
-    ]),
+  const handleCellInputFocus = useCallback(
+    (rowIndex: number, e: React.FocusEvent<HTMLInputElement>) => {
+      handleCellFocus(rowIndex)
+      requestAnimationFrame(() => {
+        e.currentTarget.select()
+      })
+    },
+    [handleCellFocus],
   )
 
-  const previewRows = displayRows.slice(0, MAX_DISPLAY_ROWS)
+  const handleCellInputClick = useCallback(
+    (e: React.MouseEvent<HTMLInputElement>) => {
+      e.currentTarget.select()
+    },
+    [],
+  )
 
   return (
     <section className={containerClass}>
@@ -155,32 +213,31 @@ export function TableBrowser({
       </div>
 
       {tableDataLoading && (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 size={20} className="animate-spin text-blue-500" />
-          <span className="ml-2 text-sm text-slate-500">
-            Loading table data...
-          </span>
-        </div>
+        <CenteredLoadingState loading={tableDataLoading} label="Loading table data..." />
       )}
 
       {/* ── DATA TAB ── */}
       {!tableDataLoading && tableInfoTab === 'data' && (
         <div className="scrollbar-thin flex-1 min-h-0 overflow-auto border border-slate-200 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-track]:bg-slate-50">
           <table
-            className="w-full border-collapse text-xs"
-            style={{ tableLayout: 'fixed' }}
+            className="min-w-full border-collapse text-xs"
+            style={{ tableLayout: 'fixed', width: tableWidth }}
           >
+            <colgroup>
+              <col style={{ width: 10 }} />
+              {boundedWidths.map((width, index) => (
+                <col key={`col-${index}`} style={{ width }} />
+              ))}
+            </colgroup>
             <thead className="sticky top-0 z-10 bg-slate-100 text-slate-600 shadow-[0_1px_0_0_theme(colors.slate.200)]">
               <tr>
                 <th
                   className="border-b border-r border-slate-200 px-0 py-1"
-                  style={{ width: 10 }}
                 />
                 {displayColumns.map((column, colIdx) => (
                   <th
                     key={column}
                     className="group relative border-b border-r border-slate-200 px-2 py-1.5 text-left whitespace-nowrap"
-                    style={{ width: colResizer.widths[colIdx] }}
                   >
                     <div className="flex flex-col gap-0.5 overflow-hidden">
                       <span className="overflow-hidden text-ellipsis font-semibold text-slate-700 leading-tight">
@@ -196,7 +253,7 @@ export function TableBrowser({
                     <span
                       role="separator"
                       className="absolute right-0 top-0 z-10 h-full w-1.5 cursor-col-resize bg-transparent hover:bg-blue-400"
-                      onMouseDown={(e) => colResizer.onMouseDown(colIdx, e)}
+                      onMouseDown={(e) => onMouseDown(colIdx, e)}
                     />
                   </th>
                 ))}
@@ -233,18 +290,17 @@ export function TableBrowser({
                       key={`${rowIndex}-${column}`}
                       className="border-b border-r border-slate-100 p-0.5"
                     >
-                      <div
-                        contentEditable
-                        suppressContentEditableWarning
-                        spellCheck={false}
-                        className="max-w-full truncate px-2 py-1 outline-none focus:bg-white focus:ring-1 focus:ring-blue-300"
-                        onFocus={() => handleCellFocus(rowIndex)}
+                      <input
+                        type="text"
+                        defaultValue={row[column] == null ? '' : String(row[column])}
+                        placeholder="(null)"
+                        className="block w-full min-w-0 bg-transparent px-2 py-1 outline-none focus:bg-white focus:ring-1 focus:ring-blue-300 placeholder:text-slate-300 placeholder:italic"
+                        onFocus={(e) => handleCellInputFocus(rowIndex, e)}
+                        onClick={handleCellInputClick}
                         onBlur={() => handleCellBlur(rowIndex)}
                         onKeyDown={handleCellKeyDown}
-                        title={String(row[column] ?? '')}
-                      >
-                        {String(row[column] ?? '')}
-                      </div>
+                        title={row[column] == null ? '(null)' : String(row[column])}
+                      />
                     </td>
                   ))}
                 </tr>

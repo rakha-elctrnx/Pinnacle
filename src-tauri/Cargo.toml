@@ -23,8 +23,9 @@ serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 tauri = { version = "2.11.2", features = [] }
 tauri-plugin-log = "2"
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "mysql"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "mysql", "chrono"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 thiserror = "2"
 reqwest = { version = "0.12", features = ["json"] }
 base64 = "0.22"
+chrono = { version = "0.4", features = ["serde"] }

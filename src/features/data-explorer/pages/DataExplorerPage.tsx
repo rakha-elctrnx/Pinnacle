@@ -8,6 +8,8 @@ import { ElasticExplorerWorkspace } from '../components/db/elasticsearch/Elastic
 import { MongodbWorkspaceNotice } from '../components/db/mongodb/MongodbWorkspaceNotice'
 import { ConnectionWizardModal } from '../components/ConnectionWizardModal'
 import { ContextMenu } from '../components/ContextMenu'
+import { executeSql } from '../../../services/tauriClient'
+import { getConnPayload, isSqlConnectionType, quoteIdentifier } from '../utils'
 
 export function DataExplorerPage() {
   const {
@@ -40,6 +42,7 @@ export function DataExplorerPage() {
     selectedElasticIndex,
     elasticIndices,
     elasticIndicesError,
+    elasticLoading,
     openedElasticTabs,
     activeElasticTabId,
     openedTableTabs,
@@ -50,6 +53,7 @@ export function DataExplorerPage() {
     lastRefreshedAt,
 
     // Sidebar
+    sidebarWidth,
     isResizing,
 
     // Hooks
@@ -94,14 +98,99 @@ export function DataExplorerPage() {
     handleCloseAddModal,
   } = useDataExplorerOrchestrator()
 
+  const getSqlTableListContext = () => {
+    if (!selectedConnection || !isSqlConnectionType(selectedConnection.type)) {
+      throw new Error('SQL connection is required')
+    }
+
+    const databaseName = queryExecution.queryDatabase || explorerData.selectedDatabase || selectedConnection.database
+    const schemaName =
+      selectedConnection.type === 'postgresql'
+        ? queryExecution.querySchema || explorerData.selectedSchema || 'public'
+        : databaseName
+
+    if (!databaseName) {
+      throw new Error('Database context is missing')
+    }
+
+    return {
+      connection: selectedConnection,
+      databaseName,
+      schemaName,
+    }
+  }
+
+  const refreshSqlTableListAfterDdl = async () => {
+    const { connection, databaseName, schemaName } = getSqlTableListContext()
+
+    await explorerData.fetchSqlTableList(
+      connection,
+      databaseName,
+      connection.type === 'postgresql' ? schemaName : undefined,
+    )
+
+    await explorerData.fetchDatabaseDetails(connection.id, connection, databaseName)
+  }
+
+  const handleCreateTable = async (tableName: string) => {
+    const { connection, databaseName, schemaName } = getSqlTableListContext()
+    const payload = { ...getConnPayload(connection), database: databaseName }
+
+    const sql =
+      connection.type === 'postgresql'
+        ? `CREATE TABLE ${quoteIdentifier(schemaName, '"')}.${quoteIdentifier(tableName, '"')} (id BIGSERIAL PRIMARY KEY)`
+        : `CREATE TABLE ${quoteIdentifier(tableName, '`')} (id BIGINT AUTO_INCREMENT PRIMARY KEY)`
+
+    await executeSql({
+      connection: payload,
+      sql,
+    })
+
+    await refreshSqlTableListAfterDdl()
+  }
+
+  const handleEditTable = async (tableName: string, nextTableName: string) => {
+    const { connection, databaseName, schemaName } = getSqlTableListContext()
+    const payload = { ...getConnPayload(connection), database: databaseName }
+
+    const sql =
+      connection.type === 'postgresql'
+        ? `ALTER TABLE ${quoteIdentifier(schemaName, '"')}.${quoteIdentifier(tableName, '"')} RENAME TO ${quoteIdentifier(nextTableName, '"')}`
+        : `RENAME TABLE ${quoteIdentifier(tableName, '`')} TO ${quoteIdentifier(nextTableName, '`')}`
+
+    await executeSql({
+      connection: payload,
+      sql,
+    })
+
+    await refreshSqlTableListAfterDdl()
+  }
+
+  const handleDeleteTable = async (tableName: string) => {
+    const { connection, databaseName, schemaName } = getSqlTableListContext()
+    const payload = { ...getConnPayload(connection), database: databaseName }
+
+    const sql =
+      connection.type === 'postgresql'
+        ? `DROP TABLE IF EXISTS ${quoteIdentifier(schemaName, '"')}.${quoteIdentifier(tableName, '"')}`
+        : `DROP TABLE IF EXISTS ${quoteIdentifier(tableName, '`')}`
+
+    await executeSql({
+      connection: payload,
+      sql,
+    })
+
+    await refreshSqlTableListAfterDdl()
+  }
+
   return (
     <div className="h-full flex flex-col">
       <section className="flex-1 overflow-hidden border-slate-200 bg-white shadow-sm">
         <div className="flex h-full min-h-0 flex-col lg:flex-row">
           {/* Sidebar with dynamic width */}
           <div
-            style={{ width: 280 }}
-            className="hidden lg:block shrink-0 overflow-x-hidden overflow-y-auto border-r border-slate-200 min-w-0"
+            style={{ width: sidebarWidth }}
+            className="hidden lg:block shrink-0 overflow-x-hidden overflow-y-auto min-w-0"
           >
             <ConnectionSidebar
               search={search}
@@ -127,6 +216,7 @@ export function DataExplorerPage() {
               onUseSavedQuery={queryExecution.applySavedQueryToActiveTab}
               elasticIndices={elasticIndices}
               elasticIndicesError={elasticIndicesError}
+              elasticLoading={elasticLoading}
               onRetryElasticIndices={handleRetryElasticIndices}
             />
           </div>
@@ -157,6 +247,7 @@ export function DataExplorerPage() {
               onUseSavedQuery={queryExecution.applySavedQueryToActiveTab}
               elasticIndices={elasticIndices}
               elasticIndicesError={elasticIndicesError}
+              elasticLoading={elasticLoading}
               onRetryElasticIndices={handleRetryElasticIndices}
             />
           </div>
@@ -165,11 +256,11 @@ export function DataExplorerPage() {
           <div
             onMouseDown={handleResizeStart}
             className={[
-              'hidden lg:block w-1 shrink-0 cursor-col-resize relative',
+              'hidden lg:block shrink-0 cursor-col-resize relative border border-slate-200',
               isResizing ? 'bg-blue-400' : 'bg-transparent hover:bg-blue-300',
             ].join(' ')}
           >
-            <div className="absolute inset-y-0 -left-1 -right-1" />
+            <div className="absolute inset-y-0 " />
           </div>
 
           <main className="flex-1 min-w-0 flex flex-col overflow-hidden border-b border-slate-200 lg:border-b-0">
@@ -256,6 +347,9 @@ export function DataExplorerPage() {
                     onSelectTableFromList={(tableName) => {
                       wrappedHandleTreeNodeClick(tableName, queryExecution.queryDatabase || explorerData.selectedDatabase)
                     }}
+                    onCreateTable={handleCreateTable}
+                    onEditTable={handleEditTable}
+                    onDeleteTable={handleDeleteTable}
                     onUpdateActiveQuery={queryExecution.updateActiveQuery}
                     onSaveQuery={queryExecution.saveActiveQuery}
                     onUseSavedQuery={queryExecution.applySavedQueryToActiveTab}

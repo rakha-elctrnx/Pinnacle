@@ -78,6 +78,9 @@ interface SqlExplorerWorkspaceProps {
   onCloseTableTab: (id: string) => void
   onAddQueryTab: () => void
   onSelectTableFromList: (tableName: string) => void
+  onCreateTable: (tableName: string) => Promise<void> | void
+  onEditTable: (tableName: string, nextTableName: string) => Promise<void> | void
+  onDeleteTable: (tableName: string) => Promise<void> | void
   onUpdateActiveQuery: (value: string) => void
   onSaveQuery: () => void
   onUseSavedQuery: (sql: string) => void
@@ -134,6 +137,9 @@ export function SqlExplorerWorkspace({
   onCloseTableTab,
   onAddQueryTab,
   onSelectTableFromList,
+  onCreateTable,
+  onEditTable,
+  onDeleteTable,
   onUpdateActiveQuery,
   onSaveQuery,
   onUseSavedQuery,
@@ -432,6 +438,9 @@ export function SqlExplorerWorkspace({
           rows={sqlTableList}
           loading={sqlTableListLoading}
           onSelectTable={onSelectTableFromList}
+          onCreateTable={onCreateTable}
+          onEditTable={onEditTable}
+          onDeleteTable={onDeleteTable}
         />
       )}
 

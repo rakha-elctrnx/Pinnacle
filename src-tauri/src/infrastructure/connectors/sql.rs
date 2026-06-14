@@ -51,6 +51,19 @@ fn extract_pg_value(row: &sqlx::postgres::PgRow, column_name: &str) -> serde_jso
     if let Ok(Some(v)) = row.try_get::<Option<serde_json::Value>, _>(column_name) {
         return v;
     }
+    // Chrono types – format as ISO strings so the frontend receives human-readable values
+    if let Ok(Some(v)) = row.try_get::<Option<chrono::DateTime<chrono::Utc>>, _>(column_name) {
+        return serde_json::Value::String(v.to_rfc3339());
+    }
+    if let Ok(Some(v)) = row.try_get::<Option<chrono::NaiveDateTime>, _>(column_name) {
+        return serde_json::Value::String(v.to_string());
+    }
+    if let Ok(Some(v)) = row.try_get::<Option<chrono::NaiveDate>, _>(column_name) {
+        return serde_json::Value::String(v.to_string());
+    }
+    if let Ok(Some(v)) = row.try_get::<Option<chrono::NaiveTime>, _>(column_name) {
+        return serde_json::Value::String(v.to_string());
+    }
     serde_json::Value::Null
 }
 
@@ -69,6 +82,19 @@ fn extract_mysql_value(row: &sqlx::mysql::MySqlRow, column_name: &str) -> serde_
     }
     if let Ok(Some(v)) = row.try_get::<Option<String>, _>(column_name) {
         return serde_json::Value::String(v);
+    }
+    // Chrono types – format as ISO strings so the frontend receives human-readable values
+    if let Ok(Some(v)) = row.try_get::<Option<chrono::DateTime<chrono::Utc>>, _>(column_name) {
+        return serde_json::Value::String(v.to_rfc3339());
+    }
+    if let Ok(Some(v)) = row.try_get::<Option<chrono::NaiveDateTime>, _>(column_name) {
+        return serde_json::Value::String(v.to_string());
+    }
+    if let Ok(Some(v)) = row.try_get::<Option<chrono::NaiveDate>, _>(column_name) {
+        return serde_json::Value::String(v.to_string());
+    }
+    if let Ok(Some(v)) = row.try_get::<Option<chrono::NaiveTime>, _>(column_name) {
+        return serde_json::Value::String(v.to_string());
     }
     serde_json::Value::Null
 }

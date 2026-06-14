@@ -6,8 +6,9 @@ import {
   elasticIndexDocument,
   elasticDeleteDocument,
 } from '../../../../../services/tauriClient'
-import { Search, Plus, Trash2, RefreshCw, FileJson, Table, X, Save } from 'lucide-react'
+import { Search, Plus, Trash2, FileJson, Table, X, Save } from 'lucide-react'
 import Editor from '@monaco-editor/react'
+import { CenteredLoadingState } from '../../shared/CenteredLoadingState'
 
 export interface DocumentExplorerState {
   totalHits: number
@@ -412,10 +413,7 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
       {/* Content */}
       <div className="scrollbar-thin flex-1 min-h-0 overflow-auto border border-slate-200 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-track]:bg-slate-50">
         {loading ? (
-          <div className="flex items-center justify-center py-10 text-slate-400">
-            <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-            <span className="text-xs">Loading documents...</span>
-          </div>
+          <CenteredLoadingState loading={loading} label="Loading documents..." />
         ) : viewMode === 'table' ? (
           <table
             className="w-full border-collapse text-xs"

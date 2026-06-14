@@ -48,6 +48,8 @@ interface ConnectionSidebarProps {
   elasticIndices?: Record<string, ElasticIndex[]>;
   /** Elasticsearch indices fetch errors per connection id */
   elasticIndicesError?: Record<string, string>;
+  /** Elasticsearch indices currently loading per connection id */
+  elasticLoading?: Record<string, boolean>;
   /** Callback to retry fetching Elasticsearch indices */
   onRetryElasticIndices?: (connectionId: string) => void;
 }
@@ -349,6 +351,7 @@ export function ConnectionSidebar({
   onUseSavedQuery,
   elasticIndices,
   elasticIndicesError,
+  elasticLoading,
   onRetryElasticIndices,
 }: ConnectionSidebarProps) {
   return (
@@ -389,7 +392,7 @@ export function ConnectionSidebar({
                 const logo = databaseTypeOptions.find(
                   (option) => option.value === item.type,
                 )?.logoSrc;
-                const isLoading = treeLoading[item.id];
+                const isLoading = treeLoading[item.id] || !!elasticLoading?.[item.id];
                 const connectionSavedQueries = savedQueries[item.id] ?? [];
 
                 // Get tree nodes based on connection type
