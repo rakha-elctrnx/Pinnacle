@@ -96,6 +96,20 @@ export async function sqlDropTable(payload: DropTableRequest) {
   return invoke<DropTableResult>('sql_drop_table', { payload })
 }
 
+export async function sqlGetAllForeignKeys(payload: ConnectionPayload) {
+  return invoke<import('../types/domain').SchemaForeignKey[]>(
+    'sql_get_all_foreign_keys',
+    { payload },
+  )
+}
+
+export async function sqlGetAllColumns(payload: ConnectionPayload) {
+  return invoke<import('../types/domain').SchemaColumn[]>(
+    'sql_get_all_columns',
+    { payload },
+  )
+}
+
 // ── Elasticsearch ───────────────────────────────────────────────
 
 export interface ElasticQueryPayload {

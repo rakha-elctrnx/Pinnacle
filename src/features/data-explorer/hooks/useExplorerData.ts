@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { executeSql } from '../../../services/tauriClient'
-import type { ConnectionProfile } from '../../../types/domain'
+import { executeSql, sqlGetAllColumns, sqlGetAllForeignKeys } from '../../../services/tauriClient'
+import type { ConnectionProfile, SchemaColumn, SchemaForeignKey } from '../../../types/domain'
 import type {
   ExplorerTreeData,
   TreeNode,
@@ -35,6 +35,8 @@ interface UseExplorerDataReturn {
   tableDataLoading: boolean
   sqlTableListLoading: boolean
   sqlTableList: SqlTableListItem[]
+  schemaForeignKeys: SchemaForeignKey[]
+  schemaColumns: SchemaColumn[]
   setSelectedSchema: (schema: string) => void
   setSelectedDatabase: (db: string) => void
   setSelectedTable: (table: string | null) => void
@@ -68,6 +70,8 @@ export function useExplorerData({
   const [tableDataLoading, setTableDataLoading] = useState(false)
   const [sqlTableListLoading, setSqlTableListLoading] = useState(false)
   const [sqlTableList, setSqlTableList] = useState<SqlTableListItem[]>([])
+  const [schemaForeignKeys, setSchemaForeignKeys] = useState<SchemaForeignKey[]>([])
+  const [schemaColumns, setSchemaColumns] = useState<SchemaColumn[]>([])
 
   // Fetch all database names for a connection
   const fetchTreeData = useCallback(
@@ -339,9 +343,29 @@ export function useExplorerData({
             rowCount: String(row.row_count || '0'),
           })),
         )
+
+        // Fetch all foreign keys and columns for the schema (used by ER diagram)
+        try {
+          const fkPayload = {
+            ...getConnPayload(conn),
+            database: databaseName || conn.database,
+            schema: schemaName || (conn.type === 'postgresql' ? 'public' : databaseName || conn.database),
+          }
+          const [fks, cols] = await Promise.all([
+            sqlGetAllForeignKeys(fkPayload),
+            sqlGetAllColumns(fkPayload),
+          ])
+          setSchemaForeignKeys(fks)
+          setSchemaColumns(cols)
+        } catch (fkError) {
+          console.warn('Failed to fetch FK/columns for ER diagram:', fkError)
+          setSchemaForeignKeys([])
+          setSchemaColumns([])
+        }
       } catch (error) {
         console.error('Failed to fetch SQL table list:', error)
         setSqlTableList([])
+        setSchemaForeignKeys([])
       } finally {
         setSqlTableListLoading(false)
       }
@@ -434,6 +458,8 @@ export function useExplorerData({
     setSelectedSchema('public')
     setSelectedDatabase('')
     setSqlTableList([])
+    setSchemaForeignKeys([])
+    setSchemaColumns([])
   }, [])
 
   const handleTreeNodeClick = useCallback(
@@ -500,6 +526,8 @@ export function useExplorerData({
     tableDataLoading,
     sqlTableListLoading,
     sqlTableList,
+    schemaForeignKeys,
+    schemaColumns,
     setSelectedSchema,
     setSelectedDatabase,
     setSelectedTable,

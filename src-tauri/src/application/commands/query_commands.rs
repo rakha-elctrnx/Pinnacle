@@ -1,7 +1,7 @@
 use crate::{
     domain::query::{
         ConnectionTestResult, DdlExecutionResult, DdlPlan, DropTablePayload, DropTableResult,
-        QueryResult, SqlQueryPayload, TableSchemaInfo,
+        QueryResult, SchemaColumn, SchemaForeignKey, SqlQueryPayload, TableSchemaInfo,
     },
     infrastructure::connectors::{ddl, sql},
 };
@@ -60,4 +60,22 @@ pub async fn sql_drop_table(
     payload: DropTablePayload,
 ) -> Result<DropTableResult, String> {
     sql::drop_table(&payload).await.map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+pub async fn sql_get_all_foreign_keys(
+    payload: crate::domain::query::ConnectionPayload,
+) -> Result<Vec<SchemaForeignKey>, String> {
+    sql::get_all_foreign_keys(&payload)
+        .await
+        .map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+pub async fn sql_get_all_columns(
+    payload: crate::domain::query::ConnectionPayload,
+) -> Result<Vec<SchemaColumn>, String> {
+    sql::get_all_columns(&payload)
+        .await
+        .map_err(|err| err.to_string())
 }

@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useConnectionStore } from '../../../state/connectionStore'
 import type { ConnectionProfile, ElasticIndex } from '../../../types/domain'
-import type { ConnectionStatus, ContextMenuState, DeleteTableTarget, DetailStat } from '../types'
+import type { ConnectionStatus, ContextMenuState, DataOperationTarget, DeleteTableTarget, DetailStat } from '../types'
 import type { ElasticPanel, ElasticIndexTab } from '../components/db/elasticsearch/ElasticExplorerWorkspace'
 import { downloadTextFile } from '../utils'
 import { useExplorerData } from './useExplorerData'
@@ -97,6 +97,10 @@ export interface DataExplorerOrchestratorResult {
   handleRequestDeleteTable: (tableName: string) => void
   handleRequestDeleteTableFromMenu: (connectionId: string, tableName: string) => void
   handleCloseDeleteTableModal: () => void
+  dataOperationTarget: DataOperationTarget | null
+  handleRequestDataOperation: (tableName: string, operation: 'empty' | 'truncate') => void
+  handleRequestDataOperationFromMenu: (connectionId: string, tableName: string, operation: 'empty' | 'truncate') => void
+  handleCloseDataOperationModal: () => void
   setExpandedConnectionId: (id: string | null) => void
   setContextMenu: (state: ContextMenuState | null) => void
   setSelectedTreeNode: (node: string | null) => void
@@ -146,6 +150,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   const [sidebarWidth, setSidebarWidth] = useState(280)
   const [isResizing, setIsResizing] = useState(false)
   const [deleteTableTarget, setDeleteTableTarget] = useState<DeleteTableTarget | null>(null)
+  const [dataOperationTarget, setDataOperationTarget] = useState<DataOperationTarget | null>(null)
 
   // ── Derived state (via domain services) ──────────────────────────
 
@@ -292,6 +297,20 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       document.body.style.userSelect = ''
     }
   }, [isResizing])
+
+  // ── Close context menu on outside click ─────────────────────────
+  useEffect(() => {
+    if (!contextMenu) return
+
+    const handlePointerDown = (e: PointerEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [contextMenu])
 
   // ── Hooks ────────────────────────────────────────────────────────
 
@@ -741,6 +760,42 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     },
     handleCloseDeleteTableModal: () => {
       setDeleteTableTarget(null)
+    },
+    dataOperationTarget,
+    handleRequestDataOperation: (tableName: string, operation: 'empty' | 'truncate') => {
+      if (!selectedConnection) return
+      const databaseName = queryExecution.queryDatabase || explorerData.selectedDatabase || selectedConnection.database
+      const schemaName =
+        selectedConnection.type === 'postgresql'
+          ? queryExecution.querySchema || explorerData.selectedSchema || 'public'
+          : databaseName ?? ''
+      setDataOperationTarget({
+        connectionId: selectedConnection.id,
+        connectionName: selectedConnection.name,
+        connectionType: selectedConnection.type,
+        database: databaseName ?? '',
+        schema: schemaName ?? '',
+        tableName,
+        operation,
+      })
+    },
+    handleRequestDataOperationFromMenu: (connectionId: string, tableName: string, operation: 'empty' | 'truncate') => {
+      const conn = items.find((item) => item.id === connectionId)
+      if (!conn) return
+      const databaseName = conn.database ?? ''
+      const schemaName = conn.type === 'postgresql' ? 'public' : databaseName
+      setDataOperationTarget({
+        connectionId: conn.id,
+        connectionName: conn.name,
+        connectionType: conn.type,
+        database: databaseName,
+        schema: schemaName,
+        tableName,
+        operation,
+      })
+    },
+    handleCloseDataOperationModal: () => {
+      setDataOperationTarget(null)
     },
   }
 }

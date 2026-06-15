@@ -1,11 +1,18 @@
 import { useMemo, useState } from "react";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Search, Trash2, List, Network } from "lucide-react";
+import { ReactFlowProvider } from "@xyflow/react";
 import type { SqlTableListItem } from "../../../types";
+import type { SchemaColumn, SchemaForeignKey } from "../../../../../types/domain";
 import { CenteredLoadingState } from "../../shared/CenteredLoadingState";
+import { ERDiagramViewer } from "./ERDiagramViewer";
+
+type ViewMode = "detail" | "er-diagram";
 
 interface SqlTableListProps {
   rows: SqlTableListItem[];
   loading: boolean;
+  schemaForeignKeys?: SchemaForeignKey[];
+  schemaColumns?: SchemaColumn[];
   onSelectTable: (tableName: string) => void;
   onCreateTable?: (tableName: string) => Promise<void> | void;
   onEditTable: (
@@ -24,6 +31,8 @@ type SortDirection = "asc" | "desc";
 export function SqlTableList({
   rows,
   loading,
+  schemaForeignKeys,
+  schemaColumns,
   onSelectTable,
   onEditTable,
   onDeleteTable,
@@ -41,6 +50,7 @@ export function SqlTableList({
   const [nextTableName, setNextTableName] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("detail");
 
   const filteredRows = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -201,15 +211,49 @@ export function SqlTableList({
           </>
         </div>
 
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search tables..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className="w-64 rounded-md border border-slate-200 bg-white py-1 pl-7 pr-2.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none"
-          />
+        <div className="ml-auto flex items-center gap-2">
+          {/* View mode toggle */}
+          <div className="inline-flex items-center rounded-md border border-slate-200 bg-slate-100 p-0.5">
+            <button
+              type="button"
+              onClick={() => setViewMode("detail")}
+              className={[
+                "inline-flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors",
+                viewMode === "detail"
+                  ? "bg-white text-slate-700 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700",
+              ].join(" ")}
+              title="Detail view"
+            >
+              <List className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">Detail</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("er-diagram")}
+              className={[
+                "inline-flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors",
+                viewMode === "er-diagram"
+                  ? "bg-white text-slate-700 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700",
+              ].join(" ")}
+              title="ER Diagram view"
+            >
+              <Network className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">ER Diagram</span>
+            </button>
+          </div>
+
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search tables..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="w-64 rounded-md border border-slate-200 bg-white py-1 pl-7 pr-2.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none"
+            />
+          </div>
         </div>
       </div>
 
@@ -279,7 +323,21 @@ export function SqlTableList({
         <CenteredLoadingState loading={loading} label="Loading tables..." />
       )}
 
-      {!loading && (
+      {!loading && viewMode === "er-diagram" && (
+        <div className="flex-1 min-h-0">
+          <ReactFlowProvider>
+            <ERDiagramViewer
+              rows={filteredRows}
+              searchQuery={search}
+              foreignKeys={schemaForeignKeys ?? []}
+              columns={schemaColumns ?? []}
+              onSelectTable={onSelectTable}
+            />
+          </ReactFlowProvider>
+        </div>
+      )}
+
+      {!loading && viewMode === "detail" && (
         <div 
           className="scrollbar-thin flex-1 min-h-0 overflow-auto border border-slate-200 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-track]:bg-slate-50"
           onClick={(e) => e.stopPropagation()}

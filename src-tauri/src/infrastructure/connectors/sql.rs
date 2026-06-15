@@ -11,7 +11,7 @@ use crate::{
     domain::query::{
         ConnectionPayload, DdlExecutionResult, DdlPlan, DdlStatementResult, DropTablePayload,
         DropTableResult, ForeignKeyConstraint, IndexDefinition, PrimaryKeyConstraint, QueryResult,
-        TableColumn, TableSchemaInfo, UniqueConstraint,
+        SchemaColumn, SchemaForeignKey, TableColumn, TableSchemaInfo, UniqueConstraint,
     },
 };
 
@@ -796,6 +796,263 @@ fn build_foreign_keys_mysql(rows: Vec<sqlx::mysql::MySqlRow>) -> Vec<ForeignKeyC
             });
     }
     map.into_values().collect()
+}
+
+// ── Bulk Foreign Key Fetch ──────────────────────────────────────
+
+/// Fetch all foreign key relationships for an entire schema/database in one query.
+/// Used by the ER Diagram to render edges without N+1 per-table queries.
+pub async fn get_all_foreign_keys(
+    payload: &ConnectionPayload,
+) -> AppResult<Vec<SchemaForeignKey>> {
+    ensure_supported_driver(payload.r#type.as_str())?;
+
+    match payload.r#type.as_str() {
+        "postgresql" => get_all_foreign_keys_pg(payload).await,
+        "mysql" => get_all_foreign_keys_mysql(payload).await,
+        _ => Err(AppError::UnsupportedDriver(payload.r#type.clone())),
+    }
+}
+
+async fn get_all_foreign_keys_pg(
+    payload: &ConnectionPayload,
+) -> AppResult<Vec<SchemaForeignKey>> {
+    let options = PgConnectOptions::new()
+        .host(payload.host.as_str())
+        .port(payload.port)
+        .username(payload.username.as_str())
+        .password(payload.password.as_str())
+        .database(payload.database.as_str());
+    let mut conn = sqlx::PgConnection::connect_with(&options).await?;
+
+    let schema = if payload.schema.is_empty() {
+        "public".to_string()
+    } else {
+        payload.schema.clone()
+    };
+
+    let rows = sqlx::query(
+        r#"
+        SELECT
+            tc.table_name        AS source_table,
+            tc.constraint_name,
+            kcu.column_name,
+            ccu.table_name       AS referenced_table,
+            ccu.table_schema     AS referenced_schema
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+            ON tc.constraint_name = kcu.constraint_name
+            AND tc.table_schema = kcu.table_schema
+        JOIN information_schema.constraint_column_usage ccu
+            ON tc.constraint_name = ccu.constraint_name
+            AND tc.table_schema = ccu.table_schema
+        WHERE tc.table_schema = $1
+            AND tc.constraint_type = 'FOREIGN KEY'
+        ORDER BY tc.table_name, tc.constraint_name, kcu.ordinal_position
+        "#,
+    )
+    .bind(&schema)
+    .fetch_all(&mut conn)
+    .await?;
+
+    let result = build_schema_foreign_keys_pg(rows);
+    conn.close().await?;
+    Ok(result)
+}
+
+fn build_schema_foreign_keys_pg(
+    rows: Vec<sqlx::postgres::PgRow>,
+) -> Vec<SchemaForeignKey> {
+    use std::collections::BTreeMap;
+
+    // Key: (source_table, constraint_name)
+    let mut map: BTreeMap<(String, String), SchemaForeignKey> = BTreeMap::new();
+    for row in rows {
+        let source_table: String = row.get("source_table");
+        let constraint_name: String = row.get("constraint_name");
+        let col: String = row.get("column_name");
+        let ref_table: String = row.get("referenced_table");
+        let ref_schema: String = row.get("referenced_schema");
+
+        let key = (source_table.clone(), constraint_name.clone());
+        map.entry(key)
+            .and_modify(|fk| {
+                fk.columns.push(col.clone());
+                fk.referenced_columns.push(col.clone());
+            })
+            .or_insert(SchemaForeignKey {
+                source_table,
+                constraint_name,
+                columns: vec![col.clone()],
+                referenced_table: ref_table,
+                referenced_schema: ref_schema,
+                referenced_columns: vec![col],
+            });
+    }
+    map.into_values().collect()
+}
+
+async fn get_all_foreign_keys_mysql(
+    payload: &ConnectionPayload,
+) -> AppResult<Vec<SchemaForeignKey>> {
+    let options = MySqlConnectOptions::new()
+        .host(payload.host.as_str())
+        .port(payload.port)
+        .username(payload.username.as_str())
+        .password(payload.password.as_str())
+        .database(payload.database.as_str());
+    let mut conn = sqlx::MySqlConnection::connect_with(&options).await?;
+
+    let db = &payload.database;
+
+    let rows = sqlx::query(
+        r#"
+        SELECT
+            kcu.TABLE_NAME            AS source_table,
+            kcu.CONSTRAINT_NAME       AS constraint_name,
+            kcu.COLUMN_NAME           AS column_name,
+            kcu.REFERENCED_TABLE_NAME AS referenced_table,
+            kcu.REFERENCED_TABLE_SCHEMA AS referenced_schema
+        FROM information_schema.KEY_COLUMN_USAGE kcu
+        WHERE kcu.TABLE_SCHEMA = ?
+            AND kcu.REFERENCED_TABLE_NAME IS NOT NULL
+        ORDER BY kcu.TABLE_NAME, kcu.CONSTRAINT_NAME, kcu.ORDINAL_POSITION
+        "#,
+    )
+    .bind(db)
+    .fetch_all(&mut conn)
+    .await?;
+
+    let result = build_schema_foreign_keys_mysql(rows);
+    conn.close().await?;
+    Ok(result)
+}
+
+fn build_schema_foreign_keys_mysql(
+    rows: Vec<sqlx::mysql::MySqlRow>,
+) -> Vec<SchemaForeignKey> {
+    use std::collections::BTreeMap;
+
+    let mut map: BTreeMap<(String, String), SchemaForeignKey> = BTreeMap::new();
+    for row in rows {
+        let source_table: String = row.get("source_table");
+        let constraint_name: String = row.get("constraint_name");
+        let col: String = row.get("column_name");
+        let ref_table: String = row.get("referenced_table");
+        let ref_schema: String = row.get("referenced_schema");
+
+        let key = (source_table.clone(), constraint_name.clone());
+        map.entry(key)
+            .and_modify(|fk| {
+                fk.columns.push(col.clone());
+                fk.referenced_columns.push(col.clone());
+            })
+            .or_insert(SchemaForeignKey {
+                source_table,
+                constraint_name,
+                columns: vec![col.clone()],
+                referenced_table: ref_table,
+                referenced_schema: ref_schema,
+                referenced_columns: vec![col],
+            });
+    }
+    map.into_values().collect()
+}
+
+// ── Bulk Column Fetch ───────────────────────────────────────────
+
+/// Fetch all columns for every table in a schema/database in one query.
+/// Used by the ER Diagram to show table columns in nodes.
+pub async fn get_all_columns(
+    payload: &ConnectionPayload,
+) -> AppResult<Vec<SchemaColumn>> {
+    ensure_supported_driver(payload.r#type.as_str())?;
+
+    match payload.r#type.as_str() {
+        "postgresql" => get_all_columns_pg(payload).await,
+        "mysql" => get_all_columns_mysql(payload).await,
+        _ => Err(AppError::UnsupportedDriver(payload.r#type.clone())),
+    }
+}
+
+async fn get_all_columns_pg(
+    payload: &ConnectionPayload,
+) -> AppResult<Vec<SchemaColumn>> {
+    let options = PgConnectOptions::new()
+        .host(payload.host.as_str())
+        .port(payload.port)
+        .username(payload.username.as_str())
+        .password(payload.password.as_str())
+        .database(payload.database.as_str());
+    let mut conn = sqlx::PgConnection::connect_with(&options).await?;
+
+    let schema = if payload.schema.is_empty() {
+        "public".to_string()
+    } else {
+        payload.schema.clone()
+    };
+
+    let rows = sqlx::query(
+        r#"
+        SELECT table_name, column_name, data_type
+        FROM information_schema.columns
+        WHERE table_schema = $1
+        ORDER BY table_name, ordinal_position
+        "#,
+    )
+    .bind(&schema)
+    .fetch_all(&mut conn)
+    .await?;
+
+    let result: Vec<SchemaColumn> = rows
+        .into_iter()
+        .map(|row| SchemaColumn {
+            table_name: row.get("table_name"),
+            column_name: row.get("column_name"),
+            data_type: row.get("data_type"),
+        })
+        .collect();
+
+    conn.close().await?;
+    Ok(result)
+}
+
+async fn get_all_columns_mysql(
+    payload: &ConnectionPayload,
+) -> AppResult<Vec<SchemaColumn>> {
+    let options = MySqlConnectOptions::new()
+        .host(payload.host.as_str())
+        .port(payload.port)
+        .username(payload.username.as_str())
+        .password(payload.password.as_str())
+        .database(payload.database.as_str());
+    let mut conn = sqlx::MySqlConnection::connect_with(&options).await?;
+
+    let db = &payload.database;
+
+    let rows = sqlx::query(
+        r#"
+        SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name, COLUMN_TYPE AS data_type
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = ?
+        ORDER BY TABLE_NAME, ORDINAL_POSITION
+        "#,
+    )
+    .bind(db)
+    .fetch_all(&mut conn)
+    .await?;
+
+    let result: Vec<SchemaColumn> = rows
+        .into_iter()
+        .map(|row| SchemaColumn {
+            table_name: row.get("table_name"),
+            column_name: row.get("column_name"),
+            data_type: row.get("data_type"),
+        })
+        .collect();
+
+    conn.close().await?;
+    Ok(result)
 }
 
 // ── DDL Execution ────────────────────────────────────────────────

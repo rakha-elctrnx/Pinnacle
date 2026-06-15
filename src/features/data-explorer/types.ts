@@ -96,3 +96,15 @@ export interface DeleteTableTarget {
   schema: string
   tableName: string
 }
+
+export type DataOperation = 'empty' | 'truncate'
+
+export interface DataOperationTarget {
+  connectionId: string
+  connectionName: string
+  connectionType: string
+  database: string
+  schema: string
+  tableName: string
+  operation: DataOperation
+}

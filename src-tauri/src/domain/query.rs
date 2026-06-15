@@ -97,6 +97,27 @@ pub struct IndexDefinition {
     pub index_type: String,
 }
 
+/// Schema-level column info for bulk column fetch (ER diagram nodes).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SchemaColumn {
+    pub table_name: String,
+    pub column_name: String,
+    pub data_type: String,
+}
+
+/// Schema-level foreign key info including source table name (used for bulk FK fetch).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SchemaForeignKey {
+    pub source_table: String,
+    pub constraint_name: String,
+    pub columns: Vec<String>,
+    pub referenced_table: String,
+    pub referenced_schema: String,
+    pub referenced_columns: Vec<String>,
+}
+
 // ── DDL Generation Types ─────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -24,6 +24,7 @@ import type {
   TableStats,
   TableInfoTab,
 } from '../../../types'
+import type { SchemaColumn, SchemaForeignKey } from '../../../../../types/domain'
 import { WorkspaceToolbar } from '../../shared/WorkspaceToolbar'
 import { WorkspaceStatusBar } from '../../shared/WorkspaceStatusBar'
 import type { ToolbarItem } from '../../shared/WorkspaceToolbar'
@@ -46,6 +47,8 @@ interface SqlExplorerWorkspaceProps {
   realTableRows: Record<string, string>[]
   sqlTableListLoading: boolean
   sqlTableList: SqlTableListItem[]
+  schemaForeignKeys: SchemaForeignKey[]
+  schemaColumns: SchemaColumn[]
   isSqlTableListView: boolean
   queryTabs: QueryTab[]
   queryTabsDirty: Record<string, boolean>
@@ -108,6 +111,8 @@ export function SqlExplorerWorkspace({
   realTableRows,
   sqlTableListLoading,
   sqlTableList,
+  schemaForeignKeys,
+  schemaColumns,
   isSqlTableListView,
   queryTabs,
   queryTabsDirty,
@@ -443,6 +448,8 @@ export function SqlExplorerWorkspace({
         <SqlTableList
           rows={sqlTableList}
           loading={sqlTableListLoading}
+          schemaForeignKeys={schemaForeignKeys}
+          schemaColumns={schemaColumns}
           onSelectTable={onSelectTableFromList}
           onCreateTable={onCreateTable}
           onEditTable={onEditTable}

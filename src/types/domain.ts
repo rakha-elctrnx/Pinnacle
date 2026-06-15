@@ -132,6 +132,23 @@ export interface IndexDefinition {
   indexType: string
 }
 
+/** Schema-level foreign key info including source table (for bulk FK fetch / ER diagram). */
+export interface SchemaForeignKey {
+  sourceTable: string
+  constraintName: string
+  columns: string[]
+  referencedTable: string
+  referencedSchema: string
+  referencedColumns: string[]
+}
+
+/** Schema-level column info for bulk column fetch (ER diagram node detail). */
+export interface SchemaColumn {
+  tableName: string
+  columnName: string
+  dataType: string
+}
+
 // ── Drop Table Types ─────────────────────────────────────────────
 
 export interface DropTablePayload {

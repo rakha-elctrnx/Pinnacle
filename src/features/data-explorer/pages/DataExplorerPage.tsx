@@ -9,6 +9,7 @@ import { MongodbWorkspaceNotice } from '../components/db/mongodb/MongodbWorkspac
 import { ConnectionWizardModal } from '../components/ConnectionWizardModal'
 import { ContextMenu } from '../components/ContextMenu'
 import { DeleteTableModal } from '../components/DeleteTableModal'
+import { DataOperationModal } from '../components/DataOperationModal'
 import { TableDesignerModal } from '../components/table-designer/TableDesignerModal'
 import { useDesignerStore } from '../../../state/designerStore'
 import { executeSql } from '../../../services/tauriClient'
@@ -105,6 +106,10 @@ export function DataExplorerPage() {
     handleRequestDeleteTable,
     handleRequestDeleteTableFromMenu,
     handleCloseDeleteTableModal,
+
+    dataOperationTarget,
+    handleRequestDataOperationFromMenu,
+    handleCloseDataOperationModal,
   } = useDataExplorerOrchestrator()
 
   // Derive unique existing groups from all connection profiles
@@ -364,6 +369,8 @@ export function DataExplorerPage() {
                     realTableRows={explorerData.realTableRows}
                     sqlTableList={explorerData.sqlTableList}
                     sqlTableListLoading={explorerData.sqlTableListLoading}
+                    schemaForeignKeys={explorerData.schemaForeignKeys}
+                    schemaColumns={explorerData.schemaColumns}
                     isSqlTableListView={isSqlTableListView}
                     queryTabs={queryExecution.queryTabs}
                     queryTabsDirty={queryExecution.queryTabsDirty}
@@ -492,6 +499,12 @@ export function DataExplorerPage() {
             onDeleteTable={(connectionId, tableName) => {
               handleRequestDeleteTableFromMenu(connectionId, tableName)
             }}
+            onEmptyTable={(connectionId, tableName) => {
+              handleRequestDataOperationFromMenu(connectionId, tableName, 'empty')
+            }}
+            onTruncateTable={(connectionId, tableName) => {
+              handleRequestDataOperationFromMenu(connectionId, tableName, 'truncate')
+            }}
             onClose={() => setContextMenu(null)}
           />
         </div>
@@ -536,6 +549,35 @@ export function DataExplorerPage() {
             }
           }}
           onClose={handleCloseDeleteTableModal}
+        />
+      )}
+
+      {/* Data Operation Confirmation Modal (Empty / Truncate) */}
+      {dataOperationTarget && (
+        <DataOperationModal
+          target={dataOperationTarget}
+          onExecute={async (target) => {
+            const { connection, databaseName, schemaName } = getSqlTableListContext()
+            const payload = { ...getConnPayload(connection), database: databaseName }
+
+            const qualifiedTable =
+              connection.type === 'postgresql'
+                ? `${quoteIdentifier(schemaName, '"')}.${quoteIdentifier(target.tableName, '"')}`
+                : quoteIdentifier(target.tableName, '`')
+
+            const sql =
+              target.operation === 'truncate'
+                ? `TRUNCATE TABLE ${qualifiedTable}`
+                : `DELETE FROM ${qualifiedTable}`
+
+            await executeSql({
+              connection: payload,
+              sql,
+            })
+
+            await refreshSqlTableListAfterDdl()
+          }}
+          onClose={handleCloseDataOperationModal}
         />
       )}
     </div>

@@ -4,8 +4,8 @@ mod domain;
 mod infrastructure;
 
 use application::commands::query_commands::{
-    execute_sql, sql_drop_table, sql_execute_ddl, sql_generate_ddl, sql_get_table_schema,
-    test_connection,
+    execute_sql, sql_drop_table, sql_execute_ddl, sql_generate_ddl, sql_get_all_columns,
+    sql_get_all_foreign_keys, sql_get_table_schema, test_connection,
 };
 use application::commands::elastic_commands::{
     elastic_test_connection, elastic_execute_query,
@@ -33,6 +33,7 @@ pub fn run() {
     .invoke_handler(tauri::generate_handler![
       test_connection, execute_sql, sql_get_table_schema,
       sql_generate_ddl, sql_execute_ddl, sql_drop_table,
+      sql_get_all_foreign_keys, sql_get_all_columns,
       elastic_test_connection, elastic_execute_query,
       elastic_get_cluster_info, elastic_get_cluster_health, elastic_get_cluster_stats,
       elastic_get_node_stats, elastic_list_indices, elastic_create_index,
