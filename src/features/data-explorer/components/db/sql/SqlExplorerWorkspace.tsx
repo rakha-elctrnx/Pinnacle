@@ -231,7 +231,7 @@ export function SqlExplorerWorkspace({
         id: 'import-data',
         label: 'Import',
         icon: FileUp,
-        variant: 'secondary',
+        variant: 'danger',
         onClick: () => { /* TODO: wire import */ },
       },
     )
@@ -499,7 +499,7 @@ export function SqlExplorerWorkspace({
       </div>
 
       {/* ── Bottom Controls: Recent Connections + Status + Details Toggle ── */}
-      <div className="shrink-0 flex items-center gap-3 border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] text-slate-500">
+      <div className="shrink-0 flex items-center gap-3 border-b border-outline-variant bg-surface-variant px-3 py-1.5 text-[11px] text-on-surface-variant">
         <div className="ml-auto inline-flex items-center gap-1">
           <select
             value={selectedConnectionId ?? ''}
@@ -508,7 +508,7 @@ export function SqlExplorerWorkspace({
               onSelectedConnectionIdChange(id)
               if (id) onExpandedConnectionIdChange(id)
             }}
-            className="h-7 rounded-md border-0 bg-transparent px-2 text-[11px] text-slate-700 focus:outline-none"
+            className="cursor-pointer h-7 rounded-md border-0 bg-transparent px-2 text-[11px] text-on-surface focus:outline-none"
           >
             <option value="">Recent Connections</option>
             {recentConnections.map((connection) => (
@@ -521,7 +521,7 @@ export function SqlExplorerWorkspace({
           <button
             type="button"
             onClick={onToggleDetailsPanel}
-            className="inline-flex h-7 items-center rounded-md px-2 text-slate-600 hover:bg-gray-300 transition-colors"
+            className="cursor-pointer inline-flex h-7 items-center rounded-md px-2 text-on-surface hover:bg-surface transition-colors"
             title={isDetailsPanelOpen ? 'Hide details panel' : 'Show details panel'}
           >
             {isDetailsPanelOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}

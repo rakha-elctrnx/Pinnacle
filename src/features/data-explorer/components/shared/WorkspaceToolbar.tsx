@@ -29,18 +29,18 @@ export function WorkspaceToolbar({ items, leftContent }: WorkspaceToolbarProps) 
   if (visibleItems.length === 0 && !leftContent) return null
 
   const variantStyles: Record<string, string> = {
-    primary: 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60',
+    primary: 'bg-primary-container text-on-primary-container hover:bg-primary-container/40 disabled:opacity-60',
     secondary:
-      'border border-slate-200 text-slate-700 hover:bg-slate-100 disabled:opacity-50',
+      'border border-primary text-on-surface hover:bg-surface-container-low disabled:opacity-50',
     danger:
-      'border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50',
+      'border border-on-error-container text-on-error-container hover:bg-surface-container-low disabled:opacity-50',
   }
 
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-3 py-1.5 bg-white">
+    <div className="flex items-center justify-between gap-3 border-b border-outline-variant px-3 py-1.5 bg-surface-variant">
       {leftContent && <div className="flex items-center gap-2 min-w-0">{leftContent}</div>}
       {visibleItems.length > 0 && (
-        <div className="flex items-center gap-0.5 ml-auto">
+        <div className="flex items-center gap-2 ml-auto">
           {visibleItems.map((item) => {
             const variant = item.variant ?? 'secondary'
             const Icon = item.icon
@@ -52,7 +52,7 @@ export function WorkspaceToolbar({ items, leftContent }: WorkspaceToolbarProps) 
                 onClick={item.onClick}
                 disabled={!enabled}
                 title={item.label}
-                className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${variantStyles[variant] ?? variantStyles.secondary}`}
+                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${variantStyles[variant] ?? variantStyles.secondary}`}
               >
                 {Icon && <Icon size={13} />}
                 {item.label}

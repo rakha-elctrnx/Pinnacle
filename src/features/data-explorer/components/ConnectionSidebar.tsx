@@ -492,12 +492,12 @@ export function ConnectionSidebar({
                             onContextMenu(event, item.id);
                           }}
                           className={[
-                            "w-full px-3 py-2 text-left transition hover:bg-slate-100 overflow-hidden",
-                            active ? "bg-blue-100" : "",
+                            "cursor-pointer w-full px-3 py-2 text-left transition hover:bg-surface-variant hover:text-on-surface-variant overflow-hidden",
+                            active ? "bg-surface-container-lowest" : "",
                           ].join(" ")}
                         >
                           <span className="flex items-center gap-2">
-                            <span className="grid h-5 w-5 shrink-0 place-items-center rounded bg-white">
+                            <span className="grid h-5 w-5 shrink-0 place-items-center rounded text-on-surface-variant">
                               {logo ? (
                                 <img
                                   src={logo}
@@ -512,7 +512,7 @@ export function ConnectionSidebar({
                               <span
                                 className={[
                                   "block truncate text-xs font-medium",
-                                  active ? "text-blue-800" : "text-slate-800",
+                                  active ? "text-on-surface-variant" : "",
                                 ].join(" ")}
                               >
                                 {item.name}
@@ -531,7 +531,7 @@ export function ConnectionSidebar({
                               <ChevronRight
                                 size={14}
                                 className={[
-                                  "shrink-0 text-slate-400 transition-transform",
+                                  "shrink-0 transition-transform",
                                   expandedConnectionId === item.id
                                     ? "rotate-90"
                                     : "",

@@ -145,7 +145,6 @@ export function TableBrowser({
     [boundedWidths],
   )
   const [activeRow, setActiveRow] = useState<number | null>(null)
-  const [selectedRow, setSelectedRow] = useState<number | null>(null)
 
   // Keep widths in sync with auto-sized values when data/columns change.
   useEffect(() => {
@@ -234,15 +233,15 @@ export function TableBrowser({
                 <col key={`col-${index}`} style={{ width }} />
               ))}
             </colgroup>
-            <thead className="sticky top-0 z-10 bg-slate-100 text-slate-600 shadow-[0_1px_0_0_theme(colors.slate.200)]">
+            <thead className={theadClass}>
               <tr>
                 <th
-                  className="border-b border-r border-slate-200 px-0 py-1"
+                  className="border-b border-r border-outline-variant px-0 py-1"
                 />
                 {displayColumns.map((column, colIdx) => (
                   <th
                     key={column}
-                    className="group relative border-b border-r border-slate-200 px-2 py-1.5 text-left whitespace-nowrap"
+                    className="group relative border-b border-r border-outline-variant px-2 py-1.5 text-left whitespace-nowrap"
                   >
                     <div className="flex flex-col gap-0.5 overflow-hidden">
                       <span className="overflow-hidden text-ellipsis font-semibold text-on-surface leading-tight">
@@ -280,34 +279,38 @@ export function TableBrowser({
                   key={`${rowIndex}`}
                   className={[
                     'text-on-surface transition-colors',
-                    activeRow === rowIndex || selectedRow === rowIndex
-                      ? 'bg-primary/50'
+                    activeRow === rowIndex
+                      ? 'bg-primary-container'
                       : 'even:bg-surface-variant hover:bg-surface-variant/70',
                   ].join(' ')}
                 >
                   <td
                     className="cursor-pointer border-b border-r border-outline p-0"
-                    onClick={() => setSelectedRow(rowIndex)}
+                    onClick={() => setActiveRow(rowIndex)}
                     aria-label={`Select row ${rowIndex + 1}`}
                   />
-                  {displayColumns.map((column) => (
-                    <td
+                  {displayColumns.map((column) => {
+                    const isNull = row[column] === null || row[column] === undefined;
+                    console.log('row[column]', row[column], isNull)
+                    const isActiveRow = activeRow === rowIndex;
+                    const textColor = isActiveRow ? 'text-on-primary-container' : (isNull ? 'text-red-500 italic' : 'text-on-surface');
+                    return (<td
                       key={`${rowIndex}-${column}`}
-                      className="border-b border-r border-slate-100 p-0.5"
+                      className={`${textColor} border-b border-r border-outline-variant p-0.5`}
                     >
                       <input
                         type="text"
                         defaultValue={row[column] == null ? '' : String(row[column])}
                         placeholder="(null)"
-                        className="block w-full min-w-0 bg-transparent px-2 py-1 outline-none focus:bg-white focus:ring-1 focus:ring-blue-300 placeholder:text-slate-300 placeholder:italic"
+                        className={`block w-full min-w-0 bg-transparent px-2 py-1 outline-none focus:bg-surface-container-lowest focus:text-on-surface focus:ring-1 focus:ring-secondary-container placeholder:text-on-surface-variant placeholder:italic`}
                         onFocus={(e) => handleCellInputFocus(rowIndex, e)}
                         onClick={handleCellInputClick}
                         onBlur={() => handleCellBlur(rowIndex)}
                         onKeyDown={handleCellKeyDown}
                         title={row[column] == null ? '(null)' : String(row[column])}
                       />
-                    </td>
-                  ))}
+                    </td>)
+                  })}
                 </tr>
               ))}
               {displayRows.length > MAX_DISPLAY_ROWS && (
