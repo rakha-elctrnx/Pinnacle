@@ -58,23 +58,23 @@ export function WorkspaceStatusBar({ context }: WorkspaceStatusBarProps) {
   const isEsPagination = isPaginationEnabled && 'hasNext' in pagination!
 
   return (
-    <footer className="shrink-0 border-t border-slate-200 bg-gray-100 px-3 py-1.5 text-[11px] text-slate-600">
+    <footer className="shrink-0 border-t border-outline-variant bg-surface px-3 py-1.5 text-[11px] text-on-surface">
       <div className="flex items-center justify-between gap-3">
         {/* Left: connector badge + entity */}
         <div className="flex min-w-0 items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded bg-slate-200 px-1.5 py-0.5 font-semibold text-slate-600 whitespace-nowrap">
+          <span className="inline-flex items-center gap-1 rounded bg-surface px-1.5 py-0.5 font-semibold text-on-surface whitespace-nowrap">
             {connector}
           </span>
           {entity && (
             <>
-              <span className="text-slate-400">·</span>
-              <span className="truncate font-medium text-slate-700">{entity}</span>
+              <span className="text-on-surface">·</span>
+              <span className="truncate font-medium text-on-surface-variant">{entity}</span>
             </>
           )}
           {mode && (
             <>
-              <span className="text-slate-400">·</span>
-              <span className="text-slate-500">{mode}</span>
+              <span className="text-on-surface">·</span>
+              <span className="text-on-surface-variant">{mode}</span>
             </>
           )}
         </div>
@@ -82,7 +82,7 @@ export function WorkspaceStatusBar({ context }: WorkspaceStatusBarProps) {
         {/* Center: data info + pagination */}
         <div className="flex items-center gap-2">
           {dataInfo && (
-            <span className="whitespace-nowrap font-medium text-slate-700">{dataInfo}</span>
+            <span className="whitespace-nowrap font-medium text-on-surface-variant">{dataInfo}</span>
           )}
           {isSqlPagination && (
             <div className="flex items-center gap-1">
@@ -90,19 +90,19 @@ export function WorkspaceStatusBar({ context }: WorkspaceStatusBarProps) {
                 type="button"
                 onClick={context.onPrevPage}
                 disabled={(pagination as SqlPagination).page <= 0}
-                className="rounded p-0.5 text-slate-500 hover:text-slate-700 disabled:opacity-30 transition-colors"
+                className="cursor-pointer rounded p-0.5 text-on-surface hover:text-on-surface-variant disabled:opacity-30 transition-colors"
                 title="Previous page"
               >
                 <ChevronLeft size={12} />
               </button>
-              <span className="text-[10px] text-slate-500 select-none">
+              <span className="text-[10px] text-on-surface select-none">
                 {(pagination as SqlPagination).page + 1} of {(pagination as SqlPagination).totalPages}
               </span>
               <button
                 type="button"
                 onClick={context.onNextPage}
                 disabled={(pagination as SqlPagination).page + 1 >= (pagination as SqlPagination).totalPages}
-                className="rounded p-0.5 text-slate-500 hover:text-slate-700 disabled:opacity-30 transition-colors"
+                className="cursor-pointer rounded p-0.5 text-on-surface hover:text-on-surface-variant disabled:opacity-30 transition-colors"
                 title="Next page"
               >
                 <ChevronRight size={12} />
@@ -115,7 +115,7 @@ export function WorkspaceStatusBar({ context }: WorkspaceStatusBarProps) {
                 type="button"
                 onClick={context.onPrevPage}
                 disabled={!(pagination as EsPagination).hasPrev}
-                className="rounded px-1.5 py-0.5 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-200 disabled:opacity-30 transition-colors"
+                className="rounded px-1.5 py-0.5 text-xs text-on-surface hover:text-on-surface-variant hover:bg-surface-variant disabled:opacity-30 transition-colors"
               >
                 Prev
               </button>
@@ -123,7 +123,7 @@ export function WorkspaceStatusBar({ context }: WorkspaceStatusBarProps) {
                 type="button"
                 onClick={context.onNextPage}
                 disabled={!(pagination as EsPagination).hasNext}
-                className="rounded px-1.5 py-0.5 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-200 disabled:opacity-30 transition-colors"
+                className="rounded px-1.5 py-0.5 text-xs text-on-surface hover:text-on-surface-variant hover:bg-surface-variant disabled:opacity-30 transition-colors"
               >
                 Next
               </button>
@@ -149,15 +149,15 @@ export function WorkspaceStatusBar({ context }: WorkspaceStatusBarProps) {
             </span>
           )}
           {runtimeStatus === 'idle' && elapsedMs !== undefined && (
-            <span className="text-slate-400">done in {elapsedMs}ms</span>
+            <span className="text-on-surface">done in {elapsedMs}ms</span>
           )}
           {runtimeStatus === 'idle' && elapsedMs === undefined && (
-            <span className="text-slate-400">ready</span>
+            <span className="text-on-surface">ready</span>
           )}
           {connectionStatus && (
             <span className="inline-flex items-center gap-1">
-              <span className={`h-1.5 w-1.5 rounded-full ${statusStyle[connectionStatus] ?? 'bg-gray-400'}`} />
-              <span className="text-[10px] text-slate-500">{connectionStatus}</span>
+              <span className={`h-1.5 w-1.5 rounded-full ${statusStyle[connectionStatus] ?? 'text-on-surface-variant'}`} />
+              <span className="text-[10px] text-on-surface">{connectionStatus}</span>
             </span>
           )}
         </div>

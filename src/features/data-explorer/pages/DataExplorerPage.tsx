@@ -250,12 +250,12 @@ export function DataExplorerPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <section className="flex-1 overflow-hidden border-slate-200 bg-white shadow-sm">
+      <section className="flex-1 overflow-hidden border-outline-variant bg-surface shadow-sm">
         <div className="flex h-full min-h-0 flex-col lg:flex-row">
           {/* Sidebar with dynamic width */}
           <div
             style={{ width: sidebarWidth }}
-            className="hidden lg:block shrink-0 overflow-x-hidden overflow-y-auto min-w-0"
+            className="hidden lg:block shrink-0 overflow-x-hidden border-outline-variant overflow-y-auto min-w-0"
           >
             <ConnectionSidebar
               search={search}
@@ -327,20 +327,20 @@ export function DataExplorerPage() {
           <div
             onMouseDown={handleResizeStart}
             className={[
-              'hidden lg:block shrink-0 cursor-col-resize relative border border-slate-200',
+              'hidden lg:block shrink-0 cursor-col-resize relative border border-outline-variant',
               isResizing ? 'bg-blue-400' : 'bg-transparent hover:bg-blue-300',
             ].join(' ')}
           >
             <div className="absolute inset-y-0 " />
           </div>
 
-          <main className="flex-1 min-w-0 flex flex-col overflow-hidden border-b border-slate-200 lg:border-b-0">
+          <main className="flex-1 min-w-0 flex flex-col overflow-hidden border-b border-outline-variant lg:border-b-0">
             {!selectedConnection ? (
               <section className="flex items-center justify-center h-full">
                 <div className="flex flex-col items-center gap-4 text-center max-w-md px-6">
-                  <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200">
+                  <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-on-primary-container border border-outline-variant">
                     <svg
-                      className="w-8 h-8 text-slate-400"
+                      className="w-8 h-8 text-primary-container"
                       fill="none"
                       viewBox="0 0 24 24"
                       strokeWidth={1.5}
@@ -354,10 +354,10 @@ export function DataExplorerPage() {
                     </svg>
                   </div>
                   <div className="space-y-1.5">
-                    <h3 className="text-base font-semibold text-slate-700">
+                    <h3 className="text-base font-semibold text-on-surface">
                       No Connection Selected
                     </h3>
-                    <p className="text-sm text-slate-500 leading-relaxed">
+                    <p className="text-sm text-on-surface-variant leading-relaxed">
                       Select a connection from the sidebar or create a new one to start exploring your database.
                     </p>
                   </div>

@@ -106,8 +106,8 @@ function getStaticTreeNodes(type: ConnectionType, indices?: ElasticIndex[]): Tre
           label: "Indices",
           children: indices
             ? indices
-                .filter((idx) => !idx.index.startsWith("."))
-                .map((idx) => ({ label: idx.index }))
+              .filter((idx) => !idx.index.startsWith("."))
+              .map((idx) => ({ label: idx.index }))
             : [],
         },
         { label: "Query Console", children: [] },
@@ -249,10 +249,10 @@ function TreeNodeItem({
           }
         }}
         className={[
-          "flex w-full items-center gap-1 px-2 py-1 text-[11px] font-medium hover:bg-slate-100 overflow-hidden",
+          "flex w-full items-center gap-1 px-2 py-1 text-[11px] font-medium hover:bg-surface-variant overflow-hidden cursor-pointer",
           selectedTreeNode === node.label
-            ? "bg-blue-50 text-blue-600"
-            : "text-slate-600",
+            ? "bg-surface-variant/80 text-primary"
+            : "text-on-surface",
         ].join(" ")}
         style={{ paddingLeft: `${depth * 12 + 18}px` }}
       >
@@ -270,13 +270,13 @@ function TreeNodeItem({
         )}
         {/* Primary icon */}
         {isTableItem ? (
-          <Table size={11} className="shrink-0 text-blue-500" />
+          <Table size={11} className="shrink-0 text-primary-container" />
         ) : categoryIcon ? (
           categoryIcon
         ) : isDatabaseNode ? (
           <Database
             size={11}
-            className={`shrink-0 ${isDbOpen ? "text-green-500" : "text-slate-400"}`}
+            className={`shrink-0 ${isDbOpen ? "text-success" : "text-on-surface-variant"}`}
           />
         ) : null}
         <span className="truncate min-w-0">{node.label}</span>
@@ -295,10 +295,10 @@ function TreeNodeItem({
                     onUseSavedQuery?.(sq.sql);
                   }}
                   className={[
-                    "flex w-full items-center gap-1 rounded px-2 py-1 text-[11px] hover:bg-slate-100 overflow-hidden",
+                    "flex w-full items-center gap-1 rounded px-2 py-1 text-[11px] hover:bg-surface-variant overflow-hidden",
                     selectedTreeNode === sq.id
-                      ? "bg-blue-50 text-blue-600"
-                      : "text-slate-600",
+                      ? "bg-surface-variant/80 text-primary"
+                      : "text-on-surface",
                   ].join(" ")}
                   style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}
                   title={sq.sql}
@@ -394,11 +394,11 @@ export function ConnectionSidebar({
   return (
     <aside className="h-full overflow-x-hidden overflow-y-auto min-w-0">
       <div className="mb-2 flex items-center justify-between px-3 pt-3">
-        <p className="text-sm font-semibold text-slate-700">Connections</p>
+        <p className="text-sm font-semibold text-on-surface">Connections</p>
         <button
           type="button"
           onClick={onOpenCreateWizard}
-          className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100"
+          className="rounded-lg p-1.5 text-on-surface hover:bg-surface-variant"
         >
           <Plus size={15} />
         </button>
@@ -407,13 +407,13 @@ export function ConnectionSidebar({
       <label className="relative mb-3 block mx-3">
         <Search
           size={14}
-          className="pointer-events-none absolute left-3 top-2.5 text-slate-400"
+          className="pointer-events-none absolute left-3 top-2.5 text-on-surface-variant"
         />
         <input
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder="Search connections"
-          className="w-full rounded-xl border border-slate-200 bg-white py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 pl-8 pr-3 text-xs text-slate-700"
+          className="w-full rounded-xl border border-outline bg-surface-variant py-2 focus:outline-none focus:ring-1 focus:ring-on-surface pl-8 pr-3 text-xs text-on-surface-variant placeholder:text-on-surface-variant/70"
         />
       </label>
 
@@ -492,12 +492,12 @@ export function ConnectionSidebar({
                             onContextMenu(event, item.id);
                           }}
                           className={[
-                            "w-full px-3 py-2 text-left transition hover:bg-slate-100 overflow-hidden",
-                            active ? "bg-blue-100" : "",
+                            "cursor-pointer w-full px-3 py-2 text-left transition hover:bg-surface-variant hover:text-on-surface-variant overflow-hidden",
+                            active ? "bg-surface-container-lowest" : "",
                           ].join(" ")}
                         >
                           <span className="flex items-center gap-2">
-                            <span className="grid h-5 w-5 shrink-0 place-items-center rounded bg-white">
+                            <span className="grid h-5 w-5 shrink-0 place-items-center rounded text-on-surface-variant">
                               {logo ? (
                                 <img
                                   src={logo}
@@ -512,7 +512,7 @@ export function ConnectionSidebar({
                               <span
                                 className={[
                                   "block truncate text-xs font-medium",
-                                  active ? "text-blue-800" : "text-slate-800",
+                                  active ? "text-on-surface-variant" : "",
                                 ].join(" ")}
                               >
                                 {item.name}
@@ -531,7 +531,7 @@ export function ConnectionSidebar({
                               <ChevronRight
                                 size={14}
                                 className={[
-                                  "shrink-0 text-slate-400 transition-transform",
+                                  "shrink-0 transition-transform",
                                   expandedConnectionId === item.id
                                     ? "rotate-90"
                                     : "",

@@ -32,6 +32,7 @@ import type { StatusBarContext } from '../../shared/WorkspaceStatusBar'
 import { TableBrowser } from './TableBrowser'
 import { QueryEditor } from './QueryEditor'
 import { SqlTableList } from './SqlTableList'
+import type { TableIndex } from '../../../hooks/useExplorerData'
 
 interface SqlExplorerWorkspaceProps {
   selectedConnection: ConnectionProfile | null
@@ -42,7 +43,7 @@ interface SqlExplorerWorkspaceProps {
   realTableStats: TableStats | null
   tableDataLoading: boolean
   realTableStructure: Record<string, string>[]
-  realTableIndexes: string[]
+  realTableIndexes: TableIndex[]
   realTableColumns: string[]
   realTableRows: Record<string, string>[]
   sqlTableListLoading: boolean
@@ -230,7 +231,7 @@ export function SqlExplorerWorkspace({
         id: 'import-data',
         label: 'Import',
         icon: FileUp,
-        variant: 'secondary',
+        variant: 'danger',
         onClick: () => { /* TODO: wire import */ },
       },
     )
@@ -330,27 +331,27 @@ export function SqlExplorerWorkspace({
 
       {/* ── Unified Tab Bar ── */}
       {hasContent && (
-        <div className="flex flex-wrap items-center gap-1 pt-3 px-3 bg-gray-100">
+        <div className="flex flex-wrap items-center gap-1 pt-3 px-3 bg-surface">
           {openedTableTabs.map((tab) => {
             const isActive = tab.id === activeTableTabId
             return (
               <div
                 key={tab.id}
                 className={[
-                  'inline-flex items-center gap-1.5 rounded-t-lg border px-2 py-1.5 text-xs',
+                  'cursor-pointer inline-flex items-center gap-1.5 rounded-t-lg border px-2 py-1.5 text-xs',
                   isActive
-                    ? 'border-blue-200 bg-blue-50 text-blue-700'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
+                    ? 'border-on-primary bg-primary text-on-primary'
+                    : 'border-outline-variant bg-surface text-on-surface hover:bg-primary hover:text-on-primary',
                 ].join(' ')}
               >
                 <Database size={12} />
-                <button type="button" onClick={() => onActiveTableTabIdChange(tab.id)}>
+                <button className="cursor-pointer" type="button" onClick={() => onActiveTableTabIdChange(tab.id)}>
                   {tab.label}
                 </button>
                 <button
                   type="button"
                   onClick={() => onCloseTableTab(tab.id)}
-                  className="rounded p-0.5 hover:bg-slate-200/70"
+                  className="cursor-pointer rounded p-0.5 hover:bg-primary-container/70"
                 >
                   <X size={10} />
                 </button>
@@ -388,7 +389,7 @@ export function SqlExplorerWorkspace({
           <button
             type="button"
             onClick={onAddQueryTab}
-            className="inline-flex items-center gap-1 rounded-t-lg border border-dashed border-slate-300 px-2 py-2 text-xs text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+            className="cursor-pointer inline-flex items-center gap-1 rounded-t-lg border border-dashed border-outline-variant px-2 py-2 text-xs text-on-surface hover:bg-surface-variant hover:text-on-surface-variant"
           >
             <Plus size={12} />
           </button>
@@ -429,7 +430,7 @@ export function SqlExplorerWorkspace({
       )}
 
       {isTableView && (
-        <section className="flex-1 min-h-0 overflow-hidden bg-white">
+        <section className="flex-1 min-h-0 overflow-hidden bg-surface">
           <div className="h-full min-h-0">
             <TableBrowser
               selectedTable={selectedTable}
@@ -498,7 +499,7 @@ export function SqlExplorerWorkspace({
       </div>
 
       {/* ── Bottom Controls: Recent Connections + Status + Details Toggle ── */}
-      <div className="shrink-0 flex items-center gap-3 border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] text-slate-500">
+      <div className="shrink-0 flex items-center gap-3 border-b border-outline-variant bg-surface-variant px-3 py-1.5 text-[11px] text-on-surface-variant">
         <div className="ml-auto inline-flex items-center gap-1">
           <select
             value={selectedConnectionId ?? ''}
@@ -507,7 +508,7 @@ export function SqlExplorerWorkspace({
               onSelectedConnectionIdChange(id)
               if (id) onExpandedConnectionIdChange(id)
             }}
-            className="h-7 rounded-md border-0 bg-transparent px-2 text-[11px] text-slate-700 focus:outline-none"
+            className="cursor-pointer h-7 rounded-md border-0 bg-transparent px-2 text-[11px] text-on-surface focus:outline-none"
           >
             <option value="">Recent Connections</option>
             {recentConnections.map((connection) => (
@@ -520,7 +521,7 @@ export function SqlExplorerWorkspace({
           <button
             type="button"
             onClick={onToggleDetailsPanel}
-            className="inline-flex h-7 items-center rounded-md px-2 text-slate-600 hover:bg-gray-300 transition-colors"
+            className="cursor-pointer inline-flex h-7 items-center rounded-md px-2 text-on-surface hover:bg-surface transition-colors"
             title={isDetailsPanelOpen ? 'Hide details panel' : 'Show details panel'}
           >
             {isDetailsPanelOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}

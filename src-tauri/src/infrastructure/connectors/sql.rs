@@ -1,9 +1,7 @@
 use std::time::Instant;
 
 use sqlx::{
-    mysql::MySqlConnectOptions,
-    postgres::PgConnectOptions,
-    Column, Connection, Executor, Row,
+    Column, Connection, Executor, Row, mysql::MySqlConnectOptions, postgres::PgConnectOptions
 };
 
 use crate::{
@@ -15,10 +13,8 @@ use crate::{
     },
 };
 
-/// Wrap an identifier in double-quotes, escaping any internal double-quotes.
-fn quote_identifier_pg(id: &str) -> String {
-    format!("\"{}\"", id.replace('"', "\"\""))
-}
+
+use super::postgresql::{execute_sql as execute_sql_pg, test_connection as test_connection_pg, quote_identifier_pg};
 
 /// Wrap an identifier in backticks, escaping any internal backticks.
 fn quote_identifier_mysql(id: &str) -> String {
@@ -41,41 +37,6 @@ fn is_read_query(sql: &str) -> bool {
         || upper.starts_with("WITH")
 }
 
-fn extract_pg_value(row: &sqlx::postgres::PgRow, column_name: &str) -> serde_json::Value {
-    if let Ok(Some(v)) = row.try_get::<Option<bool>, _>(column_name) {
-        return serde_json::json!(v);
-    }
-    if let Ok(Some(v)) = row.try_get::<Option<i32>, _>(column_name) {
-        return serde_json::json!(v);
-    }
-    if let Ok(Some(v)) = row.try_get::<Option<i64>, _>(column_name) {
-        return serde_json::json!(v);
-    }
-    if let Ok(Some(v)) = row.try_get::<Option<f64>, _>(column_name) {
-        return serde_json::json!(v);
-    }
-    if let Ok(Some(v)) = row.try_get::<Option<String>, _>(column_name) {
-        return serde_json::Value::String(v);
-    }
-    if let Ok(Some(v)) = row.try_get::<Option<serde_json::Value>, _>(column_name) {
-        return v;
-    }
-    // Chrono types – format as ISO strings so the frontend receives human-readable values
-    if let Ok(Some(v)) = row.try_get::<Option<chrono::DateTime<chrono::Utc>>, _>(column_name) {
-        return serde_json::Value::String(v.to_rfc3339());
-    }
-    if let Ok(Some(v)) = row.try_get::<Option<chrono::NaiveDateTime>, _>(column_name) {
-        return serde_json::Value::String(v.to_string());
-    }
-    if let Ok(Some(v)) = row.try_get::<Option<chrono::NaiveDate>, _>(column_name) {
-        return serde_json::Value::String(v.to_string());
-    }
-    if let Ok(Some(v)) = row.try_get::<Option<chrono::NaiveTime>, _>(column_name) {
-        return serde_json::Value::String(v.to_string());
-    }
-    serde_json::Value::Null
-}
-
 fn extract_mysql_value(row: &sqlx::mysql::MySqlRow, column_name: &str) -> serde_json::Value {
     if let Ok(Some(v)) = row.try_get::<Option<bool>, _>(column_name) {
         return serde_json::json!(v);
@@ -90,7 +51,7 @@ fn extract_mysql_value(row: &sqlx::mysql::MySqlRow, column_name: &str) -> serde_
         return serde_json::json!(v);
     }
     if let Ok(Some(v)) = row.try_get::<Option<String>, _>(column_name) {
-        return serde_json::Value::String(v);
+        return serde_json::Value::String(v.to_string());
     }
     // Chrono types – format as ISO strings so the frontend receives human-readable values
     if let Ok(Some(v)) = row.try_get::<Option<chrono::DateTime<chrono::Utc>>, _>(column_name) {
@@ -113,14 +74,7 @@ pub async fn test_connection(payload: &ConnectionPayload) -> AppResult<()> {
 
     match payload.r#type.as_str() {
         "postgresql" => {
-            let options = PgConnectOptions::new()
-                .host(payload.host.as_str())
-                .port(payload.port)
-                .username(payload.username.as_str())
-                .password(payload.password.as_str())
-                .database(payload.database.as_str());
-            let conn = sqlx::PgConnection::connect_with(&options).await?;
-            conn.close().await?;
+            return test_connection_pg(payload).await;
         }
         "mysql" => {
             let options = MySqlConnectOptions::new()
@@ -151,62 +105,7 @@ pub async fn execute_sql(payload: &ConnectionPayload, sql: &str) -> AppResult<Qu
 
     match payload.r#type.as_str() {
         "postgresql" => {
-            let options = PgConnectOptions::new()
-                .host(payload.host.as_str())
-                .port(payload.port)
-                .username(payload.username.as_str())
-                .password(payload.password.as_str())
-                .database(payload.database.as_str());
-            let mut conn = sqlx::PgConnection::connect_with(&options).await?;
-
-            // Set search_path so unqualified table names resolve to the chosen schema
-            if !payload.schema.is_empty() {
-                sqlx::query(&format!(
-                    "SET search_path TO {}",
-                    quote_identifier_pg(&payload.schema)
-                ))
-                .execute(&mut conn)
-                .await?;
-            }
-
-            if read {
-                let rows = conn.fetch_all(sqlx::query(sql)).await?;
-                let columns: Vec<String> = if let Some(first) = rows.first() {
-                    first
-                        .columns()
-                        .iter()
-                        .map(|c| c.name().to_string())
-                        .collect()
-                } else {
-                    vec![]
-                };
-                let json_rows: Vec<serde_json::Map<String, serde_json::Value>> = rows
-                    .iter()
-                    .map(|row| {
-                        let mut map = serde_json::Map::new();
-                        for col_name in &columns {
-                            map.insert(col_name.clone(), extract_pg_value(row, col_name));
-                        }
-                        map
-                    })
-                    .collect();
-                conn.close().await?;
-                Ok(QueryResult {
-                    rows_affected: json_rows.len() as u64,
-                    elapsed_ms: start.elapsed().as_millis(),
-                    columns,
-                    rows: json_rows,
-                })
-            } else {
-                let result = conn.execute(sqlx::query(sql)).await?;
-                conn.close().await?;
-                Ok(QueryResult {
-                    rows_affected: result.rows_affected(),
-                    elapsed_ms: start.elapsed().as_millis(),
-                    columns: vec![],
-                    rows: vec![],
-                })
-            }
+            return execute_sql_pg(payload, sql).await;
         }
         "mysql" => {
             let options = MySqlConnectOptions::new()

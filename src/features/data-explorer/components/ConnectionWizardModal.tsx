@@ -231,25 +231,25 @@ export function ConnectionWizardModal({
   const selectedOption = databaseTypeOptions.find((o) => o.value === newType)
 
   const inputClasses =
-    'w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100'
+    'w-full rounded-lg border border-outline-variant bg-surface px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface/50 outline-none transition focus:border-outline focus:ring-2 focus:ring-primary/50'
 
   const inputErrorClasses =
     'w-full rounded-lg border border-red-300 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100'
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/60 p-4 backdrop-blur-sm">
-      <section className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-shadow/30 p-4 backdrop-blur-sm">
+      <section className="w-full max-w-lg overflow-hidden rounded-2xl bg-surface shadow-2xl ring-1 ring-black/5">
         {/* Header */}
-        <header className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+        <header className="flex items-center justify-between border-b border-outline-variant px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-blue-50 text-blue-600">
+            <div className="grid h-9 w-9 place-items-center rounded-xl bg-surface/40 border border-outline-variant text-primary">
               <Database size={18} />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-900">
+              <h3 className="text-base font-semibold text-on-surface">
                 {editingId ? 'Edit Connection' : 'New Connection'}
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-on-surface/70">
                 Step {step} of 2
               </p>
             </div>
@@ -257,7 +257,7 @@ export function ConnectionWizardModal({
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+            className="cursor-pointer rounded-lg p-1.5 text-on-surface/70 transition hover:bg-surface/40 hover:text-on-surface"
           >
             <X size={16} />
           </button>
@@ -265,15 +265,15 @@ export function ConnectionWizardModal({
 
         {/* Step Indicator */}
         <div className="flex items-center gap-2 px-6 pt-4">
-          <div className={`flex items-center gap-1.5 text-xs font-medium ${step >= 1 ? 'text-blue-600' : 'text-slate-400'}`}>
-            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${step >= 1 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+          <div className={`flex items-center gap-1.5 text-xs font-medium ${step >= 1 ? 'text-primary-container' : 'text-on-surface/70'}`}>
+            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${step >= 1 ? 'bg-primary-container text-on-primary-container' : 'bg-surface-variant text-on-surface-variant'}`}>
               1
             </span>
             Database Type
           </div>
-          <div className={`h-px flex-1 ${step >= 2 ? 'bg-blue-300' : 'bg-slate-200'}`} />
-          <div className={`flex items-center gap-1.5 text-xs font-medium ${step >= 2 ? 'text-blue-600' : 'text-slate-400'}`}>
-            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${step >= 2 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+          <div className={`h-px flex-1 ${step >= 2 ? 'bg-primary-container' : 'bg-surface-variant'}`} />
+          <div className={`flex items-center gap-1.5 text-xs font-medium ${step >= 2 ? 'text-primary-container' : 'text-on-surface/70'}`}>
+            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${step >= 2 ? 'bg-primary-container text-on-primary-container' : 'bg-surface-variant text-on-surface-variant'}`}>
               2
             </span>
             Connection Details
@@ -283,7 +283,7 @@ export function ConnectionWizardModal({
         {/* Step 1: Select Database Type */}
         {step === 1 && (
           <div className="px-6 py-5">
-            <p className="mb-4 text-sm text-slate-500">Choose the database you want to connect to.</p>
+            <p className="mb-4 text-sm text-on-surface/70">Choose the database you want to connect to.</p>
             <div className="grid grid-cols-2 gap-2.5">
               {databaseTypeOptions.map((option) => {
                 const active = option.value === newType
@@ -295,26 +295,25 @@ export function ConnectionWizardModal({
                     className={[
                       'group flex items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-all',
                       active
-                        ? 'border-blue-300 bg-blue-50/80 shadow-sm ring-1 ring-blue-200'
-                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50',
+                        ? 'border-primary-container bg-primary-container/80 shadow-sm ring-1 ring-primary-container'
+                        : 'border-surface-variant hover:border-surface-variant hover:bg-surface-variant',
                     ].join(' ')}
                   >
                     <span
-                      className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg transition ${
-                        active ? 'bg-white shadow-sm' : 'bg-slate-50 group-hover:bg-white'
-                      }`}
+                      className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg transition ${active ? 'bg-surface-container-high shadow-sm' : 'bg-surface-variant group-hover:bg-surface-container-low'
+                        }`}
                     >
                       <img src={option.logoSrc} alt={option.label} className="h-5 w-5 object-contain" />
                     </span>
                     <span className="min-w-0">
-                      <span className={`block text-sm font-semibold ${active ? 'text-blue-700' : 'text-slate-700'}`}>
+                      <span className={`block text-sm font-semibold ${active ? 'text-on-primary-container' : 'text-on-surface/70'}`}>
                         {option.label}
                       </span>
-                      <span className="block text-[11px] text-slate-400">{option.hint}</span>
+                      <span className="block text-[11px] text-on-surface/70">{option.hint}</span>
                     </span>
                     {active && (
-                      <span className="ml-auto grid h-5 w-5 shrink-0 place-items-center rounded-full bg-blue-600">
-                        <Check size={12} className="text-white" strokeWidth={3} />
+                      <span className="ml-auto grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary">
+                        <Check size={12} className="text-on-primary" strokeWidth={3} />
                       </span>
                     )}
                   </button>
@@ -329,14 +328,14 @@ export function ConnectionWizardModal({
           <div className="px-6 py-5">
             {/* Selected type badge */}
             <div className="mb-4 flex items-center gap-2">
-              <span className="grid h-7 w-7 place-items-center rounded-md bg-slate-100">
+              <span className="grid h-7 w-7 place-items-center rounded-md border border-surface-variant bg-surface-variant">
                 <img src={selectedOption?.logoSrc} alt={selectedOption?.label} className="h-4 w-4 object-contain" />
               </span>
-              <span className="text-sm font-medium text-slate-700">{selectedOption?.label}</span>
+              <span className="text-sm font-medium text-on-surface">{selectedOption?.label}</span>
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="ml-auto text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                className="ml-auto text-xs font-medium text-primary-container hover:text-primary cursor-pointer hover:underline"
               >
                 Change
               </button>
@@ -494,9 +493,8 @@ export function ConnectionWizardModal({
                 </div>
                 <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm text-slate-600">
                   <span
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                      newSsl ? 'bg-blue-600' : 'bg-slate-300'
-                    }`}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${newSsl ? 'bg-primary-container' : 'bg-outline-variant'
+                      }`}
                   >
                     <input
                       type="checkbox"
@@ -505,9 +503,8 @@ export function ConnectionWizardModal({
                       className="sr-only"
                     />
                     <span
-                      className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${
-                        newSsl ? 'translate-x-[18px]' : 'translate-x-1'
-                      }`}
+                      className={`inline-block h-3.5 w-3.5 rounded-full bg-on-surface shadow-sm transition-transform ${newSsl ? 'translate-x-4.5' : 'translate-x-1'
+                        }`}
                     />
                   </span>
                   SSL
@@ -520,7 +517,7 @@ export function ConnectionWizardModal({
                   type="button"
                   onClick={handleTestConnection}
                   disabled={isTestingConnection}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-outline-variant bg-primary px-4 py-2.5 text-sm font-medium text-on-primary transition hover:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isTestingConnection ? (
                     <>
@@ -537,11 +534,10 @@ export function ConnectionWizardModal({
 
                 {testConnectionResult && (
                   <div
-                    className={`mt-2 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm ${
-                      testConnectionResult.kind === 'success'
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : 'border-red-200 bg-red-50 text-red-700'
-                    }`}
+                    className={`mt-2 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm ${testConnectionResult.kind === 'success'
+                        ? 'border-success/50 bg-success/20 text-success'
+                        : 'border-error/50 bg-error/20 text-error'
+                      }`}
                   >
                     {testConnectionResult.kind === 'success' ? (
                       <Check size={14} className="mt-0.5 shrink-0" />
@@ -570,12 +566,12 @@ export function ConnectionWizardModal({
         )}
 
         {/* Footer */}
-        <footer className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
+        <footer className="flex items-center justify-between border-t border-outline-variant px-6 py-4">
           <button
             type="button"
             onClick={() => setStep(1)}
             disabled={step === 1}
-            className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:invisible"
+            className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-on-surface-variant transition hover:bg-outline-variant disabled:invisible"
           >
             <ChevronLeft size={15} />
             Back
@@ -585,7 +581,7 @@ export function ConnectionWizardModal({
             <button
               type="button"
               onClick={() => setStep(2)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:bg-blue-800"
+              className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-primary-container px-5 py-2.5 text-sm font-semibold text-on-primary-container shadow-sm transition hover:bg-primary hover:text-on-primary active:bg-primary-dark active:text-on-primary"
             >
               Continue
               <ChevronRight size={15} />
