@@ -1,8 +1,10 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import type { ConnectionPayload } from '../../../../../services/tauriClient'
 import { elasticExecuteQuery } from '../../../../../services/tauriClient'
 import type { ElasticQueryResult } from '../../../../../types/domain'
 import { Play, Clock, Copy, ChevronDown } from 'lucide-react'
+import Editor from '@monaco-editor/react'
+import { CenteredLoadingState } from '../../shared/CenteredLoadingState'
 
 interface QueryHistoryEntry {
   id: string
@@ -40,7 +42,6 @@ export function QueryConsole({ connection }: Props) {
   const [showHistory, setShowHistory] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
   const [resultView, setResultView] = useState<'raw' | 'formatted'>('formatted')
-  const editorRef = useRef<HTMLTextAreaElement>(null)
 
   const executeQuery = useCallback(async () => {
     setLoading(true)
@@ -108,7 +109,19 @@ export function QueryConsole({ connection }: Props) {
     }
   }, [body])
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+  // Global keyboard shortcut for Cmd+Enter / Ctrl+Enter (works with Monaco editor focus)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault()
+        executeQuery()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [executeQuery])
+
+  const handleContainerKeyDown = useCallback((e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
       executeQuery()
@@ -118,7 +131,7 @@ export function QueryConsole({ connection }: Props) {
   const resultJson = result ? JSON.stringify(result.data, null, 2) : ''
 
   return (
-    <div className="flex flex-col h-full" onKeyDown={handleKeyDown}>
+    <div className="flex flex-col h-full" onKeyDown={handleContainerKeyDown}>
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-200 bg-white">
         <div className="relative">
@@ -198,28 +211,34 @@ export function QueryConsole({ connection }: Props) {
           disabled={loading}
           className="flex items-center gap-1.5 rounded bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
         >
-          {loading ? (
-            <span className="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full" />
-          ) : (
-            <Play className="h-3.5 w-3.5" />
-          )} Run
+          <Play className="h-3.5 w-3.5" /> Run
         </button>
       </div>
 
       {/* Body Editor */}
-      <div className="flex flex-col" style={{ minHeight: '140px', maxHeight: '35%' }}>
+      <div className="flex flex-col" style={{ minHeight: '200px', maxHeight: '35%' }}>
         <div className="flex items-center justify-between px-4 py-1 border-b border-slate-200 bg-slate-50">
           <span className="text-xs text-slate-500 uppercase">Request Body</span>
           <button onClick={formatBody} className="text-xs text-slate-500 hover:text-slate-700">Format JSON</button>
         </div>
-        <textarea
-          ref={editorRef}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder='{"query": {"match_all": {}}}'
-          spellCheck={false}
-          className="flex-1 w-full bg-white px-4 py-2 text-sm font-mono text-slate-700 placeholder:text-slate-400 resize-none focus:outline-none"
-        />
+        <div className="flex-1 min-h-0">
+          <Editor
+            language="json"
+            value={body}
+            onChange={(val) => setBody(val ?? '')}
+            theme="light"
+            options={{
+              fontSize: 13,
+              minimap: { enabled: false },
+              scrollBeyondLastLine: false,
+              wordWrap: 'on',
+              automaticLayout: true,
+              lineNumbers: 'on',
+              padding: { top: 8 },
+              tabSize: 2,
+            }}
+          />
+        </div>
       </div>
 
       {/* Divider */}
@@ -251,6 +270,7 @@ export function QueryConsole({ connection }: Props) {
           </div>
         </div>
         <div className="flex-1 overflow-auto">
+          <CenteredLoadingState loading={loading} label="Executing query..." iconSize={3} />
           {error && (
             <pre className="px-4 py-3 text-sm font-mono text-red-600 whitespace-pre-wrap break-all">
               {error}

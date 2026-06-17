@@ -2,7 +2,8 @@ import { useState, useCallback, useMemo } from 'react'
 import type { ConnectionPayload } from '../../../../../services/tauriClient'
 import type { ElasticIndex, ElasticFieldMapping } from '../../../../../types/domain'
 import { elasticGetMapping } from '../../../../../services/tauriClient'
-import { Search, Copy, ChevronRight, ChevronDown, RefreshCw } from 'lucide-react'
+import { Search, Copy, ChevronRight, ChevronDown } from 'lucide-react'
+import { CenteredLoadingState } from '../../shared/CenteredLoadingState'
 
 interface Props {
   connection: ConnectionPayload
@@ -233,9 +234,7 @@ export function MappingExplorer({ connection, indexName, indices }: Props) {
       {/* Content */}
       <div className="flex-1 overflow-auto">
         {loading ? (
-          <div className="flex items-center justify-center h-full text-slate-400">
-            <RefreshCw className="h-5 w-5 animate-spin mr-2" /> Loading mapping...
-          </div>
+          <CenteredLoadingState loading={loading} label="Loading mapping..." />
         ) : !properties ? (
           <div className="flex items-center justify-center h-full text-slate-400 text-sm">
             No mapping data available

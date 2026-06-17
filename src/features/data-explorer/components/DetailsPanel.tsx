@@ -6,11 +6,13 @@ interface DetailsPanelProps {
   selectedConnection: ConnectionProfile | null
   detailsStats: DetailStat[]
   onClose?: () => void
+  onExportData?: () => void
 }
 
 export function DetailsPanel({
   selectedConnection,
   detailsStats,
+  onExportData,
 }: DetailsPanelProps) {
   return (
     <aside className="bg-slate-50">
@@ -57,8 +59,11 @@ export function DetailsPanel({
                 <button className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-100">
                   <WandSparkles size={14} className="text-slate-500" /> Open snippets and templates
                 </button>
-                <button className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-100">
-                  <Download size={14} className="text-slate-500" /> Export CSV / JSON / SQL / XLSX
+                <button
+                  onClick={onExportData}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-100"
+                >
+                  <Download size={14} className="text-slate-500" /> Export Table Data
                 </button>
               </div>
             </div>

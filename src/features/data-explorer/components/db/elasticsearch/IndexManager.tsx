@@ -9,6 +9,7 @@ import {
   elasticCreateIndex,
 } from '../../../../../services/tauriClient'
 import { Plus, Trash2, RefreshCw, FolderOpen, FolderClosed, Search, SlidersHorizontal } from 'lucide-react'
+import { CenteredLoadingState } from '../../shared/CenteredLoadingState'
 
 interface Props {
   connection: ConnectionPayload
@@ -27,6 +28,8 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [showHidden, setShowHidden] = useState(false)
   const [showFilterDropdown, setShowFilterDropdown] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<{ names: string[] } | null>(null)
 
   function sortVal(idx: ElasticIndex, field: string): string {
     const r = idx as unknown as Record<string, unknown>
@@ -61,27 +64,49 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
 
   const doAction = useCallback(async (action: 'delete' | 'refresh' | 'open' | 'close', names: string[]) => {
     if (names.length === 0) return
-    if (action === 'delete' && !confirm(`Delete ${names.length} index(es)?`)) return
+    if (action === 'delete') {
+      setConfirmDelete({ names })
+      return
+    }
+    setActionError(null)
     setLoading(true)
     try {
       for (const name of names) {
         const payload = { connection, indexName: name }
-        if (action === 'delete') await elasticDeleteIndex(payload)
-        else if (action === 'refresh') await elasticRefreshIndex(payload)
+        if (action === 'refresh') await elasticRefreshIndex(payload)
         else if (action === 'open') await elasticOpenIndex(payload)
         else if (action === 'close') await elasticCloseIndex(payload)
       }
       setSelected(new Set())
       onRefresh()
     } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : String(err)}`)
+      setActionError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }
   }, [connection, onRefresh])
 
+  const confirmDeleteAction = useCallback(async () => {
+    if (!confirmDelete) return
+    setActionError(null)
+    setLoading(true)
+    try {
+      for (const name of confirmDelete.names) {
+        await elasticDeleteIndex({ connection, indexName: name })
+      }
+      setSelected(new Set())
+      setConfirmDelete(null)
+      onRefresh()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setLoading(false)
+    }
+  }, [confirmDelete, connection, onRefresh])
+
   const doCreate = useCallback(async () => {
     if (!newIndexName.trim()) return
+    setActionError(null)
     setLoading(true)
     try {
       await elasticCreateIndex({ connection, indexName: newIndexName.trim() })
@@ -89,7 +114,7 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
       setShowCreate(false)
       onRefresh()
     } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : String(err)}`)
+      setActionError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }
@@ -111,6 +136,43 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
 
   return (
     <div className="flex flex-col h-full">
+      {/* Action error banner */}
+      {actionError && (
+        <div className="flex items-center justify-between gap-2 border-b border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-600">
+          <span className="truncate">{actionError}</span>
+          <button
+            onClick={() => setActionError(null)}
+            className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-red-500 hover:bg-red-100"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Delete confirmation dialog */}
+      {confirmDelete && (
+        <div className="flex items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700">
+          <span>
+            Delete {confirmDelete.names.length} index(es)?
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={confirmDeleteAction}
+              disabled={loading}
+              className="rounded px-2 py-0.5 text-[11px] font-medium text-white bg-red-500 hover:bg-red-600 disabled:opacity-50"
+            >
+              Confirm
+            </button>
+            <button
+              onClick={() => setConfirmDelete(null)}
+              className="rounded px-2 py-0.5 text-[11px] font-medium text-slate-500 hover:bg-slate-100"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-3 py-1.5">
         <div className="flex items-center gap-1">
@@ -227,7 +289,8 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
       )}
 
       {/* Table */}
-      <div className="scrollbar-thin flex-1 min-h-0 overflow-auto border border-slate-200 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-track]:bg-slate-50">
+      <div className="relative flex-1 min-h-0 border border-slate-200">
+        <div className="scrollbar-thin h-full overflow-auto [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-track]:bg-slate-50">
         <table
           className="w-full border-collapse text-xs"
           style={{ tableLayout: 'fixed' }}
@@ -381,6 +444,12 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
             ))}
           </tbody>
         </table>
+        </div>
+        <CenteredLoadingState
+          loading={loading}
+          label="Applying index operation..."
+          iconSize={3}
+        />
       </div>
     </div>
   )

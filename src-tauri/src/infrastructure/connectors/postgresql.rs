@@ -47,7 +47,7 @@ fn is_read_query(sql: &str) -> bool {
         || upper.starts_with("WITH")
 }
 
-fn quote_identifier_pg(id: &str) -> String {
+pub fn quote_identifier_pg(id: &str) -> String {
     format!("\"{}\"", id.replace('"', "\"\""))
 }
 

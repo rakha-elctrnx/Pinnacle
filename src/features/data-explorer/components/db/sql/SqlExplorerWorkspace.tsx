@@ -5,6 +5,12 @@ import {
   Plus,
   SquareTerminal,
   X,
+  ListFilter,
+  FileDown,
+  FileUp,
+  Settings2,
+  Play,
+  Save,
 } from 'lucide-react'
 import type { ConnectionProfile } from '../../../../../types/domain'
 import type {
@@ -18,7 +24,11 @@ import type {
   TableStats,
   TableInfoTab,
 } from '../../../types'
-import { statusStyle } from '../../../constants'
+import type { SchemaColumn, SchemaForeignKey } from '../../../../../types/domain'
+import { WorkspaceToolbar } from '../../shared/WorkspaceToolbar'
+import { WorkspaceStatusBar } from '../../shared/WorkspaceStatusBar'
+import type { ToolbarItem } from '../../shared/WorkspaceToolbar'
+import type { StatusBarContext } from '../../shared/WorkspaceStatusBar'
 import { TableBrowser } from './TableBrowser'
 import { QueryEditor } from './QueryEditor'
 import { SqlTableList } from './SqlTableList'
@@ -38,6 +48,8 @@ interface SqlExplorerWorkspaceProps {
   realTableRows: Record<string, string>[]
   sqlTableListLoading: boolean
   sqlTableList: SqlTableListItem[]
+  schemaForeignKeys: SchemaForeignKey[]
+  schemaColumns: SchemaColumn[]
   isSqlTableListView: boolean
   queryTabs: QueryTab[]
   queryTabsDirty: Record<string, boolean>
@@ -70,20 +82,30 @@ interface SqlExplorerWorkspaceProps {
   onCloseTableTab: (id: string) => void
   onAddQueryTab: () => void
   onSelectTableFromList: (tableName: string) => void
+  onCreateTable: (tableName: string) => Promise<void> | void
+  onEditTable: (tableName: string, nextTableName: string) => Promise<void> | void
+  onDeleteTable: (tableName: string) => Promise<void> | void
+  onRequestDeleteTable?: (tableName: string) => void
+  onOpenDesigner?: (tableName: string) => void
+  onCreateInDesigner?: () => void
+  onExportData?: (tableName: string) => void
   onUpdateActiveQuery: (value: string) => void
   onSaveQuery: () => void
   onUseSavedQuery: (sql: string) => void
   onQueryResultTabChange: (tab: QueryResultTab) => void
   onRunQuery: (mode: 'run' | 'run-selected' | 'explain') => Promise<void>
+  /** Pagination state for SQL table data */
+  tablePage?: number
+  tableTotalPages?: number
+  onTablePrevPage?: () => void
+  onTableNextPage?: () => void
 }
 
 export function SqlExplorerWorkspace({
   selectedConnection,
-  lastRefreshedAt,
   selectedTable,
   tableInfoTab,
   onTableInfoTabChange,
-  realTableStats,
   tableDataLoading,
   realTableStructure,
   realTableIndexes,
@@ -91,6 +113,8 @@ export function SqlExplorerWorkspace({
   realTableRows,
   sqlTableListLoading,
   sqlTableList,
+  schemaForeignKeys,
+  schemaColumns,
   isSqlTableListView,
   queryTabs,
   queryTabsDirty,
@@ -123,11 +147,22 @@ export function SqlExplorerWorkspace({
   onCloseTableTab,
   onAddQueryTab,
   onSelectTableFromList,
+  onCreateTable,
+  onEditTable,
+  onDeleteTable,
+  onRequestDeleteTable,
+  onOpenDesigner,
+  onCreateInDesigner,
+  onExportData,
   onUpdateActiveQuery,
   onSaveQuery,
   onUseSavedQuery,
   onQueryResultTabChange,
   onRunQuery,
+  tablePage = 0,
+  tableTotalPages = 1,
+  onTablePrevPage,
+  onTableNextPage,
 }: SqlExplorerWorkspaceProps) {
   if (!selectedConnection) {
     return (
@@ -164,6 +199,131 @@ export function SqlExplorerWorkspace({
   const isTableView = activeTableTabId !== null && openedTableTabs.some((t) => t.id === activeTableTabId)
   const showTableListView = isSqlTableListView && !isTableView
   const hasContent = openedTableTabs.length > 0 || queryTabs.length > 0
+
+  // Derive toolbar items based on active context
+  const toolbarItems: ToolbarItem[] = []
+
+  if (isTableView && tableInfoTab === 'data') {
+    toolbarItems.push(
+      {
+        id: 'filter-sort',
+        label: 'Filter/Sort',
+        icon: ListFilter,
+        variant: 'primary',
+        onClick: () => { /* TODO: wire filter modal */ },
+      },
+      {
+        id: 'column-visibility',
+        label: 'Columns',
+        icon: Settings2,
+        variant: 'secondary',
+        onClick: () => { /* TODO: wire column visibility */ },
+      },
+      {
+        id: 'export-data',
+        label: 'Export',
+        icon: FileDown,
+        variant: 'secondary',
+        enabled: !!selectedTable && !!onExportData,
+        onClick: () => { if (selectedTable && onExportData) onExportData(selectedTable) },
+      },
+      {
+        id: 'import-data',
+        label: 'Import',
+        icon: FileUp,
+        variant: 'secondary',
+        onClick: () => { /* TODO: wire import */ },
+      },
+    )
+  }
+
+  if (activeQueryTab && !isTableView && !showTableListView) {
+    toolbarItems.push(
+      {
+        id: 'run-query',
+        label: 'Run',
+        icon: Play,
+        variant: 'primary',
+        enabled: !isRunningQuery,
+        onClick: () => onRunQuery('run'),
+      },
+      {
+        id: 'run-selected',
+        label: 'Run Selected',
+        variant: 'secondary',
+        visible: false, // Hidden by default; shown when there's a text selection
+        enabled: !isRunningQuery,
+        onClick: () => onRunQuery('run-selected'),
+      },
+      {
+        id: 'explain-query',
+        label: 'Explain',
+        variant: 'secondary',
+        enabled: !isRunningQuery,
+        onClick: () => onRunQuery('explain'),
+      },
+      {
+        id: 'save-query',
+        label: 'Save',
+        icon: Save,
+        variant: 'secondary',
+        onClick: onSaveQuery,
+      },
+    )
+  }
+
+  // Derive status bar context
+  const statusBarContext = (): StatusBarContext => {
+    const base = {
+      connector: selectedConnection.type.toUpperCase(),
+      connectionStatus: selectedConnectionStatus,
+    }
+
+    if (isTableView || showTableListView) {
+      const activeTableLabel = openedTableTabs.find((t) => t.id === activeTableTabId)?.label ?? selectedTable ?? ''
+      if (tableInfoTab === 'data') {
+        const rowCount = realTableRows.length
+        return {
+          ...base,
+          entity: activeTableLabel,
+          mode: 'Data',
+          dataInfo: `${rowCount} rows`,
+          pagination: { page: tablePage, totalPages: tableTotalPages, pageSize: 100 },
+          runtimeStatus: tableDataLoading ? 'loading' : 'idle',
+          onPrevPage: onTablePrevPage,
+          onNextPage: onTableNextPage,
+        }
+      }
+      return {
+        ...base,
+        entity: activeTableLabel,
+        mode: tableInfoTab.charAt(0).toUpperCase() + tableInfoTab.slice(1),
+        dataInfo: tableInfoTab === 'structure'
+          ? `${realTableStructure.length} columns`
+          : tableInfoTab === 'indexes'
+            ? `${realTableIndexes.length} indexes`
+            : undefined,
+        runtimeStatus: 'idle',
+      }
+    }
+
+    if (activeQueryTab) {
+      return {
+        ...base,
+        connector: 'SQL',
+        entity: 'Query',
+        mode: queryResult ? `DB: ${queryDatabase || selectedConnection.database}` : undefined,
+        dataInfo: queryResult ? `${queryResult.rows.length} rows returned` : undefined,
+        runtimeStatus: isRunningQuery ? 'loading' : queryResult ? 'idle' : 'idle',
+        elapsedMs: queryResult?.elapsedMs,
+      }
+    }
+
+    return {
+      ...base,
+      runtimeStatus: 'idle',
+    }
+  }
 
   return (
     <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
@@ -236,6 +396,9 @@ export function SqlExplorerWorkspace({
         </div>
       )}
 
+      {/* ── WorkspaceToolbar (context-aware) ── */}
+      <WorkspaceToolbar items={toolbarItems} />
+
       {!hasContent && !showTableListView && (
         <section className="flex flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-4 text-center max-w-md px-6">
@@ -288,7 +451,15 @@ export function SqlExplorerWorkspace({
         <SqlTableList
           rows={sqlTableList}
           loading={sqlTableListLoading}
+          schemaForeignKeys={schemaForeignKeys}
+          schemaColumns={schemaColumns}
           onSelectTable={onSelectTableFromList}
+          onCreateTable={onCreateTable}
+          onEditTable={onEditTable}
+          onDeleteTable={onDeleteTable}
+          onRequestDeleteTable={onRequestDeleteTable}
+          onOpenDesigner={onOpenDesigner}
+          onCreateInDesigner={onCreateInDesigner}
         />
       )}
 
@@ -327,53 +498,39 @@ export function SqlExplorerWorkspace({
 
       </div>
 
-      <footer className="shrink-0 border border-outline-variant bg-surface-variant px-3 py-1.5 text-[11px] text-on-surface-variant backdrop-blur">
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-            <span>{selectedConnection.type.toUpperCase()} · last refresh {lastRefreshedAt}</span>
-            {realTableStats && (
-              <div className="flex items-center gap-4 font-semibold whitespace-nowrap rounded-md px-2 py-1">
-                <span>Rows: {realTableStats.rows} </span>
-                <span>Columns: {realTableStats.columns}</span>
-                <span>Indexes: {realTableStats.indexes}</span>
-              </div>
-            )}
-          </div>
+      {/* ── Bottom Controls: Recent Connections + Status + Details Toggle ── */}
+      <div className="shrink-0 flex items-center gap-3 border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] text-slate-500">
+        <div className="ml-auto inline-flex items-center gap-1">
+          <select
+            value={selectedConnectionId ?? ''}
+            onChange={(event) => {
+              const id = event.target.value || null
+              onSelectedConnectionIdChange(id)
+              if (id) onExpandedConnectionIdChange(id)
+            }}
+            className="h-7 rounded-md border-0 bg-transparent px-2 text-[11px] text-slate-700 focus:outline-none"
+          >
+            <option value="">Recent Connections</option>
+            {recentConnections.map((connection) => (
+              <option key={connection.id} value={connection.id}>
+                {connection.name}
+              </option>
+            ))}
+          </select>
 
-          <div className="ml-auto inline-flex items-center gap-1">
-            <select
-              value={selectedConnectionId ?? ''}
-              onChange={(event) => {
-                const id = event.target.value || null
-                onSelectedConnectionIdChange(id)
-                if (id) onExpandedConnectionIdChange(id)
-              }}
-              className="cursor-pointer h-7 rounded-md border-0 bg-transparent px-2 text-[11px] text-on-surface focus:outline-none"
-            >
-              <option value="">Recent Connections</option>
-              {recentConnections.map((connection) => (
-                <option key={connection.id} value={connection.id}>
-                  {connection.name}
-                </option>
-              ))}
-            </select>
-
-            <span className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[10px] font-semibold text-on-surface">
-              <span className={`h-2 w-2 rounded-full ${statusStyle[selectedConnectionStatus]}`} />
-              {selectedConnectionStatus}
-            </span>
-
-            <button
-              type="button"
-              onClick={onToggleDetailsPanel}
-              className="cursor-pointer inline-flex h-7 items-center rounded-md px-2 text-on-surface hover:bg-surface transition-colors"
-              title={isDetailsPanelOpen ? 'Hide details panel' : 'Show details panel'}
-            >
-              {isDetailsPanelOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onToggleDetailsPanel}
+            className="inline-flex h-7 items-center rounded-md px-2 text-slate-600 hover:bg-gray-300 transition-colors"
+            title={isDetailsPanelOpen ? 'Hide details panel' : 'Show details panel'}
+          >
+            {isDetailsPanelOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
+          </button>
         </div>
-      </footer>
+      </div>
+
+      {/* ── WorkspaceStatusBar ── */}
+      <WorkspaceStatusBar context={statusBarContext()} />
     </div>
   )
 }

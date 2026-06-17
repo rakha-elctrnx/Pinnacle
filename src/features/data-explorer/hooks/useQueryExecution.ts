@@ -40,6 +40,8 @@ interface UseQueryExecutionReturn {
   applySavedQueryToActiveTab: (sql: string) => void
   setActiveQueryTabId: (id: string) => void
   handleRunQuery: (mode: 'run' | 'run-selected' | 'explain') => Promise<void>
+  /** Reset all query execution state — called when connection is closed. */
+  resetQueryData: () => void
 }
 
 const SAVED_QUERY_STORAGE_KEY = 'data-explorer.saved-queries'
@@ -227,6 +229,15 @@ export function useQueryExecution({
     [selectedConnection, activeQueryTab, queryDatabase, querySchema, appendMessage, setConnectionStatuses],
   )
 
+  const resetQueryData = useCallback(() => {
+    setQueryTabs([])
+    setActiveQueryTabId(null)
+    setQueryResult(null)
+    setQueryMessages(['Ready.'])
+    setQueryDatabase('')
+    setQuerySchema('')
+  }, [])
+
   return {
     queryTabs: queryTabs.map((tab) => ({ id: tab.id, title: tab.title, sql: tab.sql })) as QueryTab[],
     queryTabsDirty,
@@ -249,5 +260,6 @@ export function useQueryExecution({
     applySavedQueryToActiveTab,
     setActiveQueryTabId,
     handleRunQuery,
+    resetQueryData,
   }
 }

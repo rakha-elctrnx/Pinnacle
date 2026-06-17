@@ -6,16 +6,29 @@ import {
   elasticIndexDocument,
   elasticDeleteDocument,
 } from '../../../../../services/tauriClient'
-import { Search, Plus, Trash2, RefreshCw, FileJson, Table, X, Save } from 'lucide-react'
+import { Search, Plus, Trash2, FileJson, Table, X, Save } from 'lucide-react'
 import Editor from '@monaco-editor/react'
+import { CenteredLoadingState } from '../../shared/CenteredLoadingState'
+
+export interface DocumentExplorerState {
+  totalHits: number
+  page: number
+  pageSize: number
+  loading: boolean
+  error: string | null
+  onPrevPage: () => void
+  onNextPage: () => void
+}
 
 interface Props {
   connection: ConnectionPayload
   indexName: string | null
   indices: ElasticIndex[]
+  /** Callback to sync pagination state to parent for WorkspaceStatusBar */
+  onStateChange?: (state: DocumentExplorerState) => void
 }
 
-export function DocumentExplorer({ connection, indexName, indices }: Props) {
+export function DocumentExplorer({ connection, indexName, indices, onStateChange }: Props) {
   const [internalIndex, setInternalIndex] = useState<string | null>(null)
   const currentIndex = indexName ?? internalIndex
   const [documents, setDocuments] = useState<ElasticDocumentHit[]>([])
@@ -34,6 +47,8 @@ export function DocumentExplorer({ connection, indexName, indices }: Props) {
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null)
   const [panelHeight, setPanelHeight] = useState(250)
   const resizeRef = useRef<HTMLDivElement | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [confirmDeleteDoc, setConfirmDeleteDoc] = useState<string | null>(null)
   const pageSize = 30
 
   const fetchDocs = useCallback(async (idx: string, q?: string, from?: number) => {
@@ -87,8 +102,22 @@ export function DocumentExplorer({ connection, indexName, indices }: Props) {
     fetchDocs(currentIndex, searchQuery, newPage * pageSize)
   }, [currentIndex, searchQuery, fetchDocs])
 
+  // Sync pagination state to parent for WorkspaceStatusBar
+  useEffect(() => {
+    onStateChange?.({
+      totalHits,
+      page,
+      pageSize,
+      loading,
+      error,
+      onPrevPage: () => handlePageChange(page - 1),
+      onNextPage: () => handlePageChange(page + 1),
+    })
+  }, [totalHits, page, pageSize, loading, error, onStateChange, handlePageChange])
+
   const handleAddDocument = useCallback(async () => {
     if (!currentIndex) return
+    setActionError(null)
     try {
       const body = JSON.parse(newDocJson)
       await elasticIndexDocument({ connection, indexName: currentIndex, document: body })
@@ -96,7 +125,7 @@ export function DocumentExplorer({ connection, indexName, indices }: Props) {
       setNewDocJson('{\n  \n}')
       fetchDocs(currentIndex, searchQuery, page * pageSize)
     } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : String(err)}`)
+      setActionError(err instanceof Error ? err.message : String(err))
     }
   }, [currentIndex, newDocJson, connection, fetchDocs, searchQuery, page])
 
@@ -168,16 +197,23 @@ export function DocumentExplorer({ connection, indexName, indices }: Props) {
     document.body.style.userSelect = 'none'
   }, [panelHeight])
 
-  const handleDeleteDocument = useCallback(async (docId: string) => {
-    if (!currentIndex || !confirm('Delete this document?')) return
+  const handleDeleteDocument = useCallback((docId: string) => {
+    if (!currentIndex) return
+    setConfirmDeleteDoc(docId)
+  }, [currentIndex])
+
+  const confirmDeleteDocument = useCallback(async () => {
+    if (!currentIndex || !confirmDeleteDoc) return
+    setActionError(null)
     try {
-      await elasticDeleteDocument({ connection, indexName: currentIndex, docId })
-      if (selectedDocId === docId) setSelectedDocId(null)
+      await elasticDeleteDocument({ connection, indexName: currentIndex, docId: confirmDeleteDoc })
+      if (selectedDocId === confirmDeleteDoc) setSelectedDocId(null)
+      setConfirmDeleteDoc(null)
       fetchDocs(currentIndex, searchQuery, page * pageSize)
     } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : String(err)}`)
+      setActionError(err instanceof Error ? err.message : String(err))
     }
-  }, [currentIndex, connection, fetchDocs, searchQuery, page, selectedDocId])
+  }, [currentIndex, confirmDeleteDoc, connection, fetchDocs, searchQuery, page, selectedDocId])
 
   // Extract level-1 field names from all documents as columns
   const sourceColumns = Array.from(
@@ -295,14 +331,61 @@ export function DocumentExplorer({ connection, indexName, indices }: Props) {
         </div>
       </div>
 
+      {/* Action error banner */}
+      {actionError && (
+        <div className="flex items-center justify-between gap-2 border-b border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-600">
+          <span className="truncate">{actionError}</span>
+          <button
+            onClick={() => setActionError(null)}
+            className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-red-500 hover:bg-red-100"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Delete document confirmation */}
+      {confirmDeleteDoc && (
+        <div className="flex items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700">
+          <span>Delete document <code className="font-mono">{confirmDeleteDoc}</code>?</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={confirmDeleteDocument}
+              className="rounded px-2 py-0.5 text-[11px] font-medium text-white bg-red-500 hover:bg-red-600"
+            >
+              Confirm
+            </button>
+            <button
+              onClick={() => setConfirmDeleteDoc(null)}
+              className="rounded px-2 py-0.5 text-[11px] font-medium text-slate-500 hover:bg-slate-100"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Create document form */}
       {showAddDoc && (
         <div className="flex flex-col gap-2 px-3 py-1.5 border-b border-slate-200 bg-slate-50">
-          <textarea
-            value={newDocJson}
-            onChange={(e) => setNewDocJson(e.target.value)}
-            className="w-full h-36 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-700 focus:border-blue-400 focus:outline-none resize-y"
-          />
+          <div className="h-48 rounded-md border border-slate-200 bg-white overflow-hidden">
+            <Editor
+              language="json"
+              value={newDocJson}
+              onChange={(val) => setNewDocJson(val ?? '{\n  \n}')}
+              theme="light"
+              options={{
+                fontSize: 12,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                wordWrap: 'on',
+                automaticLayout: true,
+                lineNumbers: 'on',
+                padding: { top: 8 },
+                tabSize: 2,
+              }}
+            />
+          </div>
           <div className="flex gap-1.5">
             <button
               onClick={handleAddDocument}
@@ -330,10 +413,7 @@ export function DocumentExplorer({ connection, indexName, indices }: Props) {
       {/* Content */}
       <div className="scrollbar-thin flex-1 min-h-0 overflow-auto border border-slate-200 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-track]:bg-slate-50">
         {loading ? (
-          <div className="flex items-center justify-center py-10 text-slate-400">
-            <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-            <span className="text-xs">Loading documents...</span>
-          </div>
+          <CenteredLoadingState loading={loading} label="Loading documents..." />
         ) : viewMode === 'table' ? (
           <table
             className="w-full border-collapse text-xs"

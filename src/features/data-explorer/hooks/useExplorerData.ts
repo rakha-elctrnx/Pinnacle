@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
-import { executeSql } from "../../../services/tauriClient";
-import type { ConnectionProfile } from "../../../types/domain";
+import { useCallback, useEffect, useState } from 'react'
+import { executeSql, sqlGetAllColumns, sqlGetAllForeignKeys } from '../../../services/tauriClient'
+import type { ConnectionProfile, SchemaColumn, SchemaForeignKey } from '../../../types/domain'
 import type {
   ExplorerTreeData,
   TreeNode,
@@ -148,40 +148,33 @@ ORDER BY index_name;`;
 }
 
 interface UseExplorerDataReturn {
-  treeDataMap: Record<string, ExplorerTreeData>;
-  treeLoading: Record<string, boolean>;
-  loadingDatabaseNames: Set<string>;
-  realTableColumns: string[];
-  realTableRows: Record<string, string>[];
-  realTableStats: TableStats | null;
-  realTableStructure: Record<string, string>[];
-  realTableIndexes: TableIndex[];
-  realDbStats: DetailStat[];
-  selectedSchema: string;
-  selectedDatabase: string;
-  selectedTable: string | null;
-  tableDataLoading: boolean;
-  sqlTableListLoading: boolean;
-  sqlTableList: SqlTableListItem[];
-  setSelectedSchema: (schema: string) => void;
-  setSelectedDatabase: (db: string) => void;
-  setSelectedTable: (table: string | null) => void;
-  getTreeNodesForConnection: (conn: ConnectionProfile) => TreeNode[];
-  handleTreeNodeClick: (nodeLabel: string, databaseName?: string) => boolean;
-  fetchSqlTableList: (
-    conn: ConnectionProfile,
-    databaseName: string,
-    schemaName?: string,
-  ) => Promise<void>;
-  fetchDatabaseDetails: (
-    connId: string,
-    conn: ConnectionProfile,
-    dbName: string,
-  ) => Promise<void>;
-  refreshConnectionData: (
-    connId: string,
-    conn: ConnectionProfile,
-  ) => Promise<void>;
+  treeDataMap: Record<string, ExplorerTreeData>
+  treeLoading: Record<string, boolean>
+  loadingDatabaseNames: Set<string>
+  realTableColumns: string[]
+  realTableRows: Record<string, string>[]
+  realTableStats: TableStats | null
+  realTableStructure: Record<string, string>[]
+  realTableIndexes: TableIndex[]
+  realDbStats: DetailStat[]
+  selectedSchema: string
+  selectedDatabase: string
+  selectedTable: string | null
+  tableDataLoading: boolean
+  sqlTableListLoading: boolean
+  sqlTableList: SqlTableListItem[]
+  schemaForeignKeys: SchemaForeignKey[]
+  schemaColumns: SchemaColumn[]
+  setSelectedSchema: (schema: string) => void
+  setSelectedDatabase: (db: string) => void
+  setSelectedTable: (table: string | null) => void
+  getTreeNodesForConnection: (conn: ConnectionProfile) => TreeNode[]
+  handleTreeNodeClick: (nodeLabel: string, databaseName?: string) => boolean
+  fetchSqlTableList: (conn: ConnectionProfile, databaseName: string, schemaName?: string) => Promise<void>
+  fetchDatabaseDetails: (connId: string, conn: ConnectionProfile, dbName: string) => Promise<void>
+  refreshConnectionData: (connId: string, conn: ConnectionProfile) => Promise<void>
+  /** Reset all cached/fetched data associated with a specific connection ID. */
+  resetConnectionData: (connId: string) => void
 }
 
 export function useExplorerData({
@@ -197,22 +190,20 @@ export function useExplorerData({
     new Set(),
   );
 
-  const [realTableColumns, setRealTableColumns] = useState<string[]>([]);
-  const [realTableRows, setRealTableRows] = useState<Record<string, string>[]>(
-    [],
-  );
-  const [realTableStats, setRealTableStats] = useState<TableStats | null>(null);
-  const [realTableStructure, setRealTableStructure] = useState<
-    Record<string, string>[]
-  >([]);
-  const [realTableIndexes, setRealTableIndexes] = useState<TableIndex[]>([]);
-  const [realDbStats, setRealDbStats] = useState<DetailStat[]>([]);
-  const [selectedSchema, setSelectedSchema] = useState<string>("public");
-  const [selectedDatabase, setSelectedDatabase] = useState<string>("");
-  const [selectedTable, setSelectedTable] = useState<string | null>(null);
-  const [tableDataLoading, setTableDataLoading] = useState(false);
-  const [sqlTableListLoading, setSqlTableListLoading] = useState(false);
-  const [sqlTableList, setSqlTableList] = useState<SqlTableListItem[]>([]);
+  const [realTableColumns, setRealTableColumns] = useState<string[]>([])
+  const [realTableRows, setRealTableRows] = useState<Record<string, string>[]>([])
+  const [realTableStats, setRealTableStats] = useState<TableStats | null>(null)
+  const [realTableStructure, setRealTableStructure] = useState<Record<string, string>[]>([])
+  const [realTableIndexes, setRealTableIndexes] = useState<TableIndex[]>([])
+  const [realDbStats, setRealDbStats] = useState<DetailStat[]>([])
+  const [selectedSchema, setSelectedSchema] = useState<string>('public')
+  const [selectedDatabase, setSelectedDatabase] = useState<string>('')
+  const [selectedTable, setSelectedTable] = useState<string | null>(null)
+  const [tableDataLoading, setTableDataLoading] = useState(false)
+  const [sqlTableListLoading, setSqlTableListLoading] = useState(false)
+  const [sqlTableList, setSqlTableList] = useState<SqlTableListItem[]>([])
+  const [schemaForeignKeys, setSchemaForeignKeys] = useState<SchemaForeignKey[]>([])
+  const [schemaColumns, setSchemaColumns] = useState<SchemaColumn[]>([])
 
   // Fetch all database names for a connection
   const fetchTreeData = useCallback(
@@ -506,10 +497,30 @@ export function useExplorerData({
             tableType: String(row.table_type || "-"),
             rowCount: String(row.row_count || "0"),
           })),
-        );
+        )
+
+        // Fetch all foreign keys and columns for the schema (used by ER diagram)
+        try {
+          const fkPayload = {
+            ...getConnPayload(conn),
+            database: databaseName || conn.database,
+            schema: schemaName || (conn.type === 'postgresql' ? 'public' : databaseName || conn.database),
+          }
+          const [fks, cols] = await Promise.all([
+            sqlGetAllForeignKeys(fkPayload),
+            sqlGetAllColumns(fkPayload),
+          ])
+          setSchemaForeignKeys(fks)
+          setSchemaColumns(cols)
+        } catch (fkError) {
+          console.warn('Failed to fetch FK/columns for ER diagram:', fkError)
+          setSchemaForeignKeys([])
+          setSchemaColumns([])
+        }
       } catch (error) {
-        console.error("Failed to fetch SQL table list:", error);
-        setSqlTableList([]);
+        console.error('Failed to fetch SQL table list:', error)
+        setSqlTableList([])
+        setSchemaForeignKeys([])
       } finally {
         setSqlTableListLoading(false);
       }
@@ -606,6 +617,30 @@ export function useExplorerData({
     [treeDataMap],
   );
 
+  const resetConnectionData = useCallback((connId: string) => {
+    // Clear tree data for this connection
+    setTreeDataMap((prev) => {
+      const next = { ...prev }
+      delete next[connId]
+      return next
+    })
+
+    // Clear table-level detail data — these are only meaningful for the currently
+    // selected connection, so reset them unconditionally.
+    setRealTableColumns([])
+    setRealTableRows([])
+    setRealTableStats(null)
+    setRealTableStructure([])
+    setRealTableIndexes([])
+    setRealDbStats([])
+    setSelectedTable(null)
+    setSelectedSchema('public')
+    setSelectedDatabase('')
+    setSqlTableList([])
+    setSchemaForeignKeys([])
+    setSchemaColumns([])
+  }, [])
+
   const handleTreeNodeClick = useCallback(
     (nodeLabel: string, databaseName?: string) => {
       if (selectedConnection && isSqlConnectionType(selectedConnection.type)) {
@@ -675,6 +710,8 @@ export function useExplorerData({
     tableDataLoading,
     sqlTableListLoading,
     sqlTableList,
+    schemaForeignKeys,
+    schemaColumns,
     setSelectedSchema,
     setSelectedDatabase,
     setSelectedTable,
@@ -683,5 +720,6 @@ export function useExplorerData({
     fetchSqlTableList,
     fetchDatabaseDetails,
     refreshConnectionData: fetchTreeData,
-  };
+    resetConnectionData,
+  }
 }

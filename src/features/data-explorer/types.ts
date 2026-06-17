@@ -85,4 +85,73 @@ export interface ContextMenuState {
   x: number
   y: number
   itemId: string
+  tableName?: string
+}
+
+export interface DeleteTableTarget {
+  connectionId: string
+  connectionName: string
+  connectionType: string
+  database: string
+  schema: string
+  tableName: string
+}
+
+export type DataOperation = 'empty' | 'truncate'
+
+export interface DataOperationTarget {
+  connectionId: string
+  connectionName: string
+  connectionType: string
+  database: string
+  schema: string
+  tableName: string
+  operation: DataOperation
+}
+
+// ── SQL Table Data Export ─────────────────────────────────────────
+
+export type TableExportFormat = 'txt' | 'csv' | 'json' | 'sql' | 'xlsx'
+
+export type TableExportTarget = {
+  connectionId: string
+  connectionName: string
+  connectionType: string
+  database: string
+  schema: string
+  tableName: string
+}
+
+export interface TableExportOptions {
+  format: TableExportFormat
+  includeHeaders: boolean
+  encoding: 'utf-8' | 'utf-16' | 'latin1'
+  /** SQL-only: export mode */
+  sqlMode: 'data-only' | 'schema-only' | 'schema-and-data'
+  /** TXT-only: delimiter character */
+  txtDelimiter: '\t' | ',' | '|' | ';'
+}
+
+export interface TableExportEstimate {
+  rowCount: number | null
+  estimatedSizeBytes: number | null
+  loading: boolean
+  error: string | null
+}
+
+export type TableExportJobStatus = 'idle' | 'preparing' | 'exporting' | 'success' | 'error'
+
+export interface TableExportJob {
+  status: TableExportJobStatus
+  progress: number | null
+  savedPath: string | null
+  error: string | null
+}
+
+export interface RecentTableExport {
+  id: string
+  timestamp: string
+  target: TableExportTarget
+  options: TableExportOptions
+  savedPath: string | null
 }

@@ -1,14 +1,22 @@
-import { Check, ChevronLeft, ChevronRight, Database, Loader2, Plug, X } from 'lucide-react'
-import { useState } from 'react'
-import { testConnection } from '../../../services/tauriClient'
+import { AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight, Database, Loader2, Plug, Plus, X } from 'lucide-react'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { testConnection, elasticTestConnection } from '../../../services/tauriClient'
 import type { ConnectionProfile, ConnectionType } from '../../../types/domain'
 import type { WizardStep, TestConnectionResult } from '../types'
 import { databaseTypeOptions, defaultPortByType, defaultInitialDatabaseByType } from '../constants'
-import { isSqlConnectionType } from '../utils'
+import { isSqlConnectionType, isElasticsearchType } from '../utils'
+
+interface FieldError {
+  host?: string
+  port?: string
+  database?: string
+  name?: string
+}
 
 interface ConnectionWizardModalProps {
   editingId: string | null
   existingProfile: ConnectionProfile | null
+  existingGroups: string[]
   onSave: (profile: ConnectionProfile) => void
   onClose: () => void
 }
@@ -16,6 +24,7 @@ interface ConnectionWizardModalProps {
 export function ConnectionWizardModal({
   editingId,
   existingProfile,
+  existingGroups,
   onSave,
   onClose,
 }: ConnectionWizardModalProps) {
@@ -30,9 +39,69 @@ export function ConnectionWizardModal({
   const [newUser, setNewUser] = useState(existingProfile?.username ?? '')
   const [newPassword, setNewPassword] = useState(existingProfile?.password ?? '')
   const [newSsl, setNewSsl] = useState(existingProfile?.ssl ?? false)
-  const [newTags, setNewTags] = useState(existingProfile?.tags.join(', ') ?? 'Development')
+  const [newGroup, setNewGroup] = useState(existingProfile?.tags[0] ?? '')
+  const [groupDropdownOpen, setGroupDropdownOpen] = useState(false)
+  const groupInputRef = useRef<HTMLInputElement>(null)
+  const groupDropdownRef = useRef<HTMLDivElement>(null)
   const [isTestingConnection, setIsTestingConnection] = useState(false)
   const [testConnectionResult, setTestConnectionResult] = useState<TestConnectionResult | null>(null)
+  const [skipTest, setSkipTest] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<FieldError>({})
+
+  // Close group dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        groupDropdownRef.current &&
+        !groupDropdownRef.current.contains(e.target as Node) &&
+        groupInputRef.current &&
+        !groupInputRef.current.contains(e.target as Node)
+      ) {
+        setGroupDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Filtered groups for the dropdown (unique, non-empty, matching input)
+  const filteredGroups = useMemo(() => {
+    const query = newGroup.trim().toLowerCase()
+    const unique = [...new Set(existingGroups.filter(Boolean))]
+    if (!query) return unique
+    return unique.filter((g) => g.toLowerCase().includes(query))
+  }, [existingGroups, newGroup])
+
+  const isNewGroupValue = newGroup.trim() !== '' && !existingGroups.includes(newGroup.trim())
+
+  // Inline validation for step 2 fields
+  const validateFields = useMemo(() => {
+    const errors: FieldError = {}
+    if (step === 2) {
+      if (newHost.trim() === '') {
+        errors.host = 'Host is required'
+      }
+      const portNum = Number(newPort)
+      if (newPort.trim() === '') {
+        errors.port = 'Port is required'
+      } else if (!Number.isFinite(portNum) || portNum < 1 || portNum > 65535) {
+        errors.port = 'Port must be 1–65535'
+      }
+      if (newInitialDatabase.trim() === '') {
+        errors.database = 'Database is required'
+      }
+    }
+    return errors
+  }, [step, newHost, newPort, newInitialDatabase])
+
+  const isTestPassed = testConnectionResult?.kind === 'success'
+  const isSqlType = isSqlConnectionType(newType)
+  const isEsType = isElasticsearchType(newType)
+  // Gate: SQL and Elasticsearch require test-before-save for new connections
+  const needsTestGate = (isSqlType || isEsType) && !editingId
+  const canSave = needsTestGate
+    ? (isTestPassed || skipTest) && Object.keys(validateFields).length === 0
+    : Object.keys(validateFields).length === 0
 
   const resetForm = () => {
     setStep(1)
@@ -44,9 +113,12 @@ export function ConnectionWizardModal({
     setNewUser('')
     setNewPassword('')
     setNewSsl(false)
-    setNewTags('Development')
+    setNewGroup('')
+    setGroupDropdownOpen(false)
     setIsTestingConnection(false)
     setTestConnectionResult(null)
+    setSkipTest(false)
+    setFieldErrors({})
   }
 
   const handleClose = () => {
@@ -59,21 +131,18 @@ export function ConnectionWizardModal({
     setNewPort(String(defaultPortByType[type]))
     setNewInitialDatabase(defaultInitialDatabaseByType[type])
     setTestConnectionResult(null)
+    setSkipTest(false)
+    setFieldErrors({})
   }
 
   const handleTestConnection = async () => {
-    if (!newHost.trim() || !newPort.trim() || !newInitialDatabase.trim()) {
+    // Validate fields first
+    const errors = validateFields
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) {
       setTestConnectionResult({
         kind: 'error',
-        message: 'Please complete host, port, and database before testing.',
-      })
-      return
-    }
-
-    if (!isSqlConnectionType(newType)) {
-      setTestConnectionResult({
-        kind: 'success',
-        message: 'Connector validated locally. Deep test is enabled for PostgreSQL/MySQL in this MVP.',
+        message: 'Please fix the highlighted fields before testing.',
       })
       return
     }
@@ -83,7 +152,7 @@ export function ConnectionWizardModal({
     setTestConnectionResult(null)
 
     try {
-      const result = await testConnection({
+      const payload = {
         type: newType,
         host: newHost.trim(),
         port: Number.isFinite(parsedPort) ? parsedPort : defaultPortByType[newType],
@@ -91,12 +160,27 @@ export function ConnectionWizardModal({
         password: newPassword,
         database: newInitialDatabase.trim() || defaultInitialDatabaseByType[newType],
         ssl: newSsl,
-      })
+      }
 
-      setTestConnectionResult({
-        kind: result.ok ? 'success' : 'error',
-        message: result.message,
-      })
+      if (isEsType) {
+        // Elasticsearch: call real backend test endpoint
+        await elasticTestConnection(payload)
+        setTestConnectionResult({
+          kind: 'success',
+          message: `Connected to Elasticsearch cluster at ${newHost.trim()}:${parsedPort}.`,
+        })
+      } else if (isSqlType) {
+        const result = await testConnection(payload)
+        setTestConnectionResult({
+          kind: result.ok ? 'success' : 'error',
+          message: result.message,
+        })
+      } else {
+        setTestConnectionResult({
+          kind: 'success',
+          message: 'Connector validated locally (deep test not available for this type).',
+        })
+      }
     } catch (error) {
       setTestConnectionResult({
         kind: 'error',
@@ -108,17 +192,18 @@ export function ConnectionWizardModal({
   }
 
   const handleSave = () => {
-    if (!newName.trim() || !newHost.trim() || !newPort.trim() || !newInitialDatabase.trim()) {
+    const errors = validateFields
+    setFieldErrors(errors)
+    if (!newName.trim()) {
+      setFieldErrors((prev) => ({ ...prev, name: 'Connection name is required' }))
       return
     }
+    if (Object.keys(errors).length > 0) return
 
     const now = new Date().toISOString()
     const parsedPort = Number(newPort)
     const savedId = editingId ?? crypto.randomUUID()
-    const tags = newTags
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean)
+    const group = newGroup.trim()
 
     onSave({
       id: savedId,
@@ -134,7 +219,7 @@ export function ConnectionWizardModal({
         newPassword.length > 0
           ? 'stronghold://pending'
           : (existingProfile?.encryptedPasswordRef ?? 'stronghold://empty'),
-      tags: tags.length > 0 ? tags : ['Ungrouped'],
+      tags: group ? [group] : ['Ungrouped'],
       favorite: existingProfile?.favorite ?? false,
       createdAt: existingProfile?.createdAt ?? now,
       updatedAt: now,
@@ -147,6 +232,9 @@ export function ConnectionWizardModal({
 
   const inputClasses =
     'w-full rounded-lg border border-outline-variant bg-surface px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface/50 outline-none transition focus:border-outline focus:ring-2 focus:ring-primary/50'
+
+  const inputErrorClasses =
+    'w-full rounded-lg border border-red-300 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100'
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-shadow/30 p-4 backdrop-blur-sm">
@@ -255,36 +343,68 @@ export function ConnectionWizardModal({
 
             <div className="space-y-3">
               {/* Name */}
-              <input
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="Connection name"
-                className={inputClasses}
-              />
+              <div>
+                <input
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Connection name"
+                  className={fieldErrors.name ? inputErrorClasses : inputClasses}
+                />
+                {fieldErrors.name && (
+                  <p className="mt-1 flex items-center gap-1 text-[11px] text-red-500">
+                    <AlertTriangle size={11} />
+                    {fieldErrors.name}
+                  </p>
+                )}
+              </div>
 
               {/* Host & Port */}
               <div className="flex gap-2">
-                <input
-                  value={newHost}
-                  onChange={(e) => setNewHost(e.target.value)}
-                  placeholder="Host"
-                  className={`${inputClasses} w-2/3`}
-                />
-                <input
-                  value={newPort}
-                  onChange={(e) => setNewPort(e.target.value)}
-                  placeholder="Port"
-                  className={`${inputClasses} w-1/3`}
-                />
+                <div className="w-2/3">
+                  <input
+                    value={newHost}
+                    onChange={(e) => setNewHost(e.target.value)}
+                    placeholder="Host"
+                    className={fieldErrors.host ? `${inputErrorClasses} w-full` : `${inputClasses} w-full`}
+                  />
+                  {fieldErrors.host && (
+                    <p className="mt-1 flex items-center gap-1 text-[11px] text-red-500">
+                      <AlertTriangle size={11} />
+                      {fieldErrors.host}
+                    </p>
+                  )}
+                </div>
+                <div className="w-1/3">
+                  <input
+                    value={newPort}
+                    onChange={(e) => setNewPort(e.target.value)}
+                    placeholder="Port"
+                    className={fieldErrors.port ? `${inputErrorClasses} w-full` : `${inputClasses} w-full`}
+                  />
+                  {fieldErrors.port && (
+                    <p className="mt-1 flex items-center gap-1 text-[11px] text-red-500">
+                      <AlertTriangle size={11} />
+                      {fieldErrors.port}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Database */}
-              <input
-                value={newInitialDatabase}
-                onChange={(e) => setNewInitialDatabase(e.target.value)}
-                placeholder="Database"
-                className={inputClasses}
-              />
+              <div>
+                <input
+                  value={newInitialDatabase}
+                  onChange={(e) => setNewInitialDatabase(e.target.value)}
+                  placeholder="Database"
+                  className={fieldErrors.database ? inputErrorClasses : inputClasses}
+                />
+                {fieldErrors.database && (
+                  <p className="mt-1 flex items-center gap-1 text-[11px] text-red-500">
+                    <AlertTriangle size={11} />
+                    {fieldErrors.database}
+                  </p>
+                )}
+              </div>
 
               {/* Username & Password */}
               <div className="flex gap-2">
@@ -303,15 +423,75 @@ export function ConnectionWizardModal({
                 />
               </div>
 
-              {/* Tags & SSL */}
+              {/* Group & SSL */}
               <div className="flex items-center gap-3">
-                <input
-                  value={newTags}
-                  onChange={(e) => setNewTags(e.target.value)}
-                  placeholder="Group"
-                  className={`${inputClasses} flex-1`}
-                />
-                <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm text-on-surface">
+                <div className="relative flex-1" ref={groupDropdownRef}>
+                  <input
+                    ref={groupInputRef}
+                    value={newGroup}
+                    onChange={(e) => {
+                      setNewGroup(e.target.value)
+                      setGroupDropdownOpen(true)
+                    }}
+                    onFocus={() => setGroupDropdownOpen(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        setGroupDropdownOpen(false)
+                      }
+                    }}
+                    placeholder="Group"
+                    className={`${inputClasses} pr-8`}
+                    autoComplete="off"
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => {
+                      setGroupDropdownOpen((prev) => !prev)
+                      if (!groupDropdownOpen) groupInputRef.current?.focus()
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <ChevronDown size={14} className={`transition-transform ${groupDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {groupDropdownOpen && (filteredGroups.length > 0 || isNewGroupValue) && (
+                    <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-40 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                      {filteredGroups.map((group) => (
+                        <button
+                          key={group}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            setNewGroup(group)
+                            setGroupDropdownOpen(false)
+                          }}
+                          className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition hover:bg-blue-50 ${
+                            group === newGroup ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700'
+                          }`}
+                        >
+                          <span className="truncate">{group}</span>
+                          {group === newGroup && (
+                            <Check size={12} className="ml-auto shrink-0 text-blue-600" />
+                          )}
+                        </button>
+                      ))}
+                      {isNewGroupValue && (
+                        <button
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            setGroupDropdownOpen(false)
+                          }}
+                          className="flex w-full items-center gap-2 border-t border-slate-100 px-3 py-1.5 text-left text-sm text-blue-600 transition hover:bg-blue-50"
+                        >
+                          <Plus size={12} className="shrink-0" />
+                          <span className="truncate">Create "{newGroup.trim()}"</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm text-slate-600">
                   <span
                     className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${newSsl ? 'bg-primary-container' : 'bg-outline-variant'
                       }`}
@@ -368,6 +548,19 @@ export function ConnectionWizardModal({
                   </div>
                 )}
               </div>
+
+              {/* Skip test override for new SQL/ES connections */}
+              {needsTestGate && !isTestPassed && (
+                <label className="flex items-center gap-2 text-xs text-slate-500 select-none cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={skipTest}
+                    onChange={(e) => setSkipTest(e.target.checked)}
+                    className="accent-amber-500"
+                  />
+                  Skip test and save anyway (not recommended)
+                </label>
+              )}
             </div>
           </div>
         )}
@@ -397,8 +590,8 @@ export function ConnectionWizardModal({
             <button
               type="button"
               onClick={handleSave}
-              disabled={!newName.trim() || !newHost.trim() || !newPort.trim() || !newInitialDatabase.trim()}
-              className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-primary-container px-5 py-2.5 text-sm font-semibold text-on-primary-container shadow-sm transition hover:bg-primary hover:text-on-primary active:bg-primary-dark active:text-on-primary disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!canSave || !newName.trim()}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Check size={15} />
               {editingId ? 'Update Connection' : 'Save Connection'}
