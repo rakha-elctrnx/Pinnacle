@@ -13,6 +13,12 @@
     "windows": [
       {
         "title": "Pinnacle",
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 19,
+          "y": 22
+        },
         "width": 1360,
         "height": 860,
         "minWidth": 1080,

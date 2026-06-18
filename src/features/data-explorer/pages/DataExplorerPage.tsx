@@ -1,6 +1,5 @@
-import { useDataExplorerOrchestrator } from '../hooks/useDataExplorerOrchestrator'
-import { ConnectionSidebar } from '../components/ConnectionSidebar'
-import { DetailsPanel } from '../components/DetailsPanel'
+import { useMemo } from 'react'
+import { useDataExplorerContext } from '../context/DataExplorerContext'
 import { SqlExplorerWorkspace } from '../components/db/sql/SqlExplorerWorkspace'
 import { RedisWorkspaceNotice } from '../components/db/redis/RedisWorkspaceNotice'
 import { RabbitMqWorkspaceNotice } from '../components/db/rabbitmq/RabbitMqWorkspaceNotice'
@@ -15,40 +14,38 @@ import { TableDesignerModal } from '../components/table-designer/TableDesignerMo
 import { useDesignerStore } from '../../../state/designerStore'
 import { executeSql } from '../../../services/tauriClient'
 import { getConnPayload, isSqlConnectionType, quoteIdentifier } from '../utils'
-import { useMemo } from 'react'
 
+/**
+ * DataExplorerPage — the routed page body that lives inside the
+ * `PageWorkspace` region of the five-region DataExplorerLayout.
+ *
+ * The chrome (header, footer, navigation strip, sidebar overlay,
+ * inspector overlay) is owned by `DataExplorerLayout`. This component
+ * is responsible only for:
+ *   • Rendering the per-connection workspace body
+ *   • Mounting the global modals (wizard, context menu, table delete,
+ *     data operation, export, table designer)
+ *
+ * All shared state is consumed from the application-level
+ * `DataExplorerContext` (mounted once by `DataExplorerLayout`) so the
+ * page works against the same orchestrator instance as the sidebar,
+ * footer, header, and inspector — preventing split state where the
+ * page would not see connection selections made in the sidebar.
+ */
 export function DataExplorerPage() {
   const {
-    // Store state
-    search,
-    setSearch,
     items,
-
-    // Derived connection data
-    groupedConnections,
     recentConnections,
     selectedConnection,
-
-    // Selection state
     selectedConnectionId,
-    expandedConnectionId,
-    selectedTreeNode,
-    expandedTreePaths,
     connectionStatuses,
-
-    // Modal state
     isAddModalOpen,
     editingId,
     contextMenu,
     contextMenuRef,
-
-    // Workspace state
     isDetailsPanelOpen,
     elasticPanel,
     selectedElasticIndex,
-    elasticIndices,
-    elasticIndicesError,
-    elasticLoading,
     openedElasticTabs,
     activeElasticTabId,
     openedTableTabs,
@@ -57,20 +54,8 @@ export function DataExplorerPage() {
     tableInfoTab,
     queryResultTab,
     lastRefreshedAt,
-
-    // Sidebar
-    sidebarWidth,
-    isResizing,
-
-    // Hooks
     explorerData,
     queryExecution,
-
-    // Detail stats
-    detailsStats,
-
-    // Handlers & setters
-    openCreateWizard,
     handleConnectionSelectionChange,
     handleOpenEditModal,
     handleDuplicateConnection,
@@ -78,17 +63,12 @@ export function DataExplorerPage() {
     handleRefreshConnection,
     handleCloseConnection,
     handleSaveConnection,
-    handleToggleTreeNode,
-    handleFetchDatabaseDetails,
     wrappedHandleTreeNodeClick,
     handleCloseTableTab,
     handleActiveTableTabChange,
     handleActiveQueryTabIdChange,
     handleCloseElasticTab,
     handleActiveElasticTabIdChange,
-    handleResizeStart,
-    handleRetryElasticIndices,
-
     setExpandedConnectionId,
     setContextMenu,
     setSelectedTreeNode,
@@ -99,19 +79,15 @@ export function DataExplorerPage() {
     setQueryResultTab,
     setOpenedElasticTabs,
     setActiveElasticTabId,
-
     handleDeleteConnection,
     handleCloseAddModal,
-
     deleteTableTarget,
     handleRequestDeleteTable,
     handleRequestDeleteTableFromMenu,
     handleCloseDeleteTableModal,
-
     dataOperationTarget,
     handleRequestDataOperationFromMenu,
     handleCloseDataOperationModal,
-
     exportModalTarget,
     exportEstimate,
     exportJob,
@@ -121,7 +97,7 @@ export function DataExplorerPage() {
     handleSubmitExport,
     handleUseRecentExport,
     handleCloseExportModal,
-  } = useDataExplorerOrchestrator()
+  } = useDataExplorerContext()
 
   // Derive unique existing groups from all connection profiles
   const existingGroups = useMemo(
@@ -249,254 +225,159 @@ export function DataExplorerPage() {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <section className="flex-1 overflow-hidden border-outline-variant bg-surface shadow-sm">
-        <div className="flex h-full min-h-0 flex-col lg:flex-row">
-          {/* Sidebar with dynamic width */}
-          <div
-            style={{ width: sidebarWidth }}
-            className="hidden lg:block shrink-0 overflow-x-hidden border-outline-variant overflow-y-auto min-w-0"
-          >
-            <ConnectionSidebar
-              search={search}
-              onSearchChange={setSearch}
-              groupedConnections={groupedConnections}
-              selectedConnection={selectedConnection}
-              expandedConnectionId={expandedConnectionId}
-              treeLoading={explorerData.treeLoading}
-              selectedTreeNode={selectedTreeNode}
-              savedQueries={queryExecution.savedQueriesByConnection}
-              onOpenCreateWizard={openCreateWizard}
-              onSelectConnection={handleConnectionSelectionChange}
-              onToggleExpand={(id) => setExpandedConnectionId(expandedConnectionId === id ? null : id)}
-              onContextMenu={(event, itemId) =>
-                setContextMenu({ x: event.clientX, y: event.clientY, itemId })
-              }
-              getTreeNodesForConnection={explorerData.getTreeNodesForConnection}
-              onTreeNodeClick={wrappedHandleTreeNodeClick}
-              onSelectedTreeNode={setSelectedTreeNode}
-              expandedTreePaths={expandedTreePaths}
-              onToggleTreeNode={handleToggleTreeNode}
-              onFetchDatabaseDetails={handleFetchDatabaseDetails}
-              onUseSavedQuery={queryExecution.applySavedQueryToActiveTab}
-              onTableNodeContextMenu={(event, connectionId, tableName) => {
-                setContextMenu({ x: event.clientX, y: event.clientY, itemId: connectionId, tableName })
-              }}
-              elasticIndices={elasticIndices}
-              elasticIndicesError={elasticIndicesError}
-              elasticLoading={elasticLoading}
-              onRetryElasticIndices={handleRetryElasticIndices}
-            />
-          </div>
-
-          {/* Mobile sidebar */}
-          <div className="lg:hidden shrink-0">
-            <ConnectionSidebar
-              search={search}
-              onSearchChange={setSearch}
-              groupedConnections={groupedConnections}
-              selectedConnection={selectedConnection}
-              expandedConnectionId={expandedConnectionId}
-              treeLoading={explorerData.treeLoading}
-              selectedTreeNode={selectedTreeNode}
-              savedQueries={queryExecution.savedQueriesByConnection}
-              onOpenCreateWizard={openCreateWizard}
-              onSelectConnection={handleConnectionSelectionChange}
-              onToggleExpand={(id) => setExpandedConnectionId(expandedConnectionId === id ? null : id)}
-              onContextMenu={(event, itemId) =>
-                setContextMenu({ x: event.clientX, y: event.clientY, itemId })
-              }
-              getTreeNodesForConnection={explorerData.getTreeNodesForConnection}
-              onTreeNodeClick={wrappedHandleTreeNodeClick}
-              onSelectedTreeNode={setSelectedTreeNode}
-              expandedTreePaths={expandedTreePaths}
-              onToggleTreeNode={handleToggleTreeNode}
-              onFetchDatabaseDetails={handleFetchDatabaseDetails}
-              onUseSavedQuery={queryExecution.applySavedQueryToActiveTab}
-              onTableNodeContextMenu={(event, connectionId, tableName) => {
-                setContextMenu({ x: event.clientX, y: event.clientY, itemId: connectionId, tableName })
-              }}
-              elasticIndices={elasticIndices}
-              elasticIndicesError={elasticIndicesError}
-              elasticLoading={elasticLoading}
-              onRetryElasticIndices={handleRetryElasticIndices}
-            />
-          </div>
-
-          {/* Resize handle (desktop only) */}
-          <div
-            onMouseDown={handleResizeStart}
-            className={[
-              'hidden lg:block shrink-0 cursor-col-resize relative border border-outline-variant',
-              isResizing ? 'bg-blue-400' : 'bg-transparent hover:bg-blue-300',
-            ].join(' ')}
-          >
-            <div className="absolute inset-y-0 " />
-          </div>
-
-          <main className="flex-1 min-w-0 flex flex-col overflow-hidden border-b border-outline-variant lg:border-b-0">
-            {!selectedConnection ? (
-              <section className="flex items-center justify-center h-full">
-                <div className="flex flex-col items-center gap-4 text-center max-w-md px-6">
-                  <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-on-primary-container border border-outline-variant">
-                    <svg
-                      className="w-8 h-8 text-primary-container"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125"
-                      />
-                    </svg>
-                  </div>
-                  <div className="space-y-1.5">
-                    <h3 className="text-base font-semibold text-on-surface">
-                      No Connection Selected
-                    </h3>
-                    <p className="text-sm text-on-surface-variant leading-relaxed">
-                      Select a connection from the sidebar or create a new one to start exploring your database.
-                    </p>
-                  </div>
-                </div>
-              </section>
-            ) : (
-              <div className="flex-1 min-h-0 flex flex-col space-y-4 overflow-hidden">
-                {(selectedConnection.type === 'postgresql' || selectedConnection.type === 'mysql') && (
-                  <SqlExplorerWorkspace
-                    selectedConnection={selectedConnection}
-                    lastRefreshedAt={lastRefreshedAt}
-                    selectedTable={explorerData.selectedTable}
-                    tableInfoTab={tableInfoTab}
-                    onTableInfoTabChange={setTableInfoTab}
-                    realTableStats={explorerData.realTableStats}
-                    tableDataLoading={explorerData.tableDataLoading}
-                    realTableStructure={explorerData.realTableStructure}
-                    realTableIndexes={explorerData.realTableIndexes}
-                    realTableColumns={explorerData.realTableColumns}
-                    realTableRows={explorerData.realTableRows}
-                    sqlTableList={explorerData.sqlTableList}
-                    sqlTableListLoading={explorerData.sqlTableListLoading}
-                    schemaForeignKeys={explorerData.schemaForeignKeys}
-                    schemaColumns={explorerData.schemaColumns}
-                    isSqlTableListView={isSqlTableListView}
-                    queryTabs={queryExecution.queryTabs}
-                    queryTabsDirty={queryExecution.queryTabsDirty}
-                    activeQueryTab={queryExecution.activeQueryTab}
-                    activeQueryTabId={queryExecution.activeQueryTabId}
-                    treeData={explorerData.treeDataMap[selectedConnection.id] ?? null}
-                    selectedConnectionType={selectedConnection.type}
-                    queryDatabase={queryExecution.queryDatabase}
-                    querySchema={queryExecution.querySchema}
-                    onQueryDatabaseChange={queryExecution.onQueryDatabaseChange}
-                    onQuerySchemaChange={queryExecution.onQuerySchemaChange}
-                    isRunningQuery={queryExecution.isRunningQuery}
-                    queryResult={queryExecution.queryResult}
-                    queryMessages={queryExecution.queryMessages}
-                    queryResultTab={queryResultTab}
-                    queryHistoryByConnection={
-                      queryExecution.queryHistoryByConnection[selectedConnection.id] ?? []
-                    }
-                    savedQueries={queryExecution.savedQueriesByConnection[selectedConnection.id] ?? []}
-                    openedTableTabs={openedTableTabs}
-                    activeTableTabId={activeTableTabId}
-                    selectedConnectionId={selectedConnectionId}
-                    onSelectedConnectionIdChange={handleConnectionSelectionChange}
-                    onExpandedConnectionIdChange={setExpandedConnectionId}
-                    recentConnections={recentConnections}
-                    selectedConnectionStatus={
-                      connectionStatuses[selectedConnection.id] ?? 'disconnected'
-                    }
-                    isDetailsPanelOpen={isDetailsPanelOpen}
-                    onToggleDetailsPanel={() => setIsDetailsPanelOpen((prev) => !prev)}
-                    onActiveQueryTabIdChange={handleActiveQueryTabIdChange}
-                    onCloseQueryTab={queryExecution.closeQueryTab}
-                    onActiveTableTabIdChange={handleActiveTableTabChange}
-                    onCloseTableTab={handleCloseTableTab}
-                    onAddQueryTab={queryExecution.addQueryTab}
-                    onSelectTableFromList={(tableName) => {
-                      wrappedHandleTreeNodeClick(tableName, queryExecution.queryDatabase || explorerData.selectedDatabase)
-                    }}
-                    onCreateTable={handleCreateTable}
-                    onEditTable={handleEditTable}
-                    onDeleteTable={handleDeleteTable}
-                    onRequestDeleteTable={handleRequestDeleteTable}
-                    onOpenDesigner={handleOpenDesignerForEdit}
-                    onCreateInDesigner={handleCreateInDesigner}
-                    onExportData={handleRequestExport}
-                    onUpdateActiveQuery={queryExecution.updateActiveQuery}
-                    onSaveQuery={queryExecution.saveActiveQuery}
-                    onUseSavedQuery={queryExecution.applySavedQueryToActiveTab}
-                    onQueryResultTabChange={setQueryResultTab}
-                    onRunQuery={queryExecution.handleRunQuery}
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {!selectedConnection ? (
+          <section className="flex h-full items-center justify-center">
+            <div className="flex flex-col items-center gap-4 text-center max-w-md px-6">
+              <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-on-primary-container border border-outline-variant">
+                <svg
+                  className="w-8 h-8 text-primary-container"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125"
                   />
-                )}
-
-                {selectedConnection.type === 'redis' && (
-                  <RedisWorkspaceNotice
-                    host={selectedConnection.host}
-                    port={selectedConnection.port}
-                  />
-                )}
-
-                {selectedConnection.type === 'rabbitmq' && (
-                  <RabbitMqWorkspaceNotice
-                    host={selectedConnection.host}
-                    port={selectedConnection.port}
-                  />
-                )}
-
-                {selectedConnection.type === 'elasticsearch' && (
-                  <ElasticExplorerWorkspace
-                    payload={{
-                      type: selectedConnection.type,
-                      host: selectedConnection.host,
-                      port: selectedConnection.port,
-                      database: selectedConnection.database ?? '',
-                      username: selectedConnection.username,
-                      password: selectedConnection.password,
-                      ssl: selectedConnection.ssl ?? false,
-                    }}
-                    activePanel={elasticPanel}
-                    selectedIndex={selectedElasticIndex}
-                    onSelectIndex={(name: string) => {
-                      setElasticPanel('documents')
-                      setSelectedElasticIndex(name)
-                      setSelectedTreeNode(name)
-                      const existingTab = openedElasticTabs.find((tab) => tab.indexName === name)
-                      if (existingTab) {
-                        setActiveElasticTabId(existingTab.id)
-                      } else {
-                        const tabId = crypto.randomUUID()
-                        setOpenedElasticTabs((prev) => [...prev, { id: tabId, indexName: name }])
-                        setActiveElasticTabId(tabId)
-                      }
-                    }}
-                    openedElasticTabs={openedElasticTabs}
-                    activeElasticTabId={activeElasticTabId}
-                    onActiveElasticTabIdChange={handleActiveElasticTabIdChange}
-                    onCloseElasticTab={handleCloseElasticTab}
-                  />
-                )}
-
-                {selectedConnection.type === 'mongodb' && <MongodbWorkspaceNotice />}
+                </svg>
               </div>
+              <div className="space-y-1.5">
+                <h3 className="text-base font-semibold text-on-surface">
+                  No Connection Selected
+                </h3>
+                <p className="text-sm text-on-surface-variant leading-relaxed">
+                  Select a connection from the sidebar or create a new one to start exploring your database.
+                </p>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <div className="flex h-full min-h-0 flex-col space-y-4 overflow-hidden">
+            {(selectedConnection.type === 'postgresql' || selectedConnection.type === 'mysql') && (
+              <SqlExplorerWorkspace
+                selectedConnection={selectedConnection}
+                lastRefreshedAt={lastRefreshedAt}
+                selectedTable={explorerData.selectedTable}
+                tableInfoTab={tableInfoTab}
+                onTableInfoTabChange={setTableInfoTab}
+                realTableStats={explorerData.realTableStats}
+                tableDataLoading={explorerData.tableDataLoading}
+                realTableStructure={explorerData.realTableStructure}
+                realTableIndexes={explorerData.realTableIndexes}
+                realTableColumns={explorerData.realTableColumns}
+                realTableRows={explorerData.realTableRows}
+                sqlTableList={explorerData.sqlTableList}
+                sqlTableListLoading={explorerData.sqlTableListLoading}
+                schemaForeignKeys={explorerData.schemaForeignKeys}
+                schemaColumns={explorerData.schemaColumns}
+                isSqlTableListView={isSqlTableListView}
+                queryTabs={queryExecution.queryTabs}
+                queryTabsDirty={queryExecution.queryTabsDirty}
+                activeQueryTab={queryExecution.activeQueryTab}
+                activeQueryTabId={queryExecution.activeQueryTabId}
+                treeData={explorerData.treeDataMap[selectedConnection.id] ?? null}
+                selectedConnectionType={selectedConnection.type}
+                queryDatabase={queryExecution.queryDatabase}
+                querySchema={queryExecution.querySchema}
+                onQueryDatabaseChange={queryExecution.onQueryDatabaseChange}
+                onQuerySchemaChange={queryExecution.onQuerySchemaChange}
+                isRunningQuery={queryExecution.isRunningQuery}
+                queryResult={queryExecution.queryResult}
+                queryMessages={queryExecution.queryMessages}
+                queryResultTab={queryResultTab}
+                queryHistoryByConnection={
+                  queryExecution.queryHistoryByConnection[selectedConnection.id] ?? []
+                }
+                savedQueries={queryExecution.savedQueriesByConnection[selectedConnection.id] ?? []}
+                openedTableTabs={openedTableTabs}
+                activeTableTabId={activeTableTabId}
+                selectedConnectionId={selectedConnectionId}
+                onSelectedConnectionIdChange={handleConnectionSelectionChange}
+                onExpandedConnectionIdChange={setExpandedConnectionId}
+                recentConnections={recentConnections}
+                selectedConnectionStatus={
+                  connectionStatuses[selectedConnection.id] ?? 'disconnected'
+                }
+                isDetailsPanelOpen={isDetailsPanelOpen}
+                onToggleDetailsPanel={() => setIsDetailsPanelOpen((prev) => !prev)}
+                onActiveQueryTabIdChange={handleActiveQueryTabIdChange}
+                onCloseQueryTab={queryExecution.closeQueryTab}
+                onActiveTableTabIdChange={handleActiveTableTabChange}
+                onCloseTableTab={handleCloseTableTab}
+                onAddQueryTab={queryExecution.addQueryTab}
+                onSelectTableFromList={(tableName) => {
+                  wrappedHandleTreeNodeClick(tableName, queryExecution.queryDatabase || explorerData.selectedDatabase)
+                }}
+                onCreateTable={handleCreateTable}
+                onEditTable={handleEditTable}
+                onDeleteTable={handleDeleteTable}
+                onRequestDeleteTable={handleRequestDeleteTable}
+                onOpenDesigner={handleOpenDesignerForEdit}
+                onCreateInDesigner={handleCreateInDesigner}
+                onExportData={handleRequestExport}
+                onUpdateActiveQuery={queryExecution.updateActiveQuery}
+                onSaveQuery={queryExecution.saveActiveQuery}
+                onUseSavedQuery={queryExecution.applySavedQueryToActiveTab}
+                onQueryResultTabChange={setQueryResultTab}
+                onRunQuery={queryExecution.handleRunQuery}
+              />
             )}
-          </main>
 
-          {isDetailsPanelOpen && (
-            <DetailsPanel
-              selectedConnection={selectedConnection}
-              detailsStats={detailsStats}
-              onClose={() => setIsDetailsPanelOpen(false)}
-              onExportData={() => handleRequestExport(explorerData.selectedTable ?? '')}
-            />
-          )}
-        </div>
-      </section>
+            {selectedConnection.type === 'redis' && (
+              <RedisWorkspaceNotice
+                host={selectedConnection.host}
+                port={selectedConnection.port}
+              />
+            )}
+
+            {selectedConnection.type === 'rabbitmq' && (
+              <RabbitMqWorkspaceNotice
+                host={selectedConnection.host}
+                port={selectedConnection.port}
+              />
+            )}
+
+            {selectedConnection.type === 'elasticsearch' && (
+              <ElasticExplorerWorkspace
+                payload={{
+                  type: selectedConnection.type,
+                  host: selectedConnection.host,
+                  port: selectedConnection.port,
+                  database: selectedConnection.database ?? '',
+                  username: selectedConnection.username,
+                  password: selectedConnection.password,
+                  ssl: selectedConnection.ssl ?? false,
+                }}
+                activePanel={elasticPanel}
+                selectedIndex={selectedElasticIndex}
+                onSelectIndex={(name: string) => {
+                  setElasticPanel('documents')
+                  setSelectedElasticIndex(name)
+                  setSelectedTreeNode(name)
+                  const existingTab = openedElasticTabs.find((tab) => tab.indexName === name)
+                  if (existingTab) {
+                    setActiveElasticTabId(existingTab.id)
+                  } else {
+                    const tabId = crypto.randomUUID()
+                    setOpenedElasticTabs((prev) => [...prev, { id: tabId, indexName: name }])
+                    setActiveElasticTabId(tabId)
+                  }
+                }}
+                openedElasticTabs={openedElasticTabs}
+                activeElasticTabId={activeElasticTabId}
+                onActiveElasticTabIdChange={handleActiveElasticTabIdChange}
+                onCloseElasticTab={handleCloseElasticTab}
+              />
+            )}
+
+            {selectedConnection.type === 'mongodb' && <MongodbWorkspaceNotice />}
+          </div>
+        )}
+      </div>
 
       {contextMenu && (
         <div ref={contextMenuRef}>

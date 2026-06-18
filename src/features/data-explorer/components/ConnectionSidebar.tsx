@@ -3,6 +3,7 @@ import {
   Activity,
   Braces,
   ChevronRight,
+  ChevronsLeftRightEllipsis,
   Database,
   FileText,
   Folder,
@@ -12,52 +13,25 @@ import {
   List,
   MessageSquare,
   Plus,
-  Search,
   Table,
   Terminal,
   Zap,
 } from "lucide-react";
 import { CenteredLoadingState } from "./shared/CenteredLoadingState";
-import type { ConnectionProfile, ConnectionType, ElasticIndex } from "../../../types/domain";
+import type { ConnectionType, ElasticIndex } from "../../../types/domain";
 import type { TreeNode, SavedQuery } from "../types";
 import { databaseTypeOptions } from "../constants";
 import { isSqlConnectionType } from "../utils";
+import { useDataExplorerContext } from "../context/DataExplorerContext";
 
-interface ConnectionSidebarProps {
-  search: string;
-  onSearchChange: (value: string) => void;
-  groupedConnections: Record<string, ConnectionProfile[]>;
-  selectedConnection: ConnectionProfile | null;
-  expandedConnectionId: string | null;
-  treeLoading: Record<string, boolean>;
-  selectedTreeNode: string | null;
-  expandedTreePaths: string[];
-  savedQueries: Record<string, SavedQuery[]>;
-  onOpenCreateWizard: () => void;
-  onSelectConnection: (id: string) => void;
-  onToggleExpand: (id: string) => void;
-  onContextMenu: (event: React.MouseEvent, itemId: string) => void;
-  getTreeNodesForConnection: (conn: ConnectionProfile) => TreeNode[];
-  onTreeNodeClick: (
-    nodeLabel: string,
-    databaseName?: string,
-    nodePath?: string,
-  ) => void;
-  onSelectedTreeNode: (label: string | null) => void;
-  onToggleTreeNode: (path: string) => void;
-  onFetchDatabaseDetails?: (dbName: string) => void;
-  onUseSavedQuery?: (sql: string) => void;
-  onTableNodeContextMenu?: (event: React.MouseEvent, connectionId: string, tableName: string) => void;
-  /** Elasticsearch indices per connection id */
-  elasticIndices?: Record<string, ElasticIndex[]>;
-  /** Elasticsearch indices fetch errors per connection id */
-  elasticIndicesError?: Record<string, string>;
-  /** Elasticsearch indices currently loading per connection id */
-  elasticLoading?: Record<string, boolean>;
-  /** Callback to retry fetching Elasticsearch indices */
-  onRetryElasticIndices?: (connectionId: string) => void;
-}
-
+/**
+ * ConnectionSidebar — connection tree panel.
+ *
+ * After the five-region layout refactor (task-025) this component no
+ * longer receives props. All state is read from `useDataExplorerContext`,
+ * eliminating the ~21-prop drilling surface from the legacy `AppShell`
+ * era.
+ */
 const CATEGORY_LABELS = [
   "Tables",
   "Views",
@@ -249,20 +223,20 @@ function TreeNodeItem({
           }
         }}
         className={[
-          "flex w-full items-center gap-1 px-2 py-1 text-[11px] font-medium hover:bg-surface-variant overflow-hidden cursor-pointer",
+          "group flex w-full items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium overflow-hidden cursor-pointer transition-all duration-150",
           selectedTreeNode === node.label
-            ? "bg-surface-variant/80 text-primary"
-            : "text-on-surface",
+            ? "bg-primary/10 text-primary"
+            : "text-on-surface hover:bg-surface-variant/70 hover:text-on-surface-variant",
         ].join(" ")}
-        style={{ paddingLeft: `${depth * 12 + 18}px` }}
+        style={{ paddingLeft: `${depth * 12 + 8}px` }}
       >
         {/* Chevron indicator for expandable nodes with children (left-most) */}
         {hasChildren && !isLeaf ? (
           <ChevronRight
             size={11}
             className={[
-              "shrink-0 text-slate-400 transition-transform",
-              isExpanded ? "rotate-90" : "",
+              "shrink-0 text-slate-400 transition-transform duration-150 group-hover:text-slate-500",
+              isExpanded ? "rotate-90 text-blue-500" : "",
             ].join(" ")}
           />
         ) : (
@@ -295,17 +269,17 @@ function TreeNodeItem({
                     onUseSavedQuery?.(sq.sql);
                   }}
                   className={[
-                    "flex w-full items-center gap-1 rounded px-2 py-1 text-[11px] hover:bg-surface-variant overflow-hidden",
+                    "group flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-[11px] overflow-hidden cursor-pointer transition-all duration-150",
                     selectedTreeNode === sq.id
-                      ? "bg-surface-variant/80 text-primary"
-                      : "text-on-surface",
+                      ? "bg-primary/10 text-primary"
+                      : "text-on-surface hover:bg-surface-variant/70 hover:text-on-surface-variant",
                   ].join(" ")}
                   style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}
                   title={sq.sql}
                 >
                   <FileText size={11} className="shrink-0 text-amber-500" />
                   <span className="min-w-0 flex-1 truncate">{sq.title}</span>
-                  <span className="shrink-0 text-[10px] text-slate-400">
+                  <span className="shrink-0 rounded bg-surface-variant/60 px-1 text-[9px] font-medium tabular-nums text-slate-500">
                     {new Date(sq.updatedAt).toLocaleDateString(undefined, {
                       month: "short",
                       day: "numeric",
@@ -345,32 +319,31 @@ function TreeNodeItem({
   );
 }
 
-export function ConnectionSidebar({
-  search,
-  onSearchChange,
-  groupedConnections,
-  selectedConnection,
-  expandedConnectionId,
-  treeLoading,
-  selectedTreeNode,
-  expandedTreePaths,
-  savedQueries,
-  onOpenCreateWizard,
-  onSelectConnection,
-  onToggleExpand,
-  onContextMenu,
-  getTreeNodesForConnection,
-  onTreeNodeClick,
-  onSelectedTreeNode,
-  onToggleTreeNode,
-  onFetchDatabaseDetails,
-  onUseSavedQuery,
-  onTableNodeContextMenu,
-  elasticIndices,
-  elasticIndicesError,
-  elasticLoading,
-  onRetryElasticIndices,
-}: ConnectionSidebarProps) {
+export function ConnectionSidebar() {
+  const {
+    groupedConnections,
+    selectedConnection,
+    expandedConnectionId,
+    selectedTreeNode,
+    expandedTreePaths,
+    openCreateWizard,
+    handleConnectionSelectionChange,
+    setExpandedConnectionId,
+    setContextMenu,
+    explorerData,
+    wrappedHandleTreeNodeClick,
+    setSelectedTreeNode,
+    handleToggleTreeNode,
+    handleFetchDatabaseDetails,
+    queryExecution,
+    elasticIndices,
+    elasticIndicesError,
+    elasticLoading,
+    handleRetryElasticIndices,
+  } = useDataExplorerContext()
+
+  const savedQueriesByConnection = queryExecution.savedQueriesByConnection
+
   // Track which groups are collapsed; default is expanded (empty set).
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
     () => new Set(),
@@ -391,63 +364,88 @@ export function ConnectionSidebar({
     });
   };
 
+  const handleToggleExpand = (id: string) => {
+    setExpandedConnectionId(expandedConnectionId === id ? null : id)
+  }
+
+  const handleContextMenu = (event: React.MouseEvent, itemId: string) => {
+    event.preventDefault()
+    setContextMenu({ x: event.clientX, y: event.clientY, itemId })
+  }
+
+  const handleTableNodeContextMenu = (
+    event: React.MouseEvent,
+    connectionId: string,
+    tableName: string,
+  ) => {
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      itemId: connectionId,
+      tableName,
+    })
+  }
+
+  const applySavedQueryToActiveTab = queryExecution.applySavedQueryToActiveTab
+
   return (
-    <aside className="h-full overflow-x-hidden overflow-y-auto min-w-0">
-      <div className="mb-2 flex items-center justify-between px-3 pt-3">
-        <p className="text-sm font-semibold text-on-surface">Connections</p>
+    <aside className="flex h-full min-w-0 flex-col overflow-hidden bg-surface-container-low/40">
+      {/* Header (fixed) */}
+      <div className="flex shrink-0 items-center justify-between border-b border-outline-variant/60 bg-surface-container-lowest/60 pl-3 pr-2.5 py-2.5 backdrop-blur-sm">
+        <div className="flex items-center gap-1.5">
+          <ChevronsLeftRightEllipsis size={14} className="text-on-surface-variant" />
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-on-surface">
+            Connections
+          </p>
+        </div>
         <button
           type="button"
-          onClick={onOpenCreateWizard}
-          className="rounded-lg p-1.5 text-on-surface hover:bg-surface-variant"
+          onClick={openCreateWizard}
+          className="rounded-md p-1 text-on-surface-variant transition-all duration-150 hover:bg-surface-variant hover:text-primary active:scale-95"
+          aria-label="Create connection"
         >
-          <Plus size={15} />
+          <Plus size={14} />
         </button>
       </div>
 
-      <label className="relative mb-3 block mx-3">
-        <Search
-          size={14}
-          className="pointer-events-none absolute left-3 top-2.5 text-on-surface-variant"
-        />
-        <input
-          value={search}
-          onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search connections"
-          className="w-full rounded-xl border border-outline bg-surface-variant py-2 focus:outline-none focus:ring-1 focus:ring-on-surface pl-8 pr-3 text-xs text-on-surface-variant placeholder:text-on-surface-variant/70"
-        />
-      </label>
-
-      <div className="space-y-3">
+      {/* Scrollable connection list (scrollbar scoped here) */}
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-2">
         {Object.entries(groupedConnections).map(([group, profiles]) => {
           const collapsed = isGroupCollapsed(group);
           return (
-            <section key={group}>
+            <section key={group} className="space-y-0.5">
               <button
                 type="button"
                 onClick={() => toggleGroup(group)}
                 aria-expanded={!collapsed}
                 aria-controls={`group-${group}-content`}
-                className="mb-1.5 flex w-full items-center gap-1.5 px-3 text-left transition-colors text-[11px] font-semibold uppercase tracking-wide text-slate-400 hover:text-slate-500"
+                className="group flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 transition-all duration-150 hover:bg-surface-variant/60 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
               >
-                <ChevronRight
-                  size={11}
-                  className={[
-                    "shrink-0 text-slate-400 transition-transform duration-200",
-                    collapsed ? "" : "rotate-90",
-                  ].join(" ")}
-                />
+                
                 {collapsed ? (
                   <Folder
                     size={11}
-                    className="shrink-0 text-slate-500"
+                    className="shrink-0 text-slate-400 transition-colors group-hover:text-slate-500"
                   />
                 ) : (
                   <FolderOpen
                     size={11}
-                    className="shrink-0 text-slate-400"
+                    className="shrink-0 text-blue-500 transition-colors"
                   />
                 )}
                 <span className="min-w-0 flex-1 truncate">{group}</span>
+                {/* Horizontal separator */}
+                <span
+                  aria-hidden
+                  className="mx-1 h-px flex-1 bg-gradient-to-r from-outline-variant/70 via-outline-variant/40 to-transparent"
+                />
+                <ChevronRight
+                  size={11}
+                  className={[
+                    "shrink-0 text-slate-400 transition-transform duration-200 group-hover:text-slate-500",
+                    collapsed ? "" : "rotate-90",
+                  ].join(" ")}
+                />
               </button>
               <div
                 id={`group-${group}-content`}
@@ -455,22 +453,22 @@ export function ConnectionSidebar({
                   "overflow-hidden transition-all duration-200 ease-in-out",
                   collapsed
                     ? "max-h-0 opacity-0"
-                    : "max-h-500 opacity-100",
+                    : "max-h-[5000px] opacity-100",
                 ].join(" ")}
                 aria-hidden={collapsed}
               >
-                <div className="space-y-1 ml-2">
+                <div className="space-y-0.5 pt-0.5">
                   {profiles.map((item) => {
                     const active = selectedConnection?.id === item.id;
                     const logo = databaseTypeOptions.find(
                       (option) => option.value === item.type,
                     )?.logoSrc;
-                    const isLoading = treeLoading[item.id] || !!elasticLoading?.[item.id];
-                    const connectionSavedQueries = savedQueries[item.id] ?? [];
+                    const isLoading = explorerData.treeLoading[item.id] || !!elasticLoading?.[item.id];
+                    const connectionSavedQueries = savedQueriesByConnection[item.id] ?? [];
 
                     // Get tree nodes based on connection type
                     const sqlTreeNodes = isSqlConnectionType(item.type)
-                      ? getTreeNodesForConnection(item)
+                      ? explorerData.getTreeNodesForConnection(item)
                       : [];
                     const connectionIndices = elasticIndices?.[item.id];
                     const staticTreeNodes = isSqlConnectionType(item.type)
@@ -480,85 +478,87 @@ export function ConnectionSidebar({
                       sqlTreeNodes.length > 0 ? sqlTreeNodes : staticTreeNodes;
 
                     return (
-                      <div key={item.id}>
+                      <div key={item.id} className="relative">
                         <button
                           type="button"
                           onClick={() => {
-                            onSelectConnection(item.id);
-                            onToggleExpand(item.id);
+                            handleConnectionSelectionChange(item.id);
+                            handleToggleExpand(item.id);
                           }}
-                          onContextMenu={(event) => {
-                            event.preventDefault();
-                            onContextMenu(event, item.id);
-                          }}
+                          onContextMenu={(event) => handleContextMenu(event, item.id)}
                           className={[
-                            "cursor-pointer w-full px-3 py-2 text-left transition hover:bg-surface-variant hover:text-on-surface-variant overflow-hidden",
-                            active ? "bg-surface-container-lowest" : "",
+                            "group flex w-full items-center gap-1.5 rounded-md py-1.5 pr-2 text-left text-[11px] transition-all duration-150 overflow-hidden",
+                            active
+                              ? "bg-gradient-to-r from-blue-50/80 to-transparent pl-[9px] text-on-surface-variant shadow-[inset_0_0_0_1px_rgba(59,130,246,0.12)] dark:from-blue-950/30"
+                              : "pl-[7px] text-on-surface hover:bg-surface-variant/60 hover:text-on-surface-variant active:scale-[0.99]",
                           ].join(" ")}
                         >
-                          <span className="flex items-center gap-2">
-                            <span className="grid h-5 w-5 shrink-0 place-items-center rounded text-on-surface-variant">
-                              {logo ? (
-                                <img
-                                  src={logo}
-                                  alt={item.type}
-                                  className="h-3 w-3 object-contain"
-                                />
-                              ) : (
-                                <Database size={14} />
-                              )}
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span
-                                className={[
-                                  "block truncate text-xs font-medium",
-                                  active ? "text-on-surface-variant" : "",
-                                ].join(" ")}
-                              >
-                                {item.name}
-                              </span>
-                            </span>
-                            {isLoading ? (
-                              <span className="shrink-0">
-                                <CenteredLoadingState
-                                  loading={true}
-                                  label=""
-                                  iconSize={3}
-                                  showElapsed={false}
-                                />
-                              </span>
-                            ) : (
-                              <ChevronRight
-                                size={14}
-                                className={[
-                                  "shrink-0 transition-transform",
-                                  expandedConnectionId === item.id
-                                    ? "rotate-90"
-                                    : "",
-                                ].join(" ")}
+                          {isLoading ? (
+                            <span className="shrink-0">
+                              <CenteredLoadingState
+                                loading={true}
+                                label=""
+                                iconSize={3}
+                                showElapsed={false}
                               />
+                            </span>
+                          ) : (
+                            <ChevronRight
+                              size={12}
+                              className={[
+                                "shrink-0 transition-all duration-150",
+                                expandedConnectionId === item.id
+                                  ? "rotate-90 text-blue-500"
+                                  : "text-slate-400 group-hover:text-slate-500",
+                              ].join(" ")}
+                            />
+                          )}
+                          <span
+                            className={[
+                              "grid h-5 w-5 shrink-0 place-items-center rounded-md transition-all duration-150",
+                              active
+                                ? "bg-blue-100/80 text-blue-600 shadow-[inset_0_0_0_1px_rgba(59,130,246,0.2)] dark:bg-blue-950/50"
+                                : "bg-surface-variant/60 text-on-surface-variant group-hover:bg-surface-variant",
+                            ].join(" ")}
+                          >
+                            {logo ? (
+                              <img
+                                src={logo}
+                                alt={item.type}
+                                className="h-3 w-3 object-contain"
+                              />
+                            ) : (
+                              <Database size={11} />
                             )}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate font-medium">
+                            {item.name}
                           </span>
                         </button>
                         {expandedConnectionId === item.id && (
-                          <div className="border-l-2 border-blue-200">
+                          <div className="relative ml-2 mt-0.5 pl-1.5">
+                            {/* Gradient thread connecting to parent */}
+                            <span
+                              aria-hidden
+                              className="absolute bottom-2 left-0 top-0 w-px bg-gradient-to-b from-outline-variant/80 via-outline-variant/40 to-transparent"
+                            />
                             {elasticIndicesError?.[item.id] && (
-                              <div className="mx-2 my-1 rounded border border-red-200 bg-red-50 px-2 py-1.5">
-                                <p className="text-[11px] text-red-600 font-medium">Failed to load indices</p>
-                                <p className="text-[10px] text-red-400 truncate mt-0.5">{elasticIndicesError[item.id]}</p>
-                                {onRetryElasticIndices && (
+                              <div className="mx-1 my-1 rounded-md border border-red-200/80 bg-red-50/80 px-2 py-1.5 dark:border-red-900/50 dark:bg-red-950/30">
+                                <p className="text-[11px] font-medium text-red-600 dark:text-red-400">Failed to load indices</p>
+                                <p className="mt-0.5 truncate text-[10px] text-red-500/80 dark:text-red-400/70">{elasticIndicesError[item.id]}</p>
+                                {handleRetryElasticIndices && (
                                   <button
                                     type="button"
-                                    onClick={() => onRetryElasticIndices(item.id)}
-                                    className="mt-1 text-[10px] font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                                    onClick={() => handleRetryElasticIndices(item.id)}
+                                    className="mt-1 text-[10px] font-medium text-blue-600 transition-colors hover:text-blue-700 hover:underline"
                                   >
                                     Retry
                                   </button>
                                 )}
                               </div>
                             )}
-                            {treeNodes.length === 0 && !treeLoading[item.id] && !elasticIndicesError?.[item.id] && (
-                              <p className="px-2 py-1 text-[11px] text-slate-400 italic">
+                            {treeNodes.length === 0 && !explorerData.treeLoading[item.id] && !elasticIndicesError?.[item.id] && (
+                              <p className="px-2 py-1 text-[11px] italic text-slate-400">
                                 No metadata available
                               </p>
                             )}
@@ -570,13 +570,13 @@ export function ConnectionSidebar({
                                 parentPath=""
                                 selectedTreeNode={selectedTreeNode}
                                 expandedTreePaths={expandedTreePaths}
-                                onTreeNodeClick={onTreeNodeClick}
-                                onSelectedTreeNode={onSelectedTreeNode}
-                                onToggleTreeNode={onToggleTreeNode}
-                                onFetchDatabaseDetails={onFetchDatabaseDetails}
+                                onTreeNodeClick={wrappedHandleTreeNodeClick}
+                                onSelectedTreeNode={setSelectedTreeNode}
+                                onToggleTreeNode={handleToggleTreeNode}
+                                onFetchDatabaseDetails={handleFetchDatabaseDetails}
                                 savedQueries={connectionSavedQueries}
-                                onUseSavedQuery={onUseSavedQuery}
-                                onTableNodeContextMenu={onTableNodeContextMenu}
+                                onUseSavedQuery={applySavedQueryToActiveTab}
+                                onTableNodeContextMenu={handleTableNodeContextMenu}
                               />
                             ))}
                           </div>
