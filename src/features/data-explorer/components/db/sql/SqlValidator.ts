@@ -318,7 +318,7 @@ function makeMarker(
   token: Token,
   message: string,
   severity: Monaco.MarkerSeverity,
-  monacoInstance: typeof Monaco,
+  _monacoInstance: typeof Monaco,
 ): Monaco.editor.IMarkerData {
   const endCol = token.col + token.value.length
   return {
@@ -328,23 +328,6 @@ function makeMarker(
     startColumn: token.col,
     endLineNumber: token.line,
     endColumn: endCol,
-  }
-}
-
-function makeMarkerAtPos(
-  line: number,
-  col: number,
-  length: number,
-  message: string,
-  severity: Monaco.MarkerSeverity,
-): Monaco.editor.IMarkerData {
-  return {
-    severity,
-    message,
-    startLineNumber: line,
-    startColumn: col,
-    endLineNumber: line,
-    endColumn: col + length,
   }
 }
 
@@ -614,7 +597,6 @@ function validateClauseOrder(
 
   // ── SELECT-specific rules ─────────────────────────────────────────────────
   if (firstKw === 'SELECT') {
-    const iSelect = kwIndex(topKws, 'SELECT')
     const iFrom   = kwIndex(topKws, 'FROM')
     const iWhere  = kwIndex(topKws, 'WHERE')
     const iGroup  = topKws.findIndex((x) => x.kw === 'GROUP')
@@ -784,7 +766,6 @@ function validateJoinOnClause(
   mono: typeof Monaco,
 ): void {
   const m = meaningful(tokens)
-  const JOIN_TYPES = new Set(['JOIN', 'INNER', 'LEFT', 'RIGHT', 'FULL'])
   // CROSS JOIN is valid without ON, so we skip it
 
   let depth = 0

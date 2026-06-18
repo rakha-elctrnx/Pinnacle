@@ -68,14 +68,13 @@ export function QueryEditor({
       .find((db) => db.name === (queryDatabase || treeData?.databases[0]?.name))
       ?.schemas.map((s) => s.name) ?? []
 
-  // Keep a stable ref so the registered provider always sees fresh schema data
-  const rawSchemaColumns = JSON.stringify(schemaColumnsByTable)
-  const tablesRef = useRef<Record<string, SchemaColumn[]>>(
-    JSON.parse(rawSchemaColumns),
-  )
+  // Keep a stable ref so the registered provider always sees fresh schema data.
+  // The prop can be briefly undefined while explorer data is loading, so avoid
+  // JSON parsing here and fall back to an empty schema map.
+  const tablesRef = useRef<Record<string, SchemaColumn[]>>(schemaColumnsByTable ?? {})
   useEffect(() => {
-    tablesRef.current = JSON.parse(rawSchemaColumns)
-  }, [rawSchemaColumns, activeQueryTabId])
+    tablesRef.current = schemaColumnsByTable ?? {}
+  }, [schemaColumnsByTable, activeQueryTabId])
 
   // Refs to editor instance and monaco namespace for validator
   const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null)

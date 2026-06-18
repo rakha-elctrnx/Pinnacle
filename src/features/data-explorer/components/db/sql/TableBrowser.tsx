@@ -182,7 +182,6 @@ export function TableBrowser({
     [handleCellFocus],
   )
 
-  const actionButtonClass = `cursor-pointer rounded-md p-1.5 text-on-surface-variant transition-all hover:bg-surface-variant hover:text-on-surface-variant hover:shadow-[inset_0_0_0_1px_theme(colors.outline-variant)]`
   // thead class with sticky header and shadow
   const theadClass = `sticky top-0 z-10 bg-surface-variant text-on-surface-variant shadow-[0_1px_0_0_var(--color-outline-variant)]`
 
