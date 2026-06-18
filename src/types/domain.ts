@@ -147,6 +147,9 @@ export interface SchemaColumn {
   tableName: string
   columnName: string
   dataType: string
+  isNullable: boolean
+  defaultValue: string | null
+  dataTypeName: string
 }
 
 // ── Drop Table Types ─────────────────────────────────────────────

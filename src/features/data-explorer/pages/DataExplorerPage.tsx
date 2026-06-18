@@ -382,6 +382,7 @@ export function DataExplorerPage() {
                     sqlTableListLoading={explorerData.sqlTableListLoading}
                     schemaForeignKeys={explorerData.schemaForeignKeys}
                     schemaColumns={explorerData.schemaColumns}
+                    schemaColumnsByTable={explorerData.schemaColumnsByTable}
                     isSqlTableListView={isSqlTableListView}
                     queryTabs={queryExecution.queryTabs}
                     queryTabsDirty={queryExecution.queryTabsDirty}

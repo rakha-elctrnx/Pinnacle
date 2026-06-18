@@ -50,6 +50,7 @@ interface SqlExplorerWorkspaceProps {
   sqlTableList: SqlTableListItem[]
   schemaForeignKeys: SchemaForeignKey[]
   schemaColumns: SchemaColumn[]
+  schemaColumnsByTable: Record<string, SchemaColumn[]>
   isSqlTableListView: boolean
   queryTabs: QueryTab[]
   queryTabsDirty: Record<string, boolean>
@@ -115,6 +116,7 @@ export function SqlExplorerWorkspace({
   sqlTableList,
   schemaForeignKeys,
   schemaColumns,
+  schemaColumnsByTable,
   isSqlTableListView,
   queryTabs,
   queryTabsDirty,
@@ -481,6 +483,7 @@ export function SqlExplorerWorkspace({
             treeData={treeData}
             selectedConnectionType={selectedConnectionType}
             queryDatabase={queryDatabase}
+            schemaColumnsByTable={schemaColumnsByTable}
             querySchema={querySchema}
             onQueryDatabaseChange={onQueryDatabaseChange}
             onQuerySchemaChange={onQuerySchemaChange}
