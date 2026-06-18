@@ -1,12 +1,14 @@
 import { AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight, Database, Loader2, Plug, Plus, X } from 'lucide-react'
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { elasticTestConnection } from '../../../services/clients/elasticsearch'
-import { testConnection } from '../../../services/clients/sql'
 import type { ConnectionProfile, ConnectionType } from '../../../types/domain'
 import type { WizardStep, TestConnectionResult } from '../types'
 import { databaseTypeOptions, defaultPortByType, defaultInitialDatabaseByType } from '../constants'
-import { isSqlConnectionType, isElasticsearchType } from '../utils'
-
+// CLIENTS
+import { elasticTestConnection } from '../../../services/clients/elasticsearch'
+import { testConnection } from '../../../services/clients/sql'
+import { redisTestConnection } from '../../../services/clients/redis'
+// UTILS CONNECTION TYPE
+import { isSqlConnectionType, isElasticsearchType, isRedisConnectionType } from '../utils'
 interface FieldError {
   host?: string
   port?: string
@@ -98,8 +100,10 @@ export function ConnectionWizardModal({
   const isTestPassed = testConnectionResult?.kind === 'success'
   const isSqlType = isSqlConnectionType(newType)
   const isEsType = isElasticsearchType(newType)
-  // Gate: SQL and Elasticsearch require test-before-save for new connections
-  const needsTestGate = (isSqlType || isEsType) && !editingId
+  const isRedisType = isRedisConnectionType(newType)
+  // Gate: (SQL,ES, REDIS)
+  // require test-before-save for new connections
+  const needsTestGate = (isSqlType || isEsType || isRedisType) && !editingId
   const canSave = needsTestGate
     ? (isTestPassed || skipTest) && Object.keys(validateFields).length === 0
     : Object.keys(validateFields).length === 0
@@ -160,23 +164,35 @@ export function ConnectionWizardModal({
         username: newUser.trim(),
         password: newPassword,
         database: newInitialDatabase.trim() || defaultInitialDatabaseByType[newType],
-        ssl: newSsl,
+        ssl: newType === 'redis' && Number(newPort) === 6380 ? true : newSsl,
       }
-
+      // CONDITION CASE (SQL, ES, REDIS)
+      // IF ELASTICSEARCH → CALL ELASTICSEARCH TEST
       if (isEsType) {
-        // Elasticsearch: call real backend test endpoint
         await elasticTestConnection(payload)
         setTestConnectionResult({
           kind: 'success',
           message: `Connected to Elasticsearch cluster at ${newHost.trim()}:${parsedPort}.`,
         })
-      } else if (isSqlType) {
+      }
+      // ELSE IF SQL → CALL SQL TEST
+      else if (isSqlType) {
         const result = await testConnection(payload)
         setTestConnectionResult({
           kind: result.ok ? 'success' : 'error',
           message: result.message,
         })
-      } else {
+      }
+      // ELSE IF REDIS → CALL REDIS TEST
+      else if (isRedisType) {
+        const result = await redisTestConnection(payload)
+        setTestConnectionResult({
+          kind: result.ok ? 'success' : 'error',
+          message: result.message,
+        })
+      }
+      // ELSE IF NOT IMPLEMENTED, SHOW GENERIC SUCCESS (for types without deep test)
+      else {
         setTestConnectionResult({
           kind: 'success',
           message: 'Connector validated locally (deep test not available for this type).',
@@ -215,7 +231,7 @@ export function ConnectionWizardModal({
       username: newUser.trim(),
       password: newPassword,
       database: newInitialDatabase.trim() || defaultInitialDatabaseByType[newType],
-      ssl: newSsl,
+      ssl: newType === 'redis' && Number(newPort) === 6380 ? true : newSsl,
       encryptedPasswordRef:
         newPassword.length > 0
           ? 'stronghold://pending'

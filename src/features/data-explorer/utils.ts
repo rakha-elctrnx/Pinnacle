@@ -2,12 +2,17 @@ import type { ConnectionType } from '../../types/domain'
 import type { SqlConnectionType } from './types'
 import type { ConnectionProfile } from '../../types/domain'
 
+// UTILS CONNECTION TYPE
 export function isSqlConnectionType(type: ConnectionType): type is SqlConnectionType {
   return type === 'postgresql' || type === 'mysql'
 }
 
 export function isElasticsearchType(type: ConnectionType): boolean {
   return type === 'elasticsearch'
+}
+
+export function isRedisConnectionType(type: ConnectionType): boolean {
+  return type === 'redis'
 }
 
 export function downloadTextFile(name: string, content: string, mimeType: string) {
