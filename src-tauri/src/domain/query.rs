@@ -104,6 +104,9 @@ pub struct SchemaColumn {
     pub table_name: String,
     pub column_name: String,
     pub data_type: String,
+    pub is_nullable: bool,
+    pub default_value: Option<String>,
+    pub data_type_name: String,
 }
 
 /// Schema-level foreign key info including source table name (used for bulk FK fetch).

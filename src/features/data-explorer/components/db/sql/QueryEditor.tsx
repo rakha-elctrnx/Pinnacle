@@ -1,13 +1,20 @@
-import Editor from '@monaco-editor/react'
+import Editor, { type BeforeMount } from '@monaco-editor/react'
 import { Download, Play, Save } from 'lucide-react'
 import type { QueryResult, QueryResultTab, QueryTab, SavedQuery } from '../../../types'
 import type { ExplorerTreeData } from '../../../types'
 import { downloadTextFile, createCsv } from '../../../utils'
+import type { SchemaColumn } from '../../../../../types/domain'
+import { useEffect, useRef } from 'react'
+import { registerSqlProviders } from './SqlCompletionProvider'
+import { validateSql } from './SqlValidator'
+import type { OnMount } from '@monaco-editor/react'
+import * as monacoEditor from 'monaco-editor'
 
 interface QueryEditorProps {
   queryTabs: QueryTab[]
   activeQueryTab: QueryTab
   activeQueryTabId: string
+  schemaColumnsByTable: Record<string, SchemaColumn[]>
   isRunningQuery: boolean
   queryResult: QueryResult | null
   queryMessages: string[]
@@ -37,6 +44,7 @@ export function QueryEditor({
   activeQueryTab,
   isRunningQuery,
   queryResult,
+  activeQueryTabId,
   queryMessages,
   queryResultTab,
   queryHistoryByConnection,
@@ -46,6 +54,7 @@ export function QueryEditor({
   selectedConnectionType,
   queryDatabase,
   querySchema,
+  schemaColumnsByTable,
   onQueryDatabaseChange,
   onQuerySchemaChange,
   onUpdateActiveQuery,
@@ -53,11 +62,53 @@ export function QueryEditor({
   onQueryResultTabChange,
   onRunQuery,
 }: QueryEditorProps) {
-  // Gather database and schema options from tree data
   const databaseOptions = treeData?.databases.map((db) => db.name) ?? []
-  const schemaOptions = treeData?.databases
-    .find((db) => db.name === (queryDatabase || treeData?.databases[0]?.name))
-    ?.schemas.map((s) => s.name) ?? []
+  const schemaOptions =
+    treeData?.databases
+      .find((db) => db.name === (queryDatabase || treeData?.databases[0]?.name))
+      ?.schemas.map((s) => s.name) ?? []
+
+  // Keep a stable ref so the registered provider always sees fresh schema data
+  const rawSchemaColumns = JSON.stringify(schemaColumnsByTable)
+  const tablesRef = useRef<Record<string, SchemaColumn[]>>(
+    JSON.parse(rawSchemaColumns),
+  )
+  useEffect(() => {
+    tablesRef.current = JSON.parse(rawSchemaColumns)
+  }, [rawSchemaColumns, activeQueryTabId])
+
+  // Refs to editor instance and monaco namespace for validator
+  const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null)
+  const monacoRef = useRef<typeof monacoEditor | null>(null)
+
+  // Re-run validator whenever the SQL changes
+  useEffect(() => {
+    const editor = editorRef.current
+    const mono = monacoRef.current
+    if (!editor || !mono) return
+    const model = editor.getModel()
+    if (!model) return
+    const markers = validateSql(activeQueryTab.sql, mono)
+    mono.editor.setModelMarkers(model, 'sql-validator', markers)
+  }, [activeQueryTab.sql])
+
+  const handleMount: OnMount = (editor, mono) => {
+    editorRef.current = editor
+    monacoRef.current = mono as unknown as typeof monacoEditor
+    // Run validator immediately on mount
+    const model = editor.getModel()
+    if (model) {
+      const markers = validateSql(activeQueryTab.sql, mono as unknown as typeof monacoEditor)
+        ; (mono as unknown as typeof monacoEditor).editor.setModelMarkers(model, 'sql-validator', markers)
+    }
+  }
+
+  // Register the enhanced providers once, before the editor mounts.
+  // Monaco deduplicates provider registrations by language, so this is safe
+  // to call multiple times (it does nothing on subsequent mounts).
+  const handleBeforeMount: BeforeMount = (monacoInstance) => {
+    registerSqlProviders(monacoInstance, tablesRef)
+  }
 
   return (
     <section className="bg-white">
@@ -136,7 +187,36 @@ export function QueryEditor({
           minimap: { enabled: false },
           fontSize: 13,
           wordWrap: 'on',
+          quickSuggestions: {
+            other: true,
+            comments: false,
+            strings: false,
+          },
+          suggestOnTriggerCharacters: true,
+          // Show parameter hints for functions automatically
+          parameterHints: { enabled: true },
+          // Better tab completion behaviour
+          tabCompletion: 'on',
+          // Accept suggestion with Tab (like DataGrip)
+          acceptSuggestionOnCommitCharacter: true,
+          acceptSuggestionOnEnter: 'smart',
+          // Larger completion popup — more rows visible at once
+          suggest: {
+            showKeywords: true,
+            showSnippets: true,
+            showFunctions: true,
+            showClasses: true,    // tables
+            showFields: true,     // columns
+            showWords: false,     // disable noisy word-based guesses
+            insertMode: 'replace',
+            preview: true,
+          },
+          // Show documentation card next to suggestion list
+          suggestFontSize: 13,
+          suggestLineHeight: 22,
         }}
+        beforeMount={handleBeforeMount}
+        onMount={handleMount}
       />
 
       {queryResult && (
@@ -164,7 +244,11 @@ export function QueryEditor({
                 type="button"
                 onClick={() => {
                   if (!queryResult) return
-                  downloadTextFile('query-result.json', JSON.stringify(queryResult.rows, null, 2), 'application/json')
+                  downloadTextFile(
+                    'query-result.json',
+                    JSON.stringify(queryResult.rows, null, 2),
+                    'application/json',
+                  )
                 }}
                 className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 transition-colors hover:bg-slate-100"
               >
@@ -201,7 +285,7 @@ export function QueryEditor({
                 </thead>
                 <tbody>
                   {displayRows.slice(0, 20).map((row, index) => (
-                    <tr key={`${index}`} className="even:bg-slate-50/60 hover:bg-slate-50">
+                    <tr key={index} className="even:bg-slate-50/60 hover:bg-slate-50">
                       {displayColumns.map((column) => (
                         <td
                           key={`${index}-${column}`}
@@ -251,7 +335,9 @@ export function QueryEditor({
       {queryResult && (
         <div className="border border-slate-200 border-t-0 bg-slate-50 p-2.5">
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Query History</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Query History
+            </p>
             <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-500">
               {queryHistoryByConnection.length} items
             </span>
@@ -273,7 +359,6 @@ export function QueryEditor({
           </div>
         </div>
       )}
-
     </section>
   )
 }

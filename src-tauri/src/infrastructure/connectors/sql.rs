@@ -893,7 +893,7 @@ async fn get_all_columns_pg(
 
     let rows = sqlx::query(
         r#"
-        SELECT table_name, column_name, data_type
+        SELECT table_name, column_name, data_type, is_nullable = 'YES' AS is_nullable, column_default, udt_name as data_type_name
         FROM information_schema.columns
         WHERE table_schema = $1
         ORDER BY table_name, ordinal_position
@@ -909,6 +909,9 @@ async fn get_all_columns_pg(
             table_name: row.get("table_name"),
             column_name: row.get("column_name"),
             data_type: row.get("data_type"),
+            is_nullable: row.get::<bool, _>("is_nullable"),
+            default_value: row.get("column_default"),
+            data_type_name: row.get("data_type_name"),
         })
         .collect();
 
@@ -931,7 +934,7 @@ async fn get_all_columns_mysql(
 
     let rows = sqlx::query(
         r#"
-        SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name, COLUMN_TYPE AS data_type
+        SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name, COLUMN_TYPE AS data_type, IS_NULLABLE = 'YES' AS is_nullable, COLUMN_DEFAULT AS column_default, DATA_TYPE AS data_type_name
         FROM information_schema.COLUMNS
         WHERE TABLE_SCHEMA = ?
         ORDER BY TABLE_NAME, ORDINAL_POSITION
@@ -947,6 +950,9 @@ async fn get_all_columns_mysql(
             table_name: row.get("table_name"),
             column_name: row.get("column_name"),
             data_type: row.get("data_type"),
+            is_nullable: row.get::<bool, _>("is_nullable"),
+            default_value: row.get("column_default"),
+            data_type_name: row.get("data_type_name"),
         })
         .collect();
 
