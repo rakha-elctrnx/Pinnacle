@@ -3,12 +3,12 @@ import {
   executeSql,
   sqlGetAllColumns,
   sqlGetAllForeignKeys,
-} from "../../../services/tauriClient";
+} from "../../../services/clients/sql";
+import type { ConnectionProfile } from "../../../types/domain";
 import type {
-  ConnectionProfile,
   SchemaColumn,
   SchemaForeignKey,
-} from "../../../types/domain";
+} from "../../../types/sql";
 import type {
   ExplorerTreeData,
   TreeNode,
@@ -477,7 +477,7 @@ export function useExplorerData({
             conn.type === "postgresql"
               ? indexRes.rows.length
               : new Set(indexRes.rows.map((r) => String(r.Key_name || "")))
-                  .size,
+                .size,
           ),
         });
       } catch (error) {
@@ -614,27 +614,27 @@ export function useExplorerData({
               children: [
                 ...(schema.tables.length > 0
                   ? [
-                      {
-                        label: "Tables",
-                        children: schema.tables.map((t) => ({ label: t })),
-                      },
-                    ]
+                    {
+                      label: "Tables",
+                      children: schema.tables.map((t) => ({ label: t })),
+                    },
+                  ]
                   : []),
                 ...(schema.views.length > 0
                   ? [
-                      {
-                        label: "Views",
-                        children: schema.views.map((v) => ({ label: v })),
-                      },
-                    ]
+                    {
+                      label: "Views",
+                      children: schema.views.map((v) => ({ label: v })),
+                    },
+                  ]
                   : []),
                 ...(schema.functions.length > 0
                   ? [
-                      {
-                        label: "Functions",
-                        children: schema.functions.map((f) => ({ label: f })),
-                      },
-                    ]
+                    {
+                      label: "Functions",
+                      children: schema.functions.map((f) => ({ label: f })),
+                    },
+                  ]
                   : []),
                 { label: "Queries", children: [] },
               ],
@@ -649,11 +649,11 @@ export function useExplorerData({
             children: [
               ...(allTables.length > 0
                 ? [
-                    {
-                      label: "Tables",
-                      children: allTables.map((t) => ({ label: t })),
-                    },
-                  ]
+                  {
+                    label: "Tables",
+                    children: allTables.map((t) => ({ label: t })),
+                  },
+                ]
                 : []),
               { label: "Views", children: [] },
               { label: "Functions", children: [] },

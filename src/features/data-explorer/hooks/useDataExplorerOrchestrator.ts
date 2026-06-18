@@ -8,14 +8,20 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useConnectionStore } from '../../../state/connectionStore'
-import type { ConnectionProfile, ElasticIndex } from '../../../types/domain'
+import type { ConnectionProfile } from '../../../types/domain'
+import { showExportSaveDialog } from '../../../services/tauriClient'
+// Elasticsearch
+import type { ElasticIndex } from '../../../types/elasticsearch'
+import { elasticListIndices } from '../../../services/clients/elasticsearch'
+// SQL 
+import { estimateTableExport, executeTableExport } from '../../../services/clients/sql'
+import type { TableExportProgressEvent } from '../../../services/clients/sql'
+// OTHER
 import type { ConnectionStatus, ContextMenuState, DataOperationTarget, DeleteTableTarget, DetailStat, TableExportEstimate, TableExportJob, TableExportOptions, TableExportTarget, RecentTableExport } from '../types'
 import type { ElasticPanel, ElasticIndexTab } from '../components/db/elasticsearch/ElasticExplorerWorkspace'
 import { downloadTextFile, getConnPayload } from '../utils'
 import { useExplorerData } from './useExplorerData'
 import { useQueryExecution } from './useQueryExecution'
-import { elasticListIndices, estimateTableExport, executeTableExport, showExportSaveDialog } from '../../../services/tauriClient'
-import type { TableExportProgressEvent } from '../../../services/tauriClient'
 import { listen } from '@tauri-apps/api/event'
 import {
   filterConnections,

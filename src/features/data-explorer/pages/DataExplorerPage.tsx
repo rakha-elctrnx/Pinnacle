@@ -12,7 +12,7 @@ import { DataOperationModal } from '../components/DataOperationModal'
 import { ExportDataModal } from '../components/ExportDataModal'
 import { TableDesignerModal } from '../components/table-designer/TableDesignerModal'
 import { useDesignerStore } from '../../../state/designerStore'
-import { executeSql } from '../../../services/tauriClient'
+import { executeSql } from '../../../services/clients/sql'
 import { getConnPayload, isSqlConnectionType, quoteIdentifier } from '../utils'
 
 /**

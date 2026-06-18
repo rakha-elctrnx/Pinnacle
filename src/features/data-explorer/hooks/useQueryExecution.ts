@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { executeSql } from '../../../services/tauriClient'
+import { executeSql } from '../../../services/clients/sql'
 import type { ConnectionProfile } from '../../../types/domain'
 import type { QueryTab, QueryResult, ConnectionStatus, SavedQuery } from '../types'
 import { isSqlConnectionType, getConnPayload } from '../utils'

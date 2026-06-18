@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { ConnectionPayload } from '../../../../../services/tauriClient'
-import type { ElasticIndex, ElasticDocumentHit } from '../../../../../types/domain'
+import type { ElasticIndex, ElasticDocumentHit } from '../../../../../types/elasticsearch'
 import {
   elasticSearchDocuments,
   elasticIndexDocument,
   elasticDeleteDocument,
-} from '../../../../../services/tauriClient'
+} from '../../../../../services/clients/elasticsearch'
 import { Search, Plus, Trash2, FileJson, Table, X, Save } from 'lucide-react'
 import Editor from '@monaco-editor/react'
 import { CenteredLoadingState } from '../../shared/CenteredLoadingState'
@@ -281,22 +281,20 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
             <button
               onClick={() => setViewMode('table')}
               title="Table view"
-              className={`p-1 transition-all ${
-                viewMode === 'table'
-                  ? 'bg-slate-100 text-slate-700'
-                  : 'text-slate-400 hover:text-slate-600'
-              }`}
+              className={`p-1 transition-all ${viewMode === 'table'
+                ? 'bg-slate-100 text-slate-700'
+                : 'text-slate-400 hover:text-slate-600'
+                }`}
             >
               <Table size={13} />
             </button>
             <button
               onClick={() => setViewMode('json')}
               title="JSON view"
-              className={`p-1 transition-all ${
-                viewMode === 'json'
-                  ? 'bg-slate-100 text-slate-700'
-                  : 'text-slate-400 hover:text-slate-600'
-              }`}
+              className={`p-1 transition-all ${viewMode === 'json'
+                ? 'bg-slate-100 text-slate-700'
+                : 'text-slate-400 hover:text-slate-600'
+                }`}
             >
               <FileJson size={13} />
             </button>

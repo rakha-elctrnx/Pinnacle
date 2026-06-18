@@ -1,6 +1,7 @@
 import { AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight, Database, Loader2, Plug, Plus, X } from 'lucide-react'
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { testConnection, elasticTestConnection } from '../../../services/tauriClient'
+import { elasticTestConnection } from '../../../services/clients/elasticsearch'
+import { testConnection } from '../../../services/clients/sql'
 import type { ConnectionProfile, ConnectionType } from '../../../types/domain'
 import type { WizardStep, TestConnectionResult } from '../types'
 import { databaseTypeOptions, defaultPortByType, defaultInitialDatabaseByType } from '../constants'
@@ -465,9 +466,8 @@ export function ConnectionWizardModal({
                             setNewGroup(group)
                             setGroupDropdownOpen(false)
                           }}
-                          className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition hover:bg-blue-50 ${
-                            group === newGroup ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700'
-                          }`}
+                          className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition hover:bg-blue-50 ${group === newGroup ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700'
+                            }`}
                         >
                           <span className="truncate">{group}</span>
                           {group === newGroup && (
@@ -535,8 +535,8 @@ export function ConnectionWizardModal({
                 {testConnectionResult && (
                   <div
                     className={`mt-2 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm ${testConnectionResult.kind === 'success'
-                        ? 'border-success/50 bg-success/20 text-success'
-                        : 'border-error/50 bg-error/20 text-error'
+                      ? 'border-success/50 bg-success/20 text-success'
+                      : 'border-error/50 bg-error/20 text-error'
                       }`}
                   >
                     {testConnectionResult.kind === 'success' ? (

@@ -8,8 +8,8 @@
 import {
   testConnection as tauriTestConnection,
   executeSql,
-  type ConnectionPayload,
-} from '../../../../../services/tauriClient'
+} from '../../../../../services/clients/sql'
+import type { ConnectionPayload } from '../../../../../services/tauriClient'
 import { normalizeError } from '../error-norm'
 import type { ConnectorAdapter, TestConnectionResult, NavigationTreeResult, EntityDetailResult, QueryExecutionResult } from './adapter-types'
 

@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'react'
 import type { ConnectionPayload } from '../../../services/tauriClient'
-import type { ElasticClusterHealth, ElasticIndex } from '../../../types/domain'
+import type { ElasticClusterHealth, ElasticIndex } from '../../../types/elasticsearch'
 import {
   elasticGetClusterHealth,
   elasticListIndices,
-} from '../../../services/tauriClient'
+} from '../../../services/clients/elasticsearch'
 
 export function useElasticData(connection: ConnectionPayload | null) {
   const [health, setHealth] = useState<ElasticClusterHealth | null>(null)

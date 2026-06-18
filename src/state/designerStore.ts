@@ -30,15 +30,17 @@ import {
   fromBackendSchemaInfo,
   toDdlRequest,
 } from '../features/data-explorer/domain/table-designer/utils'
+
 import {
   sqlGetTableSchema,
   sqlGenerateDdl,
   sqlExecuteDdl,
-  type ConnectionPayload,
-} from '../services/tauriClient'
+} from '../services/clients/sql'
+
+
 import { validateSchemaModel } from '../features/data-explorer/domain/table-designer/validation'
 import { computeSchemaDiff } from '../features/data-explorer/domain/table-designer/diff'
-
+import type { ConnectionPayload } from '../services/tauriClient'
 // ── State Interface ────────────────────────────────────────────────
 
 export type DesignerTab = 'structure' | 'diff' | 'sql' | 'result'

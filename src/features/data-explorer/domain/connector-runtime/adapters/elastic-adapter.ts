@@ -13,8 +13,9 @@ import {
   elasticSearchDocuments,
   elasticCreateIndex,
   elasticDeleteIndex,
-  type ConnectionPayload,
-} from '../../../../../services/tauriClient'
+} from '../../../../../services/clients/elasticsearch'
+
+import type { ConnectionPayload } from '../../../../../services/tauriClient'
 import { normalizeError } from '../error-norm'
 import type { ConnectorAdapter, TestConnectionResult, NavigationTreeResult, EntityDetailResult, QueryExecutionResult } from './adapter-types'
 
@@ -139,6 +140,7 @@ export const elasticAdapter: ConnectorAdapter = {
       // If not valid JSON, treat as a simple query_string
       parsedBody = { query: { query_string: { query } } }
     }
+
 
     const result = await elasticExecuteQuery({
       connection: payload,

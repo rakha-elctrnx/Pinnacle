@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import type { ConnectionPayload } from '../../../../../services/tauriClient'
-import type { ElasticIndex, ElasticFieldMapping } from '../../../../../types/domain'
-import { elasticGetMapping } from '../../../../../services/tauriClient'
+import type { ElasticIndex, ElasticFieldMapping } from '../../../../../types/elasticsearch'
+import { elasticGetMapping } from '../../../../../services/clients/elasticsearch'
 import { Search, Copy, ChevronRight, ChevronDown } from 'lucide-react'
 import { CenteredLoadingState } from '../../shared/CenteredLoadingState'
 
@@ -57,8 +57,8 @@ function TreeNode({
     // Check children
     const hasMatchingChild = mapping.properties
       ? Object.keys(mapping.properties).some((k) =>
-          k.toLowerCase().includes(search.toLowerCase())
-        )
+        k.toLowerCase().includes(search.toLowerCase())
+      )
       : false
     if (!hasMatchingChild) return null
   }
