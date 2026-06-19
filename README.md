@@ -1,156 +1,152 @@
 # Pinnacle
 
-**Data Explorer for developers** — fast, local, and private.
+> **Data Explorer for Developers** — a modern, open-source desktop application for browsing, querying, and managing your databases and data infrastructure.
 
-Pinnacle is a modern desktop data explorer designed for developers. It offers a fast, local-first, and private environment to connect, browse, and execute queries across multiple databases and message brokers — keeping all credentials and data securely stored on your local machine.
+<div align="center">
 
----
+![Pinnacle](https://img.shields.io/badge/Pinnacle-v0.1.0-blue?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
+![Open Source](https://img.shields.io/badge/Open%20Source-%E2%9D%A4-red?style=flat-square)
+![Tauri](https://img.shields.io/badge/Tauri-2.x-orange?style=flat-square)
+![React](https://img.shields.io/badge/React-19-blue?style=flat-square)
+![Rust](https://img.shields.io/badge/Rust-1.77+-brown?style=flat-square)
 
-## Features
-
-- **Multi-Service & Database Support:**
-  - **Relational:** PostgreSQL, MySQL (via SQLx)
-  - **NoSQL / Documents:** MongoDB, Elasticsearch (via reqwest REST API)
-  - **Key-Value:** Redis
-  - **Message Brokers:** RabbitMQ (via lapin)
-- **SQL & Query Editors:**
-  - Built-in Monaco Editor for writing SQL and Elasticsearch queries with syntax highlighting.
-- **Advanced Data Grid:**
-  - AG Grid Community integration for fast rendering of query results, Redis keyspaces, elastic collections, and large datasets.
-- **Connection Management:**
-  - Save, organize, and manage connection profiles. All connections are stored securely and locally using Tauri Store & Stronghold.
-- **Privacy First:**
-  - Zero telemetry or remote credential transmission. Everything runs on your machine.
+</div>
 
 ---
 
-## Tech Stack
+## ✨ About
 
-### Frontend
-- **Framework:** React 19 / TypeScript
-- **Bundler:** Vite
-- **Styling:** Tailwind CSS (v4)
-- **State Management:** Zustand
-- **Data Fetching:** TanStack Query (React Query)
-- **Routing:** React Router v7
-- **Key Libraries:** Monaco Editor (`@monaco-editor/react`), AG Grid (`ag-grid-react`), React Flow / System (`@xyflow/react`)
+**Pinnacle** is an open-source desktop data explorer built with [Tauri](https://tauri.app/), [React](https://react.dev/), and [Rust](https://www.rust-lang.org/). It provides a unified, intuitive interface for developers who work with multiple data stores on a daily basis — from relational databases to document stores, search engines, caches, and message brokers.
 
-### Desktop/Backend (Tauri app)
-- **Runtime:** Tauri v2
-- **Language:** Rust (Rust Edition 2021)
-- **Relational Databases:** `sqlx` (PostgreSQL & MySQL connectors with Tokio runtime)
-- **HTTP/REST clients:** `reqwest` (for Elasticsearch)
-- **Excel/Data Export:** `rust_xlsxwriter` & `csv`
+Whether you're a backend engineer debugging a production query, a DBA inspecting schema changes, or a developer exploring a new data source — Pinnacle aims to be the single tool you reach for.
 
----
+## 🚀 Supported Connectors
 
-## Getting Started & Installation
+| Connector      | Status        |
+| -------------- | ------------- |
+| **PostgreSQL** | ✅ Supported  |
+| **MySQL**      | ✅ Supported  |
+| **MongoDB**    | 🚧 In progress |
+| **Redis**      | 🚧 In progress |
+| **Elasticsearch** | 🚧 In progress |
+| **RabbitMQ**   | 🚧 Planned  |
 
-To run or build Pinnacle locally, you will need to set up the system prerequisites for **Tauri v2** and **Rust**.
+## 🛠 Tech Stack
+
+- **Frontend:** React 19 + TypeScript + Vite + MUI + AG Grid + Monaco Editor + React Flow
+- **Backend:** Rust + Tauri 2 + SQLx + Tokio
+- **State:** Zustand + TanStack Query
+- **Build:** Vite (frontend) + Cargo (backend) + Tauri bundler
+
+## 📦 Getting Started
 
 ### Prerequisites
 
-#### 1. System Dependencies (Choose your OS)
+- [Node.js](https://nodejs.org/) ≥ 18
+- [Rust](https://www.rust-lang.org/tools/install) ≥ 1.77.2
+- [Tauri CLI](https://v2.tauri.app/start/prerequisites/) v2
 
-##### macOS
-Install Xcode Command Line Tools:
+### Installation
+
 ```bash
-xcode-select --install
+# Clone the repository
+git clone https://github.com/rakha-elctrnx/Pinnacle.git
+cd pinnacle
+
+# Install frontend dependencies
+npm install
+
+# Run in development mode (frontend + backend)
+make dev
 ```
 
-##### Windows
-1. Download and run the [Visual Studio Build Tools Installer](https://visualstudio.microsoft.com/visual-cpp-build-tools/).
-2. Select the **Desktop development with C++** workload and install it.
+### Available Commands
 
-##### Linux (Ubuntu/Debian)
-Ensure you have the essential build libraries installed:
-```bash
-sudo apt update
-sudo apt install -y build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+| Command           | Description                                      |
+| ----------------- | ------------------------------------------------ |
+| `make dev`        | Run the full Tauri app in dev mode               |
+| `make dev-fe`     | Run only the Vite frontend dev server            |
+| `make build`      | Build the full application for production        |
+| `make build-fe`   | Build only the frontend                          |
+| `make build-be`   | Build only the backend                           |
+| `make lint`       | Run ESLint on the frontend                       |
+| `make typecheck`  | Run TypeScript type checking                     |
+| `make format`     | Format code with Prettier + Cargo fmt            |
+| `make check`      | Run all checks (lint + typecheck + cargo check)  |
+| `make clean`      | Clean build artifacts                            |
+
+Run `make help` to see all available commands.
+
+## 📁 Project Structure
+
+```
+pinnacle/
+├── backend/               # Rust / Tauri backend
+│   ├── src/
+│   │   ├── application/   # Use-case commands (CQRS-style)
+│   │   ├── core/          # Error handling, shared result types
+│   │   ├── domain/        # Domain models (query, export, redis, etc.)
+│   │   └── infrastructure/# DB connectors and external integrations
+│   ├── Cargo.toml
+│   └── tauri.conf.json
+├── frontend/              # React + TypeScript frontend
+│   ├── app/               # Routing, providers, theming
+│   ├── features/          # Feature modules (sql, elasticsearch, redis, …)
+│   └── assets/            # Static assets
+├── docs/                  # Documentation & ADRs
+├── tasks/                 # Task tracking & milestone templates
+├── Makefile               # Unified dev/build commands
+└── package.json
 ```
 
-#### 2. Rust
-Install the Rust toolchain via `rustup`:
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
-*Note: Make sure your Rust compiler version is updated (Rust `1.77.2` or later).*
+The project follows a **feature-sliced architecture** on the frontend and a **layered (domain-driven) architecture** on the backend. See [`docs/decisions/`](./docs/decisions/) for Architecture Decision Records.
 
-#### 3. Node.js & npm
-Install Node.js (LTS version recommended, `v18+` or `v20+`). Check your installation using:
-```bash
-node -v
-npm -v
-```
+## 🤝 Contributing
+
+Pinnacle is an **open-source project** and contributions are welcome! Whether it's a bug report, a new feature idea, documentation improvement, or a pull request — every contribution matters.
+
+### How to Contribute
+
+1. **Fork** the repository
+2. **Create a branch** for your feature or fix:
+   ```bash
+   git checkout -b feature/my-awesome-feature
+   ```
+3. **Make your changes** and commit them with clear messages
+4. **Push** to your fork and open a **Pull Request**
+
+Please make sure to:
+- Run `make check` before submitting a PR
+- Follow the existing code style and conventions
+- Add tests where applicable
+- Update documentation if needed
+
+### Reporting Issues
+
+Found a bug or have a suggestion? Please [open an issue](https://github.com/yourusername/pinnacle/issues) with:
+- A clear description of the problem or idea
+- Steps to reproduce (for bugs)
+- Your environment details (OS, Node version, Rust version)
+
+## 📄 License
+
+This project is open source and available under the [MIT License](./LICENSE).
+
+## 🙏 Acknowledgements
+
+- [Tauri](https://tauri.app/) — for making lightweight, secure desktop apps possible
+- [AG Grid](https://www.ag-grid.com/) — for powerful data grid components
+- [Monaco Editor](https://microsoft.github.io/monaco-editor/) — for the in-app code editor
+- [React Flow](https://reactflow.dev/) — for diagram and flow visualizations
+- The entire open-source community that makes projects like this possible ❤️
 
 ---
 
-### Step-by-Step Installation
+<div align="center">
 
-1. **Clone the Repository:**
-   ```bash
-   git clone https://github.com/your-username/pinnacle.git
-   cd pinnacle
-   ```
+Made with ☕ by the Pinnacle contributors
 
-2. **Install Frontend Dependencies:**
-   ```bash
-   npm install
-   ```
+**[⭐ Star this repo](https://github.com/yourusername/pinnacle)** if you find it useful!
 
-3. **Run in Development Mode:**
-   To launch the Pinnacle desktop application in development mode (with hot-reloading for the frontend and automatic recompilation of the Rust codebase on changes):
-   ```bash
-   npm run tauri:dev
-   ```
-
-4. **Verify/Typecheck Code:**
-   To check TypeScript types and run ESLint checks:
-   ```bash
-   npm run typecheck
-   npm run lint
-   ```
-
-5. **Build for Production:**
-   To compile and package the desktop application into native installers (dmg, pkg, exe, msi, deb, or rpm depending on the runner OS):
-   ```bash
-   npm run tauri:build
-   ```
-   Built binaries and release bundles will be available in target directory:
-   `src-tauri/target/release/bundle/`
-
----
-
-## Project Structure
-
-```
-├── public/                # Static public assets
-├── src/                   # React Frontend App
-│   ├── app/               # Providers & Routes
-│   ├── assets/            # Styling, icons, and layout assets
-│   ├── features/          # Feature-based folders
-│   │   ├── data-explorer/ # Main database client interfaces
-│   │   ├── home/          # Home / dashboard interfaces
-│   │   └── settings/      # Application settings
-│   ├── layouts/           # Common layouts (AppShell)
-│   ├── services/          # Tauri-Rust API clients
-│   └── state/             # Zustand state management stores
-├── src-tauri/             # Tauri Desktop Backend
-│   ├── Cargo.toml         # Rust backend dependencies
-│   ├── tauri.conf.json    # Tauri configuration (capabilities, builds)
-│   └── src/               # Rust source code
-│       ├── main.rs        # Rust entrypoint
-│       ├── lib.rs         # Tauri core plugins setup
-│       ├── application/   # Tauri Commands controller layer
-│       ├── core/          # App result/error definitions
-│       ├── domain/        # Domain types & logic
-│       └── infrastructure/# DB drivers & client implementations
-├── tsconfig.json          # TypeScript configurations
-└── package.json           # Frontend scripts & NPM dependencies
-```
-
----
-
-## License
-
-This project is licensed under the MIT License unless stated otherwise.
+</div>

@@ -10,9 +10,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "format": "prettier --write .",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri": "TAURI_APP_PATH=./backend tauri",
+    "tauri:dev": "TAURI_APP_PATH=./backend tauri dev",
+    "tauri:build": "TAURI_APP_PATH=./backend tauri build"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

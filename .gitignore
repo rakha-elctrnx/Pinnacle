@@ -10,8 +10,8 @@ dist-ssr/
 *.tsbuildinfo
 
 # Tauri
-src-tauri/target/
-src-tauri/gen/
+backend/target/
+backend/gen/
 
 # IDEs and editors
 .vscode/
