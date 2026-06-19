@@ -1,11 +1,16 @@
-import { DataExplorerContextProvider } from '../context/DataExplorerContext'
+import { useMemo } from 'react'
+import { DataExplorerContextProvider, useDataExplorerContext } from '../context/DataExplorerContext'
 import { useDataExplorerOrchestrator } from '../hooks/useDataExplorerOrchestrator'
 import { useShellLayout } from '../../../state/shellLayoutStore'
+import { useDesignerStore } from '../../../state/designerStore'
 import { Header } from '../components/layout/Header'
 import { Footer } from '../components/layout/Footer'
 import { PageWorkspace } from '../components/layout/PageWorkspace'
 import { ConnectionSidebar } from '../components/ConnectionSidebar'
 import { InspectorPanel } from '../components/layout/InspectorPanel'
+import { ConnectionWizardModal } from '../components/ConnectionWizardModal'
+import { ContextMenu } from '../components/ContextMenu'
+import { getConnPayload, isSqlConnectionType } from '../utils'
 
 /**
  * DataExplorerLayout — the single application-level shell for Pinnacle.
@@ -43,6 +48,94 @@ export function DataExplorerLayout() {
 
   return (
     <DataExplorerContextProvider value={orchestrator}>
+      <DataExplorerLayoutChrome
+        sidebarWidth={sidebarWidth}
+        inspectorOpen={inspectorOpen}
+        inspectorWidth={inspectorWidth}
+      />
+    </DataExplorerContextProvider>
+  )
+}
+
+/**
+ * DataExplorerLayoutChrome — inner layout body that consumes the orchestrator
+ * context and mounts the global modals. Extracted so it can call
+ * `useDataExplorerContext()` from inside the provider mounted by
+ * `DataExplorerLayout`.
+ *
+ * Global modals mounted here (per ADR
+ * `docs/decisions/adr-20260619-modular-folder-structure.md`, Gap 2):
+ *   - `ConnectionWizardModal` — add/edit connection; triggered from header,
+ *     sidebar, and page-level actions. Owning it at the layout level keeps the
+ *     wizard reachable even when no page is selected.
+ *   - `ContextMenu` — right-click on a connection or table node in the
+ *     sidebar. Owning it at the layout level keeps the menu reachable from
+ *     any region.
+ *
+ * Page-level modals (TableDesigner, DeleteTable, ExportData, DataOperation)
+ * remain mounted by `DataExplorerPage` because they only make sense when a
+ * workspace is active.
+ */
+function DataExplorerLayoutChrome({
+  sidebarWidth,
+  inspectorOpen,
+  inspectorWidth,
+}: {
+  sidebarWidth: number
+  inspectorOpen: boolean
+  inspectorWidth: number
+}) {
+  const {
+    items,
+    selectedConnection,
+    editingId,
+    contextMenu,
+    contextMenuRef,
+    isAddModalOpen,
+    queryExecution,
+    explorerData,
+    handleOpenEditModal,
+    handleRefreshConnection,
+    handleCloseConnection,
+    handleDuplicateConnection,
+    handleExportConnection,
+    handleDeleteConnection,
+    handleSaveConnection,
+    handleCloseAddModal,
+    setContextMenu,
+    handleRequestDeleteTableFromMenu,
+    handleRequestDataOperationFromMenu,
+    handleRequestExportFromMenu,
+  } = useDataExplorerContext()
+
+  // Derive unique existing groups from all connection profiles for the
+  // wizard's group dropdown. Mirrors the derivation that previously lived
+  // in DataExplorerPage; kept local to this component because no other
+  // layout region needs it.
+  const existingGroups = useMemo(
+    () => [...new Set(items.map((p) => p.tags[0]).filter(Boolean))].sort(),
+    [items],
+  )
+
+  // Designer store — used by `ContextMenu`'s "Design Table" action. Mirrors
+  // the page's local `handleOpenDesignerForEdit` so the menu can stay at the
+  // layout level. Lifting this helper into the orchestrator is intentionally
+  // deferred to a follow-up task to keep PREP scope minimal.
+  const loadAndOpenForEdit = useDesignerStore((s) => s.loadAndOpenForEdit)
+
+  const handleOpenDesignerForEdit = async (tableName: string) => {
+    if (!selectedConnection || !isSqlConnectionType(selectedConnection.type)) return
+    const databaseName = queryExecution.queryDatabase || explorerData.selectedDatabase || selectedConnection.database
+    const schemaName =
+      selectedConnection.type === 'postgresql'
+        ? queryExecution.querySchema || explorerData.selectedSchema || 'public'
+        : databaseName ?? ''
+    const payload = { ...getConnPayload(selectedConnection), database: databaseName ?? '' }
+    await loadAndOpenForEdit(payload, tableName, databaseName ?? '', schemaName)
+  }
+
+  return (
+    <>
       <div className="flex h-screen flex-col bg-gray-200 dark:bg-gray-800 text-on-surface p-2">
         <Header />
 
@@ -85,6 +178,48 @@ export function DataExplorerLayout() {
 
         <Footer />
       </div>
-    </DataExplorerContextProvider>
+
+      {/* Global modals — mounted at the layout level so they remain
+          reachable from any region (header, sidebar, page). See
+          docs/decisions/adr-20260619-modular-folder-structure.md (Gap 2). */}
+
+      {contextMenu && (
+        <div ref={contextMenuRef}>
+          <ContextMenu
+            state={contextMenu}
+            onEdit={handleOpenEditModal}
+            onRefresh={handleRefreshConnection}
+            onCloseConnection={handleCloseConnection}
+            onDuplicate={handleDuplicateConnection}
+            onExport={handleExportConnection}
+            onDelete={handleDeleteConnection}
+            onDesignTable={handleOpenDesignerForEdit}
+            onDeleteTable={(connectionId, tableName) => {
+              handleRequestDeleteTableFromMenu(connectionId, tableName)
+            }}
+            onEmptyTable={(connectionId, tableName) => {
+              handleRequestDataOperationFromMenu(connectionId, tableName, 'empty')
+            }}
+            onTruncateTable={(connectionId, tableName) => {
+              handleRequestDataOperationFromMenu(connectionId, tableName, 'truncate')
+            }}
+            onExportTable={(connectionId, tableName) => {
+              handleRequestExportFromMenu(connectionId, tableName)
+            }}
+            onClose={() => setContextMenu(null)}
+          />
+        </div>
+      )}
+
+      {isAddModalOpen && (
+        <ConnectionWizardModal
+          editingId={editingId}
+          existingProfile={editingId ? items.find((p) => p.id === editingId) ?? null : null}
+          existingGroups={existingGroups}
+          onSave={handleSaveConnection}
+          onClose={handleCloseAddModal}
+        />
+      )}
+    </>
   )
 }

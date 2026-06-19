@@ -1,12 +1,9 @@
-import { useMemo } from 'react'
 import { useDataExplorerContext } from '../context/DataExplorerContext'
 import { SqlExplorerWorkspace } from '../components/db/sql/SqlExplorerWorkspace'
 import { RedisWorkspaceNotice } from '../components/db/redis/RedisWorkspaceNotice'
 import { RabbitMqWorkspaceNotice } from '../components/db/rabbitmq/RabbitMqWorkspaceNotice'
 import { ElasticExplorerWorkspace } from '../components/db/elasticsearch/ElasticExplorerWorkspace'
 import { MongodbWorkspaceNotice } from '../components/db/mongodb/MongodbWorkspaceNotice'
-import { ConnectionWizardModal } from '../components/ConnectionWizardModal'
-import { ContextMenu } from '../components/ContextMenu'
 import { DeleteTableModal } from '../components/DeleteTableModal'
 import { DataOperationModal } from '../components/DataOperationModal'
 import { ExportDataModal } from '../components/ExportDataModal'
@@ -20,30 +17,24 @@ import { getConnPayload, isSqlConnectionType, quoteIdentifier } from '../utils'
  * `PageWorkspace` region of the five-region DataExplorerLayout.
  *
  * The chrome (header, footer, navigation strip, sidebar overlay,
- * inspector overlay) is owned by `DataExplorerLayout`. This component
- * is responsible only for:
+ * inspector overlay) and the **global modals** (ConnectionWizardModal,
+ * ContextMenu) are owned by `DataExplorerLayout`. This component is
+ * responsible only for:
  *   • Rendering the per-connection workspace body
- *   • Mounting the global modals (wizard, context menu, table delete,
- *     data operation, export, table designer)
+ *   • Mounting the page-level modals (TableDesigner, DeleteTable,
+ *     ExportData, DataOperation) that only make sense once a workspace
+ *     is active
  *
  * All shared state is consumed from the application-level
  * `DataExplorerContext` (mounted once by `DataExplorerLayout`) so the
  * page works against the same orchestrator instance as the sidebar,
- * footer, header, and inspector — preventing split state where the
- * page would not see connection selections made in the sidebar.
+ * footer, header, inspector, and global modals — preventing split
+ * state where the page would not see connection selections made in
+ * the sidebar.
  */
 export function DataExplorerPage() {
   const {
-    items,
-    recentConnections,
     selectedConnection,
-    selectedConnectionId,
-    connectionStatuses,
-    isAddModalOpen,
-    editingId,
-    contextMenu,
-    contextMenuRef,
-    isDetailsPanelOpen,
     elasticPanel,
     selectedElasticIndex,
     openedElasticTabs,
@@ -57,12 +48,6 @@ export function DataExplorerPage() {
     explorerData,
     queryExecution,
     handleConnectionSelectionChange,
-    handleOpenEditModal,
-    handleDuplicateConnection,
-    handleExportConnection,
-    handleRefreshConnection,
-    handleCloseConnection,
-    handleSaveConnection,
     wrappedHandleTreeNodeClick,
     handleCloseTableTab,
     handleActiveTableTabChange,
@@ -70,7 +55,6 @@ export function DataExplorerPage() {
     handleCloseElasticTab,
     handleActiveElasticTabIdChange,
     setExpandedConnectionId,
-    setContextMenu,
     setSelectedTreeNode,
     setElasticPanel,
     setSelectedElasticIndex,
@@ -79,33 +63,24 @@ export function DataExplorerPage() {
     setQueryResultTab,
     setOpenedElasticTabs,
     setActiveElasticTabId,
-    handleDeleteConnection,
-    handleCloseAddModal,
     deleteTableTarget,
     handleRequestDeleteTable,
-    handleRequestDeleteTableFromMenu,
     handleCloseDeleteTableModal,
     dataOperationTarget,
-    handleRequestDataOperationFromMenu,
     handleCloseDataOperationModal,
     exportModalTarget,
     exportEstimate,
     exportJob,
     recentExports,
     handleRequestExport,
-    handleRequestExportFromMenu,
     handleSubmitExport,
     handleUseRecentExport,
     handleCloseExportModal,
+    isDetailsPanelOpen,
+    selectedConnectionId,
+    connectionStatuses,
+    recentConnections,
   } = useDataExplorerContext()
-
-  // Derive unique existing groups from all connection profiles
-  const existingGroups = useMemo(
-    () => [...new Set(items.map((p) => p.tags[0]).filter(Boolean))].sort(),
-    [items],
-  )
-
-  // Designer store
   const loadAndOpenForEdit = useDesignerStore((s) => s.loadAndOpenForEdit)
   const openForCreate = useDesignerStore((s) => s.openForCreate)
 
@@ -380,43 +355,12 @@ export function DataExplorerPage() {
         )}
       </div>
 
-      {contextMenu && (
-        <div ref={contextMenuRef}>
-          <ContextMenu
-            state={contextMenu}
-            onEdit={handleOpenEditModal}
-            onRefresh={handleRefreshConnection}
-            onCloseConnection={handleCloseConnection}
-            onDuplicate={handleDuplicateConnection}
-            onExport={handleExportConnection}
-            onDelete={handleDeleteConnection}
-            onDesignTable={handleOpenDesignerForEdit}
-            onDeleteTable={(connectionId, tableName) => {
-              handleRequestDeleteTableFromMenu(connectionId, tableName)
-            }}
-            onEmptyTable={(connectionId, tableName) => {
-              handleRequestDataOperationFromMenu(connectionId, tableName, 'empty')
-            }}
-            onTruncateTable={(connectionId, tableName) => {
-              handleRequestDataOperationFromMenu(connectionId, tableName, 'truncate')
-            }}
-            onExportTable={(connectionId, tableName) => {
-              handleRequestExportFromMenu(connectionId, tableName)
-            }}
-            onClose={() => setContextMenu(null)}
-          />
-        </div>
-      )}
-
-      {isAddModalOpen && (
-        <ConnectionWizardModal
-          editingId={editingId}
-          existingProfile={editingId ? items.find((p) => p.id === editingId) ?? null : null}
-          existingGroups={existingGroups}
-          onSave={handleSaveConnection}
-          onClose={handleCloseAddModal}
-        />
-      )}
+      {/* Page-level modals. The global modals
+          (ConnectionWizardModal, ContextMenu) are mounted by
+          DataExplorerLayout so they remain reachable from any
+          chrome region. See
+          docs/decisions/adr-20260619-modular-folder-structure.md
+          (Gap 2: Modal Mounting Strategy). */}
 
       {/* Table Designer Modal */}
       <TableDesignerModal />
