@@ -10,18 +10,18 @@ Run QA finalization workflow for the provided work item ID.
 
 Use these references:
 - [Dev Delivery](../skills/dev/SKILL.md)
-- [Milestone Progress Log Template](../../.ai/templates/milestone-progress-log-template.md)
-- [Pre-Done Auto Audit Checklist](../../.ai/templates/pre-done-auto-audit-checklist.md)
+- [Milestone Progress Log Template](../../tasks/templates/milestone-progress-log-template.md)
+- [Pre-Done Auto Audit Checklist](../../tasks/templates/pre-done-auto-audit-checklist.md)
 - [Taskboard PM QA](../skills/qa/SKILL.md)
-- [Canonical Status Model and Definition Of Done](../../.ai/README.md)
+- [Canonical Status Model and Definition Of Done](../../tasks/README.md)
 
 Input format:
 - The input is a short ID only, such as `task-003` or `bug-002`.
 
 Resolution rules:
-- Resolve the ID to exactly one file in `.ai/` with filename prefix match:
-  - `task-003` -> `.ai/task-003-*.md`
-  - `bug-002` -> `.ai/bug-002-*.md`
+- Resolve the ID to exactly one file in `tasks/` with filename prefix match:
+  - `task-003` -> `tasks/task-003-*.md`
+  - `bug-002` -> `tasks/bug-002-*.md`
 - If more than one file matches, stop and ask which file to use.
 - If no file matches, stop and report that the work item was not found.
 
@@ -36,6 +36,6 @@ Requirements:
 - Enforce canonical status labels only: `todo`, `in-progress`, `blocked`, `needs-follow-up`, `done`.
 - Run the pre-done auto-audit checklist and include the checklist outcome in the handoff section.
 - If any audit check fails, recommend `blocked` or `needs-follow-up` instead of `done`.
-- Update the same `.ai/` work item with a dedicated "QA Handoff" section.
+- Update the same `tasks/` work item with a dedicated "QA Handoff" section.
 
-Output must be an updated `.ai/` file ready for QA execution, not only a chat summary.
+Output must be an updated `tasks/` file ready for QA execution, not only a chat summary.

@@ -1,6 +1,6 @@
 ---
 name: dev
-description: 'Senior developer execution workflow for implementing high-quality code from analyst decisions and PM/QA work items. Use when coding from .ai/decisions guidance, executing task and bug files in .ai, fixing defects, validating changes, and updating progress status with evidence.'
+description: 'Senior developer execution workflow for implementing high-quality code from analyst decisions and PM/QA work items. Use when coding from docs/decisions guidance, executing task and bug files in .ai, fixing defects, validating changes, and updating progress status with evidence.'
 argument-hint: 'What task or bug should be executed from .ai with which decision context?'
 user-invocable: true
 disable-model-invocation: false
@@ -12,8 +12,8 @@ Use this skill when the goal is implementation quality and reliable delivery, no
 
 ## What This Skill Produces
 
-- Code changes aligned to decision context in `.ai/decisions/`
-- Concrete implementation updates for task or bug files in `.ai/`
+- Code changes aligned to decision context in `docs/decisions/`
+- Concrete implementation updates for task or bug files in `tasks/`
 - Validation evidence for build, test, lint, or behavior checks
 - Updated work-item status, progress notes, and remaining risks
 - Explicit handoff notes for PM/QA when follow-up is needed
@@ -21,28 +21,28 @@ Use this skill when the goal is implementation quality and reliable delivery, no
 ## When to Use
 
 - A decision or workflow review already exists and implementation must follow it
-- A PM/QA task in `.ai/` needs coding execution
-- A PM/QA bug in `.ai/` needs root-cause fix and verification
+- A PM/QA task in `tasks/` needs coding execution
+- A PM/QA bug in `tasks/` needs root-cause fix and verification
 - Delivery requires both code quality and honest progress tracking
 - You need traceable implementation evidence, not only code output
 
 ## Required Rules
 
-1. Read relevant decision files in `.ai/decisions/` before writing code.
-2. Read the target work item in `.ai/` before implementation and update the same file after each small milestone.
+1. Read relevant decision files in `docs/decisions/` before writing code.
+2. Read the target work item in `tasks/` before implementation and update the same file after each small milestone.
 3. Keep scope aligned with the decision and acceptance criteria; do not silently expand scope.
 4. Use the smallest safe change that satisfies the required behavior.
 5. Record validation evidence (what command/check was run and outcome) before marking progress as complete.
-6. If implementation uncovers a new defect with the same root cause, update the existing bug file in `.ai/`; create a new bug file only when it is a distinct root cause, then link it from the parent task.
+6. If implementation uncovers a new defect with the same root cause, update the existing bug file in `tasks/`; create a new bug file only when it is a distinct root cause, then link it from the parent task.
 7. If decision context is missing or contradictory, stop implementation and request analyst clarification.
-8. Follow the canonical status model in `.ai/README.md` and do not introduce ad-hoc status labels.
+8. Follow the canonical status model in `tasks/README.md` and do not introduce ad-hoc status labels.
 9. Treat PM/QA as owner of final lifecycle state changes; Dev updates status only to reflect current implementation truth.
 
 ## Procedure
 
 1. Establish execution context.
-   - Locate the target task or bug file in `.ai/`.
-   - Locate related decision or workflow review in `.ai/decisions/`.
+   - Locate the target task or bug file in `tasks/`.
+   - Locate related decision or workflow review in `docs/decisions/`.
    - Extract objective, constraints, acceptance criteria, and non-goals.
 
 2. Plan the implementation path.
@@ -61,15 +61,15 @@ Use this skill when the goal is implementation quality and reliable delivery, no
    - Check for regressions in related code paths.
 
 5. Update taskboard records.
-   - Update the `.ai/` task or bug status using the canonical model (`todo`, `in-progress`, `blocked`, `needs-follow-up`, `done`).
+   - Update the `tasks/` task or bug status using the canonical model (`todo`, `in-progress`, `blocked`, `needs-follow-up`, `done`).
    - Record progress updates at each small milestone, not only at the end.
-   - Use [Milestone progress log template](../../../.ai/templates/milestone-progress-log-template.md) for consistent update format.
+   - Use [Milestone progress log template](../../../tasks/templates/milestone-progress-log-template.md) for consistent update format.
    - Record implementation summary, validation evidence, and known gaps.
    - Add links to any new bug files or follow-up tasks.
 
 6. Prepare handoff.
    - Summarize what changed, what was verified, and what remains.
-   - Use [QA Handoff Checklist prompt](../../prompts/qa-handoff-checklist.prompt.md) to produce a standard QA verification section in the `.ai/` work item.
+   - Use [QA Handoff Checklist prompt](../../prompts/qa-handoff-checklist.prompt.md) to produce a standard QA verification section in the `tasks/` work item.
    - Flag residual risks, deferred work, and suggested QA focus points.
 
 ## Decision Rules
@@ -83,7 +83,7 @@ Use this skill when the goal is implementation quality and reliable delivery, no
 
 ## Entry Criteria
 
-- Target task or bug exists in `.ai/`.
+- Target task or bug exists in `tasks/`.
 - Related decision context exists for ambiguous behavior, or behavior is already unambiguous.
 - Acceptance criteria and scope boundaries are present.
 
@@ -107,8 +107,8 @@ Use this skill when the goal is implementation quality and reliable delivery, no
 
 ## Completion Checklist
 
-- Related decision context from `.ai/decisions/` was reviewed.
-- Target task or bug file in `.ai/` was updated with current status.
+- Related decision context from `docs/decisions/` was reviewed.
+- Target task or bug file in `tasks/` was updated with current status.
 - Code changes are scoped to acceptance criteria and constraints.
 - Validation evidence is recorded with pass/fail outcomes.
 - New defects discovered during implementation are tracked as linked bugs.
@@ -116,15 +116,15 @@ Use this skill when the goal is implementation quality and reliable delivery, no
 
 ## File Handling Guidance
 
-- Prefer updating the existing `.ai/` work item over creating duplicates.
+- Prefer updating the existing `tasks/` work item over creating duplicates.
 - Keep progress notes chronological and concise.
 - Write progress notes per small milestone so PM/QA can follow delivery state continuously.
-- Treat `.ai/` as the delivery log and source of truth for status.
+- Treat `tasks/` as the delivery log and source of truth for status.
 - Keep code commit-ready by avoiding unrelated edits.
 
 ## References
 
 - [System analyst workflow](../analyst/SKILL.md)
 - [PM and QA workflow](../qa/SKILL.md)
-- [Milestone progress log template](../../../.ai/templates/milestone-progress-log-template.md)
+- [Milestone progress log template](../../../tasks/templates/milestone-progress-log-template.md)
 - [QA handoff checklist prompt](../../prompts/qa-handoff-checklist.prompt.md)

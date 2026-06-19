@@ -8,11 +8,11 @@ disable-model-invocation: false
 
 # Taskboard PM QA
 
-Use this skill when the work needs PM and QA supervision, not just code generation. The skill treats every implementation request, follow-up change, and bug report as a tracked work item in `.ai/`.
+Use this skill when the work needs PM and QA supervision, not just code generation. The skill treats every implementation request, follow-up change, and bug report as a tracked work item in `tasks/`.
 
 ## What This Skill Produces
 
-- A task or bug file in `.ai/`
+- A task or bug file in `tasks/`
 - A clear execution plan with acceptance criteria
 - Code review and QA checks before a task is marked done
 - An updated task record with status, findings, and next actions
@@ -23,26 +23,26 @@ Use this skill when the work needs PM and QA supervision, not just code generati
 - A new feature, refactor, or bug fix needs to be tracked from request to delivery
 - You need QA coverage before considering code complete
 - You need a lightweight project manager that keeps work visible in files
-- You want implementation tasks and bug notes recorded consistently in `.ai/`
+- You want implementation tasks and bug notes recorded consistently in `tasks/`
 
 ## Required Rules
 
-1. Every new work item must be written as a separate Markdown file inside `.ai/`.
+1. Every new work item must be written as a separate Markdown file inside `tasks/`.
 2. Use `task-YYYYMMDD-short-title.md` for implementation work.
 3. Use `bug-YYYYMMDD-short-title.md` for defects, regressions, or QA findings.
 4. Do not mark a task as `done` until implementation evidence and QA evidence are both recorded.
 5. If code changes reveal new defects or blockers, create or update a bug file before closing the parent task.
-6. Read `.ai/decisions/` before creating a task or bug, and link any relevant ADR or workflow review in the work item.
-7. Use the canonical status model from `.ai/README.md` for all task and bug files.
-8. Enforce the shared Definition Of Done in `.ai/README.md` before setting status to `done`.
+6. Read `docs/decisions/` before creating a task or bug, and link any relevant ADR or workflow review in the work item.
+7. Use the canonical status model from `tasks/README.md` for all task and bug files.
+8. Enforce the shared Definition Of Done in `tasks/README.md` before setting status to `done`.
 
 ## Procedure
 
 1. Classify the incoming request.
    - If the request is new work, create a task file from [task template](./assets/task-template.md).
    - If the request is a defect or failed validation, create a bug file from [bug template](./assets/bug-template.md).
-   - If related work already exists in `.ai/`, update that file instead of creating a duplicate.
-   - If a relevant ADR or workflow review already exists in `.ai/decisions/`, reference it immediately.
+   - If related work already exists in `tasks/`, update that file instead of creating a duplicate.
+   - If a relevant ADR or workflow review already exists in `docs/decisions/`, reference it immediately.
 
 2. Define the delivery target.
    - Write the objective in one sentence.
@@ -105,7 +105,7 @@ Use this skill when the work needs PM and QA supervision, not just code generati
 
 ## Completion Checklist
 
-- The task or bug is documented in `.ai/`.
+- The task or bug is documented in `tasks/`.
 - Status reflects the current state honestly.
 - Acceptance criteria are specific and testable.
 - Relevant ADRs or workflow reviews are referenced when they exist.
@@ -115,8 +115,8 @@ Use this skill when the work needs PM and QA supervision, not just code generati
 
 ## File Handling Guidance
 
-- Read `.ai/` first to avoid duplicate work items.
-- Read `.ai/decisions/` before planning implementation work.
+- Read `tasks/` first to avoid duplicate work items.
+- Read `docs/decisions/` before planning implementation work.
 - Keep task files concise and append updates instead of rewriting history.
 - Use timestamps when helpful for QA notes and handoff clarity.
 - Preserve a single source of truth per work item.

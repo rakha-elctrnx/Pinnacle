@@ -1,6 +1,6 @@
 ---
 name: analyst
-description: 'Analyze a system from business flow, technical flow, user comfort, feature scope, workflow review, and future evolution. Use when defining how a product should work, what should be improved next, and when recording ADRs or workflow reviews in .ai/decisions/.'
+description: 'Analyze a system from business flow, technical flow, user comfort, feature scope, workflow review, and future evolution. Use when defining how a product should work, what should be improved next, and when recording ADRs or workflow reviews in docs/decisions/.'
 argument-hint: 'What system, feature area, or decision needs analysis?'
 user-invocable: true
 disable-model-invocation: false
@@ -12,7 +12,7 @@ Use this skill when the task is not implementation yet, but structured analysis 
 
 ## What This Skill Produces
 
-- A decision record in `.ai/decisions/`
+- A decision record in `docs/decisions/`
 - A lighter workflow review record when a full ADR would be disproportionate
 - A clear statement of the business flow and technical flow being recommended
 - Notes on user comfort, risks, tradeoffs, and implementation implications
@@ -36,13 +36,13 @@ Use this skill when the task is not implementation yet, but structured analysis 
 
 - Decision question is answered with a recommended target flow.
 - Tradeoffs, assumptions, and risks are explicit.
-- Decision output is saved in `.ai/decisions/` and ready to drive a task or bug.
+- Decision output is saved in `docs/decisions/` and ready to drive a task or bug.
 
 ## Required Rules
 
-1. Read `.ai/decisions/` first and update an existing decision if the same problem is already being analyzed.
-2. Write each new analysis as `adr-YYYYMMDD-short-title.md` in `.ai/decisions/`.
-3. Use `workflow-review-YYYYMMDD-short-title.md` in `.ai/decisions/` when the need is a lightweight review rather than a durable architectural or product decision.
+1. Read `docs/decisions/` first and update an existing decision if the same problem is already being analyzed.
+2. Write each new analysis as `adr-YYYYMMDD-short-title.md` in `docs/decisions/`.
+3. Use `workflow-review-YYYYMMDD-short-title.md` in `docs/decisions/` when the need is a lightweight review rather than a durable architectural or product decision.
 4. Distinguish clearly between current-state observations, recommended decisions, and future ideas.
 5. Every decision must cover both user impact and technical impact.
 6. Do not recommend a flow only because it is technically easy; justify why it is better for users and operations.
@@ -94,7 +94,7 @@ Use this skill when the task is not implementation yet, but structured analysis 
 - Use an ADR when the outcome should survive as a durable product, workflow, or technical decision.
 - Use a workflow review when the goal is fast evaluation, lighter recommendations, or a review that may later become an ADR.
 - If the issue is purely execution tracking, use the PM/QA workflow skill instead of this one.
-- If the issue is a confirmed defect with broken behavior, record it in `.ai/` as a bug and link the related decision if needed.
+- If the issue is a confirmed defect with broken behavior, record it in `tasks/` as a bug and link the related decision if needed.
 - If the request is too vague to define a decision question, stop and ask for the target workflow, user group, or system boundary.
 
 ## Phase Gates
@@ -111,7 +111,7 @@ Use this skill when the task is not implementation yet, but structured analysis 
 - The recommendation includes rationale and tradeoffs.
 - Near-term features and future development ideas are separated.
 - Assumptions, risks, and open questions are written down.
-- The outcome is saved in `.ai/decisions/`.
+- The outcome is saved in `docs/decisions/`.
 
 ## File Handling Guidance
 
