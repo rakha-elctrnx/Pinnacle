@@ -508,9 +508,9 @@ export function ConnectionSidebar() {
                 <div className="space-y-0.5 pt-0.5">
                   {profiles.map((item) => {
                     const active = selectedConnection?.id === item.id;
-                    const logo = databaseTypeOptions.find(
+                      const DbIcon = databaseTypeOptions.find(
                       (option) => option.value === item.type,
-                    )?.logoSrc;
+                      )?.Icon;
                     const isLoading = explorerData.treeLoading[item.id] || !!elasticLoading?.[item.id];
                     const connectionSavedQueries = savedQueriesByConnection[item.id] ?? [];
 
@@ -569,14 +569,10 @@ export function ConnectionSidebar() {
                                 : "bg-surface-variant/60 text-on-surface-variant group-hover:bg-surface-variant",
                             ].join(" ")}
                           >
-                            {logo ? (
-                              <img
-                                src={logo}
-                                alt={item.type}
-                                className="h-3 w-3 object-contain"
-                              />
+                              {DbIcon ? (
+                                <DbIcon size={14} />
                             ) : (
-                              <Database size={11} />
+                              <Database size={14} />
                             )}
                           </span>
                           <span className="min-w-0 flex-1 truncate font-medium">

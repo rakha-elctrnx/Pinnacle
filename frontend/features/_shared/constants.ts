@@ -1,41 +1,49 @@
 import type { ConnectionType } from './types/domain'
 import type { DatabaseTypeOption, ConnectionStatus } from './types/shared'
+import {
+  PostgreSqlIcon,
+  MySqlIcon,
+  RedisIcon,
+  RabbitMqIcon,
+  ElasticSearchIcon,
+  MongoDbIcon,
+} from './components/DatasourceLogo'
 
 export const databaseTypeOptions: DatabaseTypeOption[] = [
   {
     label: 'PostgreSQL',
     value: 'postgresql',
-    logoSrc: 'https://cdn.simpleicons.org/postgresql/336791',
+    Icon: PostgreSqlIcon,
     hint: 'Relational database',
   },
   {
     label: 'MySQL',
     value: 'mysql',
-    logoSrc: 'https://cdn.simpleicons.org/mysql/4479A1',
+    Icon: MySqlIcon,
     hint: 'Relational database',
   },
   {
     label: 'Redis',
     value: 'redis',
-    logoSrc: 'https://cdn.simpleicons.org/redis/DC382D',
+    Icon: RedisIcon,
     hint: 'In-memory data store',
   },
   {
     label: 'RabbitMQ',
     value: 'rabbitmq',
-    logoSrc: 'https://cdn.simpleicons.org/rabbitmq/FF6600',
+    Icon: RabbitMqIcon,
     hint: 'Message broker',
   },
   {
     label: 'Elasticsearch',
     value: 'elasticsearch',
-    logoSrc: 'https://cdn.simpleicons.org/elasticsearch/005571',
+    Icon: ElasticSearchIcon,
     hint: 'Search and analytics',
   },
   {
     label: 'MongoDB',
     value: 'mongodb',
-    logoSrc: 'https://cdn.simpleicons.org/mongodb/47A248',
+    Icon: MongoDbIcon,
     hint: 'Future connector',
   },
 ]

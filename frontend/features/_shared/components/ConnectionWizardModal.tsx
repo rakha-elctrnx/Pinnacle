@@ -317,10 +317,10 @@ export function ConnectionWizardModal({
                     ].join(' ')}
                   >
                     <span
-                      className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg transition ${active ? 'bg-surface-container-high shadow-sm' : 'bg-surface-variant group-hover:bg-surface-container-low'
+                      className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg transition ${active ? 'bg-blue-100/80 shadow-sm' : 'bg-surface-variant/60 group-hover:bg-surface-container-low'
                         }`}
                     >
-                      <img src={option.logoSrc} alt={option.label} className="h-5 w-5 object-contain" />
+                       {(() => { const Icon = option.Icon; return <Icon size={28} />; })()}
                     </span>
                     <span className="min-w-0">
                       <span className={`block text-sm font-semibold ${active ? 'text-on-primary-container' : 'text-on-surface/70'}`}>
@@ -346,7 +346,7 @@ export function ConnectionWizardModal({
             {/* Selected type badge */}
             <div className="mb-4 flex items-center gap-2">
               <span className="grid h-7 w-7 place-items-center rounded-md border border-surface-variant bg-surface-variant">
-                <img src={selectedOption?.logoSrc} alt={selectedOption?.label} className="h-4 w-4 object-contain" />
+                 {selectedOption && (() => { const Icon = selectedOption.Icon; return <Icon size={16} />; })()}
               </span>
               <span className="text-sm font-medium text-on-surface">{selectedOption?.label}</span>
               <button

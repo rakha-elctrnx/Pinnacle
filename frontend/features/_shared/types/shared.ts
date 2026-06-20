@@ -50,10 +50,10 @@ export interface TreeNode {
 }
 
 export interface DatabaseTypeOption {
-  label: string
-  value: ConnectionType
-  logoSrc: string
-  hint: string
+  label: string;
+  value: ConnectionType;
+  Icon: React.ComponentType<{ className?: string; size?: number }>;
+  hint: string;
 }
 
 export interface QueryTab {
