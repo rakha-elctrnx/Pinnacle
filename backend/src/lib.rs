@@ -3,6 +3,8 @@ mod core;
 mod domain;
 mod infrastructure;
 
+use tauri::Manager;
+
 // ELASTICSEARCH COMMANDS
 use application::commands::elastic_commands::{
     elastic_create_index, elastic_delete_document, elastic_delete_index, elastic_execute_query,
@@ -36,7 +38,27 @@ pub fn run() {
                         .build(),
                 )?;
             }
+
+            // Ensure the new-connection child window stays hidden on launch.
+            // macOS may show child windows automatically when a parent is visible.
+            if let Some(conn_window) = app.get_webview_window("new-connection") {
+                let _ = conn_window.hide();
+            }
+
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            // Raise new-connection above main whenever main is clicked/focused.
+            if window.label() == "main" {
+                if let tauri::WindowEvent::Focused(true) = event {
+                    if let Some(child) = window.app_handle().get_webview_window("new-connection") {
+                        if child.is_visible().unwrap_or(false) {
+                            let _ = child.show();
+                            let _ = child.set_focus();
+                        }
+                    }
+                }
+            }
         })
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![

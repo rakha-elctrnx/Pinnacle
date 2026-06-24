@@ -343,7 +343,7 @@ export function ConnectionSidebar() {
     expandedConnectionId,
     selectedTreeNode,
     expandedTreePaths,
-    openCreateWizard,
+    openCreateConnection,
     handleConnectionSelectionChange,
     setExpandedConnectionId,
     setContextMenu,
@@ -448,7 +448,7 @@ export function ConnectionSidebar() {
         </div>
         <button
           type="button"
-          onClick={openCreateWizard}
+          onClick={openCreateConnection}
           className="rounded-md p-1 text-on-surface-variant transition-all duration-150 hover:bg-surface-variant hover:text-primary active:scale-95"
           aria-label="Create connection"
         >

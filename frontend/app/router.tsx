@@ -13,6 +13,7 @@ import { IndicesPage } from '../features/elasticsearch/pages/IndicesPage'
 import { DocumentsPage } from '../features/elasticsearch/pages/DocumentsPage'
 import { QueryConsolePage } from '../features/elasticsearch/pages/QueryConsolePage'
 import { MappingsPage } from '../features/elasticsearch/pages/MappingsPage'
+import { NewConnectionPage } from '../features/_shared/pages/window'
 
 /**
  * Top-level router.
@@ -38,6 +39,10 @@ import { MappingsPage } from '../features/elasticsearch/pages/MappingsPage'
  * prompts the user to create or select a connection from the sidebar.
  */
 export const router = createBrowserRouter([
+  {
+    path: '/new-connection',
+    element: <NewConnectionPage />,
+  },
   {
     path: '/',
     element: <DataExplorerLayout />,

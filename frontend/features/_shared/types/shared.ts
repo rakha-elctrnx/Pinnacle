@@ -2,7 +2,7 @@ import type { ConnectionType } from './domain'
 
 export type SqlConnectionType = 'postgresql' | 'mysql'
 export type ConnectionStatus = 'connected' | 'connecting' | 'disconnected' | 'error' | 'idle'
-export type WizardStep = 1 | 2
+export type ConnectionStep = 1 | 2
 export type TableInfoTab = 'data' | 'structure' | 'indexes' | 'relationships'
 export type QueryResultTab = 'results' | 'messages' | 'statistics'
 

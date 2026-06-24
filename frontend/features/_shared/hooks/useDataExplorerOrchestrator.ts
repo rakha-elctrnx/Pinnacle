@@ -104,7 +104,7 @@ export interface DataExplorerOrchestratorResult {
   explorerData: ReturnType<typeof useExplorerData>
   queryExecution: ReturnType<typeof useQueryExecution>
   detailsStats: DetailStat[]
-  openCreateWizard: () => void
+  openCreateConnection: () => void
   handleConnectionSelectionChange: (id: string | null) => void
   handleOpenEditModal: (itemId: string) => void
   handleDuplicateConnection: (itemId: string) => void
@@ -124,6 +124,7 @@ export interface DataExplorerOrchestratorResult {
   handleRetryElasticIndices: (connectionId: string) => void
   handleDeleteConnection: (itemId: string) => void
   handleCloseAddModal: () => void
+  connectionModalNonce: number
   deleteTableTarget: DeleteTableTarget | null
   handleRequestDeleteTable: (tableName: string) => void
   handleRequestDeleteTableFromMenu: (connectionId: string, tableName: string) => void
@@ -170,6 +171,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   const [selectedTreeNode, setSelectedTreeNode] = useState<string | null>(null)
   const [expandedTreePaths, setExpandedTreePaths] = useState<string[]>([])
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [connectionModalNonce, setConnectionModalNonce] = useState(0)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const contextMenuRef = useRef<HTMLDivElement>(null)
@@ -431,9 +433,10 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
 
   // ── Handlers ─────────────────────────────────────────────────────
 
-  const openCreateWizard = () => {
+  const openCreateConnection = () => {
     setEditingId(null)
     setIsAddModalOpen(true)
+    setConnectionModalNonce((n) => n + 1)
   }
 
   const handleConnectionSelectionChange = (id: string | null) => {
@@ -452,6 +455,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   const handleOpenEditModal = (itemId: string) => {
     setEditingId(itemId)
     setIsAddModalOpen(true)
+    setConnectionModalNonce((n) => n + 1)
   }
 
   const handleDuplicateConnection = (itemId: string) => {
@@ -779,7 +783,8 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     explorerData,
     queryExecution,
     detailsStats,
-    openCreateWizard,
+    openCreateConnection,
+    connectionModalNonce,
     handleConnectionSelectionChange,
     handleOpenEditModal,
     handleDuplicateConnection,

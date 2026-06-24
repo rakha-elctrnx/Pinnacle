@@ -1,7 +1,7 @@
 import { AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight, Database, Loader2, Plug, Plus, X } from 'lucide-react'
 import { useState, useMemo, useRef, useEffect } from 'react'
 import type { ConnectionProfile, ConnectionType } from '../types/domain'
-import type { WizardStep, TestConnectionResult } from '../types/shared'
+import type { ConnectionStep, TestConnectionResult } from '../types/shared'
 import { databaseTypeOptions, defaultPortByType, defaultInitialDatabaseByType } from '../constants'
 // CLIENTS
 import { elasticTestConnection } from '../../elasticsearch/clients/elasticsearch'
@@ -16,22 +16,24 @@ interface FieldError {
   name?: string
 }
 
-interface ConnectionWizardModalProps {
+interface ConnectionFormProps {
   editingId: string | null
   existingProfile: ConnectionProfile | null
   existingGroups: string[]
   onSave: (profile: ConnectionProfile) => void
   onClose: () => void
+  embedded?: boolean
 }
 
-export function ConnectionWizardModal({
+export function ConnectionFormModal({
   editingId,
   existingProfile,
   existingGroups,
   onSave,
   onClose,
-}: ConnectionWizardModalProps) {
-  const [step, setStep] = useState<WizardStep>(1)
+  embedded = false,
+}: ConnectionFormProps) {
+  const [step, setStep] = useState<ConnectionStep>(1)
   const [newType, setNewType] = useState<ConnectionType>(existingProfile?.type ?? 'postgresql')
   const [newName, setNewName] = useState(existingProfile?.name ?? '')
   const [newHost, setNewHost] = useState(existingProfile?.host ?? 'localhost')
@@ -253,9 +255,8 @@ export function ConnectionWizardModal({
   const inputErrorClasses =
     'w-full rounded-lg border border-red-300 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100'
 
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-shadow/30 p-4 backdrop-blur-sm">
-      <section className="w-full max-w-lg overflow-hidden rounded-2xl bg-surface shadow-2xl ring-1 ring-black/5">
+  const content = (
+    <section className={embedded ? "w-full h-full overflow-hidden bg-surface" : "w-full max-w-lg overflow-hidden rounded-2xl bg-surface shadow-2xl ring-1 ring-black/5"}>
         {/* Header */}
         <header className="flex items-center justify-between border-b border-outline-variant px-6 py-4">
           <div className="flex items-center gap-3">
@@ -614,7 +615,16 @@ export function ConnectionWizardModal({
             </button>
           )}
         </footer>
-      </section>
+    </section>
+  )
+
+  if (embedded) {
+    return content
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-shadow/30 p-4 backdrop-blur-sm">
+      {content}
     </div>
   )
 }
