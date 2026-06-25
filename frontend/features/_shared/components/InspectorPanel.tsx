@@ -16,7 +16,7 @@ export function InspectorPanel() {
   return (
     <aside className="flex h-full min-w-0 flex-col overflow-hidden bg-bg-subtle/40">
       <div className="flex shrink-0 items-center justify-between border-b border-border-default/60 bg-bg-muted/60 pl-3 pr-2.5 py-2.5 backdrop-blur-sm">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-text-primary">Inspector</p>
+        <p className="text-label text-text-primary">Inspector</p>
         <button
           type="button"
           onClick={closeInspector}
@@ -27,7 +27,7 @@ export function InspectorPanel() {
         </button>
       </div>
 
-      <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-text-muted">
+      <div className="flex flex-1 items-center justify-center p-4 text-center text-caption text-text-muted">
         Nothing to inspect.
       </div>
     </aside>

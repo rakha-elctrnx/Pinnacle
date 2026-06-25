@@ -137,7 +137,7 @@ export function QueryConsole({ connection }: Props) {
         <div className="relative">
           <button
             onClick={() => setShowTemplates(!showTemplates)}
-            className="flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+            className="flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-body-secondary hover:bg-slate-50"
           >
             Templates <ChevronDown className="h-3 w-3" />
           </button>
@@ -147,7 +147,7 @@ export function QueryConsole({ connection }: Props) {
                 <button
                   key={tpl.label}
                   onClick={() => loadTemplate(tpl)}
-                  className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  className="w-full text-left px-3 py-2 text-body hover:bg-slate-50"
                 >
                   {tpl.label}
                 </button>
@@ -158,27 +158,27 @@ export function QueryConsole({ connection }: Props) {
         <div className="relative">
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className="flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+            className="flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-body-secondary hover:bg-slate-50"
           >
             <Clock className="h-3.5 w-3.5" /> History ({history.length})
           </button>
           {showHistory && (
             <div className="absolute top-full left-0 mt-1 w-80 max-h-64 overflow-auto rounded border border-slate-200 bg-white shadow-lg z-20">
               {history.length === 0 ? (
-                <div className="px-3 py-2 text-sm text-slate-400">No history yet</div>
+                <div className="px-3 py-2 text-caption">No history yet</div>
               ) : (
                 history.map((entry) => (
                   <button
                     key={entry.id}
                     onClick={() => loadFromHistory(entry)}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-b border-slate-100"
+                    className="w-full text-left px-3 py-2 text-body hover:bg-slate-50 border-b border-slate-100"
                   >
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs font-bold ${entry.method === 'GET' ? 'text-emerald-600' : entry.method === 'POST' ? 'text-sky-600' : entry.method === 'DELETE' ? 'text-red-600' : 'text-amber-600'}`}>
+                      <span className={`text-label ${entry.method === 'GET' ? 'text-emerald-600' : entry.method === 'POST' ? 'text-sky-600' : entry.method === 'DELETE' ? 'text-red-600' : 'text-amber-600'}`}>
                         {entry.method}
                       </span>
-                      <span className="text-slate-700 font-mono text-xs truncate">{entry.path}</span>
-                      {entry.error && <span className="text-red-500 text-xs ml-auto">Error</span>}
+                      <span className="text-slate-700 text-mono text-caption truncate">{entry.path}</span>
+                      {entry.error && <span className="text-red-500 text-caption ml-auto">Error</span>}
                     </div>
                   </button>
                 ))
@@ -193,7 +193,7 @@ export function QueryConsole({ connection }: Props) {
         <select
           value={method}
           onChange={(e) => setMethod(e.target.value)}
-          className="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm font-bold text-slate-700 focus:border-blue-500 focus:outline-none"
+          className="rounded border border-slate-300 bg-white px-2 py-1.5 text-subheading text-slate-700 focus:border-blue-500 focus:outline-none"
         >
           {HTTP_METHODS.map((m) => (
             <option key={m} value={m}>{m}</option>
@@ -204,12 +204,12 @@ export function QueryConsole({ connection }: Props) {
           value={path}
           onChange={(e) => setPath(e.target.value)}
           placeholder="/_search"
-          className="flex-1 rounded border border-slate-300 bg-white px-3 py-1.5 text-sm font-mono text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none"
+          className="flex-1 rounded border border-slate-300 bg-white px-3 py-1.5 text-mono text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none"
         />
         <button
           onClick={executeQuery}
           disabled={loading}
-          className="flex items-center gap-1.5 rounded bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded bg-emerald-600 px-4 py-1.5 text-body text-white hover:bg-emerald-500 disabled:opacity-50"
         >
           <Play className="h-3.5 w-3.5" /> Run
         </button>
@@ -218,8 +218,8 @@ export function QueryConsole({ connection }: Props) {
       {/* Body Editor */}
       <div className="flex flex-col" style={{ minHeight: '200px', maxHeight: '35%' }}>
         <div className="flex items-center justify-between px-4 py-1 border-b border-slate-200 bg-slate-50">
-          <span className="text-xs text-slate-500 uppercase">Request Body</span>
-          <button onClick={formatBody} className="text-xs text-slate-500 hover:text-slate-700">Format JSON</button>
+          <span className="text-label">Request Body</span>
+          <button onClick={formatBody} className="text-caption hover:text-slate-700">Format JSON</button>
         </div>
         <div className="flex-1 min-h-0">
           <Editor
@@ -248,9 +248,9 @@ export function QueryConsole({ connection }: Props) {
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-4 py-1 border-b border-slate-200 bg-slate-50">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 uppercase">Response</span>
+            <span className="text-label">Response</span>
             {result && (
-              <span className="text-xs text-slate-500">
+              <span className="text-caption">
                 {result.elapsed_ms}ms
               </span>
             )}
@@ -258,12 +258,12 @@ export function QueryConsole({ connection }: Props) {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setResultView(resultView === 'raw' ? 'formatted' : 'raw')}
-              className="text-xs text-slate-500 hover:text-slate-700"
+              className="text-caption hover:text-slate-700"
             >
               {resultView === 'raw' ? 'Formatted' : 'Raw'}
             </button>
             {result && (
-              <button onClick={copyResult} className="text-xs text-slate-500 hover:text-slate-700">
+              <button onClick={copyResult} className="text-caption hover:text-slate-700">
                 <Copy className="h-3.5 w-3.5" />
               </button>
             )}
@@ -272,17 +272,17 @@ export function QueryConsole({ connection }: Props) {
         <div className="flex-1 overflow-auto">
           <CenteredLoadingState loading={loading} label="Executing query..." iconSize={3} />
           {error && (
-            <pre className="px-4 py-3 text-sm font-mono text-red-600 whitespace-pre-wrap break-all">
+            <pre className="px-4 py-3 text-mono text-red-600 whitespace-pre-wrap break-all">
               {error}
             </pre>
           )}
           {result && (
-            <pre className="px-4 py-3 text-sm font-mono text-slate-700 whitespace-pre-wrap break-all">
+            <pre className="px-4 py-3 text-mono text-slate-700 whitespace-pre-wrap break-all">
               {resultView === 'formatted' ? resultJson : JSON.stringify(result.data)}
             </pre>
           )}
           {!error && !result && !loading && (
-            <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+            <div className="flex items-center justify-center h-full text-caption">
               Press Cmd+Enter or click Run to execute
             </div>
           )}

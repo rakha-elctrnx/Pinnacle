@@ -288,8 +288,8 @@ export function ElasticExplorerWorkspace({
     return (
       <div className="flex h-full items-center justify-center bg-bg-base text-danger">
         <div className="text-center max-w-md">
-          <p className="text-sm font-medium mb-2">Connection Error</p>
-          <p className="text-xs text-text-secondary break-all">{error}</p>
+          <p className="text-subheading mb-2">Connection Error</p>
+          <p className="text-caption text-text-secondary break-all">{error}</p>
         </div>
       </div>
     )
@@ -306,7 +306,7 @@ export function ElasticExplorerWorkspace({
               <div
                 key={tab.id}
                 className={[
-                  'inline-flex items-center gap-1.5 rounded-t-lg border px-2 py-1.5 text-xs',
+                  'inline-flex items-center gap-1.5 rounded-t-lg border px-2 py-1.5 text-caption',
                   isActive
                     ? 'border-teal-200 bg-teal-50 text-teal-700'
                     : 'border-border-default bg-bg-base text-text-secondary hover:bg-bg-subtle',

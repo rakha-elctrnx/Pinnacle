@@ -28,7 +28,7 @@ export function MappingsPage() {
     return (
       <div className="flex h-full w-full items-center justify-center text-text-secondary">
         <div className="flex flex-col items-center gap-4 text-center max-w-md px-6">
-          <p className="text-sm">
+          <p className="text-body">
             No index selected. Navigate to the <strong>Indices</strong> tab and
             select an index to explore its field mappings.
           </p>

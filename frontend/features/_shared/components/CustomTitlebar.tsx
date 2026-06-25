@@ -51,7 +51,7 @@ export function CustomTitlebar({ title }: CustomTitlebarProps) {
           </>
         )}
       </div>
-      <span className="pointer-events-none select-none text-xs font-medium text-text-primary/80 absolute inset-0 flex items-center justify-center">
+      <span className="pointer-events-none select-none text-label text-text-primary/80 absolute inset-0 flex items-center justify-center">
         {title}
       </span>
     </div>

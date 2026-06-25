@@ -49,7 +49,7 @@ export function DeleteTableModal({ target, onDelete, onClose }: DeleteTableModal
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-danger-subtle">
               <AlertTriangle size={16} className="text-danger" />
             </span>
-            <h2 className="text-sm font-semibold text-text-primary">Delete Table</h2>
+            <h2 className="text-subheading">Delete Table</h2>
           </div>
           {phase !== 'loading' && (
             <button
@@ -68,38 +68,38 @@ export function DeleteTableModal({ target, onDelete, onClose }: DeleteTableModal
             <>
               {/* Warning message */}
               <div className="rounded-lg border border-border-danger bg-danger-subtle px-3.5 py-2.5">
-                <p className="text-[13px] font-medium text-danger">
+                <p className="text-body font-medium text-danger">
                   This action is permanent and cannot be undone.
                 </p>
-                <p className="mt-1 text-xs text-danger/70">
+                <p className="mt-1 text-caption text-danger/70">
                   All data, indexes, and constraints associated with this table will be permanently removed.
                 </p>
               </div>
 
               {/* Table identity card */}
               <div className="rounded-lg border border-border-default bg-bg-subtle p-3">
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                <p className="mb-2 text-label">
                   Table to be deleted
                 </p>
                 <div className="space-y-1.5">
-                  <div className="flex items-center gap-2 text-sm">
+                  <div className="flex items-center gap-2 text-body">
                     <Database size={13} className="shrink-0 text-text-muted" />
-                    <span className="font-medium text-text-secondary">Connection:</span>
-                    <span className="font-semibold text-text-primary">{target.connectionName}</span>
+                    <span className="text-body-secondary">Connection:</span>
+                    <span className="text-body">{target.connectionName}</span>
                   </div>
                   {target.schema && (
-                    <div className="flex items-center gap-2 text-sm">
+                    <div className="flex items-center gap-2 text-body">
                       <span className="w-3.25" />
-                      <span className="font-medium text-text-secondary">Schema:</span>
-                      <span className="rounded bg-bg-muted px-1.5 py-0.5 font-mono text-xs text-text-primary">
+                      <span className="text-body-secondary">Schema:</span>
+                      <span className="text-mono rounded bg-bg-muted px-1.5 py-0.5 text-text-primary">
                         {target.schema}
                       </span>
                     </div>
                   )}
-                  <div className="flex items-center gap-2 text-sm">
+                  <div className="flex items-center gap-2 text-body">
                     <Table size={13} className="shrink-0 text-text-muted" />
-                    <span className="font-medium text-text-secondary">Table:</span>
-                    <span className="rounded bg-danger-subtle px-1.5 py-0.5 font-mono text-xs font-semibold text-danger">
+                    <span className="text-body-secondary">Table:</span>
+                    <span className="text-mono rounded bg-danger-subtle px-1.5 py-0.5 text-danger">
                       {target.tableName}
                     </span>
                   </div>
@@ -116,8 +116,8 @@ export function DeleteTableModal({ target, onDelete, onClose }: DeleteTableModal
                     className="mt-0.5 h-4 w-4 rounded border-border-strong text-danger focus:ring-danger"
                   />
                   <div>
-                    <p className="text-sm font-medium text-text-primary">Drop with cascade</p>
-                    <p className="mt-0.5 text-xs text-text-muted">
+                    <p className="text-body font-medium text-text-primary">Drop with cascade</p>
+                    <p className="mt-0.5 text-caption text-text-muted">
                       Also remove dependent objects such as foreign key references, views, or other objects that depend on this table.
                     </p>
                   </div>
@@ -133,7 +133,7 @@ export function DeleteTableModal({ target, onDelete, onClose }: DeleteTableModal
                     onChange={(e) => setAcknowledged(e.target.checked)}
                     className="mt-0.5 h-4 w-4 rounded border-border-strong text-danger focus:ring-danger"
                   />
-                  <span className="text-sm font-medium text-danger">
+                  <span className="text-body font-medium text-danger">
                     I understand that this action is permanent and cannot be undone
                   </span>
                 </label>
@@ -144,8 +144,8 @@ export function DeleteTableModal({ target, onDelete, onClose }: DeleteTableModal
           {phase === 'loading' && (
             <div className="flex flex-col items-center gap-3 py-6">
               <Loader2 size={28} className="animate-spin text-danger" />
-              <p className="text-sm text-text-secondary">
-                Deleting <span className="font-mono font-semibold">{target.tableName}</span>...
+              <p className="text-body-secondary">
+                Deleting <span className="text-mono">{target.tableName}</span>...
               </p>
             </div>
           )}
@@ -156,9 +156,9 @@ export function DeleteTableModal({ target, onDelete, onClose }: DeleteTableModal
                 <Check size={20} className="text-success" />
               </span>
               <div className="text-center">
-                <p className="text-sm font-semibold text-text-primary">Table deleted successfully</p>
-                <p className="mt-1 text-xs text-text-secondary">
-                  <span className="font-mono">{target.tableName}</span> has been removed.
+                <p className="text-subheading">Table deleted successfully</p>
+                <p className="mt-1 text-body-secondary">
+                  <span className="text-mono">{target.tableName}</span> has been removed.
                 </p>
               </div>
             </div>
@@ -170,8 +170,8 @@ export function DeleteTableModal({ target, onDelete, onClose }: DeleteTableModal
                 <X size={20} className="text-danger" />
               </span>
               <div className="text-center">
-                <p className="text-sm font-semibold text-text-primary">Failed to delete table</p>
-                <p className="mt-1 max-w-sm text-xs text-danger">{errorMessage}</p>
+                <p className="text-subheading">Failed to delete table</p>
+                <p className="mt-1 max-w-sm text-caption text-danger">{errorMessage}</p>
               </div>
             </div>
           )}
@@ -184,7 +184,7 @@ export function DeleteTableModal({ target, onDelete, onClose }: DeleteTableModal
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg border border-border-default px-3.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-subtle"
+                className="rounded-lg border border-border-default px-3.5 py-1.5 text-label text-text-secondary transition-colors hover:bg-bg-subtle"
               >
                 Cancel
               </button>
@@ -192,7 +192,7 @@ export function DeleteTableModal({ target, onDelete, onClose }: DeleteTableModal
                 type="button"
                 onClick={() => void handleSubmit()}
                 disabled={!canSubmit}
-                className="rounded-lg bg-danger px-3.5 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-danger/80 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-lg bg-danger px-3.5 py-1.5 text-label text-text-inverse transition-colors hover:bg-danger/80 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Delete Table
               </button>
@@ -203,7 +203,7 @@ export function DeleteTableModal({ target, onDelete, onClose }: DeleteTableModal
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg bg-bg-muted px-3.5 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-border-strong"
+              className="rounded-lg bg-bg-muted px-3.5 py-1.5 text-label text-text-inverse transition-colors hover:bg-border-strong"
             >
               Done
             </button>
@@ -214,7 +214,7 @@ export function DeleteTableModal({ target, onDelete, onClose }: DeleteTableModal
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg border border-border-default px-3.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-subtle"
+                className="rounded-lg border border-border-default px-3.5 py-1.5 text-label text-text-secondary transition-colors hover:bg-bg-subtle"
               >
                 Close
               </button>
@@ -224,7 +224,7 @@ export function DeleteTableModal({ target, onDelete, onClose }: DeleteTableModal
                   setPhase('confirm')
                   setErrorMessage(null)
                 }}
-                className="rounded-lg bg-danger px-3.5 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-danger/80"
+                className="rounded-lg bg-danger px-3.5 py-1.5 text-label text-text-inverse transition-colors hover:bg-danger/80"
               >
                 Try Again
               </button>

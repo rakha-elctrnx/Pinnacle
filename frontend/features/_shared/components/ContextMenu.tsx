@@ -84,7 +84,7 @@ export function ContextMenu({
                 onDesignTable(state.tableName!)
                 onClose()
               }}
-              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-body text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
             >
               <TableProperties size={13} className="text-slate-400" /> Design Table
             </button>
@@ -96,7 +96,7 @@ export function ContextMenu({
                 onEmptyTable(state.itemId, state.tableName!)
                 onClose()
               }}
-              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-body text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
             >
               <Eraser size={13} className="text-slate-400" /> Empty Table
             </button>
@@ -108,7 +108,7 @@ export function ContextMenu({
                 onTruncateTable(state.itemId, state.tableName!)
                 onClose()
               }}
-              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-body text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
             >
               <Scissors size={13} className="text-slate-400" /> Truncate Table
             </button>
@@ -120,7 +120,7 @@ export function ContextMenu({
                 onExportTable(state.itemId, state.tableName!)
                 onClose()
               }}
-              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-body text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
             >
               <FileDown size={13} className="text-slate-400" /> Export Data
             </button>
@@ -132,7 +132,7 @@ export function ContextMenu({
                 onDeleteTable(state.itemId, state.tableName!)
                 onClose()
               }}
-              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:bg-red-50"
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-body text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:bg-red-50"
             >
               <Trash2 size={13} /> Delete Table
             </button>
@@ -150,7 +150,7 @@ export function ContextMenu({
               onEdit(state.itemId)
               onClose()
             }}
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-body text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
           >
             <Pencil size={13} className="text-slate-400" /> Rename / Edit
           </button>
@@ -161,7 +161,7 @@ export function ContextMenu({
                 onDesignTable(state.itemId)
                 onClose()
               }}
-              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-body text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
             >
               <TableProperties size={13} className="text-slate-400" /> Edit Structure
             </button>
@@ -174,7 +174,7 @@ export function ContextMenu({
           onRefresh(state.itemId)
           onClose()
         }}
-        className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
+        className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-body text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
       >
         <RefreshCw size={13} className="text-slate-400" /> Refresh
       </button>
@@ -186,7 +186,7 @@ export function ContextMenu({
               onDuplicate(state.itemId)
               onClose()
             }}
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-body text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
           >
             <Copy size={13} className="text-slate-400" /> Duplicate
           </button>
@@ -196,7 +196,7 @@ export function ContextMenu({
               onExport(state.itemId)
               onClose()
             }}
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-body text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
           >
             <Download size={13} className="text-slate-400" /> Export Configuration
           </button>
@@ -207,7 +207,7 @@ export function ContextMenu({
               onCloseConnection(state.itemId)
               onClose()
             }}
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-body text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
           >
             <Unplug size={13} className="text-slate-400" /> Close Connection
           </button>
@@ -217,7 +217,7 @@ export function ContextMenu({
               onDelete(state.itemId)
               onClose()
             }}
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:bg-red-50"
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-body text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:bg-red-50"
           >
             <Trash2 size={13} /> Delete
           </button>

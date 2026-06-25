@@ -237,7 +237,7 @@ export function TableDetailPage() {
   if (!tableName) {
     return (
       <div className="flex h-full items-center justify-center text-text-muted">
-        <span className="text-xs">No table selected.</span>
+        <span className="text-caption">No table selected.</span>
       </div>
     )
   }
@@ -257,7 +257,7 @@ export function TableDetailPage() {
               type="button"
               onClick={() => setTableInfoTab(tab)}
               className={[
-                'cursor-pointer relative px-2.5 py-1.5 text-[11px] font-medium capitalize transition-colors',
+                'cursor-pointer relative px-2.5 py-1.5 text-caption font-medium capitalize transition-colors',
                 tableInfoTab === tab
                   ? 'text-primary after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-primary'
                   : 'text-text-muted hover:text-primary-subtle',
@@ -296,11 +296,11 @@ export function TableDetailPage() {
                     className="group relative border-b border-r border-border-default px-2 py-1.5 text-left whitespace-nowrap"
                   >
                     <div className="flex flex-col gap-0.5 overflow-hidden">
-                      <span className="overflow-hidden text-ellipsis font-semibold text-text-primary leading-tight">
+                      <span className="overflow-hidden text-ellipsis text-subheading text-text-primary leading-tight">
                         {column}
                       </span>
                       {colTypeMap[column] && (
-                        <span className="overflow-hidden text-ellipsis text-[10px] font-medium text-text-secondary leading-tight uppercase tracking-wide">
+                        <span className="overflow-hidden text-ellipsis text-micro text-text-muted uppercase">
                           {colTypeMap[column]}
                         </span>
                       )}
@@ -333,7 +333,7 @@ export function TableDetailPage() {
                       'text-text-primary transition-colors',
                       activeRow === rowIndex
                         ? 'bg-primary-subtle'
-                        : 'even:bg-bg-muted hover:bg-bg-muted/70',
+                        : 'hover:bg-bg-muted/70',
                   ].join(' ')}
                 >
                   <td
@@ -372,7 +372,7 @@ export function TableDetailPage() {
                 <tr>
                   <td
                     colSpan={realTableColumns.length + 1 || 1}
-                    className="px-2 py-2 text-center text-xs text-text-muted"
+                    className="px-2 py-2 text-center text-caption text-text-muted"
                   >
                     Showing first {MAX_DISPLAY_ROWS} of {realTableRows.length} rows
                   </td>
@@ -393,24 +393,24 @@ export function TableDetailPage() {
             <thead className={theadClass}>
               <tr>
                 <th
-                  className="border-b border-r border-border-default px-2 py-1.5 text-left font-semibold text-text-primary"
+                  className="border-b border-r border-border-default px-2 py-1.5 text-left text-label text-text-primary"
                   style={{ width: 220 }}
                 >
                   Column
                 </th>
                 <th
-                  className="border-b border-r border-border-default px-2 py-1.5 text-left font-semibold text-text-primary"
+                  className="border-b border-r border-border-default px-2 py-1.5 text-left text-label text-text-primary"
                   style={{ width: 180 }}
                 >
                   Type
                 </th>
                 <th
-                  className="border-b border-r border-border-default px-2 py-1.5 text-left font-semibold text-text-primary"
+                  className="border-b border-r border-border-default px-2 py-1.5 text-left text-label text-text-primary"
                   style={{ width: 80 }}
                 >
                   Nullable
                 </th>
-                <th className="border-b border-border-default px-2 py-1.5 text-left font-semibold text-text-primary">
+                <th className="border-b border-border-default px-2 py-1.5 text-left text-label text-text-primary">
                   Default
                 </th>
               </tr>
@@ -418,11 +418,11 @@ export function TableDetailPage() {
             <tbody>
               {realTableStructure.map((col, index) => (
                 <tr key={index} className="text-text-primary transition-colors even:bg-bg-muted hover:bg-bg-muted/70">
-                  <td className="border-b border-r border-border-default px-2 py-1 font-medium text-text-primary whitespace-nowrap overflow-hidden text-ellipsis">
+                  <td className="border-b border-r border-border-default px-2 py-1 text-body whitespace-nowrap overflow-hidden text-ellipsis">
                     {String(col.column_name ?? col.Field ?? '')}
                   </td>
                   <td className="border-b border-r border-border-default px-2 py-1 whitespace-nowrap overflow-hidden text-ellipsis">
-                    <span className="font-mono text-[10px] uppercase tracking-wide text-text-secondary">
+                    <span className="text-mono uppercase">
                       {String(col.data_type ?? col.Type ?? '')}
                     </span>
                   </td>
@@ -432,7 +432,7 @@ export function TableDetailPage() {
                       const isNo = val.toLowerCase() === 'no' || val === 'NOT NULL'
                       return (
                         <span className={[
-                          'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium',
+                          'inline-flex items-center rounded px-1.5 py-0.5 text-micro',
                           isNo
                             ? 'bg-bg-base text-danger'
                             : 'bg-bg-base text-success-text',
@@ -442,7 +442,7 @@ export function TableDetailPage() {
                       )
                     })()}
                   </td>
-                  <td className="border-b border-border-default px-2 py-1 font-mono text-[10px] text-text-secondary whitespace-nowrap overflow-hidden text-ellipsis">
+                  <td className="border-b border-border-default px-2 py-1 text-mono whitespace-nowrap overflow-hidden text-ellipsis">
                     {String(col.column_default ?? col.Default ?? '—')}
                   </td>
                 </tr>
@@ -462,22 +462,22 @@ export function TableDetailPage() {
             >
               <thead className={theadClass}>
                 <tr>
-                  <th className="border-b border-r border-border-default px-2 py-1.5 text-left font-semibold text-text-primary">
+                  <th className="border-b border-r border-border-default px-2 py-1.5 text-left text-label text-text-primary">
                     Table
                   </th>
-                  <th className="border-b border-r border-border-default px-2 py-1.5 text-left font-semibold text-text-primary">
+                  <th className="border-b border-r border-border-default px-2 py-1.5 text-left text-label text-text-primary">
                     Column
                   </th>
-                  <th className="border-b border-r border-border-default px-2 py-1.5 text-left font-semibold text-text-primary">
+                  <th className="border-b border-r border-border-default px-2 py-1.5 text-left text-label text-text-primary">
                     Index Name
                   </th>
-                  <th className="border-b border-r border-border-default px-2 py-1.5 text-left font-semibold text-text-primary">
+                  <th className="border-b border-r border-border-default px-2 py-1.5 text-left text-label text-text-primary">
                     Is Unique
                   </th>
-                  <th className="border-b border-r border-border-default px-2 py-1.5 text-left font-semibold text-text-primary">
+                  <th className="border-b border-r border-border-default px-2 py-1.5 text-left text-label text-text-primary">
                     Is Primary
                   </th>
-                  <th className="border-b border-border-default px-2 py-1.5 text-left font-semibold text-text-primary">
+                  <th className="border-b border-border-default px-2 py-1.5 text-left text-label text-text-primary">
                     Index Type
                   </th>
                 </tr>
@@ -497,7 +497,7 @@ export function TableDetailPage() {
                 <tbody>
                   {realTableIndexes.map((idx, index) => (
                     <tr key={index} className="text-text-primary transition-colors even:bg-bg-muted hover:bg-bg-muted/70">
-                      <td className="border-b border-r border-border-default px-2 py-1 font-medium text-text-primary whitespace-nowrap overflow-hidden text-ellipsis">
+                      <td className="border-b border-r border-border-default px-2 py-1 text-body whitespace-nowrap overflow-hidden text-ellipsis">
                         {String(idx.tableName ?? '')}
                       </td>
                       <td className="border-b border-r border-border-default px-2 py-1 whitespace-nowrap overflow-hidden text-ellipsis">
@@ -527,7 +527,7 @@ export function TableDetailPage() {
       {/* ── RELATIONSHIPS TAB ────────────────────────────────────────────── */}
       {!tableDataLoading && tableInfoTab === 'relationships' && (
         <div className="flex flex-col items-center justify-center gap-1.5 py-10 text-text-muted">
-          <span className="text-xs">Foreign key relationships will appear here when available.</span>
+          <span className="text-caption">Foreign key relationships will appear here when available.</span>
         </div>
       )}
     </section>

@@ -233,10 +233,10 @@ export function ClusterDashboard({ health, indices }: Props) {
     <div className="p-6 space-y-5 overflow-y-auto h-full">
       {/* header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-800">Cluster Dashboard</h2>
+        <h2 className="text-heading text-slate-800">Cluster Dashboard</h2>
         {health && (
           <div
-            className={`flex items-center gap-2 px-3 py-1 rounded-full border text-sm font-medium ${healthBg(health.status)}`}
+            className={`flex items-center gap-2 px-3 py-1 rounded-full border text-body ${healthBg(health.status)}`}
           >
             <span className={`inline-block h-2 w-2 rounded-full ${healthDot(health.status)}`} />
             <span className={healthColor(health.status)}>{health.cluster_name}</span>
@@ -255,10 +255,10 @@ export function ClusterDashboard({ health, indices }: Props) {
               <card.icon className="h-5 w-5" />
             </div>
             <div className="flex flex-col">
-              <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              <span className="text-label text-slate-500">
                 {card.label}
               </span>
-              <span className="text-xl font-bold text-slate-800">{card.value}</span>
+              <span className="text-display text-slate-800">{card.value}</span>
             </div>
           </div>
         ))}
@@ -275,10 +275,10 @@ export function ClusterDashboard({ health, indices }: Props) {
               <card.icon className="h-5 w-5" />
             </div>
             <div className="flex flex-col">
-              <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              <span className="text-label text-slate-500">
                 {card.label}
               </span>
-              <span className="text-xl font-bold text-slate-800">{card.value}</span>
+              <span className="text-display text-slate-800">{card.value}</span>
             </div>
           </div>
         ))}
@@ -288,16 +288,16 @@ export function ClusterDashboard({ health, indices }: Props) {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Cluster Health */}
         <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4">Cluster Health</h3>
+          <h3 className="text-subheading text-slate-700 mb-4">Cluster Health</h3>
           <div className="flex flex-col items-center justify-center gap-3 py-6">
             <div
               className={`flex h-20 w-20 items-center justify-center rounded-full ${healthBg(health?.status)}`}
             >
-              <span className={`text-2xl font-bold ${healthColor(health?.status)}`}>
+              <span className={`text-heading ${healthColor(health?.status)}`}>
                 {health?.status?.toUpperCase() ?? '-'}
               </span>
             </div>
-            <span className="text-sm text-slate-500">
+            <span className="text-body text-slate-500">
               {health?.status === 'green'
                 ? '100% Healthy'
                 : health?.status === 'yellow'
@@ -311,16 +311,16 @@ export function ClusterDashboard({ health, indices }: Props) {
           {health && (
             <div className="grid grid-cols-3 gap-3 border-t border-slate-100 pt-4">
               <div className="text-center">
-                <span className="block text-lg font-bold text-slate-800">{health.active_primary_shards}</span>
-                <span className="text-xs text-slate-500">Primary</span>
+                <span className="block text-display text-slate-800">{health.active_primary_shards}</span>
+                <span className="text-caption">Primary</span>
               </div>
               <div className="text-center">
-                <span className="block text-lg font-bold text-slate-800">{health.active_shards}</span>
-                <span className="text-xs text-slate-500">Active</span>
+                <span className="block text-display text-slate-800">{health.active_shards}</span>
+                <span className="text-caption">Active</span>
               </div>
               <div className="text-center">
-                <span className="block text-lg font-bold text-slate-800">{health.unassigned_shards}</span>
-                <span className="text-xs text-slate-500">Unassigned</span>
+                <span className="block text-display text-slate-800">{health.unassigned_shards}</span>
+                <span className="text-caption">Unassigned</span>
               </div>
             </div>
           )}
@@ -330,7 +330,7 @@ export function ClusterDashboard({ health, indices }: Props) {
         <div className="rounded-xl border border-slate-200 bg-white p-5">
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp className="h-4 w-4 text-slate-500" />
-            <h3 className="text-sm font-semibold text-slate-700">Storage Growth</h3>
+            <h3 className="text-subheading text-slate-700">Storage Growth</h3>
           </div>
           <div className="flex items-end justify-between gap-1 h-40 px-2">
             {indices.slice(0, 10).map((idx) => {
@@ -345,14 +345,14 @@ export function ClusterDashboard({ health, indices }: Props) {
                       style={{ height: `${pct}%` }}
                     />
                   </div>
-                  <span className="text-[9px] text-slate-400 truncate max-w-full text-center">
+                  <span className="text-micro text-slate-400 truncate max-w-full text-center">
                     {idx.index.length > 8 ? idx.index.slice(0, 8) + '…' : idx.index}
                   </span>
                 </div>
               )
             })}
             {indices.length === 0 && (
-              <div className="flex-1 flex items-center justify-center text-sm text-slate-400">
+              <div className="flex-1 flex items-center justify-center text-body text-slate-400">
                 No index data
               </div>
             )}
@@ -364,52 +364,52 @@ export function ClusterDashboard({ health, indices }: Props) {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Top Indices */}
         <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4">Top Indices</h3>
+          <h3 className="text-subheading text-slate-700 mb-4">Top Indices</h3>
           <div className="space-y-3">
             {topIndices.map((idx) => {
               const docs = parseInt(idx['docs.count'] ?? '0', 10) || 0
               const pct = (docs / maxDocs) * 100
               return (
                 <div key={idx.uuid} className="flex items-center gap-3">
-                  <span className="w-32 truncate text-sm text-slate-700 font-medium">{idx.index}</span>
+                  <span className="w-32 truncate text-body text-slate-700">{idx.index}</span>
                   <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
                     <div
                       className="h-full rounded-full bg-violet-500 transition-all"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <span className="w-16 text-right text-xs text-slate-500 tabular-nums">
+                  <span className="w-16 text-right text-caption text-slate-500 tabular-nums">
                     {formatDocs(docs)}
                   </span>
                 </div>
               )
             })}
             {topIndices.length === 0 && (
-              <p className="text-sm text-slate-400">No indices available</p>
+              <p className="text-body text-slate-400">No indices available</p>
             )}
           </div>
         </div>
 
         {/* Node Distribution */}
         <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4">Node Distribution</h3>
+          <h3 className="text-subheading text-slate-700 mb-4">Node Distribution</h3>
           <div className="space-y-3">
             {nodeDistribution.map((node) => (
               <div key={node.name} className="flex items-center gap-3">
-                <span className="w-20 text-sm text-slate-700 font-medium">{node.name}</span>
+                <span className="w-20 text-body text-slate-700">{node.name}</span>
                 <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-sky-500 transition-all"
                     style={{ width: `${node.pct}%` }}
                   />
                 </div>
-                <span className="w-10 text-right text-xs text-slate-500 tabular-nums">
+                <span className="w-10 text-right text-caption text-slate-500 tabular-nums">
                   {node.pct}%
                 </span>
               </div>
             ))}
             {nodeDistribution.length === 0 && (
-              <p className="text-sm text-slate-400">No node data available</p>
+              <p className="text-body text-slate-400">No node data available</p>
             )}
           </div>
         </div>
@@ -419,17 +419,17 @@ export function ClusterDashboard({ health, indices }: Props) {
       <div className="rounded-xl border border-slate-200 bg-white">
         <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-100">
           <Clock className="h-4 w-4 text-slate-500" />
-          <h3 className="text-sm font-semibold text-slate-700">Recent Events</h3>
+          <h3 className="text-subheading text-slate-700">Recent Events</h3>
         </div>
         <div className="divide-y divide-slate-100">
           {recentEvents.map((event, i) => (
             <div key={i} className="flex items-center gap-3 px-5 py-3">
               <event.icon className={`h-4 w-4 shrink-0 ${event.color}`} />
-              <span className="text-sm text-slate-700">{event.text}</span>
+              <span className="text-body text-slate-700">{event.text}</span>
             </div>
           ))}
           {recentEvents.length === 0 && (
-            <div className="px-5 py-6 text-center text-sm text-slate-400">
+            <div className="px-5 py-6 text-center text-body text-slate-400">
               No recent events
             </div>
           )}

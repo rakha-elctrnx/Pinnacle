@@ -238,7 +238,7 @@ function TreeNodeItem({
           }
         }}
         className={[
-          "group flex w-full items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium overflow-hidden cursor-pointer transition-all duration-150",
+          "group flex w-full items-center gap-1 rounded-md px-1.5 py-1 text-caption overflow-hidden cursor-pointer transition-all duration-150",
           selectedTreeNode === node.label
             ? "bg-primary/10 text-primary"
             : "text-text-primary hover:bg-bg-hover/60 hover:text-text-secondary",
@@ -284,7 +284,7 @@ function TreeNodeItem({
                     onUseSavedQuery?.(sq.sql);
                   }}
                   className={[
-                    "group flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-[11px] overflow-hidden cursor-pointer transition-all duration-150",
+                    "group flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-caption overflow-hidden cursor-pointer transition-all duration-150",
                     selectedTreeNode === sq.id
                       ? "bg-primary/10 text-primary"
                       : "text-text-primary hover:bg-bg-hover/60 hover:text-text-secondary",
@@ -294,7 +294,7 @@ function TreeNodeItem({
                 >
                   <FileText size={11} className="shrink-0 text-amber-500" />
                   <span className="min-w-0 flex-1 truncate">{sq.title}</span>
-                  <span className="shrink-0 rounded bg-bg-muted/60 px-1 text-[9px] font-medium tabular-nums text-text-secondary">
+                  <span className="shrink-0 rounded bg-bg-muted/60 px-1 text-mono text-micro tabular-nums text-text-secondary">
                     {new Date(sq.updatedAt).toLocaleDateString(undefined, {
                       month: "short",
                       day: "numeric",
@@ -304,7 +304,7 @@ function TreeNodeItem({
               ))
             ) : (
               <p
-                className="px-2 py-1 text-[11px] italic text-text-muted"
+                className="px-2 py-1 text-caption italic text-text-muted"
                 style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}
               >
                 No saved queries
@@ -443,7 +443,7 @@ export function ConnectionSidebar() {
       <div className="flex shrink-0 items-center justify-between border-b border-border-default/60 pl-3 pr-2.5 py-2.5 backdrop-blur-sm">
         <div className="flex items-center gap-1.5">
           <ChevronsLeftRightEllipsis size={14} className="text-text-secondary" />
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-text-primary">
+          <p className="text-label text-text-primary">
             Connections
           </p>
         </div>
@@ -467,7 +467,7 @@ export function ConnectionSidebar() {
                 onClick={() => toggleGroup(group)}
                 aria-expanded={!collapsed}
                 aria-controls={`group-${group}-content`}
-                className="group flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[10px] font-semibold uppercase tracking-wider text-text-secondary transition-all duration-150 hover:bg-bg-hover/60 hover:text-text-primary"
+                className="group flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-micro uppercase tracking-wider text-text-secondary transition-all duration-150 hover:bg-bg-hover/60 hover:text-text-primary"
               >
                 
                 {collapsed ? (
@@ -535,7 +535,7 @@ export function ConnectionSidebar() {
                           }}
                           onContextMenu={(event) => handleContextMenu(event, item.id)}
                           className={[
-                            "group flex w-full items-center gap-1.5 rounded-md py-1.5 pr-2 text-left text-[11px] transition-all duration-150 overflow-hidden",
+                            "group flex w-full items-center gap-1.5 rounded-md py-1.5 pr-2 text-left text-caption transition-all duration-150 overflow-hidden",
                             active
                               ? "bg-gradient-to-r from-primary-subtle/80 to-transparent pl-[9px] text-text-secondary ring-1 ring-inset ring-focus-ring"
                               : "pl-[7px] text-text-primary hover:bg-bg-hover/60 hover:text-text-secondary active:scale-[0.99]",
@@ -575,9 +575,7 @@ export function ConnectionSidebar() {
                               <Database size={14} />
                             )}
                           </span>
-                          <span className="min-w-0 flex-1 truncate font-medium">
-                            {item.name}
-                          </span>
+                          <span className="min-w-0 flex-1 truncate">{item.name}</span>
                         </button>
                         {expandedConnectionId === item.id && (
                           <div className="relative ml-2 mt-0.5 pl-1.5">
@@ -588,13 +586,13 @@ export function ConnectionSidebar() {
                             />
                             {elasticIndicesError?.[item.id] && (
                               <div className="mx-1 my-1 rounded-md border border-danger-subtle/80 bg-danger-subtle/80 px-2 py-1.5">
-                                <p className="text-[11px] font-medium text-danger">Failed to load indices</p>
-                                <p className="mt-0.5 truncate text-[10px] text-danger/80">{elasticIndicesError[item.id]}</p>
+                                <p className="text-caption text-danger">Failed to load indices</p>
+                                <p className="mt-0.5 truncate text-micro text-danger/80">{elasticIndicesError[item.id]}</p>
                                 {handleRetryElasticIndices && (
                                   <button
                                     type="button"
                                     onClick={() => handleRetryElasticIndices(item.id)}
-                                    className="mt-1 text-[10px] font-medium text-primary transition-colors hover:text-primary-hover hover:underline"
+                                    className="mt-1 text-micro text-primary transition-colors hover:text-primary-hover hover:underline"
                                   >
                                     Retry
                                   </button>
@@ -602,7 +600,7 @@ export function ConnectionSidebar() {
                               </div>
                             )}
                             {treeNodes.length === 0 && !explorerData.treeLoading[item.id] && !elasticIndicesError?.[item.id] && (
-                              <p className="px-2 py-1 text-[11px] italic text-text-muted">
+                              <p className="px-2 py-1 text-caption italic text-text-muted">
                                 No metadata available
                               </p>
                             )}

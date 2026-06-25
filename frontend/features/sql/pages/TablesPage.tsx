@@ -238,7 +238,7 @@ export function TablesPage() {
               type="button"
               onClick={() => setViewMode('detail')}
               className={[
-                'inline-flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors',
+                'inline-flex items-center gap-1 rounded px-2 py-1 text-label transition-colors',
                 viewMode === 'detail'
                   ? 'bg-bg-base text-text-primary shadow-sm'
                   : 'text-text-secondary hover:text-text-primary',
@@ -252,7 +252,7 @@ export function TablesPage() {
               type="button"
               onClick={() => setViewMode('er-diagram')}
               className={[
-                'inline-flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors',
+                'inline-flex items-center gap-1 rounded px-2 py-1 text-label transition-colors',
                 viewMode === 'er-diagram'
                   ? 'bg-bg-base text-text-primary shadow-sm'
                   : 'text-text-secondary hover:text-text-primary',
@@ -271,7 +271,7 @@ export function TablesPage() {
               placeholder="Search tables..."
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="h-7 w-64 rounded-md border border-border-default bg-bg-base pl-7 pr-2.5 text-xs text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none"
+              className="h-7 w-64 rounded-md border border-border-default bg-bg-base pl-7 pr-2.5 text-label text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none"
             />
           </div>
         </div>
@@ -283,11 +283,11 @@ export function TablesPage() {
           className="flex items-center gap-2 border-b border-border-default bg-bg-subtle px-3 py-1.5"
           onClick={(e) => e.stopPropagation()}
         >
-          <span className="shrink-0 text-xs text-text-secondary">Rename:</span>
-          <span className="shrink-0 rounded bg-bg-muted px-1.5 py-0.5 font-mono text-xs text-text-primary">
+          <span className="shrink-0 text-label text-text-secondary">Rename:</span>
+          <span className="shrink-0 rounded bg-bg-muted px-1.5 py-0.5 text-mono text-text-primary">
             {selectedTableName}
           </span>
-          <span className="shrink-0 text-xs text-text-muted">to</span>
+          <span className="shrink-0 text-caption text-text-muted">to</span>
           <input
             type="text"
             placeholder="New table name"
@@ -296,13 +296,13 @@ export function TablesPage() {
             onKeyDown={(event) => {
               if (event.key === 'Enter') void handleEditTable()
             }}
-            className="w-56 rounded-md border border-border-default bg-bg-base px-2.5 py-1 text-xs text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none"
+            className="w-56 rounded-md border border-border-default bg-bg-base px-2.5 py-1 text-label text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none"
           />
           <button
             type="button"
             onClick={() => void handleEditTable()}
             disabled={actionLoading}
-            className="rounded bg-primary px-2.5 py-1 text-xs font-medium text-text-inverse transition-colors hover:bg-primary-hover disabled:opacity-50"
+            className="rounded bg-primary px-2.5 py-1 text-label text-text-inverse transition-colors hover:bg-primary-hover disabled:opacity-50"
           >
             Save
           </button>
@@ -313,7 +313,7 @@ export function TablesPage() {
               setNextTableName('')
               setActionError(null)
             }}
-            className="rounded px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-subtle"
+            className="rounded px-2 py-1 text-label text-text-secondary transition-colors hover:bg-bg-subtle"
           >
             Cancel
           </button>
@@ -323,14 +323,14 @@ export function TablesPage() {
       {/* ── Error banner ── */}
       {actionError && (
         <div
-          className="flex items-center justify-between gap-2 border-b border-border-danger bg-danger-subtle px-3 py-1.5 text-xs text-danger"
+          className="flex items-center justify-between gap-2 border-b border-border-danger bg-danger-subtle px-3 py-1.5 text-body text-danger"
           onClick={(e) => e.stopPropagation()}
         >
           <span className="truncate">{actionError}</span>
           <button
             type="button"
             onClick={() => setActionError(null)}
-            className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-danger transition-colors hover:bg-danger-subtle"
+            className="shrink-0 rounded px-1.5 py-0.5 text-micro text-danger transition-colors hover:bg-danger-subtle"
           >
             Dismiss
           </button>
@@ -365,34 +365,34 @@ export function TablesPage() {
             <thead className="sticky top-0 z-10 bg-bg-subtle shadow-[0_1px_0_0_var(--color-border-default)]">
               <tr className="text-left text-text-secondary">
                 <th
-                  className="cursor-pointer whitespace-nowrap border-b border-r border-border-default px-2 py-1.5 font-semibold text-text-primary"
+                  className="cursor-pointer whitespace-nowrap border-b border-r border-border-default px-2 py-1.5 text-label text-text-primary"
                   onClick={() => toggleSort('tableName')}
                 >
                   Table Name {sortIndicator('tableName')}
                 </th>
                 <th
-                  className="cursor-pointer whitespace-nowrap border-b border-r border-border-default px-2 py-1.5 font-semibold text-text-primary"
+                  className="cursor-pointer whitespace-nowrap border-b border-r border-border-default px-2 py-1.5 text-label text-text-primary"
                   style={{ width: 90 }}
                   onClick={() => toggleSort('oid')}
                 >
                   OID {sortIndicator('oid')}
                 </th>
                 <th
-                  className="cursor-pointer whitespace-nowrap border-b border-r border-border-default px-2 py-1.5 font-semibold text-text-primary"
+                  className="cursor-pointer whitespace-nowrap border-b border-r border-border-default px-2 py-1.5 text-label text-text-primary"
                   style={{ width: 150 }}
                   onClick={() => toggleSort('owner')}
                 >
                   Owner {sortIndicator('owner')}
                 </th>
                 <th
-                  className="cursor-pointer whitespace-nowrap border-b border-r border-border-default px-2 py-1.5 font-semibold text-text-primary"
+                  className="cursor-pointer whitespace-nowrap border-b border-r border-border-default px-2 py-1.5 text-label text-text-primary"
                   style={{ width: 150 }}
                   onClick={() => toggleSort('tableType')}
                 >
                   Table Type {sortIndicator('tableType')}
                 </th>
                 <th
-                  className="cursor-pointer whitespace-nowrap border-b border-border-default px-2 py-1.5 text-right font-semibold text-text-primary"
+                  className="cursor-pointer whitespace-nowrap border-b border-border-default px-2 py-1.5 text-right text-label text-text-primary"
                   style={{ width: 120 }}
                   onClick={() => toggleSort('rowCount')}
                 >
@@ -427,12 +427,12 @@ export function TablesPage() {
                           event.stopPropagation()
                           handleRowDoubleClick(row.tableName)
                         }}
-                        className="font-mono text-primary hover:text-primary-hover hover:underline"
+                        className="text-mono text-primary hover:text-primary-hover hover:underline"
                       >
                         {row.tableName}
                       </button>
                     </td>
-                    <td className="overflow-hidden text-ellipsis whitespace-nowrap border-b border-r border-border-default px-2 py-1.5 font-mono text-[11px]">
+                    <td className="overflow-hidden text-ellipsis whitespace-nowrap border-b border-r border-border-default px-2 py-1.5 text-mono">
                       {row.oid}
                     </td>
                     <td className="overflow-hidden text-ellipsis whitespace-nowrap border-b border-r border-border-default px-2 py-1.5">
@@ -441,7 +441,7 @@ export function TablesPage() {
                     <td className="overflow-hidden text-ellipsis whitespace-nowrap border-b border-r border-border-default px-2 py-1.5">
                       {row.tableType}
                     </td>
-                    <td className="overflow-hidden text-ellipsis whitespace-nowrap border-b border-border-default px-2 py-1.5 text-right font-mono text-[11px]">
+                    <td className="overflow-hidden text-ellipsis whitespace-nowrap border-b border-border-default px-2 py-1.5 text-right text-mono">
                       {row.rowCount}
                     </td>
                   </tr>

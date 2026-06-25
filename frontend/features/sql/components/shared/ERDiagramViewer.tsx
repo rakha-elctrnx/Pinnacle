@@ -50,18 +50,18 @@ function TableNode({ data }: { data: TableNodeData }) {
       {/* Header */}
       <div
         className={[
-          "flex items-center gap-1.5 border-b px-3 py-2 text-xs font-semibold",
+          "flex items-center gap-1.5 border-b px-3 py-2 text-subheading",
           highlighted
             ? "border-primary-subtle bg-primary-subtle text-primary"
             : "border-border-default bg-bg-subtle text-text-primary",
         ].join(" ")}
       >
-        <span className="truncate font-mono">{tableName}</span>
+        <span className="truncate text-mono">{tableName}</span>
       </div>
       {/* Columns */}
       <div className="max-h-[240px] overflow-y-auto">
         {columns.length === 0 ? (
-          <div className="px-3 py-2 text-[11px] italic text-text-muted">
+          <div className="px-3 py-2 text-caption italic text-text-muted">
             No columns
           </div>
         ) : (
@@ -69,11 +69,11 @@ function TableNode({ data }: { data: TableNodeData }) {
             <div
               key={col.name}
               className={[
-                "flex items-center justify-between gap-2 px-3 py-[5px] text-[11px]",
+                "flex items-center justify-between gap-2 px-3 py-[5px] text-caption",
                 i > 0 ? "border-t border-border-default" : "",
               ].join(" ")}
             >
-              <span className="truncate font-mono font-medium text-text-primary">
+              <span className="truncate text-mono font-medium text-text-primary">
                 {col.name}
               </span>
               <span className="shrink-0 text-text-muted">{col.dataType}</span>
@@ -90,7 +90,7 @@ function TableNode({ data }: { data: TableNodeData }) {
               e.stopPropagation();
               onSelectTable(tableName);
             }}
-            className="w-full text-center text-[10px] font-medium text-primary hover:text-primary-hover hover:underline"
+            className="w-full text-center text-micro font-medium text-primary hover:text-primary-hover hover:underline"
           >
             Open table →
           </button>
@@ -346,7 +346,7 @@ export function ERDiagramViewer({
 
   if (rows.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center text-text-muted text-xs">
+      <div className="flex h-full items-center justify-center text-caption">
         No tables to display
       </div>
     );

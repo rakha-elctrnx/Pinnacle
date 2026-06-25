@@ -120,12 +120,12 @@ export function Header() {
       <div className="flex min-w-0 items-center justify-center">
         <button
           type="button"
-          className="flex w-full items-center gap-2 rounded-lg border border-border-default bg-bg-subtle px-3 py-1.5 text-xs text-text-muted transition hover:border-border-strong hover:bg-bg-muted hover:text-text-secondary"
+          className="flex w-full items-center gap-2 rounded-lg border border-border-default bg-bg-subtle px-3 py-1.5 text-caption text-text-muted transition hover:border-border-strong hover:bg-bg-muted hover:text-text-secondary"
           aria-label="Search"
         >
           <Search size={14} />
           <span className="hidden sm:inline">Search…</span>
-          <kbd className="ml-auto hidden rounded border border-border-default bg-bg-base px-1.5 py-0.5 text-[10px] font-medium text-text-muted sm:inline">
+          <kbd className="ml-auto hidden rounded border border-border-default bg-bg-base px-1.5 py-0.5 text-micro text-text-muted sm:inline">
             ⌘K
           </kbd>
         </button>
@@ -159,7 +159,7 @@ export function Header() {
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen(false)}
-                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-text-secondary transition hover:bg-bg-hover"
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-body text-text-secondary transition hover:bg-bg-hover"
               >
                 <span>Help</span>
               </button>
