@@ -19,6 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 import { CenteredLoadingState } from "./CenteredLoadingState";
+import { ActionButton } from "./ActionButton";
 import type { ConnectionType } from "../types/domain";
 import type { ElasticIndex } from "../../elasticsearch/types/elasticsearch";
 import type { TreeNode, SavedQuery } from "../types/shared";
@@ -446,14 +447,13 @@ export function ConnectionSidebar() {
             Connections
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openCreateConnection}
-          className="rounded-md p-1 text-text-secondary transition-all duration-150 hover:bg-bg-hover hover:text-primary active:scale-95"
+        <ActionButton
+          icon={<Plus size={14} />}
           aria-label="Create connection"
-        >
-          <Plus size={14} />
-        </button>
+          variant="secondary"
+          className="duration-150 active:scale-95"
+          onClick={openCreateConnection}
+        />
       </div>
 
       {/* Scrollable connection list (scrollbar scoped here) */}

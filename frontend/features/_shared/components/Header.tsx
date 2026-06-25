@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useTheme } from '../../../app/theme'
 import { useShellLayout } from '../store/shellLayoutStore'
+import { ActionButton } from './ActionButton'
 
 /**
  * Header — application-level top bar.
@@ -132,40 +133,27 @@ export function Header() {
 
       {/* Right column — action group, right-aligned */}
       <div data-tauri-drag-region className="flex items-center justify-end gap-1">
-        <button
-          type="button"
-          className="rounded-lg p-1.5 text-text-muted transition hover:bg-bg-hover hover:text-text-primary"
+        <ActionButton
+          icon={theme === 'light' ? <Sun size={16} /> : <Moon size={16} />}
           aria-label="Theme"
           onClick={switchTheme}
-        >
-          {theme === 'light' ? <Sun size={16} /> : <Moon size={16} />}
-        </button>
+        />
 
-        <button
-          type="button"
-          className={[
-            'rounded-lg p-1.5 transition',
-            inspectorOpen
-              ? 'bg-bg-hover text-text-primary'
-              : 'text-text-muted hover:bg-bg-hover hover:text-text-primary',
-          ].join(' ')}
+        <ActionButton
+          icon={inspectorOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
           aria-label={inspectorOpen ? 'Close inspector panel' : 'Open inspector panel'}
           aria-pressed={inspectorOpen}
           title={inspectorOpen ? 'Close inspector' : 'Open inspector'}
+          variant={inspectorOpen ? 'active' : 'default'}
           onClick={toggleInspector}
-        >
-          {inspectorOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
-        </button>
+        />
 
         <div className="relative" ref={dropdownRef}>
-          <button
-            type="button"
-            onClick={() => setIsDropdownOpen((prev) => !prev)}
-            className="rounded-lg p-1.5 text-text-muted transition hover:bg-bg-hover hover:text-text-primary"
+          <ActionButton
+            icon={<Ellipsis size={16} />}
             aria-label="More options"
-          >
-            <Ellipsis size={16} />
-          </button>
+            onClick={() => setIsDropdownOpen((prev) => !prev)}
+          />
           {isDropdownOpen && (
             <div className="absolute right-0 mt-1 w-44 overflow-hidden rounded-xl border border-border-default bg-bg-base shadow-lg">
               <button

@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Plus, Pencil, Trash2, Search, List, Network } from 'lucide-react'
+import { Plus, Trash2, Search, List, Network, Columns3Cog, CirclePlus } from 'lucide-react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { useDataExplorerContext } from '../../_shared/context/DataExplorerContext'
 import { CenteredLoadingState } from '../../_shared/components/CenteredLoadingState'
+import { ActionButton } from '../../_shared/components/ActionButton'
 import { ERDiagramViewer } from '../components/shared/ERDiagramViewer'
 import { useDesignerStore } from '../store/designerStore'
 import { executeSql } from '../clients/sql'
@@ -201,44 +202,38 @@ export function TablesPage() {
     >
       {/* ── Toolbar ── */}
       <div className="flex items-center justify-between gap-3 border-b border-border-default px-1.5 py-1.5">
-        <div className="inline-flex items-center gap-1.5">
-          <button
-            type="button"
+        <div className="inline-flex items-center gap-1">
+          <ActionButton
+            icon={<CirclePlus size={14} />}
+            aria-label="New Table"
+            variant="accent"
             onClick={() => handleCreateInDesigner()}
-            className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-primary transition-colors hover:bg-bg-subtle"
-          >
-            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-            New Table
-          </button>
-          <button
-            type="button"
+          />
+          <ActionButton
+            icon={<Columns3Cog size={14} />}
+            aria-label="Design Table"
+            variant="secondary"
+            disabled={!selectedTableName}
             onClick={() => {
               if (selectedTableName) void handleOpenDesignerForEdit(selectedTableName)
             }}
+          />
+          <ActionButton
+            icon={<Trash2 size={14} />}
+            aria-label="Delete"
+            variant="danger"
             disabled={!selectedTableName}
-            className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-subtle disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-            Design Table
-          </button>
-          <button
-            type="button"
             onClick={() => {
               handleRequestDelete()
               setShowEditForm(false)
               setActionError(null)
             }}
-            disabled={!selectedTableName}
-            className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-danger transition-colors hover:bg-danger-subtle disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-            Delete
-          </button>
+          />
         </div>
 
         <div className="ml-auto flex items-center gap-2">
           {/* View mode toggle */}
-          <div className="inline-flex items-center rounded-md border border-border-default bg-bg-subtle p-0.5">
+          <div className="inline-flex h-7 items-center rounded-md border border-border-default bg-bg-subtle p-0.5">
             <button
               type="button"
               onClick={() => setViewMode('detail')}
@@ -276,7 +271,7 @@ export function TablesPage() {
               placeholder="Search tables..."
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="w-64 rounded-md border border-border-default bg-bg-base py-1 pl-7 pr-2.5 text-xs text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none"
+              className="h-7 w-64 rounded-md border border-border-default bg-bg-base pl-7 pr-2.5 text-xs text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none"
             />
           </div>
         </div>
