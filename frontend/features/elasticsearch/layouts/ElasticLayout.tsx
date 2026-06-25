@@ -119,7 +119,7 @@ export function ElasticLayout() {
   // No connectionId in the URL (visiting /elasticsearch directly).
   if (!connectionId) {
     return (
-      <div className="flex h-full w-full items-center justify-center text-on-surface-variant">
+      <div className="flex h-full w-full items-center justify-center text-text-secondary">
         <p className="text-sm">Select a connection from the sidebar to get started.</p>
       </div>
     )
@@ -134,7 +134,7 @@ export function ElasticLayout() {
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
 
       {/* ── Sub-nav + Tab bar ── */}
-      <div className="flex items-center gap-1 border-b border-outline-variant bg-surface-variant px-3 py-2">
+      <div className="flex items-center gap-1 border-b border-border-default bg-bg-muted px-3 py-2">
         {subNavItems.map((item) => (
           <button
             key={item.label}
@@ -142,8 +142,8 @@ export function ElasticLayout() {
             onClick={() => handleSubNavClick(item.panel, item.path)}
             className={`cursor-pointer rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
               activeSection === item.panel || (item.panel === 'mapping' && activeSection === 'mappings')
-                ? 'bg-primary-container text-on-primary-container'
-                : 'text-on-surface-variant hover:bg-surface-container-low'
+                ? 'bg-primary-subtle text-primary'
+                : 'text-text-secondary hover:bg-bg-subtle'
             }`}
           >
             {item.label}
@@ -155,21 +155,21 @@ export function ElasticLayout() {
           type="button"
           onClick={refresh}
           disabled={loading}
-          className="ml-1 cursor-pointer rounded-md p-1 text-on-surface-variant hover:bg-surface-container-low disabled:opacity-50"
+          className="ml-1 cursor-pointer rounded-md p-1 text-text-secondary hover:bg-bg-subtle disabled:opacity-50"
           title="Refresh cluster data"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
         </button>
 
         {tabs.length > 0 && (
-          <div className="ml-2 flex items-center gap-1 border-l border-outline-variant pl-2">
+          <div className="ml-2 flex items-center gap-1 border-l border-border-default pl-2">
             {tabs.map((tab) => (
               <div
                 key={tab.id}
                 className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
                   tab.id === activeElasticTabId
-                    ? 'bg-primary-container text-on-primary-container'
-                    : 'text-on-surface-variant hover:bg-surface-container-low'
+                    ? 'bg-primary-subtle text-primary'
+                    : 'text-text-secondary hover:bg-bg-subtle'
                 }`}
               >
                 <button
@@ -186,7 +186,7 @@ export function ElasticLayout() {
                     e.stopPropagation()
                     handleTabClose(tab.id)
                   }}
-                  className="cursor-pointer ml-1 rounded p-0.5 hover:bg-error-container/30 text-on-surface-variant"
+                  className="cursor-pointer ml-1 rounded p-0.5 hover:bg-danger-subtle/30 text-text-secondary"
                   aria-label={`Close ${tab.label}`}
                 >
                   &times;
@@ -199,27 +199,27 @@ export function ElasticLayout() {
 
       {/* ── Cluster health indicator ── */}
       {health && (
-        <div className="flex items-center gap-2 border-b border-outline-variant/50 bg-surface-container-low px-3 py-1.5 text-xs text-on-surface-variant">
+        <div className="flex items-center gap-2 border-b border-border-default/50 bg-bg-subtle px-3 py-1.5 text-xs text-text-secondary">
           <span className="flex items-center gap-1.5">
             <span
               className={`inline-block h-2 w-2 rounded-full ${
                 health.status === 'green'
-                  ? 'bg-emerald-500'
+                  ? 'bg-success'
                   : health.status === 'yellow'
-                    ? 'bg-amber-400'
-                    : 'bg-red-500'
+                    ? 'bg-warning'
+                    : 'bg-danger'
               }`}
             />
             <span className="font-medium capitalize">{health.status}</span>
           </span>
-          <span className="text-on-surface-variant/60">·</span>
+          <span className="text-text-secondary/60">·</span>
           <span>{health.number_of_nodes} nodes</span>
-          <span className="text-on-surface-variant/60">·</span>
+          <span className="text-text-secondary/60">·</span>
           <span>{health.active_shards} shards</span>
           {error && (
             <>
-              <span className="text-on-surface-variant/60">·</span>
-              <span className="text-red-500">{error}</span>
+              <span className="text-text-secondary/60">·</span>
+              <span className="text-danger">{error}</span>
             </>
           )}
         </div>

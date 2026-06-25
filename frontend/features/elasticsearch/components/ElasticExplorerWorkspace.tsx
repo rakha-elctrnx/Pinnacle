@@ -286,10 +286,10 @@ export function ElasticExplorerWorkspace({
 
   if (error) {
     return (
-      <div className="flex h-full items-center justify-center bg-white text-red-500">
+      <div className="flex h-full items-center justify-center bg-bg-base text-danger">
         <div className="text-center max-w-md">
           <p className="text-sm font-medium mb-2">Connection Error</p>
-          <p className="text-xs text-slate-500 break-all">{error}</p>
+          <p className="text-xs text-text-secondary break-all">{error}</p>
         </div>
       </div>
     )
@@ -299,7 +299,7 @@ export function ElasticExplorerWorkspace({
     <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
       {/* ── Index Tabs Bar ── */}
       {openedElasticTabs.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1 pt-3 px-3 bg-gray-100">
+        <div className="flex flex-wrap items-center gap-1 pt-3 px-3 bg-bg-subtle">
           {openedElasticTabs.map((tab) => {
             const isActive = tab.id === activeElasticTabId
             return (
@@ -309,7 +309,7 @@ export function ElasticExplorerWorkspace({
                   'inline-flex items-center gap-1.5 rounded-t-lg border px-2 py-1.5 text-xs',
                   isActive
                     ? 'border-teal-200 bg-teal-50 text-teal-700'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
+                    : 'border-border-default bg-bg-base text-text-secondary hover:bg-bg-subtle',
                 ].join(' ')}
               >
                 <Database size={12} />
@@ -319,7 +319,7 @@ export function ElasticExplorerWorkspace({
                 <button
                   type="button"
                   onClick={() => onCloseElasticTab(tab.id)}
-                  className="rounded p-0.5 hover:bg-slate-200/70"
+                  className="rounded p-0.5 hover:bg-bg-hover/70"
                 >
                   <X size={10} />
                 </button>
@@ -335,7 +335,7 @@ export function ElasticExplorerWorkspace({
 
       {/* ── Index Tab Content (DocumentExplorer for the active index) ── */}
       {isIndexTabView && activeTab && (
-        <section className="flex-1 min-h-0 overflow-hidden bg-white">
+        <section className="flex-1 min-h-0 overflow-hidden bg-bg-base">
           <div className="h-full min-h-0">
             <DocumentExplorer connection={payload} indexName={activeTab.indexName} indices={indices} onStateChange={setDocExplorerState} />
           </div>
@@ -344,7 +344,7 @@ export function ElasticExplorerWorkspace({
 
       {/* ── Non-index panel content (Cluster, Indices, Query, Mapping) ── */}
       {!isIndexTabView && (
-        <main className="flex-1 min-w-0 overflow-auto bg-white">
+        <main className="flex-1 min-w-0 overflow-auto bg-bg-base">
           {panelContent}
         </main>
       )}
