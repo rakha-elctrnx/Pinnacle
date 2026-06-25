@@ -27,6 +27,12 @@ use application::commands::redis_commands::{
     redis_execute_command, redis_show_all_databases, redis_test_connection,
 };
 
+// CONNECTION COMMANDS
+use application::commands::connection_commands::{
+    delete_connection, get_connection, get_connection_password, has_connection_password,
+    list_connections, save_connection, update_connection,
+};
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -62,6 +68,15 @@ pub fn run() {
         })
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            // CONNECTION COMMANDS
+            save_connection,
+            list_connections,
+            get_connection,
+            get_connection_password,
+            has_connection_password,
+            delete_connection,
+            update_connection,
+            // SQL COMMANDS
             test_connection,
             execute_sql,
             sql_get_table_schema,
@@ -90,6 +105,7 @@ pub fn run() {
             elastic_list_aliases,
             elastic_list_shards,
             elastic_get_nodes_info,
+            // EXPORT COMMANDS
             estimate_table_export,
             execute_table_export,
             // REDIS COMMANDS

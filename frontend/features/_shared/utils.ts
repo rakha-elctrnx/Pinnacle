@@ -34,16 +34,34 @@ export function createCsv(columns: string[], rows: Record<string, string>[]) {
   return `${header}\n${body}`
 }
 
+// Get connection payload for backend commands
+// Note: password is NOT included here - it should be fetched separately from keyring
 export function getConnPayload(conn: ConnectionProfile, schema?: string) {
   return {
     type: conn.type,
     host: conn.host,
     port: conn.port,
     username: conn.username,
-    password: conn.password ?? '',
+    // Password removed - must be fetched from keyring using conn.passwordRef
     database: conn.database,
     ssl: conn.ssl,
     schema: schema ?? '',
+  }
+}
+
+// Get connection payload WITH password fetched from keyring
+// Use this when you need to actually execute queries against a connection
+export async function getConnPayloadWithPassword(conn: ConnectionProfile, schema?: string) {
+  const { getConnectionPassword } = await import('./services/tauriClient')
+  const password = conn.passwordRef
+    ? await getConnectionPassword(conn.id).catch((err) => {
+        console.warn(`[keyring] Failed to retrieve password for connection ${conn.id}:`, err)
+        return ''
+      })
+    : ''
+  return {
+    ...getConnPayload(conn, schema),
+    password,
   }
 }
 

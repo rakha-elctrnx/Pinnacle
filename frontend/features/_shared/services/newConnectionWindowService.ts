@@ -26,6 +26,11 @@ interface NewConnectionOpenPayload {
   existingGroups: string[]
 }
 
+interface NewConnectionSavePayload {
+  profile: ConnectionProfile
+  password?: string
+}
+
 /**
  * Open the new connection window with the given initial state.
  *
@@ -36,7 +41,7 @@ interface NewConnectionOpenPayload {
  */
 export async function openNewConnectionWindow(
   payload: NewConnectionOpenPayload,
-  onSave: (profile: ConnectionProfile) => void,
+  onSave: (profile: ConnectionProfile, password?: string) => void,
   onClose?: () => void,
 ): Promise<() => void> {
   const connWindow = await WebviewWindow.getByLabel('new-connection')
@@ -47,8 +52,9 @@ export async function openNewConnectionWindow(
   }
 
   // Set up listeners before showing the window
-  const unlistenSave = await listen<ConnectionProfile>('new-connection-save', (event) => {
-    onSave(event.payload)
+  const unlistenSave = await listen<NewConnectionSavePayload>('new-connection-save', (event) => {
+    const { profile, password } = event.payload
+    onSave(profile, password)
     // Window hides itself after emitting new-connection-save
   })
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { executeSql } from '../clients/sql'
 import type { ConnectionProfile } from '../../_shared/types/domain'
 import type { QueryTab, QueryResult, ConnectionStatus, SavedQuery } from '../../_shared/types/shared'
-import { isSqlConnectionType, getConnPayload } from '../../_shared/utils'
+import { isSqlConnectionType, getConnPayloadWithPassword } from '../../_shared/utils'
 
 interface QueryTabInternal {
   id: string
@@ -200,7 +200,7 @@ export function useQueryExecution({
       appendMessage(`${mode.toUpperCase()} started`)
 
       try {
-        const basePayload = getConnPayload(selectedConnection, querySchema)
+        const basePayload = await getConnPayloadWithPassword(selectedConnection, querySchema)
         const payload = queryDatabase ? { ...basePayload, database: queryDatabase } : basePayload
         const result = await executeSql({
           connection: payload,
@@ -236,6 +236,7 @@ export function useQueryExecution({
     setQueryMessages(['Ready.'])
     setQueryDatabase('')
     setQuerySchema('')
+    setQueryHistoryByConnection({})
   }, [])
 
   return {

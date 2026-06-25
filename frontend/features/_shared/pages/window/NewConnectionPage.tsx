@@ -104,8 +104,8 @@ export function NewConnectionPage() {
     setOpenPayload(null)
   }
 
-  const handleSave = async (profile: ConnectionProfile) => {
-    await emit('new-connection-save', profile)
+  const handleSave = async (profile: ConnectionProfile, password?: string) => {
+    await emit('new-connection-save', { profile, password })
     try {
       await getCurrentWindow().hide()
     } catch {
@@ -149,7 +149,7 @@ interface ConnectionFormProps {
   editingId: string | null
   existingProfile: ConnectionProfile | null
   existingGroups: string[]
-  onSave: (profile: ConnectionProfile) => void
+  onSave: (profile: ConnectionProfile, password?: string) => void
   onClose: () => void
 }
 
@@ -169,7 +169,7 @@ function ConnectionFormEmbedded({
     existingProfile?.database ?? defaultInitialDatabaseByType.postgresql,
   )
   const [newUser, setNewUser] = useState(existingProfile?.username ?? '')
-  const [newPassword, setNewPassword] = useState(existingProfile?.password ?? '')
+  const [newPassword, setNewPassword] = useState('')
   const [newSsl, setNewSsl] = useState(existingProfile?.ssl ?? false)
   const [newGroup, setNewGroup] = useState(existingProfile?.tags[0] ?? '')
   const [groupDropdownOpen, setGroupDropdownOpen] = useState(false)
@@ -231,6 +231,7 @@ function ConnectionFormEmbedded({
   const isEsType = isElasticsearchType(newType)
   const isRedisType = isRedisConnectionType(newType)
   const needsTestGate = (isSqlType || isEsType || isRedisType) && !editingId
+  const selectedOption = databaseTypeOptions.find((o) => o.value === newType)
   const canSave = needsTestGate
     ? (isTestPassed || skipTest) && Object.keys(validateFields).length === 0
     : Object.keys(validateFields).length === 0
@@ -340,30 +341,27 @@ function ConnectionFormEmbedded({
     const savedId = editingId ?? crypto.randomUUID()
     const group = newGroup.trim()
 
-    onSave({
-      id: savedId,
-      name: newName.trim(),
-      type: newType,
-      host: newHost.trim(),
-      port: Number.isFinite(parsedPort) ? parsedPort : defaultPortByType[newType],
-      username: newUser.trim(),
-      password: newPassword,
-      database: newInitialDatabase.trim() || defaultInitialDatabaseByType[newType],
-      ssl: newType === 'redis' && Number(newPort) === 6380 ? true : newSsl,
-      encryptedPasswordRef:
-        newPassword.length > 0
-          ? 'stronghold://pending'
-          : (existingProfile?.encryptedPasswordRef ?? 'stronghold://empty'),
-      tags: group ? [group] : ['Ungrouped'],
-      favorite: existingProfile?.favorite ?? false,
-      createdAt: existingProfile?.createdAt ?? now,
-      updatedAt: now,
-    })
+    onSave(
+      {
+        id: savedId,
+        name: newName.trim(),
+        type: newType,
+        host: newHost.trim(),
+        port: Number.isFinite(parsedPort) ? parsedPort : defaultPortByType[newType],
+        username: newUser.trim(),
+        database: newInitialDatabase.trim() || defaultInitialDatabaseByType[newType],
+        ssl: newType === 'redis' && Number(newPort) === 6380 ? true : newSsl,
+        passwordRef: `keyring://${savedId}`,
+        tags: group ? [group] : ['Ungrouped'],
+        favorite: existingProfile?.favorite ?? false,
+        createdAt: existingProfile?.createdAt ?? now,
+        updatedAt: now,
+      },
+      newPassword,
+    )
 
     handleClose()
   }
-
-  const selectedOption = databaseTypeOptions.find((o) => o.value === newType)
 
   const inputClasses =
     'w-full rounded-lg border border-outline-variant bg-surface px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface/50 outline-none transition focus:border-outline focus:ring-2 focus:ring-primary/50'

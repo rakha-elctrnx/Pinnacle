@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { DataExplorerContextProvider, useDataExplorerContext } from '../context/DataExplorerContext'
 import { useDataExplorerOrchestrator } from '../hooks/useDataExplorerOrchestrator'
 import { useShellLayout } from '../store/shellLayoutStore'
@@ -9,7 +10,7 @@ import { PageWorkspace } from '../components/PageWorkspace'
 import { ConnectionSidebar } from '../components/ConnectionSidebar'
 import { InspectorPanel } from '../components/InspectorPanel'
 import { ContextMenu } from '../components/ContextMenu'
-import { getConnPayload, isSqlConnectionType } from '../utils'
+import { getConnPayloadWithPassword, isSqlConnectionType } from '../utils'
 import { openNewConnectionWindow } from '../services/newConnectionWindowService'
 
 /**
@@ -41,7 +42,6 @@ export function DataExplorerLayout() {
   // Single orchestrator instance for the whole app shell.
   const orchestrator = useDataExplorerOrchestrator()
 
-  // Shell layout state — sidebar width + inspector visibility.
   const sidebarWidth = useShellLayout((s) => s.sidebarWidth)
   const inspectorOpen = useShellLayout((s) => s.inspectorOpen)
   const inspectorWidth = useShellLayout((s) => s.inspectorWidth)
@@ -85,7 +85,7 @@ function DataExplorerLayoutChrome({
   inspectorOpen: boolean
   inspectorWidth: number
 }) {
-  // New connection window bridge — opens native OS window when modal state changes.
+  const navigate = useNavigate()
 
   const {
     items,
@@ -99,7 +99,7 @@ function DataExplorerLayoutChrome({
     explorerData,
     handleOpenEditModal,
     handleRefreshConnection,
-    handleCloseConnection,
+    handleCloseConnection: handleCloseConnectionRaw,
     handleDuplicateConnection,
     handleExportConnection,
     handleDeleteConnection,
@@ -110,6 +110,11 @@ function DataExplorerLayoutChrome({
     handleRequestDataOperationFromMenu,
     handleRequestExportFromMenu,
   } = useDataExplorerContext()
+
+  const handleCloseConnection = useCallback((itemId: string) => {
+    handleCloseConnectionRaw(itemId)
+    navigate('/')
+  }, [handleCloseConnectionRaw, navigate])
 
   // Derive existingGroups for new connection dropdown
   const existingGroups = useMemo(
@@ -172,9 +177,9 @@ function DataExplorerLayoutChrome({
         existingProfile,
         existingGroups: existingGroupsRef.current,
       },
-      (profile) => {
+      (profile, password) => {
         resetWindow()
-        handleSaveRef.current(profile)
+        handleSaveRef.current(profile, password)
         handleCloseRef.current()
       },
       () => {
@@ -210,7 +215,7 @@ function DataExplorerLayoutChrome({
       selectedConnection.type === 'postgresql'
         ? queryExecution.querySchema || explorerData.selectedSchema || 'public'
         : databaseName ?? ''
-    const payload = { ...getConnPayload(selectedConnection), database: databaseName ?? '' }
+    const payload = { ...(await getConnPayloadWithPassword(selectedConnection)), database: databaseName ?? '' }
     await loadAndOpenForEdit(payload, tableName, databaseName ?? '', schemaName)
   }
 

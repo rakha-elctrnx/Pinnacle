@@ -42,7 +42,7 @@ export function ConnectionFormModal({
     existingProfile?.database ?? defaultInitialDatabaseByType.postgresql,
   )
   const [newUser, setNewUser] = useState(existingProfile?.username ?? '')
-  const [newPassword, setNewPassword] = useState(existingProfile?.password ?? '')
+  const [newPassword, setNewPassword] = useState('')
   const [newSsl, setNewSsl] = useState(existingProfile?.ssl ?? false)
   const [newGroup, setNewGroup] = useState(existingProfile?.tags[0] ?? '')
   const [groupDropdownOpen, setGroupDropdownOpen] = useState(false)
@@ -231,13 +231,9 @@ export function ConnectionFormModal({
       host: newHost.trim(),
       port: Number.isFinite(parsedPort) ? parsedPort : defaultPortByType[newType],
       username: newUser.trim(),
-      password: newPassword,
       database: newInitialDatabase.trim() || defaultInitialDatabaseByType[newType],
       ssl: newType === 'redis' && Number(newPort) === 6380 ? true : newSsl,
-      encryptedPasswordRef:
-        newPassword.length > 0
-          ? 'stronghold://pending'
-          : (existingProfile?.encryptedPasswordRef ?? 'stronghold://empty'),
+      passwordRef: newPassword.length > 0 ? `keyring://${savedId}` : '',
       tags: group ? [group] : ['Ungrouped'],
       favorite: existingProfile?.favorite ?? false,
       createdAt: existingProfile?.createdAt ?? now,

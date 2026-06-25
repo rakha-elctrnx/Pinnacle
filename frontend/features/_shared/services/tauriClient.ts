@@ -1,14 +1,91 @@
 import { save } from '@tauri-apps/plugin-dialog'
-
-
+import { invoke } from '@tauri-apps/api/core'
+import type { ConnectionProfile, ConnectionResponse, ConnectionListResponse } from '../types/domain'
 export interface ConnectionPayload {
   type: string
   host: string
   port: number
   username: string
-  password: string
+  password?: string
   database: string
   ssl: boolean
+  schema?: string
+}
+
+/**
+ * Connection Service Client
+ * Wraps Tauri invoke calls for connection management commands.
+ */
+
+export async function saveConnection(request: {
+  id?: string
+  name: string
+  type: string
+  host: string
+  port: number
+  username: string
+  database: string
+  ssl: boolean
+  schema?: string
+  tags?: string[]
+  favorite?: boolean
+  password?: string
+}): Promise<ConnectionResponse> {
+  return invoke<ConnectionResponse>('save_connection', {
+    request: {
+      metadata: {
+        id: request.id || crypto.randomUUID(),
+        name: request.name,
+        type: request.type,
+        host: request.host,
+        port: request.port,
+        username: request.username,
+        database: request.database,
+        ssl: request.ssl,
+        schema: request.schema || '',
+        tags: request.tags || [],
+        favorite: request.favorite || false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      password: request.password,
+    },
+  })
+}
+
+export async function listConnections(
+  search?: string,
+  connectionType?: string,
+  tags?: string[],
+  favoritesOnly?: boolean,
+): Promise<ConnectionListResponse> {
+  return invoke<ConnectionListResponse>('list_connections', {
+    search,
+    connection_type: connectionType,
+    tags,
+    favorites_only: favoritesOnly,
+  })
+}
+
+export async function getConnection(connectionId: string): Promise<ConnectionResponse | null> {
+  return invoke<ConnectionResponse | null>('get_connection', { connection_id: connectionId })
+}
+
+export async function getConnectionPassword(connectionId: string): Promise<string> {
+  const response = await invoke<{ connectionId: string; password: string }>('get_connection_password', { request: { connectionId } })
+  return response.password
+}
+
+export async function deleteConnection(connectionId: string): Promise<void> {
+  return invoke<void>('delete_connection', { request: { connectionId } })
+}
+
+export async function updateConnection(profile: ConnectionProfile): Promise<ConnectionResponse> {
+  return invoke<ConnectionResponse>('update_connection', { metadata: profile })
+}
+
+export async function hasConnectionPassword(connectionId: string): Promise<boolean> {
+  return invoke<boolean>('has_connection_password', { connection_id: connectionId })
 }
 
 /**

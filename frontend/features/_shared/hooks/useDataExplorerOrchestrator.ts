@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useConnectionStore } from '../store/connectionStore'
 import type { ConnectionProfile } from '../types/domain'
-import { showExportSaveDialog } from '../services/tauriClient'
+import { showExportSaveDialog, getConnectionPassword } from '../services/tauriClient'
 // Elasticsearch
 import type { ElasticIndex } from '../../elasticsearch/types/elasticsearch'
 import { elasticListIndices } from '../../elasticsearch/clients/elasticsearch'
@@ -111,7 +111,7 @@ export interface DataExplorerOrchestratorResult {
   handleExportConnection: (itemId: string) => void
   handleRefreshConnection: (itemId: string) => Promise<void>
   handleCloseConnection: (itemId: string) => void
-  handleSaveConnection: (profile: ConnectionProfile) => void
+  handleSaveConnection: (profile: ConnectionProfile, password?: string) => void
   handleToggleTreeNode: (path: string) => void
   handleFetchDatabaseDetails: (dbName: string) => void
   wrappedHandleTreeNodeClick: (nodeLabel: string, databaseName?: string, nodePath?: string) => void
@@ -165,6 +165,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   const items = useConnectionStore((state) => state.items)
   const upsert = useConnectionStore((state) => state.upsert)
   const remove = useConnectionStore((state) => state.remove)
+  const refreshStore = useConnectionStore((state) => state.refresh)
 
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null)
   const [expandedConnectionId, setExpandedConnectionId] = useState<string | null>(null)
@@ -206,6 +207,11 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   const [recentExports, setRecentExports] = useState<RecentTableExport[]>(() => loadRecentExports())
   const exportProgressUnlistenRef = useRef<(() => void) | null>(null)
 
+  // ── Load persisted connections from backend on startup ──────
+  useEffect(() => {
+    refreshStore()
+  }, [refreshStore])
+
   // ── Trigger estimate when export modal opens ─────────────────
   useEffect(() => {
     if (!exportModalTarget) return
@@ -213,28 +219,36 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     const conn = items.find((item) => item.id === exportModalTarget.connectionId)
     if (!conn) return
 
-    const payload = { ...getConnPayload(conn, exportModalTarget.schema), database: exportModalTarget.database || conn.database }
     let cancelled = false
 
-    setExportEstimate((prev) => ({ ...prev, loading: true, error: null }))
+    // Fetch password from keyring and add to payload
+    getConnectionPassword(conn.id).then((password) => {
+      const payload = { 
+        ...getConnPayload(conn, exportModalTarget.schema), 
+        database: exportModalTarget.database || conn.database,
+        password
+      }
 
-    estimateTableExport(payload, exportModalTarget.tableName)
-      .then((result) => {
-        if (cancelled) return
-        setExportEstimate({
-          rowCount: result.rowCount,
-          estimatedSizeBytes: result.estimatedSizeBytes,
-          loading: false,
-          error: null,
+      setExportEstimate((prev) => ({ ...prev, loading: true, error: null }))
+
+      estimateTableExport(payload, exportModalTarget.tableName)
+        .then((result) => {
+          if (cancelled) return
+          setExportEstimate({
+            rowCount: result.rowCount,
+            estimatedSizeBytes: result.estimatedSizeBytes,
+            loading: false,
+            error: null,
+          })
         })
-      })
-      .catch((err) => {
-        if (cancelled) return
-        setExportEstimate({
-          rowCount: null, estimatedSizeBytes: null, loading: false,
-          error: err instanceof Error ? err.message : String(err),
+        .catch((err) => {
+          if (cancelled) return
+          setExportEstimate({
+            rowCount: null, estimatedSizeBytes: null, loading: false,
+            error: err instanceof Error ? err.message : String(err),
+          })
         })
-      })
+    })
 
     return () => { cancelled = true }
   }, [exportModalTarget, items])
@@ -264,20 +278,23 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     const conn = items.find((item) => item.id === expandedConnectionId)
     if (!conn || !isElasticsearchLike(conn.type)) return
 
-    const payload = {
-      type: conn.type,
-      host: conn.host,
-      port: conn.port,
-      database: conn.database ?? '',
-      username: conn.username,
-      password: conn.password,
-      ssl: conn.ssl ?? false,
-    }
-
     let cancelled = false
 
     const loadElasticIndices = async () => {
       setElasticLoading((prev) => ({ ...prev, [conn.id]: true }))
+      
+      // Fetch password from keyring
+      const password = conn.passwordRef ? await getConnectionPassword(conn.id) : ''
+      
+      const payload = {
+        type: conn.type,
+        host: conn.host,
+        port: conn.port,
+        database: conn.database ?? '',
+        username: conn.username,
+        password,
+        ssl: conn.ssl ?? false,
+      }
 
       try {
         const indices = await elasticListIndices(payload)
@@ -321,16 +338,6 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     const conn = items.find((item) => item.id === connectionId)
     if (!conn || !isElasticsearchLike(conn.type)) return
 
-    const payload = {
-      type: conn.type,
-      host: conn.host,
-      port: conn.port,
-      database: conn.database ?? '',
-      username: conn.username,
-      password: conn.password,
-      ssl: conn.ssl ?? false,
-    }
-
     setElasticIndicesError((prev) => {
       const next = { ...prev }
       delete next[conn.id]
@@ -339,26 +346,39 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
 
     setElasticLoading((prev) => ({ ...prev, [conn.id]: true }))
 
-    elasticListIndices(payload)
-      .then((indices) => {
-        setElasticIndices((prev) => ({
-          ...prev,
-          [conn.id]: indices ?? [],
-        }))
-      })
-      .catch((err) => {
-        setElasticIndicesError((prev) => ({
-          ...prev,
-          [conn.id]: err instanceof Error ? err.message : String(err),
-        }))
-      })
-      .finally(() => {
-        setElasticLoading((prev) => {
-          const next = { ...prev }
-          delete next[conn.id]
-          return next
+    // Fetch password from keyring
+    getConnectionPassword(conn.id).then((password) => {
+      const payload = {
+        type: conn.type,
+        host: conn.host,
+        port: conn.port,
+        database: conn.database ?? '',
+        username: conn.username,
+        password,
+        ssl: conn.ssl ?? false,
+      }
+
+      elasticListIndices(payload)
+        .then((indices) => {
+          setElasticIndices((prev) => ({
+            ...prev,
+            [conn.id]: indices ?? [],
+          }))
         })
-      })
+        .catch((err) => {
+          setElasticIndicesError((prev) => ({
+            ...prev,
+            [conn.id]: err instanceof Error ? err.message : String(err),
+          }))
+        })
+        .finally(() => {
+          setElasticLoading((prev) => {
+            const next = { ...prev }
+            delete next[conn.id]
+            return next
+          })
+        })
+    })
   }, [items])
 
   // ── Sidebar resize handlers ──────────────────────────────────────
@@ -548,8 +568,8 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     setIsSqlTableListView(false)
   }
 
-  const handleSaveConnection = (profile: ConnectionProfile) => {
-    upsert(profile)
+  const handleSaveConnection = (profile: ConnectionProfile, password?: string) => {
+    upsert(profile, password)
     setConnectionStatuses((prev) => ({
       ...prev,
       [profile.id]: 'idle',
@@ -979,7 +999,13 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       exportProgressUnlistenRef.current = unlisten
 
       // 4. Build payload for Rust command (convert frontend values to Rust-expected format)
-      const connection = { ...getConnPayload(conn, target.schema), database: target.database || conn.database }
+      // Fetch password from keyring
+      const password = await getConnectionPassword(conn.id)
+      const connection = { 
+        ...getConnPayload(conn, target.schema), 
+        database: target.database || conn.database,
+        password
+      }
       const rustFormat = options.format.toUpperCase()
       const rustEncoding = options.encoding === 'utf-8' ? 'UTF8' : options.encoding === 'utf-16' ? 'UTF16' : 'ASCII'
       const rustSqlMode = options.sqlMode === 'data-only' ? 'dataOnly' : options.sqlMode === 'schema-only' ? 'schemaOnly' : 'schemaAndData'

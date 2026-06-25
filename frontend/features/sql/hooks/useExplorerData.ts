@@ -21,7 +21,7 @@ import type {
 } from "../../_shared/types/shared";
 import {
   isSqlConnectionType,
-  getConnPayload,
+  getConnPayloadWithPassword,
   sqlString,
   quoteIdentifier,
 } from "../../_shared/utils";
@@ -258,7 +258,7 @@ export function useExplorerData({
       if (!isSqlConnectionType(conn.type)) return;
       setTreeLoading((prev) => ({ ...prev, [connId]: true }));
       try {
-        const payload = getConnPayload(conn);
+        const payload = await getConnPayloadWithPassword(conn);
 
         let databaseNames: string[] = [];
 
@@ -331,7 +331,8 @@ export function useExplorerData({
       setLoadingDatabaseNames((prev) => new Set([...prev, dbName]));
       try {
         // Create payload pointing to the specific database
-        const payload = { ...getConnPayload(conn), database: dbName };
+        const basePayload = await getConnPayloadWithPassword(conn);
+        const payload = { ...basePayload, database: dbName };
 
         if (conn.type === "postgresql") {
           const schemaRes = await executeSql({
@@ -431,8 +432,9 @@ export function useExplorerData({
       setTableDataLoading(true);
       try {
         // Use the specified database or fall back to the connection's default
+        const basePayload = await getConnPayloadWithPassword(conn);
         const payload = {
-          ...getConnPayload(conn),
+          ...basePayload,
           database: dbName || conn.database,
         };
         const fromClause =
@@ -499,13 +501,13 @@ export function useExplorerData({
       setSqlTableListLoading(true);
 
       try {
-        const payload = {
-          ...getConnPayload(conn),
-          database: databaseName || conn.database,
-        };
+        const payload = await getConnPayloadWithPassword(conn, schemaName);
 
         const listRes = await executeSql({
-          connection: payload,
+          connection: {
+            ...payload,
+            database: databaseName || conn.database,
+          },
           sql:
             conn.type === "postgresql"
               ? `SELECT
@@ -548,8 +550,9 @@ export function useExplorerData({
 
         // Fetch all foreign keys and columns for the schema (used by ER diagram)
         try {
+          const basePayload = await getConnPayloadWithPassword(conn, schemaName);
           const fkPayload = {
-            ...getConnPayload(conn),
+            ...basePayload,
             database: databaseName || conn.database,
             schema:
               schemaName ||
