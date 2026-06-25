@@ -39,21 +39,21 @@ function TableNode({ data }: { data: TableNodeData }) {
   return (
     <div
       className={[
-        "rounded-lg border bg-white shadow-sm transition-all duration-150",
+        "rounded-lg border bg-bg-base shadow-sm transition-all duration-150",
         "min-w-[200px] max-w-[260px]",
         highlighted
-          ? "border-blue-400 shadow-md ring-2 ring-blue-200"
-          : "border-slate-200 hover:border-slate-300 hover:shadow-md",
+          ? "border-primary shadow-md ring-2 ring-primary-subtle"
+          : "border-border-default hover:border-border-strong hover:shadow-md",
       ].join(" ")}
     >
-      <Handle type="target" position={Position.Top} className="!bg-slate-300" />
+      <Handle type="target" position={Position.Top} className="!bg-bg-muted" />
       {/* Header */}
       <div
         className={[
           "flex items-center gap-1.5 border-b px-3 py-2 text-xs font-semibold",
           highlighted
-            ? "border-blue-200 bg-blue-50 text-blue-700"
-            : "border-slate-100 bg-slate-50 text-slate-700",
+            ? "border-primary-subtle bg-primary-subtle text-primary"
+            : "border-border-default bg-bg-subtle text-text-primary",
         ].join(" ")}
       >
         <span className="truncate font-mono">{tableName}</span>
@@ -61,7 +61,7 @@ function TableNode({ data }: { data: TableNodeData }) {
       {/* Columns */}
       <div className="max-h-[240px] overflow-y-auto">
         {columns.length === 0 ? (
-          <div className="px-3 py-2 text-[11px] italic text-slate-400">
+          <div className="px-3 py-2 text-[11px] italic text-text-muted">
             No columns
           </div>
         ) : (
@@ -70,27 +70,27 @@ function TableNode({ data }: { data: TableNodeData }) {
               key={col.name}
               className={[
                 "flex items-center justify-between gap-2 px-3 py-[5px] text-[11px]",
-                i > 0 ? "border-t border-slate-100" : "",
+                i > 0 ? "border-t border-border-default" : "",
               ].join(" ")}
             >
-              <span className="truncate font-mono font-medium text-slate-700">
+              <span className="truncate font-mono font-medium text-text-primary">
                 {col.name}
               </span>
-              <span className="shrink-0 text-slate-400">{col.dataType}</span>
+              <span className="shrink-0 text-text-muted">{col.dataType}</span>
             </div>
           ))
         )}
       </div>
       {/* Open link */}
       {onSelectTable && (
-        <div className="border-t border-slate-100 px-3 py-1.5">
+        <div className="border-t border-border-default px-3 py-1.5">
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               onSelectTable(tableName);
             }}
-            className="w-full text-center text-[10px] font-medium text-blue-600 hover:text-blue-500 hover:underline"
+            className="w-full text-center text-[10px] font-medium text-primary hover:text-primary-hover hover:underline"
           >
             Open table →
           </button>
@@ -99,9 +99,19 @@ function TableNode({ data }: { data: TableNodeData }) {
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!bg-slate-300"
+        className="!bg-bg-muted"
       />
     </div>
+  );
+}
+
+/* ─── Runtime CSS variable reader ────────────────────────────────────────── */
+
+function readToken(name: string, fallback: string): string {
+  return (
+    getComputedStyle(document.documentElement)
+      .getPropertyValue(name)
+      .trim() || fallback
   );
 }
 
@@ -225,6 +235,9 @@ export function ERDiagramViewer({
   }, [columns]);
 
   const { initialNodes, initialEdges } = useMemo(() => {
+    const primaryColor = readToken('--color-primary', '#3b60cd');
+    const primarySubtle = readToken('--color-primary-subtle', '#e8edf9');
+
     const nodes: Node<TableNodeData>[] = rows.map((row) => ({
       id: row.tableName,
       type: "tableNode",
@@ -257,12 +270,12 @@ export function ERDiagramViewer({
         label: fk.columns.join(', '),
         type: 'smoothstep',
         animated: true,
-        style: { stroke: '#6366f1', strokeWidth: 1.5 },
-        labelStyle: { fontSize: 10, fill: '#6366f1', fontWeight: 500 },
-        labelBgStyle: { fill: '#eef2ff', fillOpacity: 0.9 },
+        style: { stroke: primaryColor, strokeWidth: 1.5 },
+        labelStyle: { fontSize: 10, fill: primaryColor, fontWeight: 500 },
+        labelBgStyle: { fill: primarySubtle, fillOpacity: 0.9 },
         labelBgPadding: [4, 2] as [number, number],
         labelBgBorderRadius: 4,
-        markerEnd: { type: 'arrowclosed' as const, color: '#6366f1' },
+        markerEnd: { type: 'arrowclosed' as const, color: primaryColor },
       });
     }
 
@@ -333,11 +346,13 @@ export function ERDiagramViewer({
 
   if (rows.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center text-slate-400 text-xs">
+      <div className="flex h-full items-center justify-center text-text-muted text-xs">
         No tables to display
       </div>
     );
   }
+
+  const borderColor = readToken('--color-border-default', '#e3e4de');
 
   return (
     <div className="h-full w-full">
@@ -353,10 +368,10 @@ export function ERDiagramViewer({
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
       >
-        <Background gap={16} size={1} color="#e2e8f0" />
+        <Background gap={16} size={1} color={borderColor} />
         <Controls showInteractive={false} />
         <MiniMap
-          nodeColor="#e2e8f0"
+          nodeColor={borderColor}
           maskColor="rgba(255,255,255,0.7)"
           style={{ width: 120, height: 80 }}
         />

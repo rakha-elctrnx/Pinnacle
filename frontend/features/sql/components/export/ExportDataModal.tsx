@@ -145,20 +145,20 @@ export function ExportDataModal({
       />
 
       {/* Modal */}
-      <div className="relative z-10 w-full max-w-lg rounded-xl border border-slate-200 bg-white shadow-2xl">
+      <div className="relative z-10 w-full max-w-lg rounded-xl border border-border-default bg-bg-base shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+        <div className="flex items-center justify-between border-b border-border-default px-5 py-4">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100">
-              <Download size={16} className="text-slate-500" />
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-bg-subtle">
+              <Download size={16} className="text-text-muted" />
             </span>
-            <h2 className="text-sm font-semibold text-slate-800">Export Table Data</h2>
+            <h2 className="text-sm font-semibold text-text-primary">Export Table Data</h2>
           </div>
           {phase !== 'loading' && (
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+              className="rounded-md p-1 text-text-muted transition-colors hover:bg-bg-subtle hover:text-text-secondary"
             >
               <X size={16} />
             </button>
@@ -171,29 +171,29 @@ export function ExportDataModal({
           {phase === 'configure' && (
             <>
               {/* Table identity */}
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              <div className="rounded-lg border border-border-default bg-bg-subtle p-3">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                   Source Table
                 </p>
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2 text-sm">
-                    <Database size={13} className="shrink-0 text-slate-400" />
-                    <span className="font-medium text-slate-500">Connection:</span>
-                    <span className="font-semibold text-slate-800">{target.connectionName}</span>
+                    <Database size={13} className="shrink-0 text-text-muted" />
+                    <span className="font-medium text-text-secondary">Connection:</span>
+                    <span className="font-semibold text-text-primary">{target.connectionName}</span>
                   </div>
                   {target.schema && (
                     <div className="flex items-center gap-2 text-sm">
                       <span className="w-3.25" />
-                      <span className="font-medium text-slate-500">Schema:</span>
-                      <span className="rounded bg-slate-200 px-1.5 py-0.5 font-mono text-xs text-slate-700">
+                      <span className="font-medium text-text-secondary">Schema:</span>
+                      <span className="rounded bg-bg-muted px-1.5 py-0.5 font-mono text-xs text-text-primary">
                         {target.schema}
                       </span>
                     </div>
                   )}
                   <div className="flex items-center gap-2 text-sm">
-                    <Table size={13} className="shrink-0 text-slate-400" />
-                    <span className="font-medium text-slate-500">Table:</span>
-                    <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-700">
+                    <Table size={13} className="shrink-0 text-text-muted" />
+                    <span className="font-medium text-text-secondary">Table:</span>
+                    <span className="rounded bg-bg-subtle px-1.5 py-0.5 font-mono text-xs font-semibold text-text-primary">
                       {target.tableName}
                     </span>
                   </div>
@@ -202,7 +202,7 @@ export function ExportDataModal({
 
               {/* Format selection */}
               <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Format</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">Format</p>
                 <div className="grid grid-cols-5 gap-1.5">
                   {FORMAT_OPTIONS.map((fmt) => {
                     const Icon = fmt.icon
@@ -215,8 +215,8 @@ export function ExportDataModal({
                         className={[
                           'flex flex-col items-center gap-1 rounded-lg border px-2 py-2.5 text-[11px] transition-colors',
                           isSelected
-                            ? 'border-slate-400 bg-slate-100 text-slate-800 font-semibold'
-                            : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50',
+                            ? 'border-border-strong bg-bg-subtle text-text-primary font-semibold'
+                            : 'border-border-default bg-bg-base text-text-secondary hover:bg-bg-subtle',
                         ].join(' ')}
                       >
                         <Icon size={16} />
@@ -225,7 +225,7 @@ export function ExportDataModal({
                     )
                   })}
                 </div>
-                <p className="mt-1.5 text-[11px] text-slate-400">
+                <p className="mt-1.5 text-[11px] text-text-muted">
                   {FORMAT_OPTIONS.find((f) => f.value === options.format)?.description}
                 </p>
               </div>
@@ -233,23 +233,23 @@ export function ExportDataModal({
               {/* Format-specific options */}
               {(options.format === 'csv' || options.format === 'txt') && (
                 <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-2 text-xs text-slate-600">
+                  <label className="flex items-center gap-2 text-xs text-text-secondary">
                     <input
                       type="checkbox"
                       checked={options.includeHeaders}
                       onChange={(e) => setOptions((prev) => ({ ...prev, includeHeaders: e.target.checked }))}
-                      className="h-3.5 w-3.5 rounded border-slate-300 text-slate-600 focus:ring-slate-500"
+                      className="h-3.5 w-3.5 rounded border-border-strong text-text-secondary focus:ring-border-strong"
                     />
                     Include Headers
                   </label>
-                  <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                  <div className="flex items-center gap-1.5 text-xs text-text-secondary">
                     <span>Encoding:</span>
                     <select
                       value={options.encoding}
                       onChange={(e) =>
                         setOptions((prev) => ({ ...prev, encoding: e.target.value as TableExportOptions['encoding'] }))
                       }
-                      className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-400"
+                      className="rounded border border-border-default bg-bg-base px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-border-strong"
                     >
                       {ENCODING_OPTIONS.map((enc) => (
                         <option key={enc.value} value={enc.value}>
@@ -262,14 +262,14 @@ export function ExportDataModal({
               )}
 
               {options.format === 'txt' && (
-                <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                <div className="flex items-center gap-1.5 text-xs text-text-secondary">
                   <span>Delimiter:</span>
                   <select
                     value={options.txtDelimiter}
                     onChange={(e) =>
                       setOptions((prev) => ({ ...prev, txtDelimiter: e.target.value as TableExportOptions['txtDelimiter'] }))
                     }
-                    className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-400"
+                    className="rounded border border-border-default bg-bg-base px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-border-strong"
                   >
                     {TXT_DELIMITER_OPTIONS.map((d) => (
                       <option key={d.value} value={d.value}>
@@ -281,14 +281,14 @@ export function ExportDataModal({
               )}
 
               {options.format === 'sql' && (
-                <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                <div className="flex items-center gap-1.5 text-xs text-text-secondary">
                   <span>SQL Mode:</span>
                   <select
                     value={options.sqlMode}
                     onChange={(e) =>
                       setOptions((prev) => ({ ...prev, sqlMode: e.target.value as TableExportOptions['sqlMode'] }))
                     }
-                    className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-400"
+                    className="rounded border border-border-default bg-bg-base px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-border-strong"
                   >
                     {SQL_MODE_OPTIONS.map((m) => (
                       <option key={m.value} value={m.value}>
@@ -305,27 +305,27 @@ export function ExportDataModal({
               )}
 
               {/* Estimate */}
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              <div className="rounded-lg border border-border-default bg-bg-subtle p-3">
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                   Export Estimate
                 </p>
                 {estimate.loading ? (
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <div className="flex items-center gap-2 text-xs text-text-secondary">
                     <Loader2 size={13} className="animate-spin" /> Calculating…
                   </div>
                 ) : estimate.error ? (
-                  <p className="text-xs text-slate-400">Unable to estimate — export will proceed without preview.</p>
+                  <p className="text-xs text-text-muted">Unable to estimate — export will proceed without preview.</p>
                 ) : (
                   <div className="flex items-center gap-4 text-sm">
                     <div>
-                      <span className="text-slate-500">Rows:</span>{' '}
-                      <span className="font-semibold text-slate-700">{formatRowCount(estimate.rowCount)}</span>
+                      <span className="text-text-secondary">Rows:</span>{' '}
+                      <span className="font-semibold text-text-primary">{formatRowCount(estimate.rowCount)}</span>
                     </div>
                     <div>
-                      <span className="text-slate-500">Size:</span>{' '}
-                      <span className="font-semibold text-slate-700">{formatBytes(estimate.estimatedSizeBytes)}</span>
+                      <span className="text-text-secondary">Size:</span>{' '}
+                      <span className="font-semibold text-text-primary">{formatBytes(estimate.estimatedSizeBytes)}</span>
                     </div>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-[11px] text-text-muted">
                       ({suggestedFilename(target, options.format)})
                     </span>
                   </div>
@@ -345,7 +345,7 @@ export function ExportDataModal({
               {/* Recent exports */}
               {recentExports.length > 0 && (
                 <div>
-                  <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                     Recent Exports
                   </p>
                   <div className="max-h-24 space-y-1 overflow-y-auto">
@@ -354,14 +354,14 @@ export function ExportDataModal({
                         key={recent.id}
                         type="button"
                         onClick={() => onUseRecent(recent)}
-                        className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-100"
+                        className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-bg-subtle"
                       >
                         <span>
-                          <span className="font-medium text-slate-700">{recent.options.format.toUpperCase()}</span>
+                          <span className="font-medium text-text-primary">{recent.options.format.toUpperCase()}</span>
                           {' · '}
                           {recent.target.tableName}
                         </span>
-                        <span className="text-slate-400">{new Date(recent.timestamp).toLocaleDateString()}</span>
+                        <span className="text-text-muted">{new Date(recent.timestamp).toLocaleDateString()}</span>
                       </button>
                     ))}
                   </div>
@@ -384,19 +384,19 @@ export function ExportDataModal({
                 </div>
               </div>
 
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="rounded-lg border border-border-default bg-bg-subtle p-3">
                 <div className="flex items-center gap-4 text-sm">
                   <div>
-                    <span className="text-slate-500">Format:</span>{' '}
-                    <span className="font-semibold text-slate-700">{options.format.toUpperCase()}</span>
+                    <span className="text-text-secondary">Format:</span>{' '}
+                    <span className="font-semibold text-text-primary">{options.format.toUpperCase()}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500">Rows:</span>{' '}
-                    <span className="font-semibold text-slate-700">{formatRowCount(estimate.rowCount)}</span>
+                    <span className="text-text-secondary">Rows:</span>{' '}
+                    <span className="font-semibold text-text-primary">{formatRowCount(estimate.rowCount)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500">Size:</span>{' '}
-                    <span className="font-semibold text-slate-700">{formatBytes(estimate.estimatedSizeBytes)}</span>
+                    <span className="text-text-secondary">Size:</span>{' '}
+                    <span className="font-semibold text-text-primary">{formatBytes(estimate.estimatedSizeBytes)}</span>
                   </div>
                 </div>
               </div>
@@ -406,15 +406,15 @@ export function ExportDataModal({
           {/* ── Loading ── */}
           {phase === 'loading' && (
             <div className="flex flex-col items-center gap-3 py-6">
-              <Loader2 size={28} className="animate-spin text-slate-500" />
-              <p className="text-sm text-slate-600">
+              <Loader2 size={28} className="animate-spin text-text-secondary" />
+              <p className="text-sm text-text-secondary">
                 Exporting {target.tableName} as {options.format.toUpperCase()}…
               </p>
               {job.progress !== null && (
                 <div className="w-full max-w-xs">
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-muted">
                     <div
-                      className="h-full rounded-full bg-slate-500 transition-all"
+                      className="h-full rounded-full bg-text-secondary transition-all"
                       style={{ width: `${job.progress}%` }}
                     />
                   </div>
@@ -426,16 +426,16 @@ export function ExportDataModal({
           {/* ── Success ── */}
           {phase === 'success' && (
             <div className="flex flex-col items-center gap-3 py-6">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                <Check size={20} className="text-emerald-600" />
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-success-subtle">
+                <Check size={20} className="text-success" />
               </span>
               <div className="text-center">
-                <p className="text-sm font-semibold text-slate-800">Export Complete</p>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="text-sm font-semibold text-text-primary">Export Complete</p>
+                <p className="mt-1 text-xs text-text-secondary">
                   {target.tableName} exported as {options.format.toUpperCase()}
                 </p>
                 {job.savedPath && (
-                  <p className="mt-1 max-w-xs truncate font-mono text-[11px] text-slate-400">{job.savedPath}</p>
+                  <p className="mt-1 max-w-xs truncate font-mono text-[11px] text-text-muted">{job.savedPath}</p>
                 )}
               </div>
             </div>
@@ -444,32 +444,32 @@ export function ExportDataModal({
           {/* ── Error ── */}
           {phase === 'error' && (
             <div className="flex flex-col items-center gap-3 py-4">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-                <AlertTriangle size={20} className="text-red-500" />
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-danger-subtle">
+                <AlertTriangle size={20} className="text-danger" />
               </span>
               <div className="text-center">
-                <p className="text-sm font-semibold text-slate-800">Export Failed</p>
-                <p className="mt-1 max-w-xs text-xs text-red-600">{job.error ?? 'An unexpected error occurred.'}</p>
+                <p className="text-sm font-semibold text-text-primary">Export Failed</p>
+                <p className="mt-1 max-w-xs text-xs text-danger">{job.error ?? 'An unexpected error occurred.'}</p>
               </div>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-3">
+        <div className="flex items-center justify-end gap-2 border-t border-border-default px-5 py-3">
           {phase === 'configure' && (
             <>
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
+                className="rounded-lg border border-border-default bg-bg-base px-3.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-subtle"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleConfirm}
-                className="rounded-lg bg-slate-700 px-3.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-1"
+                className="rounded-lg bg-bg-muted px-3.5 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-border-strong focus:outline-none focus:ring-2 focus:ring-border-strong focus:ring-offset-1"
               >
                 Export {options.format.toUpperCase()}
               </button>
@@ -480,14 +480,14 @@ export function ExportDataModal({
               <button
                 type="button"
                 onClick={() => setOverridePhase('configure')}
-                className="rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
+                className="rounded-lg border border-border-default bg-bg-base px-3.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-subtle"
               >
                 Back
               </button>
               <button
                 type="button"
                 onClick={handleSubmitFromConfirm}
-                className="rounded-lg bg-slate-700 px-3.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-1"
+                className="rounded-lg bg-bg-muted px-3.5 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-border-strong focus:outline-none focus:ring-2 focus:ring-border-strong focus:ring-offset-1"
               >
                 Proceed with Export
               </button>
@@ -497,7 +497,7 @@ export function ExportDataModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg bg-slate-700 px-3.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-1"
+              className="rounded-lg bg-bg-muted px-3.5 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-border-strong focus:outline-none focus:ring-2 focus:ring-border-strong focus:ring-offset-1"
             >
               Close
             </button>

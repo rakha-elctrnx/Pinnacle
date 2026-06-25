@@ -14,20 +14,20 @@ export function InspectorPanel() {
   const closeInspector = useShellLayout((s) => s.closeInspector)
 
   return (
-    <aside className="flex h-full min-w-0 flex-col overflow-hidden">
-      <div className="flex shrink-0 items-center justify-between border-b border-outline-variant pl-3 pr-2 py-2">
-        <p className="text-sm font-semibold text-on-surface">Inspector</p>
+    <aside className="flex h-full min-w-0 flex-col overflow-hidden bg-bg-subtle/40">
+      <div className="flex shrink-0 items-center justify-between border-b border-border-default/60 bg-bg-muted/60 pl-3 pr-2.5 py-2.5 backdrop-blur-sm">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-text-primary">Inspector</p>
         <button
           type="button"
           onClick={closeInspector}
-          className="rounded-lg p-1 text-on-surface hover:bg-surface-variant"
+          className="rounded-md p-1 text-text-secondary transition-all duration-150 hover:bg-bg-hover hover:text-primary active:scale-95"
           aria-label="Close inspector"
         >
-          <X size={15} />
+          <X size={14} />
         </button>
       </div>
 
-      <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-outline">
+      <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-text-muted">
         Nothing to inspect.
       </div>
     </aside>

@@ -19,6 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 import { CenteredLoadingState } from "./CenteredLoadingState";
+import { ActionButton } from "./ActionButton";
 import type { ConnectionType } from "../types/domain";
 import type { ElasticIndex } from "../../elasticsearch/types/elasticsearch";
 import type { TreeNode, SavedQuery } from "../types/shared";
@@ -240,7 +241,7 @@ function TreeNodeItem({
           "group flex w-full items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium overflow-hidden cursor-pointer transition-all duration-150",
           selectedTreeNode === node.label
             ? "bg-primary/10 text-primary"
-            : "text-on-surface hover:bg-surface-variant/70 hover:text-on-surface-variant",
+            : "text-text-primary hover:bg-bg-hover/60 hover:text-text-secondary",
         ].join(" ")}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
       >
@@ -249,8 +250,8 @@ function TreeNodeItem({
           <ChevronRight
             size={11}
             className={[
-              "shrink-0 text-slate-400 transition-transform duration-150 group-hover:text-slate-500",
-              isExpanded ? "rotate-90 text-blue-500" : "",
+              "shrink-0 text-text-muted transition-transform duration-150 group-hover:text-text-secondary",
+              isExpanded ? "rotate-90 text-primary" : "",
             ].join(" ")}
           />
         ) : (
@@ -258,13 +259,13 @@ function TreeNodeItem({
         )}
         {/* Primary icon */}
         {isTableItem ? (
-          <Table size={11} className="shrink-0 text-primary-container" />
+          <Table size={11} className="shrink-0 text-primary" />
         ) : categoryIcon ? (
           categoryIcon
         ) : isDatabaseNode ? (
           <Database
             size={11}
-            className={`shrink-0 ${isDbOpen ? "text-success" : "text-on-surface-variant"}`}
+            className={`shrink-0 ${isDbOpen ? "text-success" : "text-text-secondary"}`}
           />
         ) : null}
         <span className="truncate min-w-0">{node.label}</span>
@@ -286,14 +287,14 @@ function TreeNodeItem({
                     "group flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-[11px] overflow-hidden cursor-pointer transition-all duration-150",
                     selectedTreeNode === sq.id
                       ? "bg-primary/10 text-primary"
-                      : "text-on-surface hover:bg-surface-variant/70 hover:text-on-surface-variant",
+                      : "text-text-primary hover:bg-bg-hover/60 hover:text-text-secondary",
                   ].join(" ")}
                   style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}
                   title={sq.sql}
                 >
                   <FileText size={11} className="shrink-0 text-amber-500" />
                   <span className="min-w-0 flex-1 truncate">{sq.title}</span>
-                  <span className="shrink-0 rounded bg-surface-variant/60 px-1 text-[9px] font-medium tabular-nums text-slate-500">
+                  <span className="shrink-0 rounded bg-bg-muted/60 px-1 text-[9px] font-medium tabular-nums text-text-secondary">
                     {new Date(sq.updatedAt).toLocaleDateString(undefined, {
                       month: "short",
                       day: "numeric",
@@ -303,7 +304,7 @@ function TreeNodeItem({
               ))
             ) : (
               <p
-                className="px-2 py-1 text-[11px] italic text-slate-400"
+                className="px-2 py-1 text-[11px] italic text-text-muted"
                 style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}
               >
                 No saved queries
@@ -437,23 +438,22 @@ export function ConnectionSidebar() {
   const applySavedQueryToActiveTab = queryExecution.applySavedQueryToActiveTab
 
   return (
-    <aside className="flex h-full min-w-0 flex-col overflow-hidden bg-surface-container-low/40">
+    <aside className="flex h-full min-w-0 flex-col overflow-hidden bg-bg-subtle/40">
       {/* Header (fixed) */}
-      <div className="flex shrink-0 items-center justify-between border-b border-outline-variant/60 bg-surface-container-lowest/60 pl-3 pr-2.5 py-2.5 backdrop-blur-sm">
+      <div className="flex shrink-0 items-center justify-between border-b border-border-default/60 pl-3 pr-2.5 py-2.5 backdrop-blur-sm">
         <div className="flex items-center gap-1.5">
-          <ChevronsLeftRightEllipsis size={14} className="text-on-surface-variant" />
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-on-surface">
+          <ChevronsLeftRightEllipsis size={14} className="text-text-secondary" />
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-text-primary">
             Connections
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openCreateConnection}
-          className="rounded-md p-1 text-on-surface-variant transition-all duration-150 hover:bg-surface-variant hover:text-primary active:scale-95"
+        <ActionButton
+          icon={<Plus size={14} />}
           aria-label="Create connection"
-        >
-          <Plus size={14} />
-        </button>
+          variant="secondary"
+          className="duration-150 active:scale-95"
+          onClick={openCreateConnection}
+        />
       </div>
 
       {/* Scrollable connection list (scrollbar scoped here) */}
@@ -467,30 +467,30 @@ export function ConnectionSidebar() {
                 onClick={() => toggleGroup(group)}
                 aria-expanded={!collapsed}
                 aria-controls={`group-${group}-content`}
-                className="group flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 transition-all duration-150 hover:bg-surface-variant/60 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                className="group flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[10px] font-semibold uppercase tracking-wider text-text-secondary transition-all duration-150 hover:bg-bg-hover/60 hover:text-text-primary"
               >
                 
                 {collapsed ? (
                   <Folder
                     size={11}
-                    className="shrink-0 text-slate-400 transition-colors group-hover:text-slate-500"
+                    className="shrink-0 text-text-muted transition-colors group-hover:text-text-secondary"
                   />
                 ) : (
                   <FolderOpen
                     size={11}
-                    className="shrink-0 text-blue-500 transition-colors"
+                    className="shrink-0 text-primary transition-colors"
                   />
                 )}
                 <span className="min-w-0 flex-1 truncate">{group}</span>
                 {/* Horizontal separator */}
                 <span
                   aria-hidden
-                  className="mx-1 h-px flex-1 bg-gradient-to-r from-outline-variant/70 via-outline-variant/40 to-transparent"
+                  className="mx-1 h-px flex-1 bg-gradient-to-r from-border-default/70 via-border-default/40 to-transparent"
                 />
                 <ChevronRight
                   size={11}
                   className={[
-                    "shrink-0 text-slate-400 transition-transform duration-200 group-hover:text-slate-500",
+                    "shrink-0 text-text-muted transition-transform duration-200 group-hover:text-text-secondary",
                     collapsed ? "" : "rotate-90",
                   ].join(" ")}
                 />
@@ -537,8 +537,8 @@ export function ConnectionSidebar() {
                           className={[
                             "group flex w-full items-center gap-1.5 rounded-md py-1.5 pr-2 text-left text-[11px] transition-all duration-150 overflow-hidden",
                             active
-                              ? "bg-gradient-to-r from-blue-50/80 to-transparent pl-[9px] text-on-surface-variant shadow-[inset_0_0_0_1px_rgba(59,130,246,0.12)] dark:from-blue-950/30"
-                              : "pl-[7px] text-on-surface hover:bg-surface-variant/60 hover:text-on-surface-variant active:scale-[0.99]",
+                              ? "bg-gradient-to-r from-primary-subtle/80 to-transparent pl-[9px] text-text-secondary ring-1 ring-inset ring-focus-ring"
+                              : "pl-[7px] text-text-primary hover:bg-bg-hover/60 hover:text-text-secondary active:scale-[0.99]",
                           ].join(" ")}
                         >
                           {isLoading ? (
@@ -556,8 +556,8 @@ export function ConnectionSidebar() {
                               className={[
                                 "shrink-0 transition-all duration-150",
                                 expandedConnectionId === item.id
-                                  ? "rotate-90 text-blue-500"
-                                  : "text-slate-400 group-hover:text-slate-500",
+                                  ? "rotate-90 text-primary"
+                                  : "text-text-muted group-hover:text-text-secondary",
                               ].join(" ")}
                             />
                           )}
@@ -565,8 +565,8 @@ export function ConnectionSidebar() {
                             className={[
                               "grid h-5 w-5 shrink-0 place-items-center rounded-md transition-all duration-150",
                               active
-                                ? "bg-blue-100/80 text-blue-600 shadow-[inset_0_0_0_1px_rgba(59,130,246,0.2)] dark:bg-blue-950/50"
-                                : "bg-surface-variant/60 text-on-surface-variant group-hover:bg-surface-variant",
+                                ? "bg-primary-subtle/80 text-primary ring-1 ring-inset ring-focus-ring"
+                                : "bg-bg-muted/60 text-text-secondary group-hover:bg-bg-muted",
                             ].join(" ")}
                           >
                               {DbIcon ? (
@@ -584,17 +584,17 @@ export function ConnectionSidebar() {
                             {/* Gradient thread connecting to parent */}
                             <span
                               aria-hidden
-                              className="absolute bottom-2 left-0 top-0 w-px bg-gradient-to-b from-outline-variant/80 via-outline-variant/40 to-transparent"
+                              className="absolute bottom-2 left-0 top-0 w-px bg-gradient-to-b from-border-default/80 via-border-default/40 to-transparent"
                             />
                             {elasticIndicesError?.[item.id] && (
-                              <div className="mx-1 my-1 rounded-md border border-red-200/80 bg-red-50/80 px-2 py-1.5 dark:border-red-900/50 dark:bg-red-950/30">
-                                <p className="text-[11px] font-medium text-red-600 dark:text-red-400">Failed to load indices</p>
-                                <p className="mt-0.5 truncate text-[10px] text-red-500/80 dark:text-red-400/70">{elasticIndicesError[item.id]}</p>
+                              <div className="mx-1 my-1 rounded-md border border-danger-subtle/80 bg-danger-subtle/80 px-2 py-1.5">
+                                <p className="text-[11px] font-medium text-danger">Failed to load indices</p>
+                                <p className="mt-0.5 truncate text-[10px] text-danger/80">{elasticIndicesError[item.id]}</p>
                                 {handleRetryElasticIndices && (
                                   <button
                                     type="button"
                                     onClick={() => handleRetryElasticIndices(item.id)}
-                                    className="mt-1 text-[10px] font-medium text-blue-600 transition-colors hover:text-blue-700 hover:underline"
+                                    className="mt-1 text-[10px] font-medium text-primary transition-colors hover:text-primary-hover hover:underline"
                                   >
                                     Retry
                                   </button>
@@ -602,7 +602,7 @@ export function ConnectionSidebar() {
                               </div>
                             )}
                             {treeNodes.length === 0 && !explorerData.treeLoading[item.id] && !elasticIndicesError?.[item.id] && (
-                              <p className="px-2 py-1 text-[11px] italic text-slate-400">
+                              <p className="px-2 py-1 text-[11px] italic text-text-muted">
                                 No metadata available
                               </p>
                             )}

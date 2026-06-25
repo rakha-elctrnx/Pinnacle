@@ -24,6 +24,7 @@ interface NewConnectionOpenPayload {
   editingId: string | null
   existingProfile: ConnectionProfile | null
   existingGroups: string[]
+  theme: 'light' | 'dark'
 }
 
 interface NewConnectionSavePayload {

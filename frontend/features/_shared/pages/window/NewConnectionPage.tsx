@@ -32,6 +32,7 @@ interface NewConnectionOpenPayload {
   editingId: string | null
   existingProfile: ConnectionProfile | null
   existingGroups: string[]
+  theme: 'light' | 'dark'
 }
 
 interface FieldError {
@@ -45,6 +46,19 @@ export function NewConnectionPage() {
   const [openPayload, setOpenPayload] = useState<NewConnectionOpenPayload | null>(null)
   const [isReady, setIsReady] = useState(false)
 
+  // Sync theme from the main window (this webview may not share localStorage).
+  useEffect(() => {
+    let mounted = true
+    const unlistenPromise = listen<{ theme: 'light' | 'dark' }>('theme-changed', (event) => {
+      if (!mounted) return
+      document.documentElement.setAttribute('data-theme', event.payload.theme)
+    })
+    return () => {
+      mounted = false
+      unlistenPromise.then((fn) => fn())
+    }
+  }, [])
+
   // Listen for the open event from the main window.
   useEffect(() => {
     let mounted = true
@@ -52,6 +66,8 @@ export function NewConnectionPage() {
     const setup = async () => {
       const unlisten = await listen<NewConnectionOpenPayload>('new-connection-open', (event) => {
         if (!mounted) return
+        // Apply theme from main window immediately
+        document.documentElement.setAttribute('data-theme', event.payload.theme)
         setOpenPayload(event.payload)
         setIsReady(true)
       })
@@ -127,7 +143,7 @@ export function NewConnectionPage() {
   )
 
   return (
-    <div className="h-screen w-screen bg-surface text-on-surface">
+    <div className="h-screen w-screen bg-bg-base text-text-primary">
       {isReady || openPayload ? (
         <ConnectionFormEmbedded
           editingId={editingId}
@@ -364,13 +380,13 @@ function ConnectionFormEmbedded({
   }
 
   const inputClasses =
-    'w-full rounded-lg border border-outline-variant bg-surface px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface/50 outline-none transition focus:border-outline focus:ring-2 focus:ring-primary/50'
+    'w-full rounded-lg border border-border-default bg-bg-subtle/50 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-border-focus focus:ring-2 focus:ring-focus-ring focus:bg-bg-base'
 
   const inputErrorClasses =
-    'w-full rounded-lg border border-red-300 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100'
+    'w-full rounded-lg border border-border-danger bg-danger-subtle/30 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-border-danger focus:ring-2 focus:ring-danger-ring'
 
   return (
-    <section className="flex flex-col w-full h-full overflow-hidden bg-surface">
+    <section className="flex flex-col w-full h-full overflow-hidden bg-bg-base">
 
       <CustomTitlebar title={editingId ? 'Edit Connection' : 'New Connection'} />
 
@@ -378,16 +394,16 @@ function ConnectionFormEmbedded({
       <div className="flex-1 overflow-y-auto">
 
       {/* Step Indicator */}
-      <div className="flex items-center gap-2 px-6 pt-4">
-        <div className={`flex items-center gap-1.5 text-xs font-medium ${step >= 1 ? 'text-primary-container' : 'text-on-surface/70'}`}>
-          <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${step >= 1 ? 'bg-primary-container text-on-primary-container' : 'bg-surface-variant text-on-surface-variant'}`}>
+      <div className="flex items-center gap-3 px-6 pt-5">
+        <div className={`flex items-center gap-2 text-xs font-semibold transition-colors ${step >= 1 ? 'text-primary' : 'text-text-muted'}`}>
+          <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold transition-all ${step === 1 ? 'bg-primary text-text-inverse shadow-sm' : step > 1 ? 'bg-primary-subtle text-primary' : 'bg-bg-muted text-text-muted'}`}>
             1
           </span>
           Database Type
         </div>
-        <div className={`h-px flex-1 ${step >= 2 ? 'bg-primary-container' : 'bg-surface-variant'}`} />
-        <div className={`flex items-center gap-1.5 text-xs font-medium ${step >= 2 ? 'text-primary-container' : 'text-on-surface/70'}`}>
-          <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${step >= 2 ? 'bg-primary-container text-on-primary-container' : 'bg-surface-variant text-on-surface-variant'}`}>
+        <div className={`h-px flex-1 rounded-full transition-colors ${step >= 2 ? 'bg-primary/30' : 'bg-border-default'}`} />
+        <div className={`flex items-center gap-2 text-xs font-semibold transition-colors ${step >= 2 ? 'text-primary' : 'text-text-muted'}`}>
+          <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold transition-all ${step === 2 ? 'bg-primary text-text-inverse shadow-sm' : 'bg-bg-muted text-text-muted'}`}>
             2
           </span>
           Connection Details
@@ -397,8 +413,8 @@ function ConnectionFormEmbedded({
       {/* Step 1: Select Database Type */}
       {step === 1 && (
         <div className="px-6 py-5">
-          <p className="mb-4 text-sm text-on-surface/70">Choose the database you want to connect to.</p>
-          <div className="grid grid-cols-2 gap-2.5">
+          <p className="mb-4 text-sm text-text-muted">Choose the database you want to connect to.</p>
+          <div className="grid grid-cols-2 gap-3">
             {databaseTypeOptions.map((option) => {
               const active = option.value === newType
               return (
@@ -407,27 +423,27 @@ function ConnectionFormEmbedded({
                   type="button"
                   onClick={() => handleChangeType(option.value)}
                   className={[
-                    'group flex items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-all',
+                    'group relative flex items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-all',
                     active
-                      ? 'border-primary-container bg-primary-container/80 shadow-sm ring-1 ring-primary-container'
-                      : 'border-surface-variant hover:border-surface-variant hover:bg-surface-variant',
+                      ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20'
+                      : 'border-border-default bg-bg-subtle/50 hover:border-border-strong hover:bg-bg-hover hover:shadow-xs',
                   ].join(' ')}
                 >
                   <span
-                    className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg transition ${active ? 'bg-blue-100/80 shadow-sm' : 'bg-surface-variant/60 group-hover:bg-surface-container-low'
+                    className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg transition ${active ? 'bg-primary/10' : 'bg-bg-muted/70 group-hover:bg-bg-subtle'
                       }`}
                   >
                     {(() => { const Icon = option.Icon; return <Icon size={28} />; })()}
                   </span>
                   <span className="min-w-0">
-                    <span className={`block text-sm font-semibold ${active ? 'text-on-primary-container' : 'text-on-surface/70'}`}>
+                    <span className={`block text-sm font-semibold ${active ? 'text-primary' : 'text-text-primary'}`}>
                       {option.label}
                     </span>
-                    <span className="block text-[11px] text-on-surface/70">{option.hint}</span>
+                    <span className={`block text-[11px] ${active ? 'text-primary/70' : 'text-text-muted'}`}>{option.hint}</span>
                   </span>
                   {active && (
                     <span className="ml-auto grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary">
-                      <Check size={12} className="text-on-primary" strokeWidth={3} />
+                      <Check size={12} className="text-text-inverse" strokeWidth={3} />
                     </span>
                   )}
                 </button>
@@ -441,15 +457,15 @@ function ConnectionFormEmbedded({
       {step === 2 && (
         <div className="px-6 py-5">
           {/* Selected type badge */}
-          <div className="mb-4 flex items-center gap-2">
-            <span className="grid h-7 w-7 place-items-center rounded-md border border-surface-variant bg-surface-variant">
-              {selectedOption && (() => { const Icon = selectedOption.Icon; return <Icon size={16} />; })()}
+          <div className="mb-5 flex items-center gap-2.5">
+            <span className="grid h-8 w-8 place-items-center rounded-lg border border-border-default bg-bg-subtle">
+              {selectedOption && (() => { const Icon = selectedOption.Icon; return <Icon size={18} />; })()}
             </span>
-            <span className="text-sm font-medium text-on-surface">{selectedOption?.label}</span>
+            <span className="text-sm font-semibold text-text-primary">{selectedOption?.label}</span>
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="ml-auto text-xs font-medium text-primary-container hover:text-primary cursor-pointer hover:underline"
+              className="ml-auto text-xs font-medium text-primary hover:text-primary-hover cursor-pointer hover:underline"
             >
               Change
             </button>
@@ -465,7 +481,7 @@ function ConnectionFormEmbedded({
                 className={fieldErrors.name ? inputErrorClasses : inputClasses}
               />
               {fieldErrors.name && (
-                <p className="mt-1 flex items-center gap-1 text-[11px] text-red-500">
+                <p className="mt-1 flex items-center gap-1 text-[11px] text-danger">
                   <AlertTriangle size={11} />
                   {fieldErrors.name}
                 </p>
@@ -482,7 +498,7 @@ function ConnectionFormEmbedded({
                   className={fieldErrors.host ? `${inputErrorClasses} w-full` : `${inputClasses} w-full`}
                 />
                 {fieldErrors.host && (
-                  <p className="mt-1 flex items-center gap-1 text-[11px] text-red-500">
+                  <p className="mt-1 flex items-center gap-1 text-[11px] text-danger">
                     <AlertTriangle size={11} />
                     {fieldErrors.host}
                   </p>
@@ -496,7 +512,7 @@ function ConnectionFormEmbedded({
                   className={fieldErrors.port ? `${inputErrorClasses} w-full` : `${inputClasses} w-full`}
                 />
                 {fieldErrors.port && (
-                  <p className="mt-1 flex items-center gap-1 text-[11px] text-red-500">
+                  <p className="mt-1 flex items-center gap-1 text-[11px] text-danger">
                     <AlertTriangle size={11} />
                     {fieldErrors.port}
                   </p>
@@ -513,7 +529,7 @@ function ConnectionFormEmbedded({
                 className={fieldErrors.database ? inputErrorClasses : inputClasses}
               />
               {fieldErrors.database && (
-                <p className="mt-1 flex items-center gap-1 text-[11px] text-red-500">
+                <p className="mt-1 flex items-center gap-1 text-[11px] text-danger">
                   <AlertTriangle size={11} />
                   {fieldErrors.database}
                 </p>
@@ -564,12 +580,12 @@ function ConnectionFormEmbedded({
                     setGroupDropdownOpen((prev) => !prev)
                     if (!groupDropdownOpen) groupInputRef.current?.focus()
                   }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary"
                 >
                   <ChevronDown size={14} className={`transition-transform ${groupDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {groupDropdownOpen && (filteredGroups.length > 0 || isNewGroupValue) && (
-                  <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-40 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                  <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-40 overflow-auto rounded-lg border border-border-default bg-bg-base py-1 shadow-lg backdrop-blur-sm">
                     {filteredGroups.map((group) => (
                       <button
                         key={group}
@@ -579,12 +595,12 @@ function ConnectionFormEmbedded({
                           setNewGroup(group)
                           setGroupDropdownOpen(false)
                         }}
-                        className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition hover:bg-blue-50 ${group === newGroup ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700'
+                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition hover:bg-primary/10 ${group === newGroup ? 'bg-primary/10 text-primary font-medium' : 'text-text-primary'
                           }`}
                       >
                         <span className="truncate">{group}</span>
                         {group === newGroup && (
-                          <Check size={12} className="ml-auto shrink-0 text-blue-600" />
+                          <Check size={12} className="ml-auto shrink-0 text-primary" />
                         )}
                       </button>
                     ))}
@@ -595,7 +611,7 @@ function ConnectionFormEmbedded({
                           e.preventDefault()
                           setGroupDropdownOpen(false)
                         }}
-                        className="flex w-full items-center gap-2 border-t border-slate-100 px-3 py-1.5 text-left text-sm text-blue-600 transition hover:bg-blue-50"
+                        className="flex w-full items-center gap-2 border-t border-border-default px-3 py-2 text-left text-sm text-primary font-medium transition hover:bg-primary/10"
                       >
                         <Plus size={12} className="shrink-0" />
                         <span className="truncate">Create "{newGroup.trim()}"</span>
@@ -604,9 +620,9 @@ function ConnectionFormEmbedded({
                   </div>
                 )}
               </div>
-              <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm text-slate-600">
+              <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm text-text-secondary">
                 <span
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${newSsl ? 'bg-primary-container' : 'bg-outline-variant'
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${newSsl ? 'bg-primary' : 'bg-border-strong'
                     }`}
                 >
                   <input
@@ -616,7 +632,7 @@ function ConnectionFormEmbedded({
                     className="sr-only"
                   />
                   <span
-                    className={`inline-block h-3.5 w-3.5 rounded-full bg-on-surface shadow-sm transition-transform ${newSsl ? 'translate-x-4.5' : 'translate-x-1'
+                    className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${newSsl ? 'translate-x-4.5' : 'translate-x-1'
                       }`}
                   />
                 </span>
@@ -630,7 +646,7 @@ function ConnectionFormEmbedded({
                 type="button"
                 onClick={handleTestConnection}
                 disabled={isTestingConnection}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-outline-variant bg-primary px-4 py-2.5 text-sm font-medium text-on-primary transition hover:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border-default bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition hover:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isTestingConnection ? (
                   <>
@@ -647,29 +663,29 @@ function ConnectionFormEmbedded({
 
               {testConnectionResult && (
                 <div
-                  className={`mt-2 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm ${testConnectionResult.kind === 'success'
-                    ? 'border-success/50 bg-success/20 text-success'
-                    : 'border-error/50 bg-error/20 text-error'
+                  className={`mt-2.5 flex items-start gap-2.5 rounded-lg border px-3.5 py-3 text-sm ${testConnectionResult.kind === 'success'
+                    ? 'border-success/30 bg-success/10 text-success-text'
+                    : 'border-danger/30 bg-danger-subtle text-danger'
                     }`}
                 >
                   {testConnectionResult.kind === 'success' ? (
-                    <Check size={14} className="mt-0.5 shrink-0" />
+                    <Check size={15} className="mt-0.5 shrink-0" />
                   ) : (
-                    <X size={14} className="mt-0.5 shrink-0" />
+                    <X size={15} className="mt-0.5 shrink-0" />
                   )}
-                  <span>{testConnectionResult.message}</span>
+                  <span className="leading-snug">{testConnectionResult.message}</span>
                 </div>
               )}
             </div>
 
             {/* Skip test override for new SQL/ES connections */}
             {needsTestGate && !isTestPassed && (
-              <label className="flex items-center gap-2 text-xs text-slate-500 select-none cursor-pointer">
+              <label className="flex items-center gap-2 text-xs text-text-muted select-none cursor-pointer">
                 <input
                   type="checkbox"
                   checked={skipTest}
                   onChange={(e) => setSkipTest(e.target.checked)}
-                  className="accent-amber-500"
+                  className="accent-primary"
                 />
                 Skip test and save anyway (not recommended)
               </label>
@@ -681,12 +697,12 @@ function ConnectionFormEmbedded({
       </div>
 
       {/* Footer */}
-      <footer className="flex items-center justify-between border-t border-outline-variant px-6 py-4">
+      <footer className="flex items-center justify-between border-t border-border-default px-6 py-4 bg-bg-subtle/50">
         <button
           type="button"
           onClick={() => setStep(1)}
           disabled={step === 1}
-          className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-on-surface-variant transition hover:bg-outline-variant disabled:invisible"
+          className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-3.5 py-2 text-sm font-medium text-text-secondary transition hover:bg-bg-hover hover:text-text-primary disabled:invisible"
         >
           <ChevronLeft size={15} />
           Back
@@ -696,7 +712,7 @@ function ConnectionFormEmbedded({
           <button
             type="button"
             onClick={() => setStep(2)}
-            className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-primary-container px-5 py-2.5 text-sm font-semibold text-on-primary-container shadow-sm transition hover:bg-primary hover:text-on-primary active:bg-primary-dark active:text-on-primary"
+            className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-text-inverse shadow-sm transition hover:bg-primary-hover active:bg-primary-hover"
           >
             Continue
             <ChevronRight size={15} />
@@ -706,7 +722,7 @@ function ConnectionFormEmbedded({
             type="button"
             onClick={handleSave}
             disabled={!canSave || !newName.trim()}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-text-inverse shadow-sm transition hover:bg-primary-hover active:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Check size={15} />
             {editingId ? 'Update Connection' : 'Save Connection'}

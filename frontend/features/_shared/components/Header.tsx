@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useTheme } from '../../../app/theme'
 import { useShellLayout } from '../store/shellLayoutStore'
+import { ActionButton } from './ActionButton'
 
 /**
  * Header — application-level top bar.
@@ -107,9 +108,9 @@ export function Header() {
             className="pointer-events-none absolute left-3 top-4 z-10 flex -translate-y-1/2 items-center gap-2"
             aria-hidden="true"
           >
-            <span className="h-3 w-3 rounded-full bg-outline-variant shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--md-color-outline)_35%,transparent)]" />
-            <span className="h-3 w-3 rounded-full bg-outline-variant shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--md-color-outline)_35%,transparent)]" />
-            <span className="h-3 w-3 rounded-full bg-outline-variant shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--md-color-outline)_35%,transparent)]" />
+            <span className="h-3 w-3 rounded-full bg-border-default shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-border-strong)_35%,transparent)]" />
+            <span className="h-3 w-3 rounded-full bg-border-default shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-border-strong)_35%,transparent)]" />
+            <span className="h-3 w-3 rounded-full bg-border-default shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-border-strong)_35%,transparent)]" />
           </div>
         )}
         <div className="h-7 w-20" aria-hidden="true" />
@@ -119,12 +120,12 @@ export function Header() {
       <div className="flex min-w-0 items-center justify-center">
         <button
           type="button"
-          className="flex w-full items-center gap-2 rounded-lg border border-outline-variant/80 bg-surface/80 px-3 py-1.5 text-xs text-outline transition hover:border-outline-variant hover:bg-surface-variant hover:text-on-surface-variant"
+          className="flex w-full items-center gap-2 rounded-lg border border-border-default bg-bg-subtle px-3 py-1.5 text-xs text-text-muted transition hover:border-border-strong hover:bg-bg-muted hover:text-text-secondary"
           aria-label="Search"
         >
           <Search size={14} />
-          <span className="hidden sm:inline">Search...</span>
-          <kbd className="ml-auto hidden rounded border border-outline-variant bg-surface px-1.5 py-0.5 text-[10px] font-medium text-outline sm:inline">
+          <span className="hidden sm:inline">Search…</span>
+          <kbd className="ml-auto hidden rounded border border-border-default bg-bg-base px-1.5 py-0.5 text-[10px] font-medium text-text-muted sm:inline">
             ⌘K
           </kbd>
         </button>
@@ -132,46 +133,33 @@ export function Header() {
 
       {/* Right column — action group, right-aligned */}
       <div data-tauri-drag-region className="flex items-center justify-end gap-1">
-        <button
-          type="button"
-          className="rounded-lg p-1.5 text-outline transition hover:bg-surface-variant hover:text-on-surface-variant"
+        <ActionButton
+          icon={theme === 'light' ? <Sun size={16} /> : <Moon size={16} />}
           aria-label="Theme"
           onClick={switchTheme}
-        >
-          {theme === 'light' ? <Sun size={16} /> : <Moon size={16} />}
-        </button>
+        />
 
-        <button
-          type="button"
-          className={[
-            'rounded-lg p-1.5 transition',
-            inspectorOpen
-              ? 'bg-surface-variant text-on-surface'
-              : 'text-outline hover:bg-surface-variant hover:text-on-surface-variant',
-          ].join(' ')}
+        <ActionButton
+          icon={inspectorOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
           aria-label={inspectorOpen ? 'Close inspector panel' : 'Open inspector panel'}
           aria-pressed={inspectorOpen}
           title={inspectorOpen ? 'Close inspector' : 'Open inspector'}
+          variant={inspectorOpen ? 'active' : 'default'}
           onClick={toggleInspector}
-        >
-          {inspectorOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
-        </button>
+        />
 
         <div className="relative" ref={dropdownRef}>
-          <button
-            type="button"
-            onClick={() => setIsDropdownOpen((prev) => !prev)}
-            className="rounded-lg p-1.5 text-outline transition hover:bg-surface-variant hover:text-on-surface-variant"
+          <ActionButton
+            icon={<Ellipsis size={16} />}
             aria-label="More options"
-          >
-            <Ellipsis size={16} />
-          </button>
+            onClick={() => setIsDropdownOpen((prev) => !prev)}
+          />
           {isDropdownOpen && (
-            <div className="absolute right-0 mt-1 w-44 overflow-hidden rounded-xl border border-outline-variant/80 bg-surface shadow-lg">
+            <div className="absolute right-0 mt-1 w-44 overflow-hidden rounded-xl border border-border-default bg-bg-base shadow-lg">
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen(false)}
-                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-outline transition hover:bg-surface-variant"
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-text-secondary transition hover:bg-bg-hover"
               >
                 <span>Help</span>
               </button>
