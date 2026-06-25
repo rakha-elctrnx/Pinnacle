@@ -7,7 +7,7 @@ import { DeleteTableModal } from '../components/shared/DeleteTableModal'
 import { ExportDataModal } from '../components/export/ExportDataModal'
 import { DataOperationModal } from '../components/export/DataOperationModal'
 import { TableDesignerModal } from '../components/table-designer/TableDesignerModal'
-import { isSqlConnectionType, getConnPayload } from '../../_shared/utils'
+import { isSqlConnectionType, getConnPayloadWithPassword } from '../../_shared/utils'
 
 /**
  * SqlLayout — per-connection layout for the SQL feature.
@@ -237,7 +237,7 @@ export function SqlLayout() {
             const databaseName = currentDatabase
             const schemaName =
               connection.type === 'postgresql' ? currentSchema : databaseName ?? ''
-            const basePayload = getConnPayload(connection, schemaName)
+            const basePayload = await getConnPayloadWithPassword(connection, schemaName)
             const payload = { ...basePayload, database: databaseName }
             const { executeSql } = await import('../clients/sql')
             const sql =
@@ -258,7 +258,7 @@ export function SqlLayout() {
             const databaseName = currentDatabase
             const schemaName =
               connection.type === 'postgresql' ? currentSchema : databaseName ?? ''
-            const basePayload = getConnPayload(connection, schemaName)
+            const basePayload = await getConnPayloadWithPassword(connection, schemaName)
             const payload = { ...basePayload, database: databaseName }
             const { executeSql } = await import('../clients/sql')
             const qualifiedName =

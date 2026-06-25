@@ -3,6 +3,8 @@ mod core;
 mod domain;
 mod infrastructure;
 
+use tauri::Manager;
+
 // ELASTICSEARCH COMMANDS
 use application::commands::elastic_commands::{
     elastic_create_index, elastic_delete_document, elastic_delete_index, elastic_execute_query,
@@ -25,6 +27,12 @@ use application::commands::redis_commands::{
     redis_execute_command, redis_show_all_databases, redis_test_connection,
 };
 
+// CONNECTION COMMANDS
+use application::commands::connection_commands::{
+    delete_connection, get_connection, get_connection_password, has_connection_password,
+    list_connections, save_connection, update_connection,
+};
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -36,10 +44,39 @@ pub fn run() {
                         .build(),
                 )?;
             }
+
+            // Ensure the new-connection child window stays hidden on launch.
+            // macOS may show child windows automatically when a parent is visible.
+            if let Some(conn_window) = app.get_webview_window("new-connection") {
+                let _ = conn_window.hide();
+            }
+
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            // Raise new-connection above main whenever main is clicked/focused.
+            if window.label() == "main" {
+                if let tauri::WindowEvent::Focused(true) = event {
+                    if let Some(child) = window.app_handle().get_webview_window("new-connection") {
+                        if child.is_visible().unwrap_or(false) {
+                            let _ = child.show();
+                            let _ = child.set_focus();
+                        }
+                    }
+                }
+            }
         })
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            // CONNECTION COMMANDS
+            save_connection,
+            list_connections,
+            get_connection,
+            get_connection_password,
+            has_connection_password,
+            delete_connection,
+            update_connection,
+            // SQL COMMANDS
             test_connection,
             execute_sql,
             sql_get_table_schema,
@@ -68,6 +105,7 @@ pub fn run() {
             elastic_list_aliases,
             elastic_list_shards,
             elastic_get_nodes_info,
+            // EXPORT COMMANDS
             estimate_table_export,
             execute_table_export,
             // REDIS COMMANDS

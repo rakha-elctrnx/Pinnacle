@@ -7,7 +7,7 @@ import { CenteredLoadingState } from '../../_shared/components/CenteredLoadingSt
 import { ERDiagramViewer } from '../components/shared/ERDiagramViewer'
 import { useDesignerStore } from '../store/designerStore'
 import { executeSql } from '../clients/sql'
-import { getConnPayload, isSqlConnectionType, quoteIdentifier } from '../../_shared/utils'
+import { getConnPayloadWithPassword, isSqlConnectionType, quoteIdentifier } from '../../_shared/utils'
 import type { SqlTableListItem } from '../../_shared/types/shared'
 import type { SchemaColumn, SchemaForeignKey } from '../types/sql'
 
@@ -131,14 +131,14 @@ export function TablesPage() {
   // ── Designer integration ──
   const handleOpenDesignerForEdit = async (tableName: string) => {
     const { connection, databaseName, schemaName } = getSqlContext()
-    const payload = { ...getConnPayload(connection), database: databaseName }
+    const payload = { ...(await getConnPayloadWithPassword(connection)), database: databaseName }
     await loadAndOpenForEdit(payload, tableName, databaseName, schemaName)
   }
 
-  const handleCreateInDesigner = () => {
+  const handleCreateInDesigner = async () => {
     const { connection, databaseName, schemaName } = getSqlContext()
     if (!databaseName) return
-    const payload = { ...getConnPayload(connection), database: databaseName }
+    const payload = { ...(await getConnPayloadWithPassword(connection)), database: databaseName }
     openForCreate(schemaName, databaseName, payload, async () => {
       await refreshTableList()
     })
@@ -157,7 +157,7 @@ export function TablesPage() {
     setActionError(null)
     try {
       const { connection, databaseName, schemaName } = getSqlContext()
-      const payload = { ...getConnPayload(connection), database: databaseName }
+      const payload = { ...(await getConnPayloadWithPassword(connection)), database: databaseName }
       const sql =
         connection.type === 'postgresql'
           ? `ALTER TABLE ${quoteIdentifier(schemaName, '"')}.${quoteIdentifier(selectedTableName, '"')} RENAME TO ${quoteIdentifier(trimmedNext, '"')}`

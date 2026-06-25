@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { DataExplorerContextProvider, useDataExplorerContext } from '../context/DataExplorerContext'
 import { useDataExplorerOrchestrator } from '../hooks/useDataExplorerOrchestrator'
 import { useShellLayout } from '../store/shellLayoutStore'
@@ -8,9 +9,9 @@ import { Footer } from '../components/Footer'
 import { PageWorkspace } from '../components/PageWorkspace'
 import { ConnectionSidebar } from '../components/ConnectionSidebar'
 import { InspectorPanel } from '../components/InspectorPanel'
-import { ConnectionWizardModal } from '../components/ConnectionWizardModal'
 import { ContextMenu } from '../components/ContextMenu'
-import { getConnPayload, isSqlConnectionType } from '../utils'
+import { getConnPayloadWithPassword, isSqlConnectionType } from '../utils'
+import { openNewConnectionWindow } from '../services/newConnectionWindowService'
 
 /**
  * DataExplorerLayout — the single application-level shell for Pinnacle.
@@ -41,7 +42,6 @@ export function DataExplorerLayout() {
   // Single orchestrator instance for the whole app shell.
   const orchestrator = useDataExplorerOrchestrator()
 
-  // Shell layout state — sidebar width + inspector visibility.
   const sidebarWidth = useShellLayout((s) => s.sidebarWidth)
   const inspectorOpen = useShellLayout((s) => s.inspectorOpen)
   const inspectorWidth = useShellLayout((s) => s.inspectorWidth)
@@ -65,9 +65,9 @@ export function DataExplorerLayout() {
  *
  * Global modals mounted here (per ADR
  * `docs/decisions/adr-20260619-modular-folder-structure.md`, Gap 2):
- *   - `ConnectionWizardModal` — add/edit connection; triggered from header,
+ *   - `ConnectionFormModal` — add/edit connection; triggered from header,
  *     sidebar, and page-level actions. Owning it at the layout level keeps the
- *     wizard reachable even when no page is selected.
+ *     new connection form reachable even when no page is selected.
  *   - `ContextMenu` — right-click on a connection or table node in the
  *     sidebar. Owning it at the layout level keeps the menu reachable from
  *     any region.
@@ -85,18 +85,21 @@ function DataExplorerLayoutChrome({
   inspectorOpen: boolean
   inspectorWidth: number
 }) {
+  const navigate = useNavigate()
+
   const {
     items,
     selectedConnection,
-    editingId,
     contextMenu,
     contextMenuRef,
     isAddModalOpen,
+    connectionModalNonce,
+    editingId,
     queryExecution,
     explorerData,
     handleOpenEditModal,
     handleRefreshConnection,
-    handleCloseConnection,
+    handleCloseConnection: handleCloseConnectionRaw,
     handleDuplicateConnection,
     handleExportConnection,
     handleDeleteConnection,
@@ -108,14 +111,96 @@ function DataExplorerLayoutChrome({
     handleRequestExportFromMenu,
   } = useDataExplorerContext()
 
-  // Derive unique existing groups from all connection profiles for the
-  // wizard's group dropdown. Mirrors the derivation that previously lived
-  // in DataExplorerPage; kept local to this component because no other
-  // layout region needs it.
+  const handleCloseConnection = useCallback((itemId: string) => {
+    handleCloseConnectionRaw(itemId)
+    navigate('/')
+  }, [handleCloseConnectionRaw, navigate])
+
+  // Derive existingGroups for new connection dropdown
   const existingGroups = useMemo(
     () => [...new Set(items.map((p) => p.tags[0]).filter(Boolean))].sort(),
     [items],
   )
+
+  // Use refs for callback + payload data so the effect only re-runs on
+  // explicit open actions (isAddModalOpen / connectionModalNonce) rather
+  // than on every orchestrator re-render.
+  const handleSaveRef = useRef(handleSaveConnection)
+  const handleCloseRef = useRef(handleCloseAddModal)
+  const itemsRef = useRef(items)
+  const editingIdRef = useRef(editingId)
+  const existingGroupsRef = useRef(existingGroups)
+
+  // Track whether the connection window is currently open so the effect
+  // can guard against duplicate opens and always run its cleanup.
+  const windowOpenRef = useRef(false)
+  const cleanupRef = useRef<(() => void) | null>(null)
+
+  // Sync refs after every render so the window-open effect always uses
+  // fresh values without being listed as effect dependencies.
+  useEffect(() => {
+    handleSaveRef.current = handleSaveConnection
+    handleCloseRef.current = handleCloseAddModal
+    itemsRef.current = items
+    editingIdRef.current = editingId
+    existingGroupsRef.current = existingGroups
+  })
+
+  // New connection window bridge — opens native OS window when modal state changes.
+  // Uses a ref-based guard so the window is only opened once per action, and a
+  // synchronous cleanup ref so previous listeners are always torn down before
+  // new ones are registered (avoids the async `.then()` race condition).
+  useEffect(() => {
+    if (!isAddModalOpen) return
+    if (windowOpenRef.current) return
+    windowOpenRef.current = true
+
+    // Tear down any lingering listeners from a previous invocation before
+    // opening the window again.
+    cleanupRef.current?.()
+    cleanupRef.current = null
+
+    const currentEditingId = editingIdRef.current
+    const currentItems = itemsRef.current
+    const existingProfile = currentEditingId
+      ? currentItems.find((p) => p.id === currentEditingId) ?? null
+      : null
+
+    const resetWindow = () => {
+      windowOpenRef.current = false
+      cleanupRef.current = null
+    }
+
+    openNewConnectionWindow(
+      {
+        editingId: currentEditingId,
+        existingProfile,
+        existingGroups: existingGroupsRef.current,
+      },
+      (profile, password) => {
+        resetWindow()
+        handleSaveRef.current(profile, password)
+        handleCloseRef.current()
+      },
+      () => {
+        resetWindow()
+        handleCloseRef.current()
+      },
+    ).then((fn) => {
+      // Only store cleanup if we're still the active open session —
+      // a fast re-open may have already moved on.
+      if (windowOpenRef.current) {
+        cleanupRef.current = fn
+      } else {
+        fn()
+      }
+    })
+
+    return () => {
+      cleanupRef.current?.()
+      resetWindow()
+    }
+  }, [isAddModalOpen, connectionModalNonce])
 
   // Designer store — used by `ContextMenu`'s "Design Table" action. Mirrors
   // the page's local `handleOpenDesignerForEdit` so the menu can stay at the
@@ -130,7 +215,7 @@ function DataExplorerLayoutChrome({
       selectedConnection.type === 'postgresql'
         ? queryExecution.querySchema || explorerData.selectedSchema || 'public'
         : databaseName ?? ''
-    const payload = { ...getConnPayload(selectedConnection), database: databaseName ?? '' }
+    const payload = { ...(await getConnPayloadWithPassword(selectedConnection)), database: databaseName ?? '' }
     await loadAndOpenForEdit(payload, tableName, databaseName ?? '', schemaName)
   }
 
@@ -211,15 +296,7 @@ function DataExplorerLayoutChrome({
         </div>
       )}
 
-      {isAddModalOpen && (
-        <ConnectionWizardModal
-          editingId={editingId}
-          existingProfile={editingId ? items.find((p) => p.id === editingId) ?? null : null}
-          existingGroups={existingGroups}
-          onSave={handleSaveConnection}
-          onClose={handleCloseAddModal}
-        />
-      )}
     </>
   )
 }
+

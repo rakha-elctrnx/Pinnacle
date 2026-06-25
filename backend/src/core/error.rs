@@ -1,6 +1,7 @@
+use serde::Serialize;
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Serialize)]
 pub enum AppError {
     #[error("invalid input: {0}")]
     InvalidInput(String),
@@ -24,6 +25,12 @@ impl From<sqlx::Error> for AppError {
 
 impl From<std::io::Error> for AppError {
     fn from(value: std::io::Error) -> Self {
+        Self::Io(value.to_string())
+    }
+}
+
+impl From<serde_json::Error> for AppError {
+    fn from(value: serde_json::Error) -> Self {
         Self::Io(value.to_string())
     }
 }

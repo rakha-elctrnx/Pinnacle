@@ -1,7 +1,7 @@
 import { AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight, Database, Loader2, Plug, Plus, X } from 'lucide-react'
 import { useState, useMemo, useRef, useEffect } from 'react'
 import type { ConnectionProfile, ConnectionType } from '../types/domain'
-import type { WizardStep, TestConnectionResult } from '../types/shared'
+import type { ConnectionStep, TestConnectionResult } from '../types/shared'
 import { databaseTypeOptions, defaultPortByType, defaultInitialDatabaseByType } from '../constants'
 // CLIENTS
 import { elasticTestConnection } from '../../elasticsearch/clients/elasticsearch'
@@ -16,22 +16,24 @@ interface FieldError {
   name?: string
 }
 
-interface ConnectionWizardModalProps {
+interface ConnectionFormProps {
   editingId: string | null
   existingProfile: ConnectionProfile | null
   existingGroups: string[]
   onSave: (profile: ConnectionProfile) => void
   onClose: () => void
+  embedded?: boolean
 }
 
-export function ConnectionWizardModal({
+export function ConnectionFormModal({
   editingId,
   existingProfile,
   existingGroups,
   onSave,
   onClose,
-}: ConnectionWizardModalProps) {
-  const [step, setStep] = useState<WizardStep>(1)
+  embedded = false,
+}: ConnectionFormProps) {
+  const [step, setStep] = useState<ConnectionStep>(1)
   const [newType, setNewType] = useState<ConnectionType>(existingProfile?.type ?? 'postgresql')
   const [newName, setNewName] = useState(existingProfile?.name ?? '')
   const [newHost, setNewHost] = useState(existingProfile?.host ?? 'localhost')
@@ -40,7 +42,7 @@ export function ConnectionWizardModal({
     existingProfile?.database ?? defaultInitialDatabaseByType.postgresql,
   )
   const [newUser, setNewUser] = useState(existingProfile?.username ?? '')
-  const [newPassword, setNewPassword] = useState(existingProfile?.password ?? '')
+  const [newPassword, setNewPassword] = useState('')
   const [newSsl, setNewSsl] = useState(existingProfile?.ssl ?? false)
   const [newGroup, setNewGroup] = useState(existingProfile?.tags[0] ?? '')
   const [groupDropdownOpen, setGroupDropdownOpen] = useState(false)
@@ -229,13 +231,9 @@ export function ConnectionWizardModal({
       host: newHost.trim(),
       port: Number.isFinite(parsedPort) ? parsedPort : defaultPortByType[newType],
       username: newUser.trim(),
-      password: newPassword,
       database: newInitialDatabase.trim() || defaultInitialDatabaseByType[newType],
       ssl: newType === 'redis' && Number(newPort) === 6380 ? true : newSsl,
-      encryptedPasswordRef:
-        newPassword.length > 0
-          ? 'stronghold://pending'
-          : (existingProfile?.encryptedPasswordRef ?? 'stronghold://empty'),
+      passwordRef: newPassword.length > 0 ? `keyring://${savedId}` : '',
       tags: group ? [group] : ['Ungrouped'],
       favorite: existingProfile?.favorite ?? false,
       createdAt: existingProfile?.createdAt ?? now,
@@ -253,9 +251,8 @@ export function ConnectionWizardModal({
   const inputErrorClasses =
     'w-full rounded-lg border border-red-300 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100'
 
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-shadow/30 p-4 backdrop-blur-sm">
-      <section className="w-full max-w-lg overflow-hidden rounded-2xl bg-surface shadow-2xl ring-1 ring-black/5">
+  const content = (
+    <section className={embedded ? "w-full h-full overflow-hidden bg-surface" : "w-full max-w-lg overflow-hidden rounded-2xl bg-surface shadow-2xl ring-1 ring-black/5"}>
         {/* Header */}
         <header className="flex items-center justify-between border-b border-outline-variant px-6 py-4">
           <div className="flex items-center gap-3">
@@ -317,10 +314,10 @@ export function ConnectionWizardModal({
                     ].join(' ')}
                   >
                     <span
-                      className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg transition ${active ? 'bg-surface-container-high shadow-sm' : 'bg-surface-variant group-hover:bg-surface-container-low'
+                      className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg transition ${active ? 'bg-blue-100/80 shadow-sm' : 'bg-surface-variant/60 group-hover:bg-surface-container-low'
                         }`}
                     >
-                      <img src={option.logoSrc} alt={option.label} className="h-5 w-5 object-contain" />
+                       {(() => { const Icon = option.Icon; return <Icon size={28} />; })()}
                     </span>
                     <span className="min-w-0">
                       <span className={`block text-sm font-semibold ${active ? 'text-on-primary-container' : 'text-on-surface/70'}`}>
@@ -346,7 +343,7 @@ export function ConnectionWizardModal({
             {/* Selected type badge */}
             <div className="mb-4 flex items-center gap-2">
               <span className="grid h-7 w-7 place-items-center rounded-md border border-surface-variant bg-surface-variant">
-                <img src={selectedOption?.logoSrc} alt={selectedOption?.label} className="h-4 w-4 object-contain" />
+                 {selectedOption && (() => { const Icon = selectedOption.Icon; return <Icon size={16} />; })()}
               </span>
               <span className="text-sm font-medium text-on-surface">{selectedOption?.label}</span>
               <button
@@ -614,7 +611,16 @@ export function ConnectionWizardModal({
             </button>
           )}
         </footer>
-      </section>
+    </section>
+  )
+
+  if (embedded) {
+    return content
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-shadow/30 p-4 backdrop-blur-sm">
+      {content}
     </div>
   )
 }

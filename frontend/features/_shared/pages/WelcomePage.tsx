@@ -8,10 +8,10 @@ import { useDataExplorerContext } from '../context/DataExplorerContext'
  *
  * Displays a clean empty state with a message prompting the user to
  * create or open a connection. The "New Connection" button opens the
- * shared `ConnectionWizardModal` via the orchestrator context.
+ * shared `ConnectionFormModal` via the orchestrator context.
  */
 export function WelcomePage() {
-  const { setIsAddModalOpen } = useDataExplorerContext()
+  const { openCreateConnection } = useDataExplorerContext()
 
   return (
     <div className="flex h-full w-full items-center justify-center">
@@ -36,7 +36,7 @@ export function WelcomePage() {
         <div className="flex items-center gap-3 pt-2">
           <button
             type="button"
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={openCreateConnection}
             className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-on-primary shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <Plus className="h-4 w-4" strokeWidth={2} />

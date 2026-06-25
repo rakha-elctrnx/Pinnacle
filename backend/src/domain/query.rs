@@ -7,6 +7,7 @@ pub struct ConnectionPayload {
     pub host: String,
     pub port: u16,
     pub username: String,
+    #[serde(default)]
     pub password: String,
     pub database: String,
     pub ssl: bool,

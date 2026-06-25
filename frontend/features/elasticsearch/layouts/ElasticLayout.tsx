@@ -1,8 +1,9 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, Outlet, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { RefreshCw } from 'lucide-react'
+import type { ConnectionPayload } from '../../_shared/services/tauriClient'
 import { useDataExplorerContext } from '../../_shared/context/DataExplorerContext'
-import { getConnPayload } from '../../_shared/utils'
+import { getConnPayloadWithPassword } from '../../_shared/utils'
 import { useElasticData } from '../hooks/useElasticData'
 import type { ElasticPanel } from '../components/ElasticExplorerWorkspace'
 
@@ -52,10 +53,23 @@ export function ElasticLayout() {
     }
   }, [connectionId, connection, selectedConnection, handleConnectionSelectionChange])
 
-  // Build the connection payload for Elasticsearch API calls.
-  const payload = useMemo(() => {
-    if (!connection) return null
-    return getConnPayload(connection)
+  // Build the connection payload for Elasticsearch API calls (with password)
+  const [payload, setPayload] = useState<ConnectionPayload | null>(null)
+
+  // Fetch password and build payload when connection changes
+  useEffect(() => {
+    let mounted = true
+    const loadPayload = async () => {
+      if (!connection) {
+        if (!mounted) return
+        setPayload(null)
+        return
+      }
+      const p = await getConnPayloadWithPassword(connection)
+      if (mounted) setPayload(p)
+    }
+    loadPayload()
+    return () => { mounted = false }
   }, [connection])
 
   // Fetch cluster health + indices list.

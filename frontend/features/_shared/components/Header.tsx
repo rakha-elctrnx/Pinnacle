@@ -100,8 +100,8 @@ export function Header() {
       data-tauri-drag-region
       className="relative grid h-10 grid-cols-[minmax(5rem,1fr)_minmax(16rem,28rem)_minmax(5rem,1fr)] items-center gap-3 px-3 pb-2"
     >
-      {/* Left column — reserved for macOS window buttons */}
-      <div className="flex h-full items-center justify-start">
+      {/* Left column — reserved for macOS window buttons & drag region */}
+      <div data-tauri-drag-region className="flex h-full items-center justify-start">
         {!isWindowFocused && !isFullscreen && (
           <div
             className="pointer-events-none absolute left-3 top-4 z-10 flex -translate-y-1/2 items-center gap-2"
@@ -131,7 +131,7 @@ export function Header() {
       </div>
 
       {/* Right column — action group, right-aligned */}
-      <div className="flex items-center justify-end gap-1">
+      <div data-tauri-drag-region className="flex items-center justify-end gap-1">
         <button
           type="button"
           className="rounded-lg p-1.5 text-outline transition hover:bg-surface-variant hover:text-on-surface-variant"
