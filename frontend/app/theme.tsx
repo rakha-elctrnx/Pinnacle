@@ -1,5 +1,6 @@
 // frontend/context/ThemeContext.jsx
 import { createContext, useContext, useState, useEffect } from 'react';
+import { emit } from '@tauri-apps/api/event';
 
 type ThemeContextType = {
     theme: string
@@ -23,6 +24,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         // This directly matches your @custom-variant selector
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('app-theme', theme);
+        // Notify other windows (e.g. new-connection) of theme change
+        emit('theme-changed', { theme }).catch(() => {});
     }, [theme]);
 
     return (

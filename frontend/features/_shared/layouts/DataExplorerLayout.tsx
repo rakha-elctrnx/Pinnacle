@@ -176,6 +176,7 @@ function DataExplorerLayoutChrome({
         editingId: currentEditingId,
         existingProfile,
         existingGroups: existingGroupsRef.current,
+        theme: (document.documentElement.getAttribute('data-theme') as 'light' | 'dark') || 'light',
       },
       (profile, password) => {
         resetWindow()
@@ -221,7 +222,7 @@ function DataExplorerLayoutChrome({
 
   return (
     <>
-      <div className="flex h-screen flex-col bg-gray-200 dark:bg-gray-800 text-on-surface p-2">
+      <div className="flex h-screen flex-col bg-bg-subtle text-text-primary p-2">
         <Header />
 
         {/* Body: persistent ConnectionSidebar + PageWorkspace + Inspector overlay */}
@@ -229,14 +230,14 @@ function DataExplorerLayoutChrome({
           {/* Connection sidebar — always visible, fixed-width column */}
           <aside
             style={{ width: sidebarWidth }}
-            className="shrink-0 overflow-hidden border border-outline-variant bg-surface rounded-2xl"
+            className="shrink-0 overflow-hidden border border-border-default bg-bg-base rounded-2xl"
           >
             <ConnectionSidebar />
           </aside>
 
           {/* Central page workspace — fills remaining space and is the
               scroll container for routed pages. */}
-          <div className="flex-1 min-w-0 h-full overflow-hidden rounded-2xl border border-outline-variant bg-surface">
+          <div className="flex-1 min-w-0 h-full overflow-hidden rounded-2xl border border-border-default bg-bg-base">
           <PageWorkspace />
           </div>
 
@@ -252,7 +253,7 @@ function DataExplorerLayoutChrome({
             inert={!inspectorOpen}
             style={{ width: inspectorOpen ? inspectorWidth : 0 }}
             className={[
-              'h-full overflow-hidden border border-outline-variant bg-surface rounded-2xl',
+              'h-full overflow-hidden border border-border-default bg-bg-base rounded-2xl',
               'transition-[width] duration-300 ease-in-out',
               inspectorOpen ? 'border' : 'border-none',
             ].join(' ')}

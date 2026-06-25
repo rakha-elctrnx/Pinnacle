@@ -156,7 +156,7 @@ export function SqlLayout() {
   // This is placed after all hooks to satisfy the rules-of-hooks rule.
   if (!connectionId) {
     return (
-      <div className="flex h-full w-full items-center justify-center text-on-surface-variant">
+      <div className="flex h-full w-full items-center justify-center text-text-muted">
         <p className="text-sm">Select a connection from the sidebar to get started.</p>
       </div>
     )
@@ -171,7 +171,7 @@ export function SqlLayout() {
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
 
       {/* ── Tab bar ── */}
-      <div className="flex items-center gap-1 border-b border-outline-variant bg-surface-variant px-3 py-2">
+      <div className="flex items-center gap-1 border-b border-border-default bg-bg-muted px-3 py-2">
         {subNavItems.map((item) => (
           <button
             key={item.label}
@@ -179,8 +179,8 @@ export function SqlLayout() {
             onClick={() => navigate(item.path)}
             className={`cursor-pointer rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
               item.active
-                ? 'bg-primary-container text-on-primary-container'
-                : 'text-on-surface-variant hover:bg-surface-container-low'
+                ? 'bg-primary-subtle text-primary'
+                : 'text-text-muted hover:bg-bg-subtle'
             }`}
           >
             {item.label}
@@ -188,14 +188,14 @@ export function SqlLayout() {
         ))}
 
         {tabs.length > 0 && (
-          <div className="ml-2 flex items-center gap-1 border-l border-outline-variant pl-2">
+          <div className="ml-2 flex items-center gap-1 border-l border-border-default pl-2">
             {tabs.map((tab) => (
               <div
                 key={tab.id}
                 className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
                   tab.id === activeTabId
-                    ? 'bg-primary-container text-on-primary-container'
-                    : 'text-on-surface-variant hover:bg-surface-container-low'
+                    ? 'bg-primary-subtle text-primary'
+                    : 'text-text-muted hover:bg-bg-subtle'
                 }`}
               >
                 <button
@@ -212,7 +212,7 @@ export function SqlLayout() {
                     e.stopPropagation()
                     handleTabClose(tab.id, tab.type)
                   }}
-                  className="cursor-pointer ml-1 rounded p-0.5 hover:bg-error-container/30 text-on-surface-variant"
+                  className="cursor-pointer ml-1 rounded p-0.5 hover:bg-danger-subtle/30 text-text-muted"
                   aria-label={`Close ${tab.label}`}
                 >
                   &times;
