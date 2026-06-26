@@ -1,43 +1,31 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, Outlet, Navigate, useNavigate, useLocation } from 'react-router-dom'
-import { RefreshCw } from 'lucide-react'
+import { useParams, Outlet, Navigate, useLocation } from 'react-router-dom'
 import type { ConnectionPayload } from '../../_shared/services/tauriClient'
+import { useTabStore } from '../../_shared/store/tabStore'
 import { useDataExplorerContext } from '../../_shared/context/DataExplorerContext'
 import { getConnPayloadWithPassword } from '../../_shared/utils'
 import { useElasticData } from '../hooks/useElasticData'
-import type { ElasticPanel } from '../components/ElasticExplorerWorkspace'
 
 /**
- * ElasticLayout — per-connection layout for the Elasticsearch feature.
+ * ElasticLayout — per-connection context provider for the Elasticsearch feature.
  *
  * Route: `/elasticsearch/:connectionId/*`
  *
- * Provides the Elasticsearch-specific chrome (sub-nav tabs for cluster,
- * indices, documents, query, mappings) and renders child pages via
- * `<Outlet />`.
+ * Provides connection context, Elasticsearch data fetching (cluster health,
+ * indices), and renders child pages via `<Outlet />`.
  *
- * Reads `connectionId` from the URL and validates that a matching
- * connection exists in the orchestrator's items. If the connection is
- * not found, redirects to the home route.
- *
- * Elasticsearch data (cluster health, indices) is fetched here via
- * `useElasticData` and passed down to child pages through the
- * `DataExplorerContext` (elasticPanel, selectedElasticIndex, etc.).
+ * The sub-navigation bar (Cluster/Indices/Documents/Query/Mappings) and
+ * inner tab bar (opened index tabs) were removed — all page-level tabs
+ * are now managed by the global `TabBar` in `PageWorkspace`.
  */
 export function ElasticLayout() {
   const { connectionId } = useParams<{ connectionId: string }>()
-  const navigate = useNavigate()
   const location = useLocation()
 
   const {
     items,
     selectedConnection,
     handleConnectionSelectionChange,
-    setElasticPanel,
-    openedElasticTabs,
-    activeElasticTabId,
-    handleCloseElasticTab,
-    handleActiveElasticTabIdChange,
   } = useDataExplorerContext()
 
   // Find the connection by ID from the URL.
@@ -52,6 +40,22 @@ export function ElasticLayout() {
       handleConnectionSelectionChange(connectionId!)
     }
   }, [connectionId, connection, selectedConnection, handleConnectionSelectionChange])
+
+  // ── Sync tab store with URL ──
+  // Activate the tab whose route matches the current URL.
+  // Must match by exact route — using connectionId alone would match the
+  // *first* child tab and corrupt its route when a sibling tab is active.
+  useEffect(() => {
+    if (!connectionId) return
+
+    const tabs = useTabStore.getState().tabs
+    const matching = tabs.find(
+      (t) => t.connectionId === connectionId && t.route === location.pathname,
+    )
+    if (matching) {
+      useTabStore.getState().activateTab(matching.id)
+    }
+  }, [location.pathname, connectionId])
 
   // Build the connection payload for Elasticsearch API calls (with password)
   const [payload, setPayload] = useState<ConnectionPayload | null>(null)
@@ -80,42 +84,6 @@ export function ElasticLayout() {
     refresh()
   }, [refresh])
 
-  // ── Determine which child route is active ──
-  const pathSegments = location.pathname.split('/')
-  const activeSection = pathSegments[3] ?? 'cluster'
-
-  // ── Sub-nav items ──
-  const subNavItems: { label: string; panel: ElasticPanel; path: string }[] = [
-    { label: 'Cluster', panel: 'cluster', path: `/elasticsearch/${connectionId}/cluster` },
-    { label: 'Indices', panel: 'indices', path: `/elasticsearch/${connectionId}/indices` },
-    { label: 'Documents', panel: 'documents', path: `/elasticsearch/${connectionId}/documents` },
-    { label: 'Query', panel: 'query', path: `/elasticsearch/${connectionId}/query` },
-    { label: 'Mappings', panel: 'mapping', path: `/elasticsearch/${connectionId}/mappings` },
-  ]
-
-  // ── Tab bar (opened index tabs) ──
-  const tabs = openedElasticTabs.map((tab) => ({
-    id: tab.id,
-    label: tab.indexName,
-  }))
-
-  // ── Handle tab click — navigate to documents with that index ──
-  const handleTabClick = (tabId: string) => {
-    handleActiveElasticTabIdChange(tabId)
-    navigate(`/elasticsearch/${connectionId}/documents`)
-  }
-
-  // ── Handle tab close ──
-  const handleTabClose = (tabId: string) => {
-    handleCloseElasticTab(tabId)
-  }
-
-  // ── Handle sub-nav click — sync panel state + navigate ──
-  const handleSubNavClick = (panel: ElasticPanel, path: string) => {
-    setElasticPanel(panel)
-    navigate(path)
-  }
-
   // No connectionId in the URL (visiting /elasticsearch directly).
   if (!connectionId) {
     return (
@@ -132,70 +100,6 @@ export function ElasticLayout() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-
-      {/* ── Sub-nav + Tab bar ── */}
-      <div className="flex items-center gap-1 border-b border-border-default bg-bg-muted px-3 py-2">
-        {subNavItems.map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            onClick={() => handleSubNavClick(item.panel, item.path)}
-            className={`cursor-pointer rounded-md px-2.5 py-1 text-label transition-colors ${
-              activeSection === item.panel || (item.panel === 'mapping' && activeSection === 'mappings')
-                ? 'bg-primary-subtle text-primary'
-                : 'text-text-secondary hover:bg-bg-subtle'
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
-
-        {/* Refresh button */}
-        <button
-          type="button"
-          onClick={refresh}
-          disabled={loading}
-          className="ml-1 cursor-pointer rounded-md p-1 text-text-secondary hover:bg-bg-subtle disabled:opacity-50"
-          title="Refresh cluster data"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-        </button>
-
-        {tabs.length > 0 && (
-          <div className="ml-2 flex items-center gap-1 border-l border-border-default pl-2">
-            {tabs.map((tab) => (
-              <div
-                key={tab.id}
-                className={`flex items-center gap-1 rounded-md px-2 py-1 text-caption transition-colors ${
-                  tab.id === activeElasticTabId
-                    ? 'bg-primary-subtle text-primary'
-                    : 'text-text-secondary hover:bg-bg-subtle'
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => handleTabClick(tab.id)}
-                  className="cursor-pointer truncate max-w-30"
-                  title={tab.label}
-                >
-                  {tab.label}
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleTabClose(tab.id)
-                  }}
-                  className="cursor-pointer ml-1 rounded p-0.5 hover:bg-danger-subtle/30 text-text-secondary"
-                  aria-label={`Close ${tab.label}`}
-                >
-                  &times;
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
       {/* ── Cluster health indicator ── */}
       {health && (

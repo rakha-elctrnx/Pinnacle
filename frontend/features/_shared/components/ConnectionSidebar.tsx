@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ChevronsLeftRightEllipsis,
   Plus,
 } from "lucide-react";
 import { ActionButton } from "./ActionButton";
@@ -27,6 +26,8 @@ import {
   getFirstVisibleNode,
   getLastVisibleNode,
 } from "../utils/treeNavigation";
+import { useTabStore } from "../store/tabStore";
+import { getConnectionDefaultRoute } from "../utils";
 
 /**
  * ConnectionSidebar — connection tree panel.
@@ -305,27 +306,56 @@ export function ConnectionSidebar() {
     }
   }
 
+  const openTab = useTabStore((s) => s.openTab)
+
   // URL-driven navigation handlers
   const handleTableNavigate = useCallback(
     (tableName: string) => {
       const connectionId = selectedConnection?.id;
-      if (!connectionId) return;
-      navigate(`/sql/${connectionId}/tables/${encodeURIComponent(tableName)}`);
+      if (!connectionId || !selectedConnection) return;
+      const route = `/sql/${connectionId}/tables/${encodeURIComponent(tableName)}`;
+      openTab({
+        id: `${connectionId}:table:${tableName}`,
+        label: tableName,
+        type: selectedConnection.type,
+        pageType: 'table',
+        route,
+        connectionId,
+      });
+      navigate(route);
     },
-    [selectedConnection?.id, navigate],
+    [selectedConnection, navigate, openTab],
   );
 
   const handleQueryNavigate = useCallback(() => {
     const connectionId = selectedConnection?.id;
-    if (!connectionId) return;
-    navigate(`/sql/${connectionId}/query`);
-  }, [selectedConnection?.id, navigate]);
+    if (!connectionId || !selectedConnection) return;
+    const route = `/sql/${connectionId}/query`;
+    openTab({
+      id: `${connectionId}:query`,
+      label: 'Query',
+      type: selectedConnection.type,
+      pageType: 'query',
+      route,
+      connectionId,
+    });
+    navigate(route);
+  }, [selectedConnection, navigate, openTab]);
 
   const handleTablesCategoryClick = useCallback(() => {
     const connectionId = selectedConnection?.id;
-    if (!connectionId) return;
-    navigate(`/sql/${connectionId}/tables`);
-  }, [selectedConnection?.id, navigate]);
+    if (!connectionId || !selectedConnection) return;
+    const route = `/sql/${connectionId}/tables`;
+    openTab({
+      id: `${connectionId}:tables`,
+      label: 'Tables',
+      type: selectedConnection.type,
+      pageType: 'table',
+      route,
+      connectionId,
+    });
+    navigate(route);
+  }, [selectedConnection, navigate, openTab]);
 
   const handleContextMenu = (event: React.MouseEvent, itemId: string) => {
     event.preventDefault()
@@ -345,15 +375,23 @@ export function ConnectionSidebar() {
     })
   }
 
-  // Handle connection node selection from tree
+  // Handle connection node selection from tree — no tab created, just navigate
   const handleConnectionNodeSelect = useCallback((
     nodePath: string,
     connectionId: string,
   ) => {
     handleConnectionSelectionChange(connectionId);
     setSelectedTreeNode(nodePath);
-    navigate(`/sql/${connectionId}`);
-  }, [handleConnectionSelectionChange, navigate, setSelectedTreeNode]);
+
+    // Find the connection profile to get its default route
+    const profile = Object.values(groupedConnections ?? {}).flat().find((p) => p.id === connectionId)
+    if (profile) {
+      const route = getConnectionDefaultRoute(profile.type, connectionId)
+      navigate(route)
+    } else {
+      navigate(`/sql/${connectionId}`)
+    }
+  }, [handleConnectionSelectionChange, navigate, setSelectedTreeNode, groupedConnections]);
 
   // Handle group node toggle
   const handleGroupToggle = useCallback((groupPath: string) => {

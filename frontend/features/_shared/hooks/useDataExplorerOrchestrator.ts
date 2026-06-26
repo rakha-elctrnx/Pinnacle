@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useConnectionStore } from '../store/connectionStore'
+import { useTabStore } from '../store/tabStore'
 import type { ConnectionProfile } from '../types/domain'
 import { showExportSaveDialog, getConnectionPassword } from '../services/tauriClient'
 // Elasticsearch
@@ -125,6 +126,9 @@ export interface DataExplorerOrchestratorResult {
   handleResizeStart: (e: React.MouseEvent) => void
   handleRetryElasticIndices: (connectionId: string) => void
   handleDeleteConnection: (itemId: string) => void
+  deleteConnectionTarget: { id: string; name: string } | null
+  handleConfirmDeleteConnection: (connectionId: string) => Promise<void>
+  handleCloseDeleteConnectionModal: () => void
   handleCloseAddModal: () => void
   connectionModalNonce: number
   deleteTableTarget: DeleteTableTarget | null
@@ -199,6 +203,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   const [sidebarWidth, setSidebarWidth] = useState(280)
   const [isResizing, setIsResizing] = useState(false)
   const [deleteTableTarget, setDeleteTableTarget] = useState<DeleteTableTarget | null>(null)
+  const [deleteConnectionTarget, setDeleteConnectionTarget] = useState<{ id: string; name: string } | null>(null)
   const [dataOperationTarget, setDataOperationTarget] = useState<DataOperationTarget | null>(null)
 
   // ── Export state ───────────────────────────────────────────────
@@ -524,10 +529,6 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       [itemId]: 'disconnected',
     }))
 
-    if (selectedConnectionId === itemId) {
-      handleConnectionSelectionChange(null)
-    }
-
     if (expandedConnectionId === itemId) {
       setExpandedConnectionId(null)
     }
@@ -560,17 +561,25 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       return next
     })
 
-    // 5. Clear open tabs
+    // 5. Clear local table/elastic sub-tabs and tree selection
     setOpenedTableTabs([])
     setActiveTableTabId(null)
     setOpenedElasticTabs([])
     setActiveElasticTabId(null)
-
-    // 6. Clear tree selection and panel state
     setSelectedTreeNode(null)
     setSelectedElasticIndex(null)
     setElasticPanel('cluster')
     setIsSqlTableListView(false)
+    explorerData.setSelectedTable(null)
+
+    // 6. Close ALL global tabs belonging to this connection
+    //    (connection tab + child tabs like tables, queries, indices).
+    useTabStore.getState().closeTabsByConnectionId(itemId)
+
+    if (selectedConnectionId === itemId) {
+      const nextActiveId = useTabStore.getState().activeTabId ?? null
+      setSelectedConnectionId(nextActiveId)
+    }
   }
 
   const handleSaveConnection = (profile: ConnectionProfile, password?: string) => {
@@ -612,6 +621,19 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     if (nodePath?.endsWith('/Queries')) {
       queryExecution.openQueryTabFromTree(databaseName)
       setIsSqlTableListView(false)
+      // Create global query tab
+      if (selectedConnection) {
+        const tabTitle = databaseName ? `${databaseName} Query` : 'Query'
+        const route = `/sql/${selectedConnection.id}/query`
+        useTabStore.getState().openTab({
+          id: `${selectedConnection.id}:query`,
+          label: tabTitle,
+          type: selectedConnection.type,
+          pageType: 'query',
+          route,
+          connectionId: selectedConnection.id,
+        })
+      }
       return
     }
 
@@ -655,6 +677,16 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
           setOpenedElasticTabs((prev) => [...prev, { id: tabId, indexName: nodeLabel }])
           setActiveElasticTabId(tabId)
         }
+        // Create global tab for the elastic index
+        const globalTabId = `${selectedConnection.id}:index:${nodeLabel}`
+        useTabStore.getState().openTab({
+          id: globalTabId,
+          label: nodeLabel,
+          type: selectedConnection.type,
+          pageType: 'elastic-index',
+          route: `/elasticsearch/${selectedConnection.id}/documents`,
+          connectionId: selectedConnection.id,
+        })
         return
       }
       if (ELASTIC_LABEL_TO_PANEL[nodeLabel]) {
@@ -679,6 +711,19 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
         setActiveTableTabId(tabId)
       }
       setTableInfoTab('data')
+
+      // Create global tab for the table
+      if (selectedConnection) {
+        const globalTabId = `${selectedConnection.id}:table:${nodeLabel}`
+        useTabStore.getState().openTab({
+          id: globalTabId,
+          label: nodeLabel,
+          type: selectedConnection.type,
+          pageType: 'table',
+          route: `/sql/${selectedConnection.id}/tables/${encodeURIComponent(nodeLabel)}`,
+          connectionId: selectedConnection.id,
+        })
+      }
 
       // Auto-fill database and schema selectors in query editor
       const treeData = explorerData.treeDataMap[selectedConnection?.id ?? '']
@@ -708,6 +753,13 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   }
 
   const handleCloseTableTab = (tabId: string) => {
+    // Find the table name from the internal tab to remove the global tab
+    const closingTab = openedTableTabs.find((t) => t.id === tabId)
+    if (closingTab && selectedConnection) {
+      const globalTabId = `${selectedConnection.id}:table:${closingTab.label}`
+      useTabStore.getState().closeTab(globalTabId)
+    }
+
     setOpenedTableTabs((prev) => {
       const nextTabs = prev.filter((tab) => tab.id !== tabId)
 
@@ -744,6 +796,13 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   }
 
   const handleCloseElasticTab = (tabId: string) => {
+    // Find the index name from the internal tab to remove the global tab
+    const closingTab = openedElasticTabs.find((t) => t.id === tabId)
+    if (closingTab && selectedConnection) {
+      const globalTabId = `${selectedConnection.id}:index:${closingTab.indexName}`
+      useTabStore.getState().closeTab(globalTabId)
+    }
+
     setOpenedElasticTabs((prev) => {
       const nextTabs = prev.filter((tab) => tab.id !== tabId)
 
@@ -844,9 +903,21 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     setEditingId,
     setIsAddModalOpen,
     handleDeleteConnection: (itemId: string) => {
-      remove(itemId)
-      if (selectedConnectionId === itemId) setSelectedConnectionId(null)
-      if (expandedConnectionId === itemId) setExpandedConnectionId(null)
+      // Open confirmation modal instead of deleting immediately
+      const conn = items.find((item) => item.id === itemId)
+      setDeleteConnectionTarget({ id: itemId, name: conn?.name ?? 'Unknown' })
+    },
+    deleteConnectionTarget,
+    handleConfirmDeleteConnection: async (connectionId: string) => {
+      await remove(connectionId)
+      useTabStore.getState().closeTabsByConnectionId(connectionId)
+      if (selectedConnectionId === connectionId) {
+        setSelectedConnectionId(useTabStore.getState().activeTabId ?? null)
+      }
+      if (expandedConnectionId === connectionId) setExpandedConnectionId(null)
+    },
+    handleCloseDeleteConnectionModal: () => {
+      setDeleteConnectionTarget(null)
     },
     handleCloseAddModal: () => {
       setEditingId(null)

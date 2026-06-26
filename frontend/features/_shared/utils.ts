@@ -86,3 +86,35 @@ export function quoteIdentifier(id: string, quote: '"' | '`'): string {
   const escaped = id.replaceAll(quote, quote + quote)
   return `${quote}${escaped}${quote}`
 }
+
+// ---------------------------------------------------------------------------
+// Route-prefix utilities (used by tab system)
+// ---------------------------------------------------------------------------
+
+const ROUTE_PREFIX_MAP: Record<ConnectionType, string> = {
+  postgresql: '/sql',
+  mysql: '/sql',
+  elasticsearch: '/elasticsearch',
+  redis: '/redis',
+  rabbitmq: '/rabbitmq',
+  mongodb: '/mongodb',
+}
+
+/**
+ * Returns the top-level route prefix for a given connection type.
+ *
+ * @example getConnectionRoutePrefix('postgresql') → '/sql'
+ */
+export function getConnectionRoutePrefix(type: ConnectionType): string {
+  return ROUTE_PREFIX_MAP[type] ?? '/'
+}
+
+/**
+ * Returns the full default route for a connection, combining the service
+ * prefix with the connection id.
+ *
+ * @example getConnectionDefaultRoute('postgresql', 'abc-123') → '/sql/abc-123'
+ */
+export function getConnectionDefaultRoute(type: ConnectionType, connectionId: string): string {
+  return `${getConnectionRoutePrefix(type)}/${connectionId}`
+}

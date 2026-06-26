@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DataExplorerContextProvider, useDataExplorerContext } from '../context/DataExplorerContext'
 import { useDataExplorerOrchestrator } from '../hooks/useDataExplorerOrchestrator'
+import { useTabStore } from '../store/tabStore'
 import { useShellLayout } from '../store/shellLayoutStore'
 import { useDesignerStore } from '../../sql/store/designerStore'
 import { Header } from '../components/Header'
@@ -10,6 +11,7 @@ import { PageWorkspace } from '../components/PageWorkspace'
 import { ConnectionSidebar } from '../components/ConnectionSidebar'
 import { InspectorPanel } from '../components/InspectorPanel'
 import { ContextMenu } from '../components/ContextMenu'
+import { DeleteConnectionModal } from '../components/DeleteConnectionModal'
 import { getConnPayloadWithPassword, isSqlConnectionType } from '../utils'
 import { openNewConnectionWindow } from '../services/newConnectionWindowService'
 
@@ -197,6 +199,9 @@ function DataExplorerLayoutChrome({
     handleDuplicateConnection,
     handleExportConnection,
     handleDeleteConnection,
+    deleteConnectionTarget,
+    handleConfirmDeleteConnection,
+    handleCloseDeleteConnectionModal,
     handleSaveConnection,
     handleCloseAddModal,
     setContextMenu,
@@ -207,7 +212,11 @@ function DataExplorerLayoutChrome({
 
   const handleCloseConnection = useCallback((itemId: string) => {
     handleCloseConnectionRaw(itemId)
-    navigate('/')
+
+    // Navigate to the new active tab's route, or '/' if no tabs remain.
+    const { activeTabId, tabs } = useTabStore.getState()
+    const nextTab = activeTabId ? tabs.find((t) => t.id === activeTabId) : null
+    navigate(nextTab?.route ?? '/')
   }, [handleCloseConnectionRaw, navigate])
 
   // Derive existingGroups for new connection dropdown
@@ -398,6 +407,15 @@ function DataExplorerLayoutChrome({
             onClose={() => setContextMenu(null)}
           />
         </div>
+      )}
+
+      {deleteConnectionTarget && (
+        <DeleteConnectionModal
+          connectionId={deleteConnectionTarget.id}
+          connectionName={deleteConnectionTarget.name}
+          onDelete={handleConfirmDeleteConnection}
+          onClose={handleCloseDeleteConnectionModal}
+        />
       )}
 
     </>
