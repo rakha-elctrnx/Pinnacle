@@ -1,8 +1,7 @@
 import { useEffect, useMemo } from 'react'
-import { useParams, Outlet, Navigate, useNavigate, useLocation } from 'react-router-dom'
-import { Play, Save, FileDown } from 'lucide-react'
+import { useParams, Outlet, Navigate, useLocation } from 'react-router-dom'
+import { useTabStore } from '../../_shared/store/tabStore'
 import { useDataExplorerContext } from '../../_shared/context/DataExplorerContext'
-import type { ToolbarItem } from '../../_shared/components/WorkspaceToolbar'
 import { DeleteTableModal } from '../components/shared/DeleteTableModal'
 import { ExportDataModal } from '../components/export/ExportDataModal'
 import { DataOperationModal } from '../components/export/DataOperationModal'
@@ -10,31 +9,26 @@ import { TableDesignerModal } from '../components/table-designer/TableDesignerMo
 import { isSqlConnectionType, getConnPayloadWithPassword } from '../../_shared/utils'
 
 /**
- * SqlLayout — per-connection layout for the SQL feature.
+ * SqlLayout — per-connection context provider for the SQL feature.
  *
  * Route: `/sql/:connectionId/*`
  *
- * Provides the SQL-specific chrome (toolbar, sub-nav, tab bar, database/schema
- * selectors) and mounts the four SQL-specific modals. Child pages
- * (TablesPage, TableDetailPage, QueryPage) are rendered via `<Outlet />`.
+ * Provides connection context, mounts the four SQL-specific modals, and
+ * syncs the selected connection with the URL. The sub-navigation bar
+ * (Tables/Query tabs) was removed — all page-level tabs are now managed
+ * by the global `TabBar` in `PageWorkspace`.
  *
- * Reads `connectionId` from the URL and validates that a matching connection
- * exists in the orchestrator's items. If the connection is not found,
- * redirects to the home route.
+ * Child pages (TablesPage, TableDetailPage, QueryPage) are rendered via
+ * `<Outlet />`.
  */
 export function SqlLayout() {
   const { connectionId } = useParams<{ connectionId: string }>()
-  const navigate = useNavigate()
   const location = useLocation()
 
   const {
     items,
     selectedConnection,
     handleConnectionSelectionChange,
-    openedTableTabs,
-    activeTableTabId,
-    handleCloseTableTab,
-    handleActiveTableTabChange,
     queryExecution,
     explorerData,
     // Modal state + handlers
@@ -64,93 +58,26 @@ export function SqlLayout() {
     }
   }, [connectionId, connection, selectedConnection, handleConnectionSelectionChange])
 
-  // ── Determine which child route is active ──
-  const pathSegments = location.pathname.split('/')
-  const activeSection = pathSegments[3] ?? 'tables' // tables | query | erd
-  const isQueryView = activeSection === 'query'
-  const isTableView = activeSection === 'tables'
+  // ── Sync tab store with URL ──
+  // Activate the tab whose route matches the current URL.
+  // Must match by exact route — using connectionId alone would match the
+  // *first* child tab and corrupt its route when a sibling tab is active.
+  useEffect(() => {
+    if (!connectionId) return
+
+    const tabs = useTabStore.getState().tabs
+    const matching = tabs.find(
+      (t) => t.connectionId === connectionId && t.route === location.pathname,
+    )
+    if (matching) {
+      useTabStore.getState().activateTab(matching.id)
+    }
+  }, [location.pathname, connectionId])
 
   const currentDatabase =
     queryExecution.queryDatabase || explorerData.selectedDatabase || connection?.database || ''
   const currentSchema =
     queryExecution.querySchema || explorerData.selectedSchema || 'public'
-
-  // ── Toolbar items ──
-  const toolbarItems: ToolbarItem[] = []
-
-  if (isQueryView) {
-    toolbarItems.push(
-      {
-        id: 'run-query',
-        label: 'Run',
-        icon: Play,
-        variant: 'primary',
-        enabled: !queryExecution.isRunningQuery,
-        onClick: () => queryExecution.handleRunQuery('run'),
-      },
-      {
-        id: 'save-query',
-        label: 'Save',
-        icon: Save,
-        variant: 'secondary',
-        onClick: () => queryExecution.saveActiveQuery(),
-      },
-    )
-  }
-
-  if (isTableView && activeTableTabId) {
-    toolbarItems.push({
-      id: 'export-data',
-      label: 'Export',
-      icon: FileDown,
-      variant: 'secondary',
-      onClick: () => {
-        navigate(`/sql/${connectionId}/tables/${encodeURIComponent(activeTableTabId)}`)
-      },
-    })
-  }
-
-  // ── Tab bar ──
-  const tabs = [
-    ...openedTableTabs.map((tab) => ({
-      id: tab.id,
-      label: tab.label,
-      type: 'table' as const,
-    })),
-    ...queryExecution.queryTabs.map((tab) => ({
-      id: tab.id,
-      label: tab.title,
-      type: 'query' as const,
-    })),
-  ]
-
-  const activeTabId = activeTableTabId ?? queryExecution.activeQueryTabId ?? null
-
-  // ── Handle tab click — navigate to the correct route ──
-  const handleTabClick = (tabId: string, tabType: 'table' | 'query') => {
-    if (tabType === 'table') {
-      handleActiveTableTabChange(tabId)
-      navigate(`/sql/${connectionId}/tables/${encodeURIComponent(tabId)}`)
-    } else {
-      queryExecution.setActiveQueryTabId(tabId)
-      navigate(`/sql/${connectionId}/query`)
-    }
-  }
-
-  // ── Handle tab close ──
-  const handleTabClose = (tabId: string, tabType: 'table' | 'query') => {
-    if (tabType === 'table') {
-      handleCloseTableTab(tabId)
-    } else {
-      queryExecution.closeQueryTab(tabId)
-    }
-  }
-
-  // ── Sub-nav links (Tables / Query / ERD) ──
-  const subNavItems = [
-    { label: 'Tables', path: `/sql/${connectionId}/tables`, active: isTableView },
-    { label: 'Query', path: `/sql/${connectionId}/query`, active: isQueryView },
-  ]
 
   // No connectionId in the URL (visiting /sql directly) — show empty state.
   // This is placed after all hooks to satisfy the rules-of-hooks rule.
@@ -169,60 +96,6 @@ export function SqlLayout() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-
-      {/* ── Tab bar ── */}
-      <div className="flex items-center gap-1 border-b border-border-default bg-bg-muted px-3 py-2">
-        {subNavItems.map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            onClick={() => navigate(item.path)}
-            className={`cursor-pointer rounded-md px-2.5 py-1 text-label transition-colors ${
-              item.active
-                ? 'bg-primary-subtle text-primary'
-                : 'text-text-muted hover:bg-bg-subtle'
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
-
-        {tabs.length > 0 && (
-          <div className="ml-2 flex items-center gap-1 border-l border-border-default pl-2">
-            {tabs.map((tab) => (
-              <div
-                key={tab.id}
-                className={`flex items-center gap-1 rounded-md px-2 py-1 text-caption transition-colors ${
-                  tab.id === activeTabId
-                    ? 'bg-primary-subtle text-primary'
-                    : 'text-text-muted hover:bg-bg-subtle'
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => handleTabClick(tab.id, tab.type)}
-                  className="cursor-pointer truncate max-w-30"
-                  title={tab.label}
-                >
-                  {tab.label}
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleTabClose(tab.id, tab.type)
-                  }}
-                  className="cursor-pointer ml-1 rounded p-0.5 hover:bg-danger-subtle/30 text-text-muted"
-                  aria-label={`Close ${tab.label}`}
-                >
-                  &times;
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
       {/* ── Page content ── */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <Outlet />

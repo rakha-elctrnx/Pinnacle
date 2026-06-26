@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DataExplorerContextProvider, useDataExplorerContext } from '../context/DataExplorerContext'
 import { useDataExplorerOrchestrator } from '../hooks/useDataExplorerOrchestrator'
+import { useTabStore } from '../store/tabStore'
 import { useShellLayout } from '../store/shellLayoutStore'
 import { useDesignerStore } from '../../sql/store/designerStore'
 import { Header } from '../components/Header'
@@ -10,8 +11,80 @@ import { PageWorkspace } from '../components/PageWorkspace'
 import { ConnectionSidebar } from '../components/ConnectionSidebar'
 import { InspectorPanel } from '../components/InspectorPanel'
 import { ContextMenu } from '../components/ContextMenu'
+import { DeleteConnectionModal } from '../components/DeleteConnectionModal'
 import { getConnPayloadWithPassword, isSqlConnectionType } from '../utils'
 import { openNewConnectionWindow } from '../services/newConnectionWindowService'
+
+/**
+ * ResizeHandle — a thin draggable divider between two panels.
+ *
+ * Calls `onResize(delta)` on drag where `delta` is the signed pixel
+ * change (positive = dragged right / down). The parent decides which
+ * panel to grow/shrink. Cursor and hover states are handled internally;
+ * a document-level `mousemove`/`mouseup` pair tracks the drag so
+ * pointer capture works even outside the handle.
+ */
+function ResizeHandle({
+  onResize,
+  direction = 'horizontal',
+}: {
+  onResize: (delta: number) => void
+  direction?: 'horizontal' | 'vertical'
+}) {
+  const draggingRef = useRef(false)
+  const onResizeRef = useRef(onResize)
+  onResizeRef.current = onResize
+
+  useEffect(() => {
+    const handleMove = (e: MouseEvent) => {
+      if (!draggingRef.current) return
+      e.preventDefault()
+      const delta = direction === 'horizontal' ? e.movementX : e.movementY
+      onResizeRef.current(delta)
+    }
+    const handleUp = () => {
+      if (!draggingRef.current) return
+      draggingRef.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.addEventListener('mousemove', handleMove)
+    document.addEventListener('mouseup', handleUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMove)
+      document.removeEventListener('mouseup', handleUp)
+    }
+  }, [direction])
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    draggingRef.current = true
+    document.body.style.cursor = direction === 'horizontal' ? 'col-resize' : 'row-resize'
+    document.body.style.userSelect = 'none'
+  }
+
+  return (
+    <div
+      role="separator"
+      aria-orientation={direction === 'horizontal' ? 'vertical' : 'horizontal'}
+      tabIndex={-1}
+      onMouseDown={handleMouseDown}
+      className={[
+        'shrink-0 group/handle flex items-center justify-center',
+        direction === 'horizontal' ? 'w-1 cursor-col-resize' : 'h-1 cursor-row-resize',
+      ].join(' ')}
+    >
+      <span
+        aria-hidden
+        className={[
+          'rounded-full bg-border-default/40 transition-all duration-150',
+          'group-hover/handle:bg-primary/50',
+          direction === 'horizontal' ? 'h-8 w-0.5 group-hover/handle:w-1' : 'w-8 h-0.5 group-hover/handle:h-1',
+        ].join(' ')}
+      />
+    </div>
+  )
+}
 
 /**
  * DataExplorerLayout — the single application-level shell for Pinnacle.
@@ -45,6 +118,23 @@ export function DataExplorerLayout() {
   const sidebarWidth = useShellLayout((s) => s.sidebarWidth)
   const inspectorOpen = useShellLayout((s) => s.inspectorOpen)
   const inspectorWidth = useShellLayout((s) => s.inspectorWidth)
+  const setSidebarWidth = useShellLayout((s) => s.setSidebarWidth)
+  const setInspectorWidth = useShellLayout((s) => s.setInspectorWidth)
+
+  const handleSidebarResize = useCallback(
+    (delta: number) => {
+      const current = useShellLayout.getState().sidebarWidth
+      setSidebarWidth(Math.max(180, Math.min(500, current + delta)))
+    },
+    [setSidebarWidth],
+  )
+  const handleInspectorResize = useCallback(
+    (delta: number) => {
+      const current = useShellLayout.getState().inspectorWidth
+      setInspectorWidth(Math.max(200, Math.min(600, current - delta)))
+    },
+    [setInspectorWidth],
+  )
 
   return (
     <DataExplorerContextProvider value={orchestrator}>
@@ -52,6 +142,8 @@ export function DataExplorerLayout() {
         sidebarWidth={sidebarWidth}
         inspectorOpen={inspectorOpen}
         inspectorWidth={inspectorWidth}
+        onSidebarResize={handleSidebarResize}
+        onInspectorResize={handleInspectorResize}
       />
     </DataExplorerContextProvider>
   )
@@ -80,10 +172,14 @@ function DataExplorerLayoutChrome({
   sidebarWidth,
   inspectorOpen,
   inspectorWidth,
+  onSidebarResize,
+  onInspectorResize,
 }: {
   sidebarWidth: number
   inspectorOpen: boolean
   inspectorWidth: number
+  onSidebarResize: (delta: number) => void
+  onInspectorResize: (delta: number) => void
 }) {
   const navigate = useNavigate()
 
@@ -103,6 +199,9 @@ function DataExplorerLayoutChrome({
     handleDuplicateConnection,
     handleExportConnection,
     handleDeleteConnection,
+    deleteConnectionTarget,
+    handleConfirmDeleteConnection,
+    handleCloseDeleteConnectionModal,
     handleSaveConnection,
     handleCloseAddModal,
     setContextMenu,
@@ -113,7 +212,11 @@ function DataExplorerLayoutChrome({
 
   const handleCloseConnection = useCallback((itemId: string) => {
     handleCloseConnectionRaw(itemId)
-    navigate('/')
+
+    // Navigate to the new active tab's route, or '/' if no tabs remain.
+    const { activeTabId, tabs } = useTabStore.getState()
+    const nextTab = activeTabId ? tabs.find((t) => t.id === activeTabId) : null
+    navigate(nextTab?.route ?? '/')
   }, [handleCloseConnectionRaw, navigate])
 
   // Derive existingGroups for new connection dropdown
@@ -231,7 +334,7 @@ function DataExplorerLayoutChrome({
         <Header />
 
         {/* Body: persistent ConnectionSidebar + PageWorkspace + Inspector overlay */}
-        <div className="relative flex flex-1 min-h-0 overflow-hidden gap-1">
+        <div className="relative flex flex-1 min-h-0 overflow-hidden">
           {/* Connection sidebar — always visible, fixed-width column */}
           <aside
             style={{ width: sidebarWidth }}
@@ -240,11 +343,15 @@ function DataExplorerLayoutChrome({
             <ConnectionSidebar />
           </aside>
 
+          <ResizeHandle onResize={onSidebarResize} />
+
           {/* Central page workspace — fills remaining space and is the
               scroll container for routed pages. */}
           <div className="flex-1 min-w-0 h-full overflow-hidden rounded-2xl border border-border-default bg-bg-base">
           <PageWorkspace />
           </div>
+
+          {inspectorOpen && <ResizeHandle onResize={onInspectorResize} />}
 
           {/* Inspector overlay (anchored to the right).
               Always mounted so the wrapper can smoothly animate its
@@ -300,6 +407,15 @@ function DataExplorerLayoutChrome({
             onClose={() => setContextMenu(null)}
           />
         </div>
+      )}
+
+      {deleteConnectionTarget && (
+        <DeleteConnectionModal
+          connectionId={deleteConnectionTarget.id}
+          connectionName={deleteConnectionTarget.name}
+          onDelete={handleConfirmDeleteConnection}
+          onClose={handleCloseDeleteConnectionModal}
+        />
       )}
 
     </>

@@ -44,9 +44,13 @@ export interface DetailStat {
   value: string
 }
 
+export type TreeNodeType = 'group' | 'connection' | 'database' | 'category' | 'item'
+
 export interface TreeNode {
   label: string
   children?: TreeNode[]
+  nodeType?: TreeNodeType
+  connectionId?: string
 }
 
 export interface DatabaseTypeOption {
