@@ -222,7 +222,12 @@ function DataExplorerLayoutChrome({
 
   return (
     <>
-      <div className="flex h-screen flex-col bg-bg-subtle text-text-primary p-2">
+      <div
+        className="flex h-screen flex-col text-text-primary p-2"
+        style={{
+          background: `linear-gradient(180deg, color-mix(in srgb, var(--color-bg-subtle) 60%, var(--color-bg-base)) 0%, var(--color-bg-subtle) 20%, var(--color-bg-subtle) 80%, color-mix(in srgb, var(--color-bg-subtle) 90%, var(--color-primary)) 100%)`,
+        }}
+      >
         <Header />
 
         {/* Body: persistent ConnectionSidebar + PageWorkspace + Inspector overlay */}

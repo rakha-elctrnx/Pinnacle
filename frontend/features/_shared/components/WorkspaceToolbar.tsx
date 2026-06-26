@@ -52,7 +52,7 @@ export function WorkspaceToolbar({ items, leftContent }: WorkspaceToolbarProps) 
                 onClick={item.onClick}
                 disabled={!enabled}
                 title={item.label}
-                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${variantStyles[variant] ?? variantStyles.secondary}`}
+                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-label transition-colors ${variantStyles[variant] ?? variantStyles.secondary}`}
               >
                 {Icon && <Icon size={13} />}
                 {item.label}

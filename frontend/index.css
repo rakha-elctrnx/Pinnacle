@@ -6,12 +6,12 @@
   /* Background */
   --color-bg-base: #ffffff;
   --color-bg-subtle: #f6f7f9;
-  --color-bg-muted: #eff0eb;
-  --color-bg-hover: #e5e7df;
+  --color-bg-muted: #eaecf0;
+  --color-bg-hover: #dfe2e6;
   /* Text */
   --color-text-primary: #363635;
-  --color-text-secondary: #646461;
-  --color-text-muted: #9a9a97;
+  --color-text-secondary: #545452;
+  --color-text-muted: #737370;
   --color-text-inverse: #ffffff;
   /* Brand */
   --color-primary: #3b60cd;
@@ -29,8 +29,8 @@
   --color-warning: #f7c103;
   --color-warning-subtle: #fff8cc;
   /* Border */
-  --color-border-default: #e3e4de;
-  --color-border-strong: #d0d1cb;
+  --color-border-default: #dfe1e6;
+  --color-border-strong: #cdd0d6;
   --color-border-focus: #3b60cd;
   --color-border-danger: #f04345;
   --color-border-success: #2dcc70;
@@ -40,16 +40,38 @@
   --color-success-ring: rgba(45, 204, 112, 0.15);
   --color-disabled-bg: #eff0eb;
   --color-disabled-text: #9a9a97;
+
+  /* Font families */
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+
+  /* Type scale */
+  /* Display: page/modal titles (rare) */
+  --text-display: 20px; --lh-display: 28px; --fw-display: 600; --ls-display: -0.01em;
+  /* Heading: section/panel titles */
+  --text-heading: 16px; --lh-heading: 24px; --fw-heading: 600; --ls-heading: -0.01em;
+  /* Subheading: sub-section titles, table titles */
+  --text-subheading: 14px; --lh-subheading: 20px; --fw-subheading: 600; --ls-subheading: 0;
+  /* Body: primary text, table cells, paragraphs */
+  --text-body: 13px; --lh-body: 18px; --fw-body: 400; --ls-body: 0;
+  /* Body strong: emphasis, active field names */
+  --fw-body-strong: 500;
+  /* Label: form labels, table column headers, tabs */
+  --text-label: 12px; --lh-label: 16px; --fw-label: 500; --ls-label: 0.01em;
+  /* Caption: metadata, timestamps, helper text */
+  --text-caption: 11px; --lh-caption: 14px; --fw-caption: 400; --ls-caption: 0.01em;
+  /* Micro: badges, count pills, superscript */
+  --text-micro: 10px; --lh-micro: 12px; --fw-micro: 500; --ls-micro: 0.02em;
 }
 
 [data-theme="dark"] {
   --color-bg-base: #1c1d1d;
   --color-bg-subtle: #232423;
-  --color-bg-muted: #2b2c2a;
-  --color-bg-hover: #34352f;
+  --color-bg-muted: #282a2b;
+  --color-bg-hover: #333536;
   --color-text-primary: #e8e8e6;
-  --color-text-secondary: #b3b3af;
-  --color-text-muted: #7d7d79;
+  --color-text-secondary: #c4c4c0;
+  --color-text-muted: #a3a3a0;
   --color-text-inverse: #1c1d1d;
   --color-primary: #6e8de8;
   --color-primary-hover: #8aa3ee;
@@ -62,8 +84,8 @@
   --color-danger-subtle: #3a2424;
   --color-warning: #f3cf4a;
   --color-warning-subtle: #3a3420;
-  --color-border-default: #3a3b38;
-  --color-border-strong: #4a4b46;
+  --color-border-default: #383a3b;
+  --color-border-strong: #484a4b;
   --color-border-focus: #6e8de8;
   --color-border-danger: #f06b6c;
   --color-border-success: #4fdb8a;
@@ -74,9 +96,46 @@
   --color-disabled-text: #6a6a66;
 }
 
+/* Type scale utility classes */
+.text-display {
+  font: var(--fw-display) var(--text-display)/var(--lh-display) var(--font-ui);
+  letter-spacing: var(--ls-display);
+}
+.text-heading {
+  font: var(--fw-heading) var(--text-heading)/var(--lh-heading) var(--font-ui);
+  letter-spacing: var(--ls-heading);
+}
+.text-subheading {
+  font: var(--fw-subheading) var(--text-subheading)/var(--lh-subheading) var(--font-ui);
+}
+.text-body {
+  font: var(--fw-body) var(--text-body)/var(--lh-body) var(--font-ui);
+  font-feature-settings: "tnum" 1;
+}
+.text-body-secondary {
+  font: var(--fw-body) var(--text-body)/var(--lh-body) var(--font-ui);
+}
+.text-label {
+  font: var(--fw-label) var(--text-label)/var(--lh-label) var(--font-ui);
+  letter-spacing: var(--ls-label);
+}
+.text-caption {
+  font: var(--fw-caption) var(--text-caption)/var(--lh-caption) var(--font-ui);
+}
+.text-micro {
+  font: var(--fw-micro) var(--text-micro)/var(--lh-micro) var(--font-ui);
+  letter-spacing: var(--ls-micro);
+}
+.text-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-body);
+  font-feature-settings: "tnum" 1;
+}
+
 @theme inline {
-  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-sans: var(--font-ui), "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji";
+  --font-mono: var(--font-mono);
 
   /* Backgrounds */
   --color-bg-base: var(--color-bg-base);

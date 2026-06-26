@@ -138,11 +138,11 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
     <div className="flex flex-col h-full">
       {/* Action error banner */}
       {actionError && (
-        <div className="flex items-center justify-between gap-2 border-b border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-600">
+        <div className="flex items-center justify-between gap-2 border-b border-red-200 bg-red-50 px-3 py-1.5 text-caption text-red-600">
           <span className="truncate">{actionError}</span>
           <button
             onClick={() => setActionError(null)}
-            className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-red-500 hover:bg-red-100"
+            className="shrink-0 rounded px-1.5 py-0.5 text-micro text-red-500 hover:bg-red-100"
           >
             Dismiss
           </button>
@@ -151,7 +151,7 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
 
       {/* Delete confirmation dialog */}
       {confirmDelete && (
-        <div className="flex items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700">
+        <div className="flex items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-caption text-amber-700">
           <span>
             Delete {confirmDelete.names.length} index(es)?
           </span>
@@ -159,13 +159,13 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
             <button
               onClick={confirmDeleteAction}
               disabled={loading}
-              className="rounded px-2 py-0.5 text-[11px] font-medium text-white bg-red-500 hover:bg-red-600 disabled:opacity-50"
+              className="rounded px-2 py-0.5 text-caption text-white bg-red-500 hover:bg-red-600 disabled:opacity-50"
             >
               Confirm
             </button>
             <button
               onClick={() => setConfirmDelete(null)}
-              className="rounded px-2 py-0.5 text-[11px] font-medium text-slate-500 hover:bg-slate-100"
+              className="rounded px-2 py-0.5 text-caption text-slate-500 hover:bg-slate-100"
             >
               Cancel
             </button>
@@ -189,7 +189,7 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
             </button>
             {showFilterDropdown && (
               <div className="absolute top-full left-0 mt-1 w-48 rounded-md border border-slate-200 bg-white shadow-lg z-20 p-1.5">
-                <label className="flex items-center gap-2 text-xs text-slate-700 select-none cursor-pointer rounded px-2 py-1.5 hover:bg-slate-50">
+                <label className="flex items-center gap-2 text-caption text-slate-700 select-none cursor-pointer rounded px-2 py-1.5 hover:bg-slate-50">
                   <input
                     type="checkbox"
                     checked={showHidden}
@@ -208,7 +208,7 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
               placeholder="Search indices..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-56 rounded-md border border-slate-200 bg-white pl-7 pr-2.5 py-1 text-xs text-slate-700 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none"
+                className="w-56 rounded-md border border-slate-200 bg-white pl-7 pr-2.5 py-1 text-caption text-slate-700 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none"
             />
           </div>
         </div>
@@ -269,18 +269,18 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
             value={newIndexName}
             onChange={(e) => setNewIndexName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && doCreate()}
-            className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none w-56"
+            className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-caption text-slate-700 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none w-56"
           />
           <button
             onClick={doCreate}
             disabled={loading || !newIndexName.trim()}
-            className="rounded-md px-2.5 py-1 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 transition-colors"
+            className="rounded-md px-2.5 py-1 text-caption text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 transition-colors"
           >
             Create
           </button>
           <button
             onClick={() => { setShowCreate(false); setNewIndexName('') }}
-            className="rounded-md px-2.5 py-1 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+            className="rounded-md px-2.5 py-1 text-caption text-slate-400 hover:text-slate-600 transition-colors"
           >
             Cancel
           </button>
@@ -291,7 +291,7 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
       <div className="relative flex-1 min-h-0 border border-slate-200">
         <div className="scrollbar-thin h-full overflow-auto [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-track]:bg-slate-50">
           <table
-            className="w-full border-collapse text-xs"
+            className="w-full border-collapse text-caption"
             style={{ tableLayout: 'fixed' }}
           >
             <thead className="sticky top-0 z-10 bg-slate-100 shadow-[0_1px_0_0_theme(colors.slate.200)]">
@@ -308,55 +308,55 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
                   />
                 </th>
                 <th
-                  className="border-b border-r border-slate-200 px-2 py-1.5 cursor-pointer select-none font-semibold text-slate-700 whitespace-nowrap"
+                  className="border-b border-r border-slate-200 px-2 py-1.5 cursor-pointer select-none text-label text-slate-700 whitespace-nowrap"
                   style={{ width: 60 }}
                   onClick={() => toggleSort('health')}
                 >
                   Health {sortIndicator('health')}
                 </th>
                 <th
-                  className="border-b border-r border-slate-200 px-2 py-1.5 cursor-pointer select-none font-semibold text-slate-700 whitespace-nowrap"
+                  className="border-b border-r border-slate-200 px-2 py-1.5 cursor-pointer select-none text-label text-slate-700 whitespace-nowrap"
                   onClick={() => toggleSort('index')}
                 >
                   Index {sortIndicator('index')}
                 </th>
                 <th
-                  className="border-b border-r border-slate-200 px-2 py-1.5 cursor-pointer select-none font-semibold text-slate-700 whitespace-nowrap"
+                  className="border-b border-r border-slate-200 px-2 py-1.5 cursor-pointer select-none text-label text-slate-700 whitespace-nowrap"
                   style={{ width: 80 }}
                   onClick={() => toggleSort('status')}
                 >
                   Status {sortIndicator('status')}
                 </th>
                 <th
-                  className="border-b border-r border-slate-200 px-2 py-1.5 text-right cursor-pointer select-none font-semibold text-slate-700 whitespace-nowrap"
+                  className="border-b border-r border-slate-200 px-2 py-1.5 text-right cursor-pointer select-none text-label text-slate-700 whitespace-nowrap"
                   style={{ width: 90 }}
                   onClick={() => toggleSort('docs.count')}
                 >
                   Docs {sortIndicator('docs.count')}
                 </th>
                 <th
-                  className="border-b border-r border-slate-200 px-2 py-1.5 text-right cursor-pointer select-none font-semibold text-slate-700 whitespace-nowrap"
+                  className="border-b border-r border-slate-200 px-2 py-1.5 text-right cursor-pointer select-none text-label text-slate-700 whitespace-nowrap"
                   style={{ width: 80 }}
                   onClick={() => toggleSort('store.size')}
                 >
                   Size {sortIndicator('store.size')}
                 </th>
                 <th
-                  className="border-b border-r border-slate-200 px-2 py-1.5 text-right cursor-pointer select-none font-semibold text-slate-700 whitespace-nowrap"
+                  className="border-b border-r border-slate-200 px-2 py-1.5 text-right cursor-pointer select-none text-label text-slate-700 whitespace-nowrap"
                   style={{ width: 70 }}
                   onClick={() => toggleSort('pri')}
                 >
                   Shards {sortIndicator('pri')}
                 </th>
                 <th
-                  className="border-b border-r border-slate-200 px-2 py-1.5 text-right cursor-pointer select-none font-semibold text-slate-700 whitespace-nowrap"
+                  className="border-b border-r border-slate-200 px-2 py-1.5 text-right cursor-pointer select-none text-label text-slate-700 whitespace-nowrap"
                   style={{ width: 80 }}
                   onClick={() => toggleSort('rep')}
                 >
                   Replicas {sortIndicator('rep')}
                 </th>
                 <th
-                  className="border-b border-slate-200 px-2 py-1.5 font-semibold text-slate-700 whitespace-nowrap"
+                  className="border-b border-slate-200 px-2 py-1.5 text-label text-slate-700 whitespace-nowrap"
                   style={{ width: 64 }}
                 >
                   Actions
@@ -400,24 +400,24 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
                   <td className="border-b border-r border-slate-100 px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
                     <button
                       onClick={() => onSelectIndex(idx.index)}
-                      className="text-blue-600 hover:text-blue-500 font-mono hover:underline"
+                      className="text-blue-600 hover:text-blue-500 text-mono hover:underline"
                     >
                       {idx.index}
                     </button>
                   </td>
                   <td className="border-b border-r border-slate-100 px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
-                    <span className="font-medium text-slate-600">{idx.status}</span>
+                    <span className="text-body text-slate-600">{idx.status}</span>
                   </td>
-                  <td className="border-b border-r border-slate-100 px-2 py-1.5 text-right font-mono text-[11px] text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
+                  <td className="border-b border-r border-slate-100 px-2 py-1.5 text-right text-mono text-caption text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
                     {idx['docs.count'] ?? '—'}
                   </td>
-                  <td className="border-b border-r border-slate-100 px-2 py-1.5 text-right font-mono text-[11px] text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
+                  <td className="border-b border-r border-slate-100 px-2 py-1.5 text-right text-mono text-caption text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
                     {idx['store.size'] ?? '—'}
                   </td>
-                  <td className="border-b border-r border-slate-100 px-2 py-1.5 text-right font-mono text-[11px] text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
+                  <td className="border-b border-r border-slate-100 px-2 py-1.5 text-right text-mono text-caption text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
                     {idx.pri}
                   </td>
-                  <td className="border-b border-r border-slate-100 px-2 py-1.5 text-right font-mono text-[11px] text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
+                  <td className="border-b border-r border-slate-100 px-2 py-1.5 text-right text-mono text-caption text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
                     {idx.rep}
                   </td>
                   <td className="border-b border-slate-100 px-2 py-1.5">

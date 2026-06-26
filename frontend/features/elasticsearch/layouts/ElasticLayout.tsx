@@ -120,7 +120,7 @@ export function ElasticLayout() {
   if (!connectionId) {
     return (
       <div className="flex h-full w-full items-center justify-center text-text-secondary">
-        <p className="text-sm">Select a connection from the sidebar to get started.</p>
+        <p className="text-body-secondary text-text-secondary">Select a connection from the sidebar to get started.</p>
       </div>
     )
   }
@@ -140,7 +140,7 @@ export function ElasticLayout() {
             key={item.label}
             type="button"
             onClick={() => handleSubNavClick(item.panel, item.path)}
-            className={`cursor-pointer rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+            className={`cursor-pointer rounded-md px-2.5 py-1 text-label transition-colors ${
               activeSection === item.panel || (item.panel === 'mapping' && activeSection === 'mappings')
                 ? 'bg-primary-subtle text-primary'
                 : 'text-text-secondary hover:bg-bg-subtle'
@@ -166,7 +166,7 @@ export function ElasticLayout() {
             {tabs.map((tab) => (
               <div
                 key={tab.id}
-                className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
+                className={`flex items-center gap-1 rounded-md px-2 py-1 text-caption transition-colors ${
                   tab.id === activeElasticTabId
                     ? 'bg-primary-subtle text-primary'
                     : 'text-text-secondary hover:bg-bg-subtle'
@@ -199,7 +199,7 @@ export function ElasticLayout() {
 
       {/* ── Cluster health indicator ── */}
       {health && (
-        <div className="flex items-center gap-2 border-b border-border-default/50 bg-bg-subtle px-3 py-1.5 text-xs text-text-secondary">
+        <div className="flex items-center gap-2 border-b border-border-default/50 bg-bg-subtle px-3 py-1.5 text-caption text-text-secondary">
           <span className="flex items-center gap-1.5">
             <span
               className={`inline-block h-2 w-2 rounded-full ${
@@ -210,7 +210,7 @@ export function ElasticLayout() {
                     : 'bg-danger'
               }`}
             />
-            <span className="font-medium capitalize">{health.status}</span>
+            <span className="text-body capitalize">{health.status}</span>
           </span>
           <span className="text-text-secondary/60">·</span>
           <span>{health.number_of_nodes} nodes</span>

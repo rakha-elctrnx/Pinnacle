@@ -224,7 +224,7 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
     return (
       <div className="flex flex-col h-full">
         <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-3 py-1.5 bg-white">
-          <h3 className="text-xs font-semibold text-slate-700">Select an index to browse documents</h3>
+          <h3 className="text-label text-slate-700">Select an index to browse documents</h3>
         </div>
         <div className="flex-1 overflow-auto p-2 space-y-0.5">
           {indices.map((idx) => (
@@ -234,8 +234,8 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
               className="flex items-center gap-2 w-full rounded-md border border-transparent px-2.5 py-1.5 text-left transition-colors hover:border-slate-200 hover:bg-slate-50"
             >
               <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${idx.health === 'green' ? 'bg-emerald-500' : idx.health === 'yellow' ? 'bg-amber-400' : 'bg-red-500'}`} />
-              <span className="text-xs text-slate-700 font-mono overflow-hidden text-ellipsis whitespace-nowrap">{idx.index}</span>
-              <span className="text-[10px] text-slate-400 ml-auto font-mono">{idx['docs.count'] ?? '0'} docs</span>
+              <span className="text-caption text-mono overflow-hidden text-ellipsis whitespace-nowrap">{idx.index}</span>
+              <span className="text-micro text-slate-400 ml-auto text-mono">{idx['docs.count'] ?? '0'} docs</span>
             </button>
           ))}
         </div>
@@ -251,7 +251,7 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
           <select
             value={currentIndex}
             onChange={(e) => handleSelectIndex(e.target.value)}
-            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:border-blue-400 focus:outline-none"
+            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-caption text-slate-700 focus:border-blue-400 focus:outline-none"
           >
             {indices.map((idx) => (
               <option key={idx.index} value={idx.index}>{idx.index}</option>
@@ -265,7 +265,7 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="w-56 rounded-md border border-slate-200 bg-white pl-7 pr-2.5 py-1 text-xs text-slate-700 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none"
+              className="w-56 rounded-md border border-slate-200 bg-white pl-7 pr-2.5 py-1 text-caption text-slate-700 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none"
             />
           </div>
         </div>
@@ -331,11 +331,11 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
 
       {/* Action error banner */}
       {actionError && (
-        <div className="flex items-center justify-between gap-2 border-b border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-600">
+        <div className="flex items-center justify-between gap-2 border-b border-red-200 bg-red-50 px-3 py-1.5 text-caption text-red-600">
           <span className="truncate">{actionError}</span>
           <button
             onClick={() => setActionError(null)}
-            className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-red-500 hover:bg-red-100"
+            className="shrink-0 rounded px-1.5 py-0.5 text-micro text-red-500 hover:bg-red-100"
           >
             Dismiss
           </button>
@@ -344,18 +344,18 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
 
       {/* Delete document confirmation */}
       {confirmDeleteDoc && (
-        <div className="flex items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700">
-          <span>Delete document <code className="font-mono">{confirmDeleteDoc}</code>?</span>
+        <div className="flex items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-caption text-amber-700">
+          <span>Delete document <code className="text-mono">{confirmDeleteDoc}</code>?</span>
           <div className="flex items-center gap-1">
             <button
               onClick={confirmDeleteDocument}
-              className="rounded px-2 py-0.5 text-[11px] font-medium text-white bg-red-500 hover:bg-red-600"
+              className="rounded px-2 py-0.5 text-caption text-white bg-red-500 hover:bg-red-600"
             >
               Confirm
             </button>
             <button
               onClick={() => setConfirmDeleteDoc(null)}
-              className="rounded px-2 py-0.5 text-[11px] font-medium text-slate-500 hover:bg-slate-100"
+              className="rounded px-2 py-0.5 text-caption text-slate-500 hover:bg-slate-100"
             >
               Cancel
             </button>
@@ -373,7 +373,7 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
               onChange={(val) => setNewDocJson(val ?? '{\n  \n}')}
               theme="light"
               options={{
-                fontSize: 12,
+                fontSize: 13,
                 minimap: { enabled: false },
                 scrollBeyondLastLine: false,
                 wordWrap: 'on',
@@ -387,13 +387,13 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
           <div className="flex gap-1.5">
             <button
               onClick={handleAddDocument}
-              className="rounded-md px-2.5 py-1 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 transition-colors"
+              className="rounded-md px-2.5 py-1 text-caption text-white bg-emerald-600 hover:bg-emerald-500 transition-colors"
             >
               Insert
             </button>
             <button
               onClick={() => setShowAddDoc(false)}
-              className="rounded-md px-2.5 py-1 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+              className="rounded-md px-2.5 py-1 text-caption text-slate-400 hover:text-slate-600 transition-colors"
             >
               Cancel
             </button>
@@ -403,7 +403,7 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
 
       {/* Error */}
       {error && (
-        <div className="px-3 py-1.5 text-xs text-red-600 bg-red-50 border-b border-red-200">
+        <div className="px-3 py-1.5 text-caption text-red-600 bg-red-50 border-b border-red-200">
           {error}
         </div>
       )}
@@ -414,18 +414,18 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
           <CenteredLoadingState loading={loading} label="Loading documents..." />
         ) : viewMode === 'table' ? (
           <table
-            className="w-full border-collapse text-xs"
+            className="w-full border-collapse text-caption"
             style={{ tableLayout: 'auto' }}
           >
             <thead className="sticky top-0 z-10 bg-slate-100 shadow-[0_1px_0_0_theme(colors.slate.200)]">
               <tr className="text-left text-slate-600">
-                <th className="border-b border-r border-slate-200 px-2 py-1.5 font-semibold text-slate-700 whitespace-nowrap">
+                <th className="border-b border-r border-slate-200 px-2 py-1.5 text-label text-slate-700 whitespace-nowrap">
                   _id
                 </th>
                 {sourceColumns.map((col) => (
                   <th
                     key={col}
-                    className="border-b border-r border-slate-200 px-2 py-1.5 font-semibold text-slate-700 whitespace-nowrap"
+                    className="border-b border-r border-slate-200 px-2 py-1.5 text-label text-slate-700 whitespace-nowrap"
                     style={{ maxWidth: 220 }}
                     title={col}
                   >
@@ -433,7 +433,7 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
                   </th>
                 ))}
                 <th
-                  className="border-b border-slate-200 px-2 py-1.5 font-semibold text-slate-700 whitespace-nowrap"
+                  className="border-b border-slate-200 px-2 py-1.5 text-label text-slate-700 whitespace-nowrap"
                   style={{ width: 50 }}
                 >
                   Act
@@ -445,7 +445,7 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
                 <tr>
                   <td
                     colSpan={sourceColumns.length + 2}
-                    className="px-2 py-8 text-center text-slate-400"
+                    className="px-2 py-8 text-center text-caption"
                   >
                     No documents found
                   </td>
@@ -463,7 +463,7 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
                     onClick={() => handleRowClick(doc)}
                     onDoubleClick={() => handleRowDoubleClick(doc)}
                   >
-                    <td className="border-b border-r border-slate-100 px-2 py-1.5 font-mono text-[11px] text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis">
+                    <td className="border-b border-r border-slate-100 px-2 py-1.5 text-mono text-caption text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis">
                       {doc._id}
                     </td>
                     {sourceColumns.map((col) => {
@@ -475,7 +475,7 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
                       return (
                         <td
                           key={col}
-                          className="border-b border-r border-slate-100 px-2 py-1.5 text-[11px] text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis"
+                          className="border-b border-r border-slate-100 px-2 py-1.5 text-caption text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis"
                           style={{ maxWidth: 220 }}
                           title={display}
                         >
@@ -500,7 +500,7 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
         ) : (
           <div className="p-3 space-y-2">
             {documents.length === 0 && (
-              <div className="py-8 text-center text-slate-400 text-xs">
+              <div className="py-8 text-center text-caption">
                 No documents found
               </div>
             )}
@@ -515,8 +515,8 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
                 onDoubleClick={() => handleRowDoubleClick(doc)}
               >
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-mono text-slate-500">
-                    <span className="text-blue-500 font-semibold">ID:</span> {doc._id}
+                  <span className="text-micro text-mono text-slate-500">
+                    <span className="text-blue-500">ID:</span> {doc._id}
                   </span>
                   <button
                     onClick={() => handleDeleteDocument(doc._id)}
@@ -526,7 +526,7 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
-                <pre className="text-[11px] text-slate-600 overflow-auto whitespace-pre-wrap break-all max-h-32">
+                <pre className="text-caption text-slate-600 overflow-auto whitespace-pre-wrap break-all max-h-32">
                   {JSON.stringify(doc._source, null, 2)}
                 </pre>
               </div>
@@ -538,22 +538,22 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
       {/* Pagination */}
       {totalHits > pageSize && (
         <div className="flex items-center justify-between px-3 py-1.5 border-t border-slate-200 bg-white">
-          <span className="text-[10px] text-slate-400">
+          <span className="text-micro">
             {totalHits.toLocaleString()} total documents
           </span>
           <div className="flex items-center gap-1">
             <button
               onClick={() => handlePageChange(page - 1)}
               disabled={page === 0}
-              className="rounded-md px-2 py-1 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-50 disabled:opacity-30 transition-colors"
+              className="rounded-md px-2 py-1 text-caption text-slate-500 hover:text-slate-700 hover:bg-slate-50 disabled:opacity-30 transition-colors"
             >
               Prev
             </button>
-            <span className="text-[10px] text-slate-400 px-1">Page {page + 1}</span>
+            <span className="text-micro px-1">Page {page + 1}</span>
             <button
               onClick={() => handlePageChange(page + 1)}
               disabled={(page + 1) * pageSize >= totalHits}
-              className="rounded-md px-2 py-1 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-50 disabled:opacity-30 transition-colors"
+              className="rounded-md px-2 py-1 text-caption text-slate-500 hover:text-slate-700 hover:bg-slate-50 disabled:opacity-30 transition-colors"
             >
               Next
             </button>
@@ -575,12 +575,12 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
           <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-200 bg-slate-50 shrink-0">
             <div className="flex items-center gap-2">
               <FileJson size={13} className="text-blue-500" />
-              <span className="text-xs font-semibold text-slate-700">Document Detail</span>
-              <span className="text-[10px] font-mono text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">
+              <span className="text-label text-slate-700">Document Detail</span>
+              <span className="text-micro text-mono text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">
                 _id: {editingDoc._id}
               </span>
               {editingDoc._index && (
-                <span className="text-[10px] font-mono text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">
+                <span className="text-micro text-mono text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">
                   _index: {editingDoc._index}
                 </span>
               )}
@@ -589,7 +589,7 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
               <button
                 onClick={handleSaveEdit}
                 disabled={saving}
-                className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-caption text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 transition-colors"
               >
                 <Save size={11} />
                 {saving ? 'Saving...' : 'Save'}
@@ -603,7 +603,7 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
             </div>
           </div>
           {editError && (
-            <div className="px-3 py-1 text-xs text-red-600 bg-red-50 border-b border-red-200">
+            <div className="px-3 py-1 text-caption text-red-600 bg-red-50 border-b border-red-200">
               {editError}
             </div>
           )}
@@ -614,7 +614,7 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
               onChange={(val) => setEditJson(val ?? '')}
               theme="light"
               options={{
-                fontSize: 12,
+                fontSize: 13,
                 minimap: { enabled: false },
                 scrollBeyondLastLine: false,
                 wordWrap: 'on',

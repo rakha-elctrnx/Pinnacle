@@ -79,14 +79,14 @@ function TreeNode({
         ) : (
           <span className="w-3 shrink-0" />
         )}
-        <span className="text-sm text-slate-700 font-mono">{name}</span>
+        <span className="text-body text-mono">{name}</span>
         {mapping.type && (
-          <span className="ml-2 text-xs text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">
+          <span className="ml-2 text-caption text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">
             {mapping.type}
           </span>
         )}
         {mapping.analyzer && (
-          <span className="ml-1 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+          <span className="ml-1 text-caption text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
             {mapping.analyzer}
           </span>
         )}
@@ -172,7 +172,7 @@ export function MappingExplorer({ connection, indexName, indices }: Props) {
     return (
       <div className="flex flex-col h-full">
         <div className="px-4 py-3 border-b border-slate-200 bg-white">
-          <h3 className="text-sm font-semibold text-slate-700">Select an index to view mappings</h3>
+          <h3 className="text-subheading text-slate-700">Select an index to view mappings</h3>
         </div>
         <div className="flex-1 overflow-auto p-4">
           {indices.map((idx) => (
@@ -182,7 +182,7 @@ export function MappingExplorer({ connection, indexName, indices }: Props) {
               className="flex items-center gap-3 w-full px-3 py-2 rounded hover:bg-slate-50 text-left"
             >
               <span className={`inline-block h-2 w-2 rounded-full ${idx.health === 'green' ? 'bg-emerald-500' : idx.health === 'yellow' ? 'bg-amber-400' : 'bg-red-500'}`} />
-              <span className="text-sm text-slate-700 font-mono">{idx.index}</span>
+              <span className="text-body text-mono">{idx.index}</span>
             </button>
           ))}
         </div>
@@ -197,7 +197,7 @@ export function MappingExplorer({ connection, indexName, indices }: Props) {
         <select
           value={currentIndex}
           onChange={(e) => handleSelectIndex(e.target.value)}
-          className="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-700 focus:border-blue-500 focus:outline-none"
+          className="rounded border border-slate-300 bg-white px-2 py-1.5 text-body text-slate-700 focus:border-blue-500 focus:outline-none"
         >
           {indices.map((idx) => (
             <option key={idx.index} value={idx.index}>{idx.index}</option>
@@ -210,33 +210,33 @@ export function MappingExplorer({ connection, indexName, indices }: Props) {
             placeholder="Search fields..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded border border-slate-300 bg-white pl-8 pr-3 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none"
+            className="w-full rounded border border-slate-300 bg-white pl-8 pr-3 py-1.5 text-body text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none"
           />
         </div>
         <div className="flex items-center border border-slate-300 rounded overflow-hidden">
           <button
             onClick={() => setViewMode('tree')}
-            className={`px-2 py-1.5 text-xs ${viewMode === 'tree' ? 'bg-slate-200 text-slate-700' : 'text-slate-400 hover:text-slate-600'}`}
+            className={`px-2 py-1.5 text-caption ${viewMode === 'tree' ? 'bg-slate-200 text-slate-700' : 'text-slate-400 hover:text-slate-600'}`}
           >Tree</button>
           <button
             onClick={() => setViewMode('flat')}
-            className={`px-2 py-1.5 text-xs ${viewMode === 'flat' ? 'bg-slate-200 text-slate-700' : 'text-slate-400 hover:text-slate-600'}`}
+            className={`px-2 py-1.5 text-caption ${viewMode === 'flat' ? 'bg-slate-200 text-slate-700' : 'text-slate-400 hover:text-slate-600'}`}
           >Flat</button>
         </div>
         <button
           onClick={exportMapping}
-          className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1.5"
+          className="text-caption text-slate-500 hover:text-slate-700 px-2 py-1.5"
         >Export</button>
       </div>
 
-      {error && <div className="px-4 py-2 text-sm text-red-600 bg-red-50 border-b border-red-200">{error}</div>}
+      {error && <div className="px-4 py-2 text-body text-red-600 bg-red-50 border-b border-red-200">{error}</div>}
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
         {loading ? (
           <CenteredLoadingState loading={loading} label="Loading mapping..." />
         ) : !properties ? (
-          <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+          <div className="flex items-center justify-center h-full text-caption">
             No mapping data available
           </div>
         ) : viewMode === 'tree' ? (
@@ -252,9 +252,9 @@ export function MappingExplorer({ connection, indexName, indices }: Props) {
             ))}
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-body">
             <thead className="sticky top-0 bg-white z-10">
-              <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-500">
+              <tr className="border-b border-slate-200 text-left text-label">
                 <th className="px-4 py-2">Field Path</th>
                 <th className="px-4 py-2">Type</th>
                 <th className="px-4 py-2">Analyzer</th>
@@ -267,10 +267,10 @@ export function MappingExplorer({ connection, indexName, indices }: Props) {
                 .filter((f) => !search || f.path.toLowerCase().includes(search.toLowerCase()))
                 .map((field) => (
                   <tr key={field.path} className="border-b border-slate-100 hover:bg-slate-50">
-                    <td className="px-4 py-2 font-mono text-slate-700">{field.path}</td>
+                    <td className="px-4 py-2 text-mono text-slate-700">{field.path}</td>
                     <td className="px-4 py-2">
                       {field.type && (
-                        <span className="text-xs text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">{field.type}</span>
+                        <span className="text-caption text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">{field.type}</span>
                       )}
                     </td>
                     <td className="px-4 py-2 text-slate-500">{field.analyzer ?? '-'}</td>

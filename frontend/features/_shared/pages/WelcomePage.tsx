@@ -22,12 +22,12 @@ export function WelcomePage() {
         </div>
 
         {/* Heading */}
-        <h1 className="text-2xl font-semibold text-text-primary">
+        <h1 className="text-display text-text-primary">
           Welcome to Pinnacle
         </h1>
 
         {/* Description */}
-        <p className="text-sm leading-relaxed text-text-secondary">
+        <p className="text-body leading-relaxed text-text-secondary">
           No connection is currently active. Create a new connection or select
           an existing one from the sidebar to start exploring your data.
         </p>
@@ -37,7 +37,7 @@ export function WelcomePage() {
           <button
             type="button"
             onClick={openCreateConnection}
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-text-inverse shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-subheading text-text-inverse shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <Plus className="h-4 w-4" strokeWidth={2} />
             New Connection
@@ -45,7 +45,7 @@ export function WelcomePage() {
         </div>
 
         {/* Hint */}
-        <p className="text-xs text-text-secondary/70 pt-2">
+        <p className="text-caption text-text-secondary/70 pt-2">
           Tip: you can also use the sidebar on the left to manage your connections.
         </p>
       </div>

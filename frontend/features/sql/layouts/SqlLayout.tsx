@@ -157,7 +157,7 @@ export function SqlLayout() {
   if (!connectionId) {
     return (
       <div className="flex h-full w-full items-center justify-center text-text-muted">
-        <p className="text-sm">Select a connection from the sidebar to get started.</p>
+        <p className="text-body-secondary text-text-secondary">Select a connection from the sidebar to get started.</p>
       </div>
     )
   }
@@ -177,7 +177,7 @@ export function SqlLayout() {
             key={item.label}
             type="button"
             onClick={() => navigate(item.path)}
-            className={`cursor-pointer rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+            className={`cursor-pointer rounded-md px-2.5 py-1 text-label transition-colors ${
               item.active
                 ? 'bg-primary-subtle text-primary'
                 : 'text-text-muted hover:bg-bg-subtle'
@@ -192,7 +192,7 @@ export function SqlLayout() {
             {tabs.map((tab) => (
               <div
                 key={tab.id}
-                className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
+                className={`flex items-center gap-1 rounded-md px-2 py-1 text-caption transition-colors ${
                   tab.id === activeTabId
                     ? 'bg-primary-subtle text-primary'
                     : 'text-text-muted hover:bg-bg-subtle'

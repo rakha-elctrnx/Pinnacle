@@ -246,10 +246,10 @@ export function ConnectionFormModal({
   const selectedOption = databaseTypeOptions.find((o) => o.value === newType)
 
   const inputClasses =
-    'w-full rounded-lg border border-outline-variant bg-surface px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface/50 outline-none transition focus:border-outline focus:ring-2 focus:ring-primary/50'
+    'w-full rounded-lg border border-outline-variant bg-surface px-3 py-2.5 text-body text-on-surface placeholder:text-on-surface/50 outline-none transition focus:border-outline focus:ring-2 focus:ring-primary/50'
 
   const inputErrorClasses =
-    'w-full rounded-lg border border-red-300 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100'
+    'w-full rounded-lg border border-red-300 bg-white px-3 py-2.5 text-body text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100'
 
   const content = (
     <section className={embedded ? "w-full h-full overflow-hidden bg-surface" : "w-full max-w-lg overflow-hidden rounded-2xl bg-surface shadow-2xl ring-1 ring-black/5"}>
@@ -260,10 +260,10 @@ export function ConnectionFormModal({
               <Database size={18} />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-on-surface">
+              <h3 className="text-heading text-on-surface">
                 {editingId ? 'Edit Connection' : 'New Connection'}
               </h3>
-              <p className="text-xs text-on-surface/70">
+              <p className="text-caption text-on-surface/70">
                 Step {step} of 2
               </p>
             </div>
@@ -279,15 +279,15 @@ export function ConnectionFormModal({
 
         {/* Step Indicator */}
         <div className="flex items-center gap-2 px-6 pt-4">
-          <div className={`flex items-center gap-1.5 text-xs font-medium ${step >= 1 ? 'text-primary-container' : 'text-on-surface/70'}`}>
-            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${step >= 1 ? 'bg-primary-container text-on-primary-container' : 'bg-surface-variant text-on-surface-variant'}`}>
+          <div className={`flex items-center gap-1.5 text-label ${step >= 1 ? 'text-primary-container' : 'text-on-surface/70'}`}>
+            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-micro ${step >= 1 ? 'bg-primary-container text-on-primary-container' : 'bg-surface-variant text-on-surface-variant'}`}>
               1
             </span>
             Database Type
           </div>
           <div className={`h-px flex-1 ${step >= 2 ? 'bg-primary-container' : 'bg-surface-variant'}`} />
-          <div className={`flex items-center gap-1.5 text-xs font-medium ${step >= 2 ? 'text-primary-container' : 'text-on-surface/70'}`}>
-            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${step >= 2 ? 'bg-primary-container text-on-primary-container' : 'bg-surface-variant text-on-surface-variant'}`}>
+          <div className={`flex items-center gap-1.5 text-label ${step >= 2 ? 'text-primary-container' : 'text-on-surface/70'}`}>
+            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-micro ${step >= 2 ? 'bg-primary-container text-on-primary-container' : 'bg-surface-variant text-on-surface-variant'}`}>
               2
             </span>
             Connection Details
@@ -297,7 +297,7 @@ export function ConnectionFormModal({
         {/* Step 1: Select Database Type */}
         {step === 1 && (
           <div className="px-6 py-5">
-            <p className="mb-4 text-sm text-on-surface/70">Choose the database you want to connect to.</p>
+            <p className="mb-4 text-body text-on-surface/70">Choose the database you want to connect to.</p>
             <div className="grid grid-cols-2 gap-2.5">
               {databaseTypeOptions.map((option) => {
                 const active = option.value === newType
@@ -320,10 +320,10 @@ export function ConnectionFormModal({
                        {(() => { const Icon = option.Icon; return <Icon size={28} />; })()}
                     </span>
                     <span className="min-w-0">
-                      <span className={`block text-sm font-semibold ${active ? 'text-on-primary-container' : 'text-on-surface/70'}`}>
+                      <span className={`block text-subheading ${active ? 'text-on-primary-container' : 'text-on-surface/70'}`}>
                         {option.label}
                       </span>
-                      <span className="block text-[11px] text-on-surface/70">{option.hint}</span>
+                      <span className="block text-caption text-on-surface/70">{option.hint}</span>
                     </span>
                     {active && (
                       <span className="ml-auto grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary">
@@ -345,11 +345,11 @@ export function ConnectionFormModal({
               <span className="grid h-7 w-7 place-items-center rounded-md border border-surface-variant bg-surface-variant">
                  {selectedOption && (() => { const Icon = selectedOption.Icon; return <Icon size={16} />; })()}
               </span>
-              <span className="text-sm font-medium text-on-surface">{selectedOption?.label}</span>
+              <span className="text-subheading text-on-surface">{selectedOption?.label}</span>
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="ml-auto text-xs font-medium text-primary-container hover:text-primary cursor-pointer hover:underline"
+                className="ml-auto text-label text-primary-container hover:text-primary cursor-pointer hover:underline"
               >
                 Change
               </button>
@@ -365,7 +365,7 @@ export function ConnectionFormModal({
                   className={fieldErrors.name ? inputErrorClasses : inputClasses}
                 />
                 {fieldErrors.name && (
-                  <p className="mt-1 flex items-center gap-1 text-[11px] text-red-500">
+                  <p className="mt-1 flex items-center gap-1 text-caption text-red-500">
                     <AlertTriangle size={11} />
                     {fieldErrors.name}
                   </p>
@@ -382,7 +382,7 @@ export function ConnectionFormModal({
                     className={fieldErrors.host ? `${inputErrorClasses} w-full` : `${inputClasses} w-full`}
                   />
                   {fieldErrors.host && (
-                    <p className="mt-1 flex items-center gap-1 text-[11px] text-red-500">
+                    <p className="mt-1 flex items-center gap-1 text-caption text-red-500">
                       <AlertTriangle size={11} />
                       {fieldErrors.host}
                     </p>
@@ -396,7 +396,7 @@ export function ConnectionFormModal({
                     className={fieldErrors.port ? `${inputErrorClasses} w-full` : `${inputClasses} w-full`}
                   />
                   {fieldErrors.port && (
-                    <p className="mt-1 flex items-center gap-1 text-[11px] text-red-500">
+                    <p className="mt-1 flex items-center gap-1 text-caption text-red-500">
                       <AlertTriangle size={11} />
                       {fieldErrors.port}
                     </p>
@@ -413,7 +413,7 @@ export function ConnectionFormModal({
                   className={fieldErrors.database ? inputErrorClasses : inputClasses}
                 />
                 {fieldErrors.database && (
-                  <p className="mt-1 flex items-center gap-1 text-[11px] text-red-500">
+                  <p className="mt-1 flex items-center gap-1 text-caption text-red-500">
                     <AlertTriangle size={11} />
                     {fieldErrors.database}
                   </p>
@@ -479,7 +479,7 @@ export function ConnectionFormModal({
                             setNewGroup(group)
                             setGroupDropdownOpen(false)
                           }}
-                          className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition hover:bg-blue-50 ${group === newGroup ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700'
+                          className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-body transition hover:bg-blue-50 ${group === newGroup ? 'bg-blue-50 text-blue-700' : 'text-slate-700'
                             }`}
                         >
                           <span className="truncate">{group}</span>
@@ -495,7 +495,7 @@ export function ConnectionFormModal({
                             e.preventDefault()
                             setGroupDropdownOpen(false)
                           }}
-                          className="flex w-full items-center gap-2 border-t border-slate-100 px-3 py-1.5 text-left text-sm text-blue-600 transition hover:bg-blue-50"
+                          className="flex w-full items-center gap-2 border-t border-slate-100 px-3 py-1.5 text-left text-body text-blue-600 transition hover:bg-blue-50"
                         >
                           <Plus size={12} className="shrink-0" />
                           <span className="truncate">Create "{newGroup.trim()}"</span>
@@ -504,7 +504,7 @@ export function ConnectionFormModal({
                     </div>
                   )}
                 </div>
-                <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm text-slate-600">
+                <label className="flex shrink-0 cursor-pointer items-center gap-2 text-body text-slate-600">
                   <span
                     className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${newSsl ? 'bg-primary-container' : 'bg-outline-variant'
                       }`}
@@ -530,7 +530,7 @@ export function ConnectionFormModal({
                   type="button"
                   onClick={handleTestConnection}
                   disabled={isTestingConnection}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-outline-variant bg-primary px-4 py-2.5 text-sm font-medium text-on-primary transition hover:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-outline-variant bg-primary px-4 py-2.5 text-subheading text-on-primary transition hover:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isTestingConnection ? (
                     <>
@@ -547,7 +547,7 @@ export function ConnectionFormModal({
 
                 {testConnectionResult && (
                   <div
-                    className={`mt-2 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm ${testConnectionResult.kind === 'success'
+                    className={`mt-2 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-body ${testConnectionResult.kind === 'success'
                       ? 'border-success/50 bg-success/20 text-success'
                       : 'border-error/50 bg-error/20 text-error'
                       }`}
@@ -564,7 +564,7 @@ export function ConnectionFormModal({
 
               {/* Skip test override for new SQL/ES connections */}
               {needsTestGate && !isTestPassed && (
-                <label className="flex items-center gap-2 text-xs text-slate-500 select-none cursor-pointer">
+                <label className="flex items-center gap-2 text-label text-slate-500 select-none cursor-pointer">
                   <input
                     type="checkbox"
                     checked={skipTest}
@@ -584,7 +584,7 @@ export function ConnectionFormModal({
             type="button"
             onClick={() => setStep(1)}
             disabled={step === 1}
-            className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-on-surface-variant transition hover:bg-outline-variant disabled:invisible"
+            className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-3 py-2 text-subheading text-on-surface-variant transition hover:bg-outline-variant disabled:invisible"
           >
             <ChevronLeft size={15} />
             Back
@@ -594,7 +594,7 @@ export function ConnectionFormModal({
             <button
               type="button"
               onClick={() => setStep(2)}
-              className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-primary-container px-5 py-2.5 text-sm font-semibold text-on-primary-container shadow-sm transition hover:bg-primary hover:text-on-primary active:bg-primary-dark active:text-on-primary"
+              className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-primary-container px-5 py-2.5 text-label text-on-primary-container shadow-sm transition hover:bg-primary hover:text-on-primary active:bg-primary-dark active:text-on-primary"
             >
               Continue
               <ChevronRight size={15} />
@@ -604,7 +604,7 @@ export function ConnectionFormModal({
               type="button"
               onClick={handleSave}
               disabled={!canSave || !newName.trim()}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-5 py-2.5 text-label text-white shadow-sm transition hover:bg-blue-700 active:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Check size={15} />
               {editingId ? 'Update Connection' : 'Save Connection'}

@@ -40,7 +40,7 @@ export function Footer() {
   }
 
   return (
-    <footer className="flex h-8 shrink-0 items-center justify-between pt-2 px-4 text-[11px] text-text-secondary">
+    <footer className="flex h-8 shrink-0 items-center justify-between pt-2 px-4 text-caption text-text-secondary">
       <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1 truncate">
         {segments.length === 0 ? (
           <span className="italic text-text-muted">No connection selected</span>
@@ -55,7 +55,7 @@ export function Footer() {
           ))
         )}
       </nav>
-      <span className="shrink-0 pl-3 font-mono text-[10px] text-text-muted">v0.0.0</span>
+      <span className="shrink-0 pl-3 text-mono text-micro text-text-muted">v0.0.0</span>
     </footer>
   )
 }
