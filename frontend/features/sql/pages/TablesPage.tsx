@@ -182,9 +182,13 @@ export function TablesPage() {
   // ── Navigate to table detail ──
   const handleRowDoubleClick = (tableName: string) => {
     navigate(`/sql/${connectionId}/tables/${encodeURIComponent(tableName)}`)
+    const db = queryDatabase || selectedDatabase || selectedConnection?.database
+    const schema = selectedConnection?.type === 'postgresql' ? (querySchema || selectedSchema || 'public') : undefined
+    const tablePath = schema ? `${db}/${schema}/Tables/${tableName}` : `${db}/Tables/${tableName}`
     wrappedHandleTreeNodeClick(
       tableName,
-      queryDatabase || selectedDatabase || selectedConnection?.database,
+      db,
+      tablePath,
     )
   }
 

@@ -36,6 +36,8 @@ import { hasCapabilityWithAdapter } from '../connector-runtime/adapters'
 interface OpenedTableTab {
   id: string
   label: string
+  /** Full tree path for path-based selection, e.g. "mydb/public/Tables/users" */
+  nodePath?: string
 }
 
 /** Check if a connection type is ES-like (elasticsearch adapter). */
@@ -146,6 +148,8 @@ export interface DataExplorerOrchestratorResult {
   handleCloseExportModal: () => void
   setContextMenu: (state: ContextMenuState | null) => void
   setSelectedTreeNode: (node: string | null) => void
+  focusedNodePath: string | null
+  setFocusedNodePath: (path: string | null) => void
   setElasticPanel: (panel: ElasticPanel) => void
   setSelectedElasticIndex: (index: string | null) => void
   setIsDetailsPanelOpen: React.Dispatch<React.SetStateAction<boolean>>
@@ -171,6 +175,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   const [expandedConnectionId, setExpandedConnectionId] = useState<string | null>(null)
   const [selectedTreeNode, setSelectedTreeNode] = useState<string | null>(null)
   const [expandedTreePaths, setExpandedTreePaths] = useState<string[]>([])
+  const [focusedNodePath, setFocusedNodePath] = useState<string | null>(null)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [connectionModalNonce, setConnectionModalNonce] = useState(0)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -623,7 +628,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
           ? pathParts[pathParts.length - 2]
           : undefined
 
-      setSelectedTreeNode(nodeLabel)
+      setSelectedTreeNode(nodePath)
       setActiveTableTabId(null)
       setIsSqlTableListView(true)
 
@@ -641,7 +646,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       if (nodePath?.startsWith('Indices/')) {
         setElasticPanel('documents')
         setSelectedElasticIndex(nodeLabel)
-        setSelectedTreeNode(nodeLabel)
+        setSelectedTreeNode(nodePath)
         const existingTab = openedElasticTabs.find((tab) => tab.indexName === nodeLabel)
         if (existingTab) {
           setActiveElasticTabId(existingTab.id)
@@ -655,13 +660,13 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       if (ELASTIC_LABEL_TO_PANEL[nodeLabel]) {
         setElasticPanel(ELASTIC_LABEL_TO_PANEL[nodeLabel])
         setSelectedElasticIndex(null)
-        setSelectedTreeNode(nodeLabel)
+        setSelectedTreeNode(nodePath || nodeLabel)
         setActiveElasticTabId(null)
         return
       }
     }
 
-    setSelectedTreeNode(nodeLabel)
+    setSelectedTreeNode(nodePath || nodeLabel)
     const isTable = explorerData.handleTreeNodeClick(nodeLabel, databaseName)
     if (isTable) {
       setIsSqlTableListView(false)
@@ -670,7 +675,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
         setActiveTableTabId(existingTab.id)
       } else {
         const tabId = crypto.randomUUID()
-        setOpenedTableTabs((prev) => [...prev, { id: tabId, label: nodeLabel }])
+        setOpenedTableTabs((prev) => [...prev, { id: tabId, label: nodeLabel, nodePath }])
         setActiveTableTabId(tabId)
       }
       setTableInfoTab('data')
@@ -710,7 +715,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
         const fallbackTab = nextTabs[nextTabs.length - 1] ?? null
         setActiveTableTabId(fallbackTab?.id ?? null)
         if (fallbackTab) {
-          setSelectedTreeNode(fallbackTab.label)
+          setSelectedTreeNode(fallbackTab.nodePath || fallbackTab.label)
           explorerData.handleTreeNodeClick(fallbackTab.label)
         } else {
           explorerData.setSelectedTable(null)
@@ -727,7 +732,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
 
     setActiveTableTabId(tabId)
     setIsSqlTableListView(false)
-    setSelectedTreeNode(targetTab.label)
+    setSelectedTreeNode(targetTab.nodePath || targetTab.label)
     explorerData.handleTreeNodeClick(targetTab.label)
     setTableInfoTab('data')
   }
@@ -762,7 +767,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
 
     setActiveElasticTabId(tabId)
     setSelectedElasticIndex(targetTab.indexName)
-    setSelectedTreeNode(targetTab.indexName)
+    setSelectedTreeNode(`Indices/${targetTab.indexName}`)
   }
 
   return {
@@ -825,6 +830,8 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     setExpandedConnectionId,
     setContextMenu,
     setSelectedTreeNode,
+    focusedNodePath,
+    setFocusedNodePath,
     setElasticPanel,
     setSelectedElasticIndex,
     setIsDetailsPanelOpen,
