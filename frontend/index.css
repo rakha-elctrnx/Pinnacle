@@ -118,7 +118,6 @@
 .text-label {
   font: var(--fw-label) var(--text-label)/var(--lh-label) var(--font-ui);
   letter-spacing: var(--ls-label);
-  text-transform: uppercase;
 }
 .text-caption {
   font: var(--fw-caption) var(--text-caption)/var(--lh-caption) var(--font-ui);
