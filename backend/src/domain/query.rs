@@ -1,5 +1,35 @@
 use serde::{Deserialize, Serialize};
 
+// ── Commit Table Changes (task-011c) ────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitTableChangesPayload {
+    pub connection: ConnectionPayload,
+    pub table_name: String,
+    pub inserts: Vec<serde_json::Map<String, serde_json::Value>>,
+    pub updates: Vec<RowUpdate>,
+    pub deletes: Vec<String>,
+    pub primary_key_column: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RowUpdate {
+    pub row_id: String,
+    pub changes: serde_json::Map<String, serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitTableChangesResult {
+    pub inserted_rows: u64,
+    pub updated_rows: u64,
+    pub deleted_rows: u64,
+}
+
+// ── Original types ─────────────────────────────────────────────
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectionPayload {

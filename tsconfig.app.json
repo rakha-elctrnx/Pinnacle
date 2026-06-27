@@ -21,5 +21,6 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["frontend"]
+  "include": ["frontend"],
+  "exclude": ["frontend/**/__tests__/**", "frontend/**/*.check.ts"]
 }

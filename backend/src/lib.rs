@@ -16,8 +16,8 @@ use application::commands::elastic_commands::{
 };
 // SQL COMMANDS
 use application::commands::query_commands::{
-    execute_sql, sql_drop_table, sql_execute_ddl, sql_generate_ddl, sql_get_all_columns,
-    sql_get_all_foreign_keys, sql_get_table_schema, test_connection,
+    commit_table_changes, execute_sql, sql_drop_table, sql_execute_ddl, sql_generate_ddl,
+    sql_get_all_columns, sql_get_all_foreign_keys, sql_get_table_schema, test_connection,
 };
 // EXPORT COMMANDS
 use application::commands::export_commands::{estimate_table_export, execute_table_export};
@@ -79,6 +79,7 @@ pub fn run() {
             // SQL COMMANDS
             test_connection,
             execute_sql,
+            commit_table_changes,
             sql_get_table_schema,
             sql_generate_ddl,
             sql_execute_ddl,

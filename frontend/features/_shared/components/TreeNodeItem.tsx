@@ -156,7 +156,6 @@ export function TreeNodeItem({
   const isTableItem =
     isLeaf && !isCategoryNode(node.label) && parentPath.endsWith("/Tables");
   const parentCategory = parentPath.split("/").pop() ?? "";
-  const isDbOpen = isDatabaseNode && isExpanded;
   const isQueriesFolder = node.label === "Queries";
   const categoryIcon = isCategoryNode(node.label)
     ? getCategoryIcon(node.label)

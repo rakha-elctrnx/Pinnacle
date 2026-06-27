@@ -1,7 +1,8 @@
 use crate::{
     domain::query::{
-        ConnectionTestResult, DdlExecutionResult, DdlPlan, DropTablePayload, DropTableResult,
-        QueryResult, SchemaColumn, SchemaForeignKey, SqlQueryPayload, TableSchemaInfo,
+        CommitTableChangesPayload, CommitTableChangesResult, ConnectionTestResult,
+        DdlExecutionResult, DdlPlan, DropTablePayload, DropTableResult, QueryResult, SchemaColumn,
+        SchemaForeignKey, SqlQueryPayload, TableSchemaInfo,
     },
     infrastructure::connectors::{ddl, sql},
 };
@@ -76,6 +77,15 @@ pub async fn sql_get_all_columns(
     payload: crate::domain::query::ConnectionPayload,
 ) -> Result<Vec<SchemaColumn>, String> {
     sql::get_all_columns(&payload)
+        .await
+        .map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+pub async fn commit_table_changes(
+    payload: CommitTableChangesPayload,
+) -> Result<CommitTableChangesResult, String> {
+    sql::commit_table_changes(&payload)
         .await
         .map_err(|err| err.to_string())
 }

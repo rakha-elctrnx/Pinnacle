@@ -4,6 +4,8 @@ import type { ConnectionPayload } from '../../_shared/services/tauriClient'
 import type {
     TableSchemaInfo,
     DropTableResult,
+    CommitTableChangesPayload,
+    CommitTableChangesResult,
 } from '../types/sql'
 
 export interface SqlQueryPayload {
@@ -97,6 +99,12 @@ export async function sqlGetAllColumns(payload: ConnectionPayload) {
     )
 }
 
+
+// ── Commit Table Changes (task-011c) ─────────────────────────
+
+export async function commitTableChanges(payload: CommitTableChangesPayload) {
+    return invoke<CommitTableChangesResult>('commit_table_changes', { payload })
+}
 
 // ── SQL Table Data Export ──────────────────────────────────────
 

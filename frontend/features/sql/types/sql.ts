@@ -1,4 +1,22 @@
 
+import type { ConnectionPayload } from '../../_shared/services/tauriClient'
+
+// ── Commit Table Changes (task-011c) ─────────────────────────────
+
+export interface CommitTableChangesPayload {
+    connection: ConnectionPayload
+    tableName: string
+    inserts: Record<string, unknown>[]
+    updates: { rowId: string; changes: Record<string, unknown> }[]
+    deletes: string[]
+    primaryKeyColumn: string
+}
+
+export interface CommitTableChangesResult {
+    insertedRows: number
+    updatedRows: number
+    deletedRows: number
+}
 
 // ── SQL Table Schema Introspection Types ──────────────────────────
 

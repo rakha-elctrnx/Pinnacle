@@ -17,6 +17,8 @@
   --color-primary: #3b60cd;
   --color-primary-hover: #2f4ea3;
   --color-primary-subtle: #e8edf9;
+  /* Selection */
+  --color-selection-bg: rgba(59, 96, 205, 0.08);
   /* Success */
   --color-success: #2dcc70;
   --color-success-hover: #23a359;
@@ -76,6 +78,7 @@
   --color-primary: #6e8de8;
   --color-primary-hover: #8aa3ee;
   --color-primary-subtle: #29304a;
+  --color-selection-bg: rgba(110, 141, 232, 0.12);
   --color-success: #4fdb8a;
   --color-success-hover: #6ee29d;
   --color-success-subtle: #1d3527;
@@ -151,6 +154,8 @@
   --color-primary: var(--color-primary);
   --color-primary-hover: var(--color-primary-hover);
   --color-primary-subtle: var(--color-primary-subtle);
+  /* Selection */
+  --color-selection-bg: var(--color-selection-bg);
   /* Success */
   --color-success: var(--color-success);
   --color-success-hover: var(--color-success-hover);

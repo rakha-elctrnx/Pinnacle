@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Plus, Trash2, Search, List, Network, Columns3Cog, CirclePlus } from 'lucide-react'
+import { Trash2, Search, List, Network, Columns3Cog, CirclePlus } from 'lucide-react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { useDataExplorerContext } from '../../_shared/context/DataExplorerContext'
 import { CenteredLoadingState } from '../../_shared/components/CenteredLoadingState'

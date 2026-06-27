@@ -7,9 +7,10 @@ use sqlx::{
 use crate::{
     core::{error::AppError, result::AppResult},
     domain::query::{
-        ConnectionPayload, DdlExecutionResult, DdlPlan, DdlStatementResult, DropTablePayload,
-        DropTableResult, ForeignKeyConstraint, IndexDefinition, PrimaryKeyConstraint, QueryResult,
-        SchemaColumn, SchemaForeignKey, TableColumn, TableSchemaInfo, UniqueConstraint,
+        CommitTableChangesPayload, CommitTableChangesResult, ConnectionPayload, DdlExecutionResult,
+        DdlPlan, DdlStatementResult, DropTablePayload, DropTableResult, ForeignKeyConstraint,
+        IndexDefinition, PrimaryKeyConstraint, QueryResult, SchemaColumn, SchemaForeignKey,
+        TableColumn, TableSchemaInfo, UniqueConstraint,
     },
 };
 
@@ -200,22 +201,51 @@ async fn get_pg_table_schema(
         payload.schema.clone()
     };
 
-    // Verify the table exists
-    let table_exists: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = $2)"
+    // ── Resolve canonical table name & schema ─────────────────────
+    // PostgreSQL normalizes unquoted identifiers to lowercase, so
+    // `CREATE TABLE MenuItem` is stored as `menuitem`.  Quoted
+    // identifiers (`"MenuItem"`) preserve case.  The caller may pass
+    // a mixed-case name from a sidebar label.
+    //
+    // Strategy: use information_schema with LOWER() on BOTH sides so
+    // we match regardless of quoting style.  Try the provided schema
+    // first, then fall back to searching all user schemas.
+    let resolved: Option<(String, String)> = sqlx::query_as::<_, (String, String)>(
+        "SELECT table_schema, table_name FROM information_schema.tables \
+         WHERE table_schema = $1 AND LOWER(table_name) = LOWER($2) LIMIT 1",
     )
     .bind(&schema)
     .bind(table_name)
-    .fetch_one(&mut conn)
+    .fetch_optional(&mut conn)
     .await?;
 
-    if !table_exists {
-        conn.close().await?;
-        return Err(AppError::InvalidInput(format!(
-            "table '{}.{}' does not exist",
-            schema, table_name
-        )));
-    }
+    let (found_schema, canonical_name) = match resolved {
+        Some((s, n)) => (s, n),
+        None => {
+            // Schema-specific lookup failed — search all user schemas
+            let broad: Option<(String, String)> = sqlx::query_as::<_, (String, String)>(
+                "SELECT table_schema, table_name FROM information_schema.tables \
+                 WHERE table_schema NOT IN ('pg_catalog','information_schema') \
+                 AND LOWER(table_name) = LOWER($1) LIMIT 1",
+            )
+            .bind(table_name)
+            .fetch_optional(&mut conn)
+            .await?;
+
+            match broad {
+                Some((s, n)) => (s, n),
+                None => {
+                    conn.close().await?;
+                    return Err(AppError::InvalidInput(format!(
+                        "table '{}.{}' does not exist",
+                        schema, table_name
+                    )));
+                }
+            }
+        }
+    };
+
+    let schema = found_schema;
 
     // ── Columns ───────────────────────────────────────────────────
     let column_rows = sqlx::query(
@@ -239,7 +269,7 @@ async fn get_pg_table_schema(
         "#,
     )
     .bind(&schema)
-    .bind(table_name)
+    .bind(&canonical_name)
     .fetch_all(&mut conn)
     .await?;
 
@@ -286,7 +316,7 @@ async fn get_pg_table_schema(
         "#,
     )
     .bind(&schema)
-    .bind(table_name)
+    .bind(&canonical_name)
     .fetch_all(&mut conn)
     .await?;
 
@@ -318,7 +348,7 @@ async fn get_pg_table_schema(
         "#,
     )
     .bind(&schema)
-    .bind(table_name)
+    .bind(&canonical_name)
     .fetch_all(&mut conn)
     .await?;
 
@@ -352,7 +382,7 @@ async fn get_pg_table_schema(
         "#,
     )
     .bind(&schema)
-    .bind(table_name)
+    .bind(&canonical_name)
     .fetch_all(&mut conn)
     .await?;
 
@@ -379,7 +409,7 @@ async fn get_pg_table_schema(
         "#,
     )
     .bind(&schema)
-    .bind(table_name)
+    .bind(&canonical_name)
     .fetch_all(&mut conn)
     .await?;
 
@@ -399,7 +429,7 @@ async fn get_pg_table_schema(
     conn.close().await?;
 
     Ok(TableSchemaInfo {
-        table_name: table_name.to_string(),
+        table_name: canonical_name,
         schema,
         columns,
         primary_key,
@@ -893,7 +923,21 @@ async fn get_all_columns_pg(
 
     let rows = sqlx::query(
         r#"
-        SELECT table_name, column_name, data_type, is_nullable = 'YES' AS is_nullable, column_default, udt_name as data_type_name
+        SELECT 
+            table_name,
+            column_name,
+            is_nullable = 'YES' AS is_nullable,
+            column_default,
+            udt_name as data_type_name,
+            CASE 
+                WHEN data_type = 'ARRAY' THEN substring(udt_name, 2) || '[]'
+                WHEN character_maximum_length IS NOT NULL THEN udt_name || '(' || character_maximum_length || ')'
+                WHEN data_type IN ('numeric', 'decimal') THEN udt_name || '(' || numeric_precision || ',' || numeric_scale || ')'
+                WHEN datetime_precision IS NOT NULL AND datetime_precision < 6 
+                     AND udt_name IN ('timestamp', 'timestamptz', 'time', 'timetz', 'interval') 
+                     THEN udt_name || '(' || datetime_precision || ')'
+                ELSE udt_name
+            END as data_type
         FROM information_schema.columns
         WHERE table_schema = $1
         ORDER BY table_name, ordinal_position
@@ -1180,6 +1224,368 @@ pub async fn drop_table(payload: &DropTablePayload) -> AppResult<DropTableResult
             elapsed_ms: elapsed,
             error: Some(err.to_string()),
         }),
+    }
+}
+
+// ── Commit Table Changes (task-011c) ─────────────────────────────
+
+/// Commit batched inserts, updates, and deletes atomically in a SQL transaction.
+///
+/// Steps:
+/// 1. Re-fetch table schema to detect schema drift
+/// 2. Validate that primary key column still exists
+/// 3. Begin transaction
+/// 4. Execute all INSERT statements
+/// 5. Execute all UPDATE statements (WHERE pk = rowId)
+/// 6. Execute all DELETE statements (WHERE pk = rowId)
+/// 7. Commit on success, rollback on any failure
+pub async fn commit_table_changes(
+    payload: &CommitTableChangesPayload,
+) -> AppResult<CommitTableChangesResult> {
+    ensure_supported_driver(payload.connection.r#type.as_str())?;
+
+    match payload.connection.r#type.as_str() {
+        "postgresql" => commit_table_changes_pg(payload).await,
+        "mysql" => commit_table_changes_mysql(payload).await,
+        _ => Err(AppError::UnsupportedDriver(payload.connection.r#type.clone())),
+    }
+}
+
+/// PostgreSQL implementation of commit_table_changes.
+async fn commit_table_changes_pg(
+    payload: &CommitTableChangesPayload,
+) -> AppResult<CommitTableChangesResult> {
+    use sqlx::postgres::PgConnection;
+
+    let options = PgConnectOptions::new()
+        .host(payload.connection.host.as_str())
+        .port(payload.connection.port)
+        .username(payload.connection.username.as_str())
+        .password(payload.connection.password.as_str())
+        .database(payload.connection.database.as_str());
+    let mut conn = sqlx::PgConnection::connect_with(&options).await?;
+
+    // Set search_path if schema is specified
+    if !payload.connection.schema.is_empty() {
+        sqlx::query(&format!(
+            "SET search_path TO {}",
+            quote_identifier_pg(&payload.connection.schema)
+        ))
+        .execute(&mut conn)
+        .await?;
+    }
+
+    // ── Schema drift detection ────────────────────────────────────
+    // Re-fetch columns for the table and verify they match expectations.
+    // get_pg_table_schema resolves the canonical name AND the correct schema,
+    // so we use schema_info.schema for the fully-qualified table name below.
+    let schema_info = get_pg_table_schema(&payload.connection, &payload.table_name).await?;
+    let column_names: Vec<String> = schema_info.columns.iter().map(|c| c.name.clone()).collect();
+
+    // Verify primary key column exists
+    if !column_names.contains(&payload.primary_key_column) {
+        conn.close().await?;
+        return Err(AppError::InvalidInput(format!(
+            "Primary key column '{}' not found in table schema. The table structure may have changed. Please refresh.",
+            payload.primary_key_column
+        )));
+    }
+
+    // ── Build fully-qualified table name using canonical name ─────
+    // schema_info.table_name is the canonical name resolved by
+    // get_pg_table_schema (e.g. "menuitem" not "MenuItem" for
+    // unquoted PG identifiers).  Using payload.table_name directly
+    // would fail with "relation does not exist" on mixed-case input.
+    // schema_info.schema is the resolved schema (e.g. "public") even if
+    // the caller sent an empty string.
+    let fq_table = if schema_info.schema.is_empty() {
+        quote_identifier_pg(&schema_info.table_name)
+    } else {
+        format!(
+            "{}.{}",
+            quote_identifier_pg(&schema_info.schema),
+            quote_identifier_pg(&schema_info.table_name)
+        )
+    };
+
+    let pk_quoted = quote_identifier_pg(&payload.primary_key_column);
+
+    let mut inserted_rows: u64 = 0;
+    let mut updated_rows: u64 = 0;
+    let mut deleted_rows: u64 = 0;
+
+    // ── Begin transaction ─────────────────────────────────────────
+    let mut tx = conn.begin().await?;
+
+    // ── Process INSERTs ───────────────────────────────────────────
+    for insert_row in &payload.inserts {
+        let cols: Vec<&String> = insert_row.keys().collect();
+        if cols.is_empty() {
+            continue;
+        }
+        let quoted_cols: Vec<String> = cols.iter().map(|c| quote_identifier_pg(c)).collect();
+        let placeholders: Vec<String> = (1..=cols.len()).map(|i| format!("${}", i)).collect();
+
+        let sql = format!(
+            "INSERT INTO {} ({}) VALUES ({})",
+            fq_table,
+            quoted_cols.join(", "),
+            placeholders.join(", "),
+        );
+
+        let mut query = sqlx::query(&sql);
+        for col in &cols {
+            let val = insert_row.get(*col as &str);
+            query = bind_json_value_pg(query, val);
+        }
+
+        query.execute(&mut *tx).await.map_err(|e| {
+            AppError::Database(format!("INSERT failed: {} (row values: {:?})", e, insert_row))
+        })?;
+        inserted_rows += 1;
+    }
+
+    // ── Process UPDATEs ───────────────────────────────────────────
+    for update in &payload.updates {
+        let changes = &update.changes;
+        let cols: Vec<&String> = changes.keys().collect();
+        if cols.is_empty() {
+            continue;
+        }
+        let set_clauses: Vec<String> = cols
+            .iter()
+            .enumerate()
+            .map(|(i, c)| format!("{} = ${}", quote_identifier_pg(c), i + 1))
+            .collect();
+        let pk_placeholder = format!("${}", cols.len() + 1);
+
+        let sql = format!(
+            "UPDATE {} SET {} WHERE {} = {}",
+            fq_table,
+            set_clauses.join(", "),
+            pk_quoted,
+            pk_placeholder,
+        );
+
+        let mut query = sqlx::query(&sql);
+        for col in &cols {
+            let val = changes.get(*col as &str);
+            query = bind_json_value_pg(query, val);
+        }
+        query = query.bind(&update.row_id);
+
+        query.execute(&mut *tx).await.map_err(|e| {
+            AppError::Database(format!(
+                "UPDATE failed for row '{}': {}",
+                update.row_id, e
+            ))
+        })?;
+        updated_rows += 1;
+    }
+
+    // ── Process DELETEs ───────────────────────────────────────────
+    for row_id in &payload.deletes {
+        if row_id.trim().is_empty() {
+            continue;
+        }
+        let sql = format!(
+            "DELETE FROM {} WHERE {} = $1",
+            fq_table, pk_quoted,
+        );
+        sqlx::query(&sql)
+            .bind(row_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| {
+                AppError::Database(format!(
+                    "DELETE failed for row '{}': {}",
+                    row_id, e
+                ))
+            })?;
+        deleted_rows += 1;
+    }
+
+    // ── Commit transaction ───────────────────────────────────────
+    tx.commit().await?;
+    conn.close().await?;
+
+    Ok(CommitTableChangesResult {
+        inserted_rows,
+        updated_rows,
+        deleted_rows,
+    })
+}
+
+/// Bind a serde_json::Value to a PgQuery, dispatching on the JSON type.
+fn bind_json_value_pg<'q>(
+    query: sqlx::query::Query<'q, sqlx::postgres::Postgres, <sqlx::postgres::Postgres as sqlx::Database>::Arguments<'q>>,
+    val: Option<&serde_json::Value>,
+) -> sqlx::query::Query<'q, sqlx::postgres::Postgres, <sqlx::postgres::Postgres as sqlx::Database>::Arguments<'q>> {
+    match val {
+        None | Some(serde_json::Value::Null) => query.bind(None::<String>),
+        Some(serde_json::Value::Bool(b)) => query.bind(*b),
+        Some(serde_json::Value::Number(n)) => {
+            if let Some(i) = n.as_i64() {
+                query.bind(i)
+            } else if let Some(f) = n.as_f64() {
+                query.bind(f)
+            } else {
+                query.bind(n.to_string())
+            }
+        }
+        Some(serde_json::Value::String(s)) => query.bind(s.clone()),
+        Some(serde_json::Value::Array(arr)) => {
+            // Serialize arrays as JSON strings for simple storage
+            query.bind(serde_json::json!(arr).to_string())
+        }
+        Some(serde_json::Value::Object(obj)) => {
+            query.bind(serde_json::json!(obj).to_string())
+        }
+    }
+}
+
+/// MySQL implementation of commit_table_changes.
+async fn commit_table_changes_mysql(
+    payload: &CommitTableChangesPayload,
+) -> AppResult<CommitTableChangesResult> {
+    use sqlx::mysql::MySqlConnection;
+
+    let options = MySqlConnectOptions::new()
+        .host(payload.connection.host.as_str())
+        .port(payload.connection.port)
+        .username(payload.connection.username.as_str())
+        .password(payload.connection.password.as_str())
+        .database(payload.connection.database.as_str());
+    let mut conn = sqlx::MySqlConnection::connect_with(&options).await?;
+
+    let fq_table = quote_identifier_mysql(&payload.table_name);
+    let pk_quoted = quote_identifier_mysql(&payload.primary_key_column);
+
+    let mut inserted_rows: u64 = 0;
+    let mut updated_rows: u64 = 0;
+    let mut deleted_rows: u64 = 0;
+
+    // ── Begin transaction ─────────────────────────────────────────
+    let mut tx = conn.begin().await?;
+
+    // ── Process INSERTs ───────────────────────────────────────────
+    for insert_row in &payload.inserts {
+        let cols: Vec<&String> = insert_row.keys().collect();
+        if cols.is_empty() {
+            continue;
+        }
+        let quoted_cols: Vec<String> = cols.iter().map(|c| quote_identifier_mysql(c)).collect();
+        let placeholders: Vec<&str> = vec!["?"; cols.len()];
+
+        let sql = format!(
+            "INSERT INTO {} ({}) VALUES ({})",
+            fq_table,
+            quoted_cols.join(", "),
+            placeholders.join(", "),
+        );
+
+        let mut query = sqlx::query(&sql);
+        for col in &cols {
+            let val = insert_row.get(*col as &str);
+            query = bind_json_value_mysql(query, val);
+        }
+
+        query.execute(&mut *tx).await.map_err(|e| {
+            AppError::Database(format!("INSERT failed: {} (row values: {:?})", e, insert_row))
+        })?;
+        inserted_rows += 1;
+    }
+
+    // ── Process UPDATEs ───────────────────────────────────────────
+    for update in &payload.updates {
+        let changes = &update.changes;
+        let cols: Vec<&String> = changes.keys().collect();
+        if cols.is_empty() {
+            continue;
+        }
+        let set_clauses: Vec<String> = cols
+            .iter()
+            .enumerate()
+            .map(|(i, c)| format!("{} = ?", quote_identifier_mysql(c)))
+            .collect();
+
+        let sql = format!(
+            "UPDATE {} SET {} WHERE {} = ?",
+            fq_table,
+            set_clauses.join(", "),
+            pk_quoted,
+        );
+
+        let mut query = sqlx::query(&sql);
+        for col in &cols {
+            let val = changes.get(*col as &str);
+            query = bind_json_value_mysql(query, val);
+        }
+        query = query.bind(&update.row_id);
+
+        query.execute(&mut *tx).await.map_err(|e| {
+            AppError::Database(format!(
+                "UPDATE failed for row '{}': {}",
+                update.row_id, e
+            ))
+        })?;
+        updated_rows += 1;
+    }
+
+    // ── Process DELETEs ───────────────────────────────────────────
+    for row_id in &payload.deletes {
+        if row_id.trim().is_empty() {
+            continue;
+        }
+        let sql = format!("DELETE FROM {} WHERE {} = ?", fq_table, pk_quoted);
+        sqlx::query(&sql)
+            .bind(row_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| {
+                AppError::Database(format!(
+                    "DELETE failed for row '{}': {}",
+                    row_id, e
+                ))
+            })?;
+        deleted_rows += 1;
+    }
+
+    // ── Commit transaction ───────────────────────────────────────
+    tx.commit().await?;
+    conn.close().await?;
+
+    Ok(CommitTableChangesResult {
+        inserted_rows,
+        updated_rows,
+        deleted_rows,
+    })
+}
+
+/// Bind a serde_json::Value to a MySQL query.
+fn bind_json_value_mysql<'q>(
+    query: sqlx::query::Query<'q, sqlx::mysql::MySql, <sqlx::mysql::MySql as sqlx::Database>::Arguments<'q>>,
+    val: Option<&serde_json::Value>,
+) -> sqlx::query::Query<'q, sqlx::mysql::MySql, <sqlx::mysql::MySql as sqlx::Database>::Arguments<'q>> {
+    match val {
+        None | Some(serde_json::Value::Null) => query.bind(None::<String>),
+        Some(serde_json::Value::Bool(b)) => query.bind(*b as i32),
+        Some(serde_json::Value::Number(n)) => {
+            if let Some(i) = n.as_i64() {
+                query.bind(i)
+            } else if let Some(f) = n.as_f64() {
+                query.bind(f)
+            } else {
+                query.bind(n.to_string())
+            }
+        }
+        Some(serde_json::Value::String(s)) => query.bind(s.clone()),
+        Some(serde_json::Value::Array(arr)) => {
+            query.bind(serde_json::json!(arr).to_string())
+        }
+        Some(serde_json::Value::Object(obj)) => {
+            query.bind(serde_json::json!(obj).to_string())
+        }
     }
 }
 

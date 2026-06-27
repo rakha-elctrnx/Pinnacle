@@ -1,0 +1,297 @@
+/**
+ * EditableCell — TanStack Table cell renderer with inline editing
+ *
+ * Supports:
+ * - Double-click / Enter / F2 to enter edit mode
+ * - Enter / Tab to commit, Escape to cancel
+ * - Frontend validation against column metadata
+ * - Visual feedback (dirty state, error state)
+ */
+
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  type KeyboardEvent,
+  type ChangeEvent,
+} from 'react'
+import type { CellContext } from '@tanstack/react-table'
+import { useTableEditStore, validateCellValue } from '../../store/tableEditStore'
+import type { EditableColumnMeta } from '../../store/tableEditStore'
+
+// ── Types ──────────────────────────────────────────────────────────
+
+type TableRow = Record<string, unknown>
+
+export interface EditableCellProps {
+  context: CellContext<TableRow, unknown>
+  columnMeta: EditableColumnMeta | undefined
+  getRowId: (row: TableRow, index: number) => string
+}
+
+// ── Binary/BLOB detection ──────────────────────────────────────────
+
+const BINARY_TYPES = new Set([
+  'BLOB',
+  'BYTEA',
+  'BINARY',
+  'VARBINARY',
+  'TINYBLOB',
+  'MEDIUMBLOB',
+  'LONGBLOB',
+  'IMAGE',
+])
+
+/** Returns true when the column data type holds binary data. */
+function isBinaryColumn(dataType: string | undefined): boolean {
+  if (!dataType) return false
+  const dt = dataType.toUpperCase()
+  return BINARY_TYPES.has(dt) || dt.includes('BLOB') || dt.includes('BINARY')
+}
+
+// ── Component ───────────────────────────────────────────────────────
+
+export function EditableCell({ context, columnMeta, getRowId: getRowIdFn }: EditableCellProps) {
+  const { row, column, getValue } = context
+  const field = column.id
+  const rawValue = getValue()
+  const displayValue = rawValue === null || rawValue === undefined ? '' : String(rawValue)
+  const isNull = rawValue === null || rawValue === undefined
+
+  // Resolve stable rowId from the row context
+  const rowId = getRowIdFn(row.original, row.index)
+
+  // ── Store state ────────────────────────────────────────────────────
+  const stageEdit = useTableEditStore((s) => s.stageEdit)
+  const unstageEdit = useTableEditStore((s) => s.unstageEdit)
+  const rowEdits = useTableEditStore((s) => s.pendingEdits[rowId])
+  const pendingDeletes = useTableEditStore((s) => s.pendingDeletes)
+  const pendingInserts = useTableEditStore((s) => s.pendingInserts)
+
+  const isDeleted = pendingDeletes.includes(rowId)
+  const isInsertedRow = rowId.startsWith('__insert__') || pendingInserts.some((d) => d.__rowId === rowId)
+  const hasDirtyEdit =
+    rowEdits !== undefined && rowEdits.length > 0
+      ? true
+      : isDeleted || isInsertedRow
+
+  // Find the staged edit for this cell
+  const existingEdit = rowEdits?.find((e) => e.field === field)
+  const stagedValue = existingEdit?.newValue
+
+  // Show staged value if present, otherwise original value
+  const effectiveValue = stagedValue !== undefined ? String(stagedValue) : displayValue
+
+  // ── Binary column detection ───────────────────────────────────────
+  const isBinary = isBinaryColumn(columnMeta?.dataType)
+
+  // ── Edit mode state ────────────────────────────────────────────────
+  const [isEditing, setIsEditing] = useState(false)
+  const [editValue, setEditValue] = useState(effectiveValue)
+  const [validationError, setValidationError] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const containerRef = useRef<HTMLDivElement | HTMLSpanElement>(null)
+
+  // Focus and select all on enter edit mode
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [isEditing])
+
+  // Enter edit mode
+  const enterEditMode = useCallback(() => {
+    if (isDeleted) return
+    if (isBinary) return // binary columns are not editable
+    setEditValue(effectiveValue)
+    setValidationError(null)
+    setIsEditing(true)
+  }, [isDeleted, isBinary, effectiveValue])
+
+  // Listen for table:enter-edit custom event (dispatched by keyboard hook)
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const handler = () => enterEditMode()
+    el.addEventListener('table:enter-edit', handler)
+    return () => el.removeEventListener('table:enter-edit', handler)
+  }, [enterEditMode])
+
+  // Validate and commit edit
+  const commitEdit = useCallback(() => {
+    let newValue: unknown = editValue
+
+    // If value is empty and column is nullable → treat as null
+    if (editValue === '' && columnMeta?.isNullable) {
+      newValue = null
+    }
+
+    // Validate
+    if (editValue !== '' || !columnMeta?.isNullable) {
+      const error = validateCellValue(newValue, columnMeta)
+      if (error) {
+        setValidationError(error)
+        return // don't exit edit mode
+      }
+    }
+
+    // Compare with original value (unwrapped from "null" display)
+    const originalRaw = rawValue === null || rawValue === undefined ? null : String(rawValue)
+    const newRaw = newValue === null ? null : String(newValue)
+
+    if (newRaw !== originalRaw) {
+      stageEdit(rowId, field, rawValue, newValue)
+    } else {
+      // No change — unstage if previously staged
+      unstageEdit(rowId, field)
+    }
+
+    setIsEditing(false)
+    setValidationError(null)
+  }, [editValue, columnMeta, rawValue, rowId, field, stageEdit, unstageEdit])
+
+  // Cancel edit (revert to original)
+  const cancelEdit = useCallback(() => {
+    setEditValue(effectiveValue)
+    setIsEditing(false)
+    setValidationError(null)
+  }, [effectiveValue])
+
+  // ── Handlers ───────────────────────────────────────────────────────
+  const handleDoubleClick = useCallback(() => {
+    enterEditMode()
+  }, [enterEditMode])
+
+  const handleChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    setEditValue(e.target.value)
+    setValidationError(null) // clear error on new input
+  }, [])
+
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        commitEdit()
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        cancelEdit()
+      } else if (e.key === 'Tab') {
+        e.preventDefault()
+        commitEdit()
+        // Tab will naturally move focus; the parent can handle next-cell
+        // navigation via a broader handler if needed.
+      } else if (e.key === 'F2') {
+        e.preventDefault()
+        // F2 toggles edit mode (already in edit mode, no-op)
+      }
+    },
+    [commitEdit, cancelEdit],
+  )
+
+  const handleBlur = useCallback(() => {
+    // Commit on blur (clicking elsewhere saves the edit)
+    if (isEditing) {
+      commitEdit()
+    }
+  }, [isEditing, commitEdit])
+
+  // ── Global key handler when not editing ────────────────────────────
+  const handleGlobalKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLSpanElement>) => {
+      if (isEditing) return
+      if (e.key === 'Enter' || e.key === 'F2') {
+        e.preventDefault()
+        enterEditMode()
+      }
+    },
+    [isEditing, enterEditMode],
+  )
+
+  // ── Derived classes ────────────────────────────────────────────────
+  const isDirty = hasDirtyEdit
+  const isInvalid = validationError != null
+
+  const cellClasses = [
+    'block min-w-0 truncate px-2 py-1.5',
+    isNull && !isEditing && !stagedValue ? 'italic text-text-muted' : 'text-text-primary',
+    isDirty && !isInsertedRow ? 'bg-yellow-100 dark:bg-yellow-900/25' : '',
+    isInsertedRow ? 'bg-green-100 dark:bg-green-900/25' : '',
+    isDeleted ? 'line-through text-text-muted bg-red-100 dark:bg-red-900/25' : '',
+    isInvalid && isEditing && validationError ? 'ring-2 ring-red-500' : '',
+    'transition-colors',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  // ── Rendered when editing ─────────────────────────────────────────
+  if (isEditing) {
+    return (
+      <div ref={containerRef as React.RefObject<HTMLDivElement>} className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          value={editValue}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          onBlur={handleBlur}
+          className={[
+            'w-full px-2 py-1.5 text-text-primary outline-none',
+            'bg-bg-base border border-primary',
+            isInvalid ? 'border-red-500 ring-1 ring-red-500' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          data-cell-editing="true"
+        />
+        {validationError && (
+          <div
+            role="tooltip"
+            className="absolute left-0 top-full z-50 mt-0.5 rounded bg-red-600 px-2 py-1 text-micro text-white shadow-md"
+          >
+            {validationError}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── Rendered when viewing ─────────────────────────────────────────
+  // Binary/BLOB columns are read-only — show a [binary] marker.
+  if (isBinary) {
+    return (
+      <span
+        ref={containerRef as React.RefObject<HTMLSpanElement>}
+        className="block min-w-0 truncate px-2 py-1.5 font-mono text-micro text-text-muted"
+        title={`Binary data (${columnMeta?.dataType ?? 'BLOB'}) — editing disabled`}
+        tabIndex={0}
+        role="gridcell"
+        aria-label={`${field}: binary data (not editable)`}
+      >
+        [binary]
+      </span>
+    )
+  }
+
+  return (
+    <span
+      ref={containerRef as React.RefObject<HTMLSpanElement>}
+      className={cellClasses}
+      title={
+        isInvalid
+          ? validationError ?? displayValue
+          : stagedValue !== undefined
+            ? `Changed: ${displayValue} → ${String(stagedValue)}`
+            : displayValue
+      }
+      onDoubleClick={handleDoubleClick}
+      onKeyDown={handleGlobalKeyDown}
+      tabIndex={0}
+      role="gridcell"
+      aria-label={`${field}: ${isNull ? 'NULL' : displayValue}${isDirty ? ' (modified)' : ''}`}
+    >
+      {isNull ? '(null)' : displayValue}
+    </span>
+  )
+}
