@@ -9,13 +9,13 @@ import { getDatabaseIcon } from './DatasourceLogo'
 function TabIcon({ tab }: { tab: Tab }) {
   switch (tab.pageType) {
     case 'table':
-      return <Table2 size={14} className="shrink-0" />
+      return <Table2 size={12} className="shrink-0" />
     case 'query':
-      return <Code size={14} className="shrink-0" />
+      return <Code size={12} className="shrink-0" />
     case 'elastic-index':
-      return <Database size={14} className="shrink-0" />
+      return <Database size={12} className="shrink-0" />
     default:
-      return createElement(getDatabaseIcon(tab.type), { size: 14, className: 'shrink-0' })
+      return createElement(getDatabaseIcon(tab.type), { size: 12, className: 'shrink-0' })
   }
 }
 
@@ -73,10 +73,10 @@ export function TabBar() {
   }
 
   return (
-    <div className="relative">
+    <div className="relative border-b border-border-default">
       <div
         ref={scrollRef}
-        className="flex h-9 items-center gap-0.5 overflow-x-auto px-2 [&::-webkit-scrollbar]:hidden"
+        className="flex items-center overflow-x-auto [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: 'none' }}
       >
         {tabs.map((tab) => {
@@ -87,20 +87,28 @@ export function TabBar() {
               key={tab.id}
               type="button"
               onClick={() => handleTabClick(tab.id, tab.route)}
-              className={`group/tab flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-label transition-colors ${
+              className={`group/tab relative flex h-8 shrink-0 cursor-pointer items-center gap-1 px-3 text-caption transition-colors ${
                 isActive
-                  ? 'bg-primary-subtle text-primary'
-                  : 'text-text-muted hover:bg-bg-subtle'
+                  ? 'text-text-primary'
+                  : 'text-text-muted hover:text-text-secondary'
               }`}
             >
               <TabIcon tab={tab} />
-              <span className="max-w-[120px] truncate">{tab.label}</span>
+              <span className="max-w-30 truncate">{tab.label}</span>
               <X
-                size={12}
-                className={`shrink-0 cursor-pointer transition-opacity ${
-                  isActive ? 'opacity-60 hover:opacity-100' : 'opacity-0 group-hover/tab:opacity-60 hover:!opacity-100'
+                size={11}
+                className={`shrink-0 rounded-sm transition-opacity ${
+                  isActive
+                    ? 'opacity-40 hover:bg-bg-hover hover:opacity-80'
+                    : 'opacity-0 group-hover/tab:opacity-40 hover:opacity-80!'
                 }`}
                 onClick={(e) => handleClose(e, tab)}
+              />
+              {/* Active indicator — thin bottom border with slide-in transition. */}
+              <span
+                className={`absolute bottom-0 left-2 right-2 h-px bg-primary transition-all duration-200 ease-out ${
+                  isActive ? 'scale-x-100 opacity-100' : 'scale-x-0 opacity-0'
+                }`}
               />
             </button>
           )
@@ -111,7 +119,7 @@ export function TabBar() {
       {isOverflowing && !isScrolledToEnd && (
         <div
           aria-hidden
-          className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-bg-base to-transparent"
+          className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-linear-to-l from-bg-base to-transparent"
         />
       )}
     </div>
