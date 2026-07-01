@@ -146,6 +146,11 @@ fn extract_pg_value(row: &sqlx::postgres::PgRow, column_name: &str) -> serde_jso
         return serde_json::json!(v.to_string());
     }
 
+    // Handle TIMESTAMP (without time zone) columns — sqlx decodes these as NaiveDateTime
+    if let Ok(Some(v)) = row.try_get::<Option<chrono::NaiveDateTime>, _>(column_name) {
+        return serde_json::Value::String(v.to_string());
+    }
+
     // Handle date types without time component
     if let Ok(Some(v)) = row.try_get::<Option<chrono::NaiveDate>, _>(column_name) {
         return serde_json::json!(v.to_string());
