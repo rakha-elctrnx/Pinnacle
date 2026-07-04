@@ -21,6 +21,8 @@ export interface Tab {
   route: string
   /** Parent connection id — present on sub-page tabs (table, query, elastic-index). */
   connectionId?: string
+  /** Number of pending changes (table edit store). Shown as badge in TabBar. */
+  pendingCount?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -38,7 +40,8 @@ interface TabState {
   closeTab: (tabId: string) => void
   activateTab: (tabId: string) => void
   updateTabRoute: (tabId: string, route: string) => void
-  /** Close ALL sub-page tabs belonging to a connection. */
+  /** Set the pending change count for a tab (shown as badge). */
+  setTabPendingCount: (tabId: string, count: number) => void
   closeTabsByConnectionId: (connectionId: string) => void
 }
 
@@ -99,6 +102,13 @@ export const useTabStore = create<TabState>((set) => ({
   updateTabRoute: (tabId, route) =>
     set((state) => ({
       tabs: state.tabs.map((t) => (t.id === tabId ? { ...t, route } : t)),
+    })),
+
+  setTabPendingCount: (tabId, count) =>
+    set((state) => ({
+      tabs: state.tabs.map((t) =>
+        t.id === tabId ? { ...t, pendingCount: count } : t,
+      ),
     })),
 
   closeTabsByConnectionId: (connectionId) =>
