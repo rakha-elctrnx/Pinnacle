@@ -310,7 +310,7 @@ export function ConnectionSidebar() {
 
   // URL-driven navigation handlers
   const handleTableNavigate = useCallback(
-    (tableName: string) => {
+    (tableName: string, treePath?: string) => {
       const connectionId = selectedConnection?.id;
       if (!connectionId || !selectedConnection) return;
       const route = `/sql/${connectionId}/tables/${encodeURIComponent(tableName)}`;
@@ -321,6 +321,7 @@ export function ConnectionSidebar() {
         pageType: 'table',
         route,
         connectionId,
+        treePath,
       });
       navigate(route);
     },

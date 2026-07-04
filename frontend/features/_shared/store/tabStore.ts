@@ -21,6 +21,8 @@ export interface Tab {
   route: string
   /** Parent connection id — present on sub-page tabs (table, query, elastic-index). */
   connectionId?: string
+  /** Full tree node path for sidebar highlight sync. */
+  treePath?: string
   /** Number of pending changes (table edit store). Shown as badge in TabBar. */
   pendingCount?: number
 }
@@ -61,7 +63,7 @@ export const useTabStore = create<TabState>((set) => ({
         return {
           activeTabId: tab.id,
           tabs: state.tabs.map((t) =>
-            t.id === tab.id ? { ...t, route: tab.route, label: tab.label } : t
+            t.id === tab.id ? { ...t, route: tab.route, label: tab.label, ...tab.treePath ? { treePath: tab.treePath } : {} } : t
           ),
         }
       }

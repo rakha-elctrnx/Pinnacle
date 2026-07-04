@@ -303,10 +303,17 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
   }, [tableName, handleTreeNodeClick])
 
   // Sync selectedTreeNode so the Footer breadcrumb updates correctly on
-  // direct URL navigation and tab switch. Build a partial tree path from
-  // the current database/schema context.
+  // direct URL navigation and tab switch. Uses the full tree path stored
+  // in the active tab when available, falls back to a partial path.
   useEffect(() => {
     if (!tableName || !selectedConnection) return
+    const activeTab = useTabStore.getState().tabs.find(
+      (t) => t.connectionId === selectedConnection.id && t.pageType === 'table' && t.label === tableName
+    )
+    if (activeTab?.treePath) {
+      setSelectedTreeNode(activeTab.treePath)
+      return
+    }
     const db = selectedDatabase || selectedConnection.database
     const schema =
       selectedConnection.type === 'postgresql'

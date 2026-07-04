@@ -6,9 +6,11 @@ export interface ContextMenuItem {
   label: string
   shortcut?: string
   icon?: React.ReactNode
-  action: () => void
+  action?: () => void
   dividerAfter?: boolean
   dangerous?: boolean
+  /** Standalone divider row — label/icon/action are ignored. */
+  divider?: boolean
 }
 
 export interface GenericContextMenuProps {
@@ -112,8 +114,11 @@ export function GenericContextMenu({
         case 'Enter':
         case ' ':
           e.preventDefault()
-          items[activeIndex]?.action()
-          onCloseRef.current()
+          const activeItem = items[activeIndex]
+          if (activeItem && !activeItem.divider) {
+            activeItem.action?.()
+            onCloseRef.current()
+          }
           return
         case 'Escape':
           e.preventDefault()
@@ -142,45 +147,50 @@ export function GenericContextMenu({
       onKeyDown={handleKeyDown}
       className="fixed z-50 min-w-44 rounded-xl border border-border-default bg-bg-base p-1 shadow-xl outline-none backdrop-blur-sm"
     >
-      {items.map((item, index) => (
-        <div key={item.label}>
-          <button
-            type="button"
-            role="menuitem"
-            tabIndex={-1}
-            onClick={() => {
-              item.action()
-              onClose()
-            }}
-            onMouseEnter={() => setActiveIndex(index)}
-            className={[
-              'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-body transition-colors',
-              item.dangerous
-                ? 'text-text-primary hover:bg-danger-subtle hover:text-danger'
-                : 'text-text-primary hover:bg-primary-subtle',
-              activeIndex === index && !item.dangerous
-                ? 'bg-primary-subtle text-primary'
-                : '',
-              activeIndex === index && item.dangerous
-                ? 'bg-danger-subtle text-danger'
-                : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-          >
-            {item.icon && (
-              <span className="shrink-0 text-text-muted">{item.icon}</span>
+      {items.map((item, index) => {
+        if (item.divider) {
+          return <div key={`divider-${index}`} className="my-1 border-t border-border-default" />
+        }
+        return (
+          <div key={item.label}>
+            <button
+              type="button"
+              role="menuitem"
+              tabIndex={-1}
+              onClick={() => {
+                item.action?.()
+                onClose()
+              }}
+              onMouseEnter={() => setActiveIndex(index)}
+              className={[
+                'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-body transition-colors',
+                item.dangerous
+                  ? 'text-text-primary hover:bg-danger-subtle hover:text-danger'
+                  : 'text-text-primary hover:bg-primary-subtle',
+                activeIndex === index && !item.dangerous
+                  ? 'bg-primary-subtle text-primary'
+                  : '',
+                activeIndex === index && item.dangerous
+                  ? 'bg-danger-subtle text-danger'
+                  : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              {item.icon && (
+                <span className="shrink-0 text-text-muted">{item.icon}</span>
+              )}
+              <span className="flex-1 text-left">{item.label}</span>
+              {item.shortcut && (
+                <span className="shrink-0 text-micro text-text-muted">{item.shortcut}</span>
+              )}
+            </button>
+            {item.dividerAfter && (
+              <div className="my-1 border-t border-border-default" />
             )}
-            <span className="flex-1 text-left">{item.label}</span>
-            {item.shortcut && (
-              <span className="shrink-0 text-micro text-text-muted">{item.shortcut}</span>
-            )}
-          </button>
-          {item.dividerAfter && (
-            <div className="my-1 border-t border-border-default" />
-          )}
-        </div>
-      ))}
+          </div>
+        )
+      })}
     </div>
   )
 }

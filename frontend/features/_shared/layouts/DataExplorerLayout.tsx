@@ -402,7 +402,7 @@ function DataExplorerLayoutChrome({
                     ...(handleRequestDeleteTableFromMenu
                       ? [{ label: 'Delete Table', icon: <Trash2 size={14} />, action: () => { handleRequestDeleteTableFromMenu(contextMenu.itemId, contextMenu.tableName!) }, dangerous: true } as ContextMenuItem]
                       : []),
-                    { label: '', dividerAfter: true } as ContextMenuItem,
+                    { divider: true } as ContextMenuItem,
                   ]
                 : [
                     // ── Connection-level actions ──────────────────
@@ -418,7 +418,7 @@ function DataExplorerLayoutChrome({
                 ? [
                     { label: 'Duplicate', icon: <Copy size={14} />, action: () => { handleDuplicateConnection(contextMenu.itemId) } },
                     { label: 'Export Configuration', icon: <Download size={14} />, action: () => { handleExportConnection(contextMenu.itemId) } },
-                    { label: '', dividerAfter: true } as ContextMenuItem,
+                    { divider: true } as ContextMenuItem,
                     { label: 'Close Connection', icon: <Unplug size={14} />, action: () => { handleCloseConnection(contextMenu.itemId) } },
                     { label: 'Delete', icon: <Trash2 size={14} />, action: () => { handleDeleteConnection(contextMenu.itemId) }, dangerous: true } as ContextMenuItem,
                   ]

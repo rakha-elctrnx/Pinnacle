@@ -124,7 +124,7 @@ export function TreeNodeItem({
   onSelectedTreeNode: (label: string | null) => void;
   onToggleTreeNode: (path: string) => void;
   onFetchDatabaseDetails?: (dbName: string) => void;
-  onTableNavigate?: (tableName: string) => void;
+  onTableNavigate?: (tableName: string, treePath?: string) => void;
   onQueryNavigate?: () => void;
   onTablesCategoryClick?: () => void;
   onConnectionSelect?: (nodePath: string, connectionId: string) => void;
@@ -256,7 +256,7 @@ export function TreeNodeItem({
         const databaseName = pathParts.length >= 3 ? pathParts[2] : pathParts[0];
         onTreeNodeClick(node.label, databaseName, nodePath);
         if (isTableItem) {
-          onTableNavigate?.(node.label);
+          onTableNavigate?.(node.label, nodePath);
         }
       }
     } else {
@@ -319,7 +319,7 @@ export function TreeNodeItem({
             : isActiveConnection
               ? "bg-gradient-to-r from-primary-subtle/80 to-transparent text-text-secondary ring-1 ring-inset ring-focus-ring"
               : selectedTreeNode === nodePath
-                ? "bg-primary/10 text-primary"
+                ? "bg-primary/15 text-primary ring-1 ring-inset ring-primary/20"
                 : "text-text-primary hover:text-text-secondary",
         ].join(" ")}
         style={{ paddingLeft: `${depth * 10 + 6}px` }}
@@ -343,9 +343,51 @@ export function TreeNodeItem({
           <span className="shrink-0 min-w-[18px] min-h-[18px]" />
         )}
         
-        {/* Loading indicator for connections */}
-        {isConnectionNode && isConnectionLoading() ? (
-          <span className="shrink-0">
+        {/* Primary icon */}
+        {isGroupNode ? (
+          <Folder size={11} className="shrink-0 text-text-muted" />
+        ) : categoryIcon ? (
+          categoryIcon
+        ) : isConnectionNode ? (
+          getConnectionIcon()
+        ) : isDatabaseNode ? (
+          <Database
+            size={11}
+            className="shrink-0 text-success"
+          />
+        ) : isTableItem ? (
+          <Table size={11} className="shrink-0 text-primary" />
+        ) : parentCategory === "Views" ? (
+          <Layers size={11} className="shrink-0 text-sky-500" />
+        ) : parentCategory === "Functions" ? (
+          <Zap size={11} className="shrink-0 text-amber-500" />
+        ) : parentCategory === "Keys" ? (
+          <Hash size={11} className="shrink-0 text-purple-500" />
+        ) : parentCategory === "Indexes" ? (
+          <Zap size={11} className="shrink-0 text-orange-500" />
+        ) : parentCategory === "Exchanges" ? (
+          <Layers size={11} className="shrink-0 text-green-500" />
+        ) : parentCategory === "Queues" ? (
+          <List size={11} className="shrink-0 text-sky-500" />
+        ) : parentCategory === "Channels" ? (
+          <MessageSquare size={11} className="shrink-0 text-pink-500" />
+        ) : parentCategory === "Indices" ? (
+          <Database size={11} className="shrink-0 text-sky-500" />
+        ) : (
+          <FileText size={11} className="shrink-0 text-text-muted" />
+        )}
+        <span className="truncate min-w-0">{node.label}</span>
+        
+        {/* Group count badge */}
+        {isGroupNode && (
+          <span className="shrink-0 tabular-nums text-micro text-text-muted/60">
+            {getGroupCount()}
+          </span>
+        )}
+
+        {/* Loading indicator on the right */}
+        {isConnectionNode && isConnectionLoading() && (
+          <span className="shrink-0 ml-auto">
             <CenteredLoadingState
               loading={true}
               label=""
@@ -353,50 +395,6 @@ export function TreeNodeItem({
               showElapsed={false}
             />
           </span>
-        ) : (
-          <>
-            {/* Primary icon */}
-            {isGroupNode ? (
-              <Folder size={11} className="shrink-0 text-text-muted" />
-            ) : categoryIcon ? (
-              categoryIcon
-            ) : isConnectionNode ? (
-              getConnectionIcon()
-            ) : isDatabaseNode ? (
-              <Database
-                size={11}
-                className="shrink-0 text-success"
-              />
-            ) : isTableItem ? (
-              <Table size={11} className="shrink-0 text-primary" />
-            ) : parentCategory === "Views" ? (
-              <Layers size={11} className="shrink-0 text-sky-500" />
-            ) : parentCategory === "Functions" ? (
-              <Zap size={11} className="shrink-0 text-amber-500" />
-            ) : parentCategory === "Keys" ? (
-              <Hash size={11} className="shrink-0 text-purple-500" />
-            ) : parentCategory === "Indexes" ? (
-              <Zap size={11} className="shrink-0 text-orange-500" />
-            ) : parentCategory === "Exchanges" ? (
-              <Layers size={11} className="shrink-0 text-green-500" />
-            ) : parentCategory === "Queues" ? (
-              <List size={11} className="shrink-0 text-sky-500" />
-            ) : parentCategory === "Channels" ? (
-              <MessageSquare size={11} className="shrink-0 text-pink-500" />
-            ) : parentCategory === "Indices" ? (
-              <Database size={11} className="shrink-0 text-sky-500" />
-            ) : (
-              <FileText size={11} className="shrink-0 text-text-muted" />
-            )}
-            <span className="truncate min-w-0">{node.label}</span>
-            
-            {/* Group count badge */}
-            {isGroupNode && (
-              <span className="shrink-0 tabular-nums text-micro text-text-muted/60">
-                {getGroupCount()}
-              </span>
-            )}
-          </>
         )}
       </div>
       

@@ -722,6 +722,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
           pageType: 'table',
           route: `/sql/${selectedConnection.id}/tables/${encodeURIComponent(nodeLabel)}`,
           connectionId: selectedConnection.id,
+          treePath: nodePath,
         })
       }
 

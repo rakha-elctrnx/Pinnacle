@@ -34,6 +34,7 @@ export function TablesPage() {
 
   const {
     selectedConnection,
+    groupedConnections,
     explorerData: { sqlTableList, sqlTableListLoading, schemaForeignKeys, schemaColumns, selectedDatabase, selectedSchema, fetchSqlTableList, fetchDatabaseDetails },
     queryExecution: { queryDatabase, querySchema },
     handleRequestDeleteTable,
@@ -190,7 +191,24 @@ export function TablesPage() {
     navigate(`/sql/${connectionId}/tables/${encodeURIComponent(tableName)}`)
     const db = selectedDatabase || queryDatabase || selectedConnection?.database
     const schema = selectedConnection?.type === 'postgresql' ? (selectedSchema || querySchema || 'public') : undefined
-    const tablePath = schema ? `${db}/${schema}/Tables/${tableName}` : `${db}/Tables/${tableName}`
+    
+    // Find the group name for this connection
+    const groupName = selectedConnection && groupedConnections
+      ? Object.entries(groupedConnections).find(([, profiles]) => 
+          profiles.some(p => p.id === selectedConnection.id)
+        )?.[0]
+      : undefined
+    
+    // Build full tree path: groupName/connectionName/db/schema/Tables/tableName
+    const parts = []
+    if (groupName && selectedConnection) {
+      parts.push(groupName, selectedConnection.name)
+    }
+    if (db) parts.push(db)
+    if (schema) parts.push(schema)
+    parts.push('Tables', tableName)
+    const tablePath = parts.join('/')
+    
     wrappedHandleTreeNodeClick(
       tableName,
       db,

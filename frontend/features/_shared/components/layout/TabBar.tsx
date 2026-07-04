@@ -2,6 +2,7 @@ import { createElement, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Code, Database, Table2, X } from 'lucide-react'
 import { useTabStore } from '../../store/tabStore'
+import { useDataExplorerContext } from '../../context/DataExplorerContext'
 import type { Tab } from '../../store/tabStore'
 import { getDatabaseIcon } from '../branding/DatasourceLogo'
 
@@ -25,6 +26,7 @@ export function TabBar() {
   const activateTab = useTabStore((s) => s.activateTab)
   const closeTab = useTabStore((s) => s.closeTab)
   const navigate = useNavigate()
+  const { setSelectedTreeNode } = useDataExplorerContext()
 
   // Overflow detection for gradient fade indicator.
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -53,9 +55,10 @@ export function TabBar() {
 
   if (tabs.length === 0) return null
 
-  function handleTabClick(tabId: string, route: string) {
+  function handleTabClick(tabId: string, route: string, treePath?: string) {
     activateTab(tabId)
     navigate(route)
+    if (treePath) setSelectedTreeNode(treePath)
   }
 
   function handleClose(e: React.MouseEvent, tab: Tab) {
@@ -66,8 +69,12 @@ export function TabBar() {
     const state = useTabStore.getState()
     if (state.activeTabId) {
       const nextTab = state.tabs.find((t) => t.id === state.activeTabId)
-      if (nextTab) navigate(nextTab.route)
+      if (nextTab) {
+        navigate(nextTab.route)
+        if (nextTab.treePath) setSelectedTreeNode(nextTab.treePath)
+      }
     } else {
+      setSelectedTreeNode(null)
       navigate('/')
     }
   }
@@ -86,10 +93,10 @@ export function TabBar() {
             <button
               key={tab.id}
               type="button"
-              onClick={() => handleTabClick(tab.id, tab.route)}
+              onClick={() => handleTabClick(tab.id, tab.route, tab.treePath)}
               className={`group/tab relative flex h-8 shrink-0 cursor-pointer items-center gap-1 px-3 text-caption transition-colors ${
                 isActive
-                  ? 'text-text-primary'
+                  ? 'bg-bg-base text-text-primary'
                   : 'text-text-muted hover:text-text-secondary'
               }`}
             >
@@ -109,7 +116,7 @@ export function TabBar() {
               />
               {/* Active indicator — thin bottom border with slide-in transition. */}
               <span
-                className={`absolute bottom-0 left-2 right-2 h-px bg-primary transition-all duration-200 ease-out ${
+                className={`absolute bottom-0 left-0 right-0 h-0.5 bg-primary transition-all duration-200 ease-out ${
                   isActive ? 'scale-x-100 opacity-100' : 'scale-x-0 opacity-0'
                 }`}
               />
