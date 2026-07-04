@@ -3,7 +3,7 @@ import type { ConnectionPayload } from '../../_shared/services/tauriClient'
 import type { ElasticIndex, ElasticFieldMapping } from '../types/elasticsearch'
 import { elasticGetMapping } from '../clients/elasticsearch'
 import { Search, Copy, ChevronRight, ChevronDown } from 'lucide-react'
-import { CenteredLoadingState } from '../../_shared/components/CenteredLoadingState'
+import { CenteredLoadingState } from '../../_shared/components/ui/CenteredLoadingState'
 
 interface Props {
   connection: ConnectionPayload

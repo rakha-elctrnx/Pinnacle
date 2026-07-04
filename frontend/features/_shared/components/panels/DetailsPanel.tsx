@@ -1,6 +1,6 @@
 import { Download, Sparkles, WandSparkles } from 'lucide-react'
-import type { ConnectionProfile } from '../types/domain'
-import type { DetailStat } from '../types/shared'
+import type { ConnectionProfile } from '../../types/domain'
+import type { DetailStat } from '../../types/shared'
 
 interface DetailsPanelProps {
   selectedConnection: ConnectionProfile | null

@@ -15,9 +15,9 @@ import {
   Zap,
   Folder,
 } from "lucide-react";
-import type { TreeNode, SavedQuery, ExplorerTreeData } from "../types/shared";
-import type { ConnectionProfile } from "../types/domain";
-import { databaseTypeOptions } from "../constants";
+import type { TreeNode, SavedQuery, ExplorerTreeData } from "../../types/shared";
+import type { ConnectionProfile } from "../../types/domain";
+import { databaseTypeOptions } from "../../constants";
 import { CenteredLoadingState } from "./CenteredLoadingState";
 
 interface ExplorerDataContext {

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { TabBar } from './TabBar'
-import { useTabStore } from '../store/tabStore'
+import { useTabStore } from '../../store/tabStore'
 
 /**
  * PageWorkspace — the central content region of the five-region layout.

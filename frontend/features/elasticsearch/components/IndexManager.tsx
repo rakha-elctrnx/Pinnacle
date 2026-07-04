@@ -9,7 +9,7 @@ import {
   elasticCreateIndex,
 } from '../clients/elasticsearch'
 import { Plus, Trash2, RefreshCw, FolderOpen, FolderClosed, Search, SlidersHorizontal } from 'lucide-react'
-import { CenteredLoadingState } from '../../_shared/components/CenteredLoadingState'
+import { CenteredLoadingState } from '../../_shared/components/ui/CenteredLoadingState'
 
 interface Props {
   connection: ConnectionPayload

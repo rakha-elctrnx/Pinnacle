@@ -17,8 +17,51 @@ import {
   type ChangeEvent,
 } from 'react'
 import type { CellContext } from '@tanstack/react-table'
-import { useTableEditStore, validateCellValue } from '../../store/tableEditStore'
-import type { EditableColumnMeta } from '../../store/tableEditStore'
+import { useTableEditStore, validateCellValue, type EditableColumnMeta } from '../../store/tableEditStore'
+
+// ── Timestamp formatting ─────────────────────────────────────────────
+
+const TIMESTAMP_TYPES = new Set([
+  'TIMESTAMP',
+  'TIMESTAMPTZ', 
+  'DATETIME',
+  'DATE',
+  'TIME',
+  'TIME WITH TIME ZONE',
+])
+
+/** Format timestamp string to readable format */
+function formatTimestampValue(ts: string): string {
+  // Try parsing as ISO date first
+  let date: Date | null = null
+  
+  // Handle ISO format: 2024-01-15T10:30:45.123Z or 2024-01-15T10:30:45+07:00
+  if (ts.includes('T')) {
+    date = new Date(ts)
+  }
+  // Handle PostgreSQL/MySQL format: 2024-01-15 10:30:45.123456+07 or 2024-01-15 10:30:45
+  else if (ts.match(/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/)) {
+    // Remove timezone and microseconds for parsing
+    const cleanTs = ts.replace(/\.\d+/, '').replace(/[+-]\d{2}:?\d{2}$/, '').trim()
+    date = new Date(cleanTs)
+  }
+  // Handle date only: 2024-01-15
+  else if (ts.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    date = new Date(ts)
+  }
+  
+  if (date && !isNaN(date.getTime())) {
+    // For DATE type, show only date part
+    if (ts.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return date.toISOString().substring(0, 10) // YYYY-MM-DD
+    }
+    // For time types, show time with date
+    return date.toISOString().replace('T', ' ').substring(0, 19)
+  }
+  
+  // If parsing fails, return original
+  return ts
+}
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -57,6 +100,10 @@ export function EditableCell({ context, columnMeta, getRowId: getRowIdFn }: Edit
   const field = column.id
   const rawValue = getValue()
   const displayValue = rawValue === null || rawValue === undefined ? '' : String(rawValue)
+  // Format timestamp values
+  const isTimestamp = columnMeta?.dataType && TIMESTAMP_TYPES.has(columnMeta.dataType.toUpperCase())
+  const formattedValue = isTimestamp && rawValue ? formatTimestampValue(String(rawValue)) : isTimestamp ? '&#8203;' : null
+  
   const isNull = rawValue === null || rawValue === undefined
 
   // Resolve stable rowId from the row context
@@ -67,14 +114,10 @@ export function EditableCell({ context, columnMeta, getRowId: getRowIdFn }: Edit
   const unstageEdit = useTableEditStore((s) => s.unstageEdit)
   const rowEdits = useTableEditStore((s) => s.pendingEdits[rowId])
   const pendingDeletes = useTableEditStore((s) => s.pendingDeletes)
-  const pendingInserts = useTableEditStore((s) => s.pendingInserts)
 
   const isDeleted = pendingDeletes.includes(rowId)
-  const isInsertedRow = rowId.startsWith('__insert__') || pendingInserts.some((d) => d.__rowId === rowId)
-  const hasDirtyEdit =
-    rowEdits !== undefined && rowEdits.length > 0
-      ? true
-      : isDeleted || isInsertedRow
+  // Check if this specific cell has an edit, not the whole row
+  const isCellDirty = rowEdits?.some((e) => e.field === field)
 
   // Find the staged edit for this cell
   const existingEdit = rowEdits?.find((e) => e.field === field)
@@ -210,15 +253,11 @@ export function EditableCell({ context, columnMeta, getRowId: getRowIdFn }: Edit
   )
 
   // ── Derived classes ────────────────────────────────────────────────
-  const isDirty = hasDirtyEdit
   const isInvalid = validationError != null
 
   const cellClasses = [
     'block min-w-0 truncate px-2 py-1.5',
     isNull && !isEditing && !stagedValue ? 'italic text-text-muted' : 'text-text-primary',
-    isDirty && !isInsertedRow ? 'bg-yellow-100 dark:bg-yellow-900/25' : '',
-    isInsertedRow ? 'bg-green-100 dark:bg-green-900/25' : '',
-    isDeleted ? 'line-through text-text-muted bg-red-100 dark:bg-red-900/25' : '',
     isInvalid && isEditing && validationError ? 'ring-2 ring-red-500' : '',
     'transition-colors',
   ]
@@ -289,9 +328,9 @@ export function EditableCell({ context, columnMeta, getRowId: getRowIdFn }: Edit
       onKeyDown={handleGlobalKeyDown}
       tabIndex={0}
       role="gridcell"
-      aria-label={`${field}: ${isNull ? 'NULL' : displayValue}${isDirty ? ' (modified)' : ''}`}
+      aria-label={`${field}: ${isNull ? 'NULL' : displayValue}${isCellDirty ? ' (modified)' : ''}`}
     >
-      {isNull ? '(null)' : displayValue}
+      {isNull ? '(null)' : stagedValue !== undefined ? String(stagedValue) : formattedValue || displayValue || <span className="text-text-muted">&#8203;</span>}
     </span>
   )
 }

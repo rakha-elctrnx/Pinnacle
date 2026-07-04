@@ -7,7 +7,7 @@ import {
   RabbitMqIcon,
   ElasticSearchIcon,
   MongoDbIcon,
-} from './components/DatasourceLogo'
+} from './components/branding/DatasourceLogo'
 
 export const databaseTypeOptions: DatabaseTypeOption[] = [
   {

@@ -56,3 +56,5 @@ tasks
 *.tgz
 *.tar.gz
 *.zip
+
+notion-config.md

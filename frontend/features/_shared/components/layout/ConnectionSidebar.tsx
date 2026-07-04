@@ -3,12 +3,12 @@ import { useNavigate } from "react-router-dom";
 import {
   Plus,
 } from "lucide-react";
-import { ActionButton } from "./ActionButton";
-import { TreeNodeItem } from "./TreeNodeItem";
-import type { ConnectionProfile, ConnectionType } from "../types/domain";
-import type { ElasticIndex } from "../../elasticsearch/types/elasticsearch";
-import type { TreeNode, ExplorerTreeData } from "../types/shared";
-import { isSqlConnectionType } from "../utils";
+import { ActionButton } from "../ui/ActionButton";
+import { TreeNodeItem } from "../ui/TreeNodeItem";
+import type { ConnectionProfile, ConnectionType } from "../../types/domain";
+import type { ElasticIndex } from "../../../elasticsearch/types/elasticsearch";
+import type { TreeNode, ExplorerTreeData } from "../../types/shared";
+import { isSqlConnectionType } from "../../utils";
 
 interface ExplorerDataContext {
   treeDataMap: Record<string, ExplorerTreeData>;
@@ -17,7 +17,7 @@ interface ExplorerDataContext {
   fetchDatabaseDetails: (connectionId: string, profile: ConnectionProfile, dbName: string) => Promise<void>;
   refreshConnectionData: (connId: string, conn: ConnectionProfile) => Promise<void>;
 }
-import { useDataExplorerContext } from "../context/DataExplorerContext";
+import { useDataExplorerContext } from "../../context/DataExplorerContext";
 import {
   getVisibleNodes,
   getNextNode,
@@ -25,9 +25,9 @@ import {
   getParentPath,
   getFirstVisibleNode,
   getLastVisibleNode,
-} from "../utils/treeNavigation";
-import { useTabStore } from "../store/tabStore";
-import { getConnectionDefaultRoute } from "../utils";
+} from "../../utils/treeNavigation";
+import { useTabStore } from "../../store/tabStore";
+import { getConnectionDefaultRoute } from "../../utils";
 
 /**
  * ConnectionSidebar — connection tree panel.

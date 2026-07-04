@@ -95,6 +95,24 @@ export function formatCSVWithHeaders(
 }
 
 /**
+ * Build a JSON string for export.
+ */
+export function formatJSON(
+  rows: Record<string, unknown>[],
+  columns: string[],
+  pretty = true,
+): string {
+  const filtered = rows.map((row) => {
+    const filteredRow: Record<string, unknown> = {}
+    columns.forEach((col) => {
+      filteredRow[col] = row[col]
+    })
+    return filteredRow
+  })
+  return pretty ? JSON.stringify(filtered, null, 2) : JSON.stringify(filtered)
+}
+
+/**
  * Generate INSERT statements for the given rows.
  */
 export function generateInsertSQL(

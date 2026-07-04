@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import type { ConnectionStatus } from '../types/shared'
-import { statusStyle } from '../constants'
+import type { ConnectionStatus } from '../../types/shared'
+import { statusStyle } from '../../constants'
 
 /** Pagination info for SQL (offset-based) */
 export interface SqlPagination {

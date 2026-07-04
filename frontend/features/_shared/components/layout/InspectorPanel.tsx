@@ -1,5 +1,5 @@
 import { X } from 'lucide-react'
-import { useShellLayout } from '../store/shellLayoutStore'
+import { useShellLayout } from '../../store/shellLayoutStore'
 
 /**
  * InspectorPanel — right-side overlay panel.

@@ -6,18 +6,22 @@ import { type ButtonHTMLAttributes, type ReactNode } from 'react'
  */
 const variantMap = {
   default:
-    'text-text-muted hover:bg-bg-hover hover:text-text-primary',
+    'text-text-muted hover:bg-bg-hover hover:text-text-primary active:bg-bg-muted',
   active:
-    'bg-bg-hover text-text-primary hover:bg-bg-hover/80 hover:text-text-primary',
+    'bg-primary text-text-inverse hover:bg-primary-hover active:bg-primary-hover',
   secondary:
-    'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
+    'text-text-secondary hover:bg-bg-hover hover:text-text-primary active:bg-bg-muted',
   danger:
-    'text-text-secondary hover:bg-bg-hover hover:text-red-400',
+    'text-text-secondary hover:bg-red-500/10 hover:text-danger active:bg-red-500/15',
   success:
-    'text-text-muted hover:bg-emerald-500/10 hover:text-emerald-400',
+    'text-success hover:bg-emerald-500/10 hover:text-success-text active:bg-emerald-500/15',
   accent:
-    'text-primary hover:bg-bg-hover',
+    'text-primary hover:bg-primary/10 active:bg-primary/15',
 } as const
+
+/** Disabled variant — muted icon + flat bg to clearly signal "not actionable". */
+const disabledClasses =
+  'text-[var(--color-disabled-text)]'
 
 export type ActionButtonVariant = keyof typeof variantMap
 
@@ -45,10 +49,15 @@ export function ActionButton({
   title,
   ...rest
 }: ActionButtonProps) {
+  const isDisabled = rest.disabled
   return (
     <button
       type="button"
-      className={`rounded-lg p-1.5 transition cursor-pointer disabled:cursor-not-allowed disabled:text-text-muted disabled:hover:bg-bg-subtle ${variantMap[variant]} ${className}`}
+      className={`rounded-lg p-1.5 transition cursor-pointer ${
+        isDisabled
+          ? disabledClasses
+          : `${variantMap[variant]} active:scale-95`
+      } disabled:cursor-not-allowed ${className}`}
       title={title ?? rest['aria-label']}
       {...rest}
     >

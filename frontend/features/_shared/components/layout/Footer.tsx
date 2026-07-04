@@ -1,17 +1,17 @@
 import { ChevronRight } from 'lucide-react'
-import { useDataExplorerContext } from '../context/DataExplorerContext'
+import { useDataExplorerContext } from '../../context/DataExplorerContext'
 
 /**
  * Footer — application-level bottom bar.
  *
  * Phase 1: read-only breadcrumb on the left and the app version on the
  * right. The breadcrumb is derived from the orchestrator context:
- *   Group > Connection > Database > Schema > Tables > Table
+ *   Group > Connection > Database > Schema > Table
  *
  * Click-to-navigate is deferred to Phase 2 per the task scope.
  */
 export function Footer() {
-  const { selectedConnection, explorerData, selectedTreeNode, groupedConnections } =
+  const { selectedConnection, selectedTreeNode, groupedConnections } =
     useDataExplorerContext()
 
   // Derive the group label for the selected connection (its first tag).
@@ -27,16 +27,25 @@ export function Footer() {
     ? Object.prototype.hasOwnProperty.call(groupedConnections, groupLabel)
     : false
 
-  // Display labels for breadcrumb segments. Empty strings collapse the
-  // segment out of the rendered chain so the breadcrumb never shows
-  // dangling chevrons.
+  // ── Breadcrumb segments
+  // selectedTreeNode can be a full tree path
+  // ("Acty/Contabo/sr_cafe/public/Tables/MenuItem") or a partial path
+  // ("sr_cafe/public/Tables/MenuItem") set by page-level navigation.
+  // Detect the format by checking if segment[1] is the connection name.
   const segments: string[] = []
   if (selectedConnection) {
     segments.push(hasGroupInStore ? groupLabel : '—')
     segments.push(selectedConnection.name)
-    if (explorerData.selectedDatabase) segments.push(explorerData.selectedDatabase)
-    if (explorerData.selectedSchema) segments.push(explorerData.selectedSchema)
-    if (selectedTreeNode) segments.push(selectedTreeNode)
+    if (selectedTreeNode) {
+      const parts = selectedTreeNode.split('/').filter(Boolean)
+      if (parts.length > 2 && parts[1] === selectedConnection.name) {
+        // Full tree path — skip group + connection (already added above)
+        segments.push(...parts.slice(2))
+      } else if (parts.length > 2) {
+        // Partial path without group/connection prefix — use as-is
+        segments.push(...parts)
+      }
+    }
   }
 
   return (

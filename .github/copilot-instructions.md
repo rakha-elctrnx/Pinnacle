@@ -96,21 +96,26 @@ The project uses a tiered workflow. Pick the lightest tier that fits the work:
 | Work size | Workflow |
 | --- | --- |
 | Small / obvious change (< 20 lines, no design question) | Code directly. Run `pnpm typecheck` + `pnpm lint`. Commit. |
-| Feature or decision with design/architecture questions | Run the `analyst` skill (or `create-adr` prompt) to produce an ADR in `docs/decisions/` first, then implement. |
-| Tracked feature that needs QA / handoff / traceability | Full ritual: `create-task` → `tasks/task-NNN-*.md`, then `execute-task` to implement, then `audit-task` for QA. |
+| Feature or decision with design/architecture questions | Run the `analyst` skill (or `create-adr` prompt) to produce an ADR in the Notion ADRs database first, then implement. |
+| Tracked feature that needs QA / handoff / traceability | Full ritual: `create-task` → Notion page, then `execute-task` to implement, then `audit-task` for QA. |
 
 ### Where things live
 
-- **`docs/decisions/`** — durable ADRs and workflow reviews (engineering decisions, visible to humans, committed to git). See `docs/decisions/README.md`.
-- **`tasks/`** — transient taskboard (`task-NNN-*.md`, `bug-NNN-*.md`) and templates. See `tasks/README.md` for the canonical status model and Definition of Done.
+All database IDs are defined in `.github/notion-config.md` — change them once to reuse on other projects.
+
+- **Notion Tasks database** (`NOTION_TASKS_DB_ID`) — tasks & bugs. Status: Not Started / In Progress / Done / Archived.
+- **Notion ADRs database** (`NOTION_ADRS_DB_ID`) — ADRs and workflow reviews. Status: Proposed / Accepted / Deprecated / Superseded.
+- **Project relation ID:** `NOTION_PROJECT_RELATION_ID` — link tasks/ADRs to the project.
 - **`.github/skills/`** — `analyst`, `dev`, `qa` skill definitions.
 - **`.github/prompts/`** — shortcuts: `create-adr`, `create-task`, `execute-task`, `audit-task`, `qa-handoff-checklist`.
 
+Board: `NOTION_BOARD_URL` (see `notion-config.md`)
+
 ### Rules
 
-- Before creating a task, check `docs/decisions/` for a relevant ADR and link it.
-- Before creating an ADR, check `docs/decisions/` first to avoid duplicates (update the existing one if refining the same direction).
-- Before creating a task or bug, scan existing `tasks/task-*.md` / `tasks/bug-*.md` to avoid duplicates.
-- Use only the canonical status labels from `tasks/README.md`: `todo`, `in-progress`, `blocked`, `needs-follow-up`, `done`.
-- Never mark `done` without recorded validation evidence and Definition-of-Done checks.
+- Before creating a task, search the Notion ADRs database for a relevant ADR and link it.
+- Before creating an ADR, search the Notion ADRs database first to avoid duplicates (update the existing one if refining the same direction).
+- Before creating a task or bug, search Notion first to avoid duplicates.
+- Use Notion status values: `Not Started`, `In Progress`, `Done`, `Archived`.
+- Never mark `Done` without recorded validation evidence and Definition-of-Done checks.
 - For ambiguous behavior with no existing decision, escalate to `analyst` before coding.

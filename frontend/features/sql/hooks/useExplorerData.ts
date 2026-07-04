@@ -165,6 +165,7 @@ interface UseExplorerDataReturn {
   realTableStructure: Record<string, string>[];
   realTableIndexes: TableIndex[];
   realDbStats: DetailStat[];
+  totalRowCount: number;
   selectedSchema: string;
   selectedDatabase: string;
   selectedTable: string | null;
@@ -178,7 +179,7 @@ interface UseExplorerDataReturn {
   setSelectedDatabase: (db: string) => void;
   setSelectedTable: (table: string | null) => void;
   getTreeNodesForConnection: (conn: ConnectionProfile) => TreeNode[];
-  handleTreeNodeClick: (nodeLabel: string, databaseName?: string) => boolean;
+  handleTreeNodeClick: (nodeLabel: string, databaseName?: string, page?: number, pageSize?: number) => boolean;
   fetchSqlTableList: (
     conn: ConnectionProfile,
     databaseName: string,
@@ -215,6 +216,7 @@ export function useExplorerData({
     [],
   );
   const [realTableStats, setRealTableStats] = useState<TableStats | null>(null);
+  const [totalRowCount, setTotalRowCount] = useState(0);
   const [realTableStructure, setRealTableStructure] = useState<
     Record<string, string>[]
   >([]);
@@ -427,10 +429,16 @@ export function useExplorerData({
       schema: string,
       table: string,
       dbName?: string,
+      page?: number,
+      pageSize?: number,
     ) => {
       if (!isSqlConnectionType(conn.type)) return;
       setTableDataLoading(true);
       try {
+        const p = page ?? 1;
+        const ps = pageSize ?? 100;
+        const offset = (p - 1) * ps;
+
         // Use the specified database or fall back to the connection's default
         const basePayload = await getConnPayloadWithPassword(conn);
         const payload = {
@@ -444,10 +452,17 @@ export function useExplorerData({
 
         const dataRes = await executeSql({
           connection: payload,
-          sql: `SELECT * FROM ${fromClause} LIMIT 100`,
+          sql: `SELECT * FROM ${fromClause} LIMIT ${ps} OFFSET ${offset}`,
         });
         setRealTableColumns(dataRes.columns);
         setRealTableRows(dataRes.rows);
+
+        // Fetch total row count (cached by DB; runs every time for accuracy)
+        const countRes = await executeSql({
+          connection: payload,
+          sql: `SELECT COUNT(*) as count FROM ${fromClause}`,
+        });
+        setTotalRowCount(Number(countRes.rows[0]?.count ?? 0));
 
         const structRes = await executeSql({
           connection: payload,
@@ -467,10 +482,6 @@ export function useExplorerData({
         });
         setRealTableIndexes(mapQueryIndexesToTableIndexes(indexRes.rows));
 
-        const countRes = await executeSql({
-          connection: payload,
-          sql: `SELECT COUNT(*) as count FROM ${fromClause}`,
-        });
         setRealTableStats({
           rows: String(countRes.rows[0]?.count ?? "0"),
           columns: String(dataRes.columns.length),
@@ -499,6 +510,10 @@ export function useExplorerData({
     ) => {
       if (!isSqlConnectionType(conn.type)) return;
       setSqlTableListLoading(true);
+
+      // Update selected database and schema to match the table list being fetched
+      setSelectedDatabase(databaseName);
+      setSelectedSchema(schemaName || (conn.type === 'postgresql' ? 'public' : databaseName));
 
       try {
         const payload = await getConnPayloadWithPassword(conn, schemaName);
@@ -684,6 +699,7 @@ export function useExplorerData({
     setRealTableColumns([]);
     setRealTableRows([]);
     setRealTableStats(null);
+    setTotalRowCount(0);
     setRealTableStructure([]);
     setRealTableIndexes([]);
     setRealDbStats([]);
@@ -696,7 +712,7 @@ export function useExplorerData({
   }, []);
 
   const handleTreeNodeClick = useCallback(
-    (nodeLabel: string, databaseName?: string) => {
+    (nodeLabel: string, databaseName?: string, page?: number, pageSize?: number) => {
       if (selectedConnection && isSqlConnectionType(selectedConnection.type)) {
         const treeData = treeDataMap[selectedConnection.id];
         if (!treeData) return false;
@@ -738,6 +754,8 @@ export function useExplorerData({
             schemaName,
             nodeLabel,
             targetDbName,
+            page,
+            pageSize,
           );
           return true;
         }
@@ -758,6 +776,7 @@ export function useExplorerData({
     realTableStructure,
     realTableIndexes,
     realDbStats,
+    totalRowCount,
     selectedSchema,
     selectedDatabase,
     selectedTable,

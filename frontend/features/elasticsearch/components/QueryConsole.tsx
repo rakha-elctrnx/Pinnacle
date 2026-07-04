@@ -4,7 +4,7 @@ import { elasticExecuteQuery } from '../clients/elasticsearch'
 import type { ElasticQueryResult } from '../types/elasticsearch'
 import { Play, Clock, Copy, ChevronDown } from 'lucide-react'
 import Editor from '@monaco-editor/react'
-import { CenteredLoadingState } from '../../_shared/components/CenteredLoadingState'
+import { CenteredLoadingState } from '../../_shared/components/ui/CenteredLoadingState'
 
 interface QueryHistoryEntry {
   id: string

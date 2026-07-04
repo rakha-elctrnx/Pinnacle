@@ -1,14 +1,13 @@
 import { AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight, Database, Loader2, Plug, Plus, X } from 'lucide-react'
 import { useState, useMemo, useRef, useEffect } from 'react'
-import type { ConnectionProfile, ConnectionType } from '../types/domain'
-import type { ConnectionStep, TestConnectionResult } from '../types/shared'
-import { databaseTypeOptions, defaultPortByType, defaultInitialDatabaseByType } from '../constants'
-// CLIENTS
-import { elasticTestConnection } from '../../elasticsearch/clients/elasticsearch'
-import { testConnection } from '../../sql/clients/sql'
-import { redisTestConnection } from '../../redis/clients/redis'
+import type { ConnectionProfile, ConnectionType } from '../../types/domain'
+import type { ConnectionStep, TestConnectionResult } from '../../types/shared'
+import { databaseTypeOptions, defaultPortByType, defaultInitialDatabaseByType } from '../../constants'
+import { elasticTestConnection } from '../../../elasticsearch/clients/elasticsearch'
+import { testConnection } from '../../../sql/clients/sql'
+import { redisTestConnection } from '../../../redis/clients/redis'
 // UTILS CONNECTION TYPE
-import { isSqlConnectionType, isElasticsearchType, isRedisConnectionType } from '../utils'
+import { isSqlConnectionType, isElasticsearchType, isRedisConnectionType } from '../../utils'
 interface FieldError {
   host?: string
   port?: string

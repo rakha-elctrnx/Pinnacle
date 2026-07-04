@@ -31,8 +31,11 @@ interface UseTableKeyboardOptions {
   onCommit?: () => void
   /** Delete/Backspace → stage selected row(s) for deletion. */
   onDelete?: () => void
+  /** Ctrl/Cmd+C → copy selected cells */
+  onCopy?: () => void
+  /** Ctrl/Cmd+V → paste from clipboard */
+  onPaste?: () => void
 }
-
 export function useTableKeyboard({
   containerRef,
   columnIds,
@@ -43,6 +46,8 @@ export function useTableKeyboard({
   onRedo,
   onCommit,
   onDelete,
+  onCopy,
+  onPaste,
 }: UseTableKeyboardOptions) {
   const activeCell = useTableSelectionStore((s) => s.activeCell)
   const extendSelection = useTableSelectionStore((s) => s.extendSelection)
@@ -75,14 +80,19 @@ export function useTableKeyboard({
         selectAll(rowCount, columnIds)
         return
       }
-
-      // ── Ctrl/Cmd+Enter → commit pending changes ──────────────────
-      if (isMeta && e.key === 'Enter') {
+      // ── Ctrl/Cmd+C → copy selected cells ─────────────────────────
+      if (isMeta && e.key.toLowerCase() === 'c') {
         e.preventDefault()
-        onCommit?.()
+        onCopy?.()
         return
       }
 
+      // ── Ctrl/Cmd+V → paste from clipboard ────────────────────────
+      if (isMeta && e.key.toLowerCase() === 'v') {
+        e.preventDefault()
+        onPaste?.()
+        return
+      }
       // ── Ctrl/Cmd+Shift+Z → redo (Ctrl/Cmd+Y alias) ──────────────
       // ── Ctrl/Cmd+Z → undo ─────────────────────────────────────────
       if (isMeta && e.key.toLowerCase() === 'z') {
@@ -292,6 +302,8 @@ export function useTableKeyboard({
       onRedo,
       onCommit,
       onDelete,
+      onCopy,
+      onPaste,
     ],
   )
 

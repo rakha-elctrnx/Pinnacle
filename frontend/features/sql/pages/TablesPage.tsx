@@ -3,8 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Trash2, Search, List, Network, Columns3Cog, CirclePlus } from 'lucide-react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { useDataExplorerContext } from '../../_shared/context/DataExplorerContext'
-import { CenteredLoadingState } from '../../_shared/components/CenteredLoadingState'
-import { ActionButton } from '../../_shared/components/ActionButton'
+import { CenteredLoadingState } from '../../_shared/components/ui/CenteredLoadingState'
+import { ActionButton } from '../../_shared/components/ui/ActionButton'
 import { ERDiagramViewer } from '../components/shared/ERDiagramViewer'
 import { useDesignerStore } from '../store/designerStore'
 import { executeSql } from '../clients/sql'
@@ -182,8 +182,8 @@ export function TablesPage() {
   // ── Navigate to table detail ──
   const handleRowDoubleClick = (tableName: string) => {
     navigate(`/sql/${connectionId}/tables/${encodeURIComponent(tableName)}`)
-    const db = queryDatabase || selectedDatabase || selectedConnection?.database
-    const schema = selectedConnection?.type === 'postgresql' ? (querySchema || selectedSchema || 'public') : undefined
+    const db = selectedDatabase || queryDatabase || selectedConnection?.database
+    const schema = selectedConnection?.type === 'postgresql' ? (selectedSchema || querySchema || 'public') : undefined
     const tablePath = schema ? `${db}/${schema}/Tables/${tableName}` : `${db}/Tables/${tableName}`
     wrappedHandleTreeNodeClick(
       tableName,

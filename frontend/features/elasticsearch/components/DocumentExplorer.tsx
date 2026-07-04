@@ -8,7 +8,7 @@ import {
 } from '../clients/elasticsearch'
 import { Search, Plus, Trash2, FileJson, Table, X, Save } from 'lucide-react'
 import Editor from '@monaco-editor/react'
-import { CenteredLoadingState } from '../../_shared/components/CenteredLoadingState'
+import { CenteredLoadingState } from '../../_shared/components/ui/CenteredLoadingState'
 
 export interface DocumentExplorerState {
   totalHits: number

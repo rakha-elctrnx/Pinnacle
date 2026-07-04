@@ -94,13 +94,11 @@ pinnacle/
 │   ├── app/               # Routing, providers, theming
 │   ├── features/          # Feature modules (sql, elasticsearch, redis, …)
 │   └── assets/            # Static assets
-├── docs/                  # Documentation & ADRs
-├── tasks/                 # Task tracking & milestone templates
 ├── Makefile               # Unified dev/build commands
 └── package.json
 ```
 
-The project follows a **feature-sliced architecture** on the frontend and a **layered (domain-driven) architecture** on the backend. See [`docs/decisions/`](./docs/decisions/) for Architecture Decision Records.
+The project follows a **feature-sliced architecture** on the frontend and a **layered (domain-driven) architecture** on the backend.
 
 ## 🤝 Contributing
 

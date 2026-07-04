@@ -9,7 +9,7 @@ import { testConnection } from '../../../sql/clients/sql'
 import { redisTestConnection } from '../../../redis/clients/redis'
 import { isSqlConnectionType, isElasticsearchType, isRedisConnectionType } from '../../utils'
 import { AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Plug, Plus, X } from 'lucide-react'
-import { CustomTitlebar } from '../../components/CustomTitlebar'
+import { CustomTitlebar } from '../../components/layout/CustomTitlebar'
 
 /**
  * NewConnectionPage — standalone page rendered inside the dedicated

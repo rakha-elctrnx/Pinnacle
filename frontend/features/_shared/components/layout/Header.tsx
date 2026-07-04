@@ -8,9 +8,9 @@ import {
   Search,
   Sun,
 } from 'lucide-react'
-import { useTheme } from '../../../app/theme'
-import { useShellLayout } from '../store/shellLayoutStore'
-import { ActionButton } from './ActionButton'
+import { useTheme } from '../../../../app/theme'
+import { useShellLayout } from '../../store/shellLayoutStore'
+import { ActionButton } from '../ui/ActionButton'
 
 /**
  * Header — application-level top bar.

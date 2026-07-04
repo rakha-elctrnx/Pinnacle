@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Copy, Download, Eraser, FileDown, Pencil, RefreshCw, Scissors, TableProperties, Trash2, Unplug } from 'lucide-react'
 import { DataExplorerContextProvider, useDataExplorerContext } from '../context/DataExplorerContext'
 import { useDataExplorerOrchestrator } from '../hooks/useDataExplorerOrchestrator'
 import { useTabStore } from '../store/tabStore'
 import { useShellLayout } from '../store/shellLayoutStore'
 import { useDesignerStore } from '../../sql/store/designerStore'
-import { Header } from '../components/Header'
-import { Footer } from '../components/Footer'
-import { PageWorkspace } from '../components/PageWorkspace'
-import { ConnectionSidebar } from '../components/ConnectionSidebar'
-import { InspectorPanel } from '../components/InspectorPanel'
-import { ContextMenu } from '../components/ContextMenu'
-import { DeleteConnectionModal } from '../components/DeleteConnectionModal'
+import { Header } from '../components/layout/Header'
+import { Footer } from '../components/layout/Footer'
+import { PageWorkspace } from '../components/layout/PageWorkspace'
+import { ConnectionSidebar } from '../components/layout/ConnectionSidebar'
+import { InspectorPanel } from '../components/layout/InspectorPanel'
+import { GenericContextMenu, type ContextMenuItem } from '../components/ui/ContextMenu'
+import { DeleteConnectionModal } from '../components/modals/DeleteConnectionModal'
 import { getConnPayloadWithPassword, isSqlConnectionType } from '../utils'
 import { openNewConnectionWindow } from '../services/newConnectionWindowService'
 
@@ -383,27 +384,51 @@ function DataExplorerLayoutChrome({
 
       {contextMenu && (
         <div ref={contextMenuRef}>
-          <ContextMenu
-            state={contextMenu}
-            onEdit={handleOpenEditModal}
-            onRefresh={handleRefreshConnection}
-            onCloseConnection={handleCloseConnection}
-            onDuplicate={handleDuplicateConnection}
-            onExport={handleExportConnection}
-            onDelete={handleDeleteConnection}
-            onDesignTable={handleOpenDesignerForEdit}
-            onDeleteTable={(connectionId, tableName) => {
-              handleRequestDeleteTableFromMenu(connectionId, tableName)
-            }}
-            onEmptyTable={(connectionId, tableName) => {
-              handleRequestDataOperationFromMenu(connectionId, tableName, 'empty')
-            }}
-            onTruncateTable={(connectionId, tableName) => {
-              handleRequestDataOperationFromMenu(connectionId, tableName, 'truncate')
-            }}
-            onExportTable={(connectionId, tableName) => {
-              handleRequestExportFromMenu(connectionId, tableName)
-            }}
+          <GenericContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            ariaLabel="Connection tree context menu"
+            items={[
+              // ── Table-specific actions ──────────────────────────
+              ...(contextMenu.tableName
+                ? [
+                    ...(handleOpenDesignerForEdit
+                      ? [{ label: 'Design Table', icon: <TableProperties size={14} />, action: () => { handleOpenDesignerForEdit(contextMenu.tableName!) } } as ContextMenuItem]
+                      : []),
+                    ...(handleRequestDataOperationFromMenu
+                      ? [{ label: 'Empty Table', icon: <Eraser size={14} />, action: () => { handleRequestDataOperationFromMenu(contextMenu.itemId, contextMenu.tableName!, 'empty') } } as ContextMenuItem]
+                      : []),
+                    ...(handleRequestDataOperationFromMenu
+                      ? [{ label: 'Truncate Table', icon: <Scissors size={14} />, action: () => { handleRequestDataOperationFromMenu(contextMenu.itemId, contextMenu.tableName!, 'truncate') } } as ContextMenuItem]
+                      : []),
+                    ...(handleRequestExportFromMenu
+                      ? [{ label: 'Export Data', icon: <FileDown size={14} />, action: () => { handleRequestExportFromMenu(contextMenu.itemId, contextMenu.tableName!) } } as ContextMenuItem]
+                      : []),
+                    ...(handleRequestDeleteTableFromMenu
+                      ? [{ label: 'Delete Table', icon: <Trash2 size={14} />, action: () => { handleRequestDeleteTableFromMenu(contextMenu.itemId, contextMenu.tableName!) }, dangerous: true } as ContextMenuItem]
+                      : []),
+                    { label: '', dividerAfter: true } as ContextMenuItem,
+                  ]
+                : [
+                    // ── Connection-level actions ──────────────────
+                    { label: 'Rename / Edit', icon: <Pencil size={14} />, action: () => { handleOpenEditModal(contextMenu.itemId) } },
+                    ...(handleOpenDesignerForEdit
+                      ? [{ label: 'Edit Structure', icon: <TableProperties size={14} />, action: () => { handleOpenDesignerForEdit(contextMenu.itemId) } } as ContextMenuItem]
+                      : []),
+                  ]),
+              // ── Common actions ───────────────────────────────
+              { label: 'Refresh', icon: <RefreshCw size={14} />, action: () => { handleRefreshConnection(contextMenu.itemId) } },
+              // ── Connection-only extra actions ─────────────────
+              ...(!contextMenu.tableName
+                ? [
+                    { label: 'Duplicate', icon: <Copy size={14} />, action: () => { handleDuplicateConnection(contextMenu.itemId) } },
+                    { label: 'Export Configuration', icon: <Download size={14} />, action: () => { handleExportConnection(contextMenu.itemId) } },
+                    { label: '', dividerAfter: true } as ContextMenuItem,
+                    { label: 'Close Connection', icon: <Unplug size={14} />, action: () => { handleCloseConnection(contextMenu.itemId) } },
+                    { label: 'Delete', icon: <Trash2 size={14} />, action: () => { handleDeleteConnection(contextMenu.itemId) }, dangerous: true } as ContextMenuItem,
+                  ]
+                : []),
+            ]}
             onClose={() => setContextMenu(null)}
           />
         </div>

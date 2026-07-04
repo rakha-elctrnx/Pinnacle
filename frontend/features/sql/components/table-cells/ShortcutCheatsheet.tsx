@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useRef } from 'react'
-import { ActionButton } from '../../../_shared/components/ActionButton'
+import { ActionButton } from '../../../_shared/components/ui/ActionButton'
 import { X } from 'lucide-react'
 
 interface ShortcutCheatsheetProps {
