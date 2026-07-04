@@ -4,8 +4,8 @@
   "description": "enables the default permissions",
   "windows": [
     "main",
-    "core:window:allow-start-dragging",
-    "new-connection"
+    "new-connection",
+    "table-designer"
   ],
   "permissions": [
     "core:default",
@@ -16,6 +16,7 @@
     "core:window:allow-hide",
     "core:window:allow-center",
     "core:window:allow-set-focus",
-    "core:window:allow-is-visible"
+    "core:window:allow-is-visible",
+    "core:webview:allow-create-webview-window"
   ]
 }

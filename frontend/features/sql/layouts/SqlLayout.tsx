@@ -5,7 +5,6 @@ import { useDataExplorerContext } from '../../_shared/context/DataExplorerContex
 import { DeleteTableModal } from '../components/shared/DeleteTableModal'
 import { ExportDataModal } from '../components/export/ExportDataModal'
 import { DataOperationModal } from '../components/export/DataOperationModal'
-import { TableDesignerModal } from '../components/table-designer/TableDesignerModal'
 import { isSqlConnectionType, getConnPayloadWithPassword } from '../../_shared/utils'
 
 /**
@@ -159,8 +158,6 @@ export function SqlLayout() {
           onClose={handleCloseExportModal}
         />
       )}
-
-      <TableDesignerModal />
     </div>
   )
 }

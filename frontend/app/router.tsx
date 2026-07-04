@@ -14,6 +14,7 @@ import { DocumentsPage } from '../features/elasticsearch/pages/DocumentsPage'
 import { QueryConsolePage } from '../features/elasticsearch/pages/QueryConsolePage'
 import { MappingsPage } from '../features/elasticsearch/pages/MappingsPage'
 import { NewConnectionPage } from '../features/_shared/pages/window'
+import { TableDesignerPage } from '../features/sql/pages/window/TableDesignerPage'
 
 /**
  * Top-level router.
@@ -44,6 +45,10 @@ export const router = createBrowserRouter([
     element: <NewConnectionPage />,
   },
   {
+    path: '/table-designer',
+    element: <TableDesignerPage />,
+   },
+   {
     path: '/',
     element: <DataExplorerLayout />,
     children: [

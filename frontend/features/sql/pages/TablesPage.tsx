@@ -6,7 +6,7 @@ import { useDataExplorerContext } from '../../_shared/context/DataExplorerContex
 import { CenteredLoadingState } from '../../_shared/components/ui/CenteredLoadingState'
 import { ActionButton } from '../../_shared/components/ui/ActionButton'
 import { ERDiagramViewer } from '../components/shared/ERDiagramViewer'
-import { useDesignerStore } from '../store/designerStore'
+import { openDesignerWindow } from '../services/designerWindowService'
 import { executeSql } from '../clients/sql'
 import { getConnPayloadWithPassword, isSqlConnectionType, quoteIdentifier } from '../../_shared/utils'
 import type { SqlTableListItem } from '../../_shared/types/shared'
@@ -40,8 +40,6 @@ export function TablesPage() {
     wrappedHandleTreeNodeClick,
   } = useDataExplorerContext()
 
-  const loadAndOpenForEdit = useDesignerStore((s) => s.loadAndOpenForEdit)
-  const openForCreate = useDesignerStore((s) => s.openForCreate)
 
   // ── State ──
   const [search, setSearch] = useState('')
@@ -129,20 +127,28 @@ export function TablesPage() {
     setNextTableName('')
   }
 
-  // ── Designer integration ──
+  // ── Designer integration (separate window) ──
   const handleOpenDesignerForEdit = async (tableName: string) => {
     const { connection, databaseName, schemaName } = getSqlContext()
     const payload = { ...(await getConnPayloadWithPassword(connection)), database: databaseName }
-    await loadAndOpenForEdit(payload, tableName, databaseName, schemaName)
+    await openDesignerWindow(
+      { mode: 'edit', schema: schemaName, database: databaseName, connectionPayload: payload, tableName },
+      async () => {
+        await refreshTableList()
+      },
+    )
   }
 
   const handleCreateInDesigner = async () => {
     const { connection, databaseName, schemaName } = getSqlContext()
     if (!databaseName) return
     const payload = { ...(await getConnPayloadWithPassword(connection)), database: databaseName }
-    openForCreate(schemaName, databaseName, payload, async () => {
-      await refreshTableList()
-    })
+    await openDesignerWindow(
+      { mode: 'create', schema: schemaName, database: databaseName, connectionPayload: payload },
+      async () => {
+        await refreshTableList()
+      },
+    )
   }
 
   // ── CRUD handlers ──

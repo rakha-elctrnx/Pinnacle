@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
 import { Database, X, Plus } from 'lucide-react'
 import type { ColumnDefinition } from '../../logic/table-designer'
 import { useDesignerStore } from '../../store/designerStore'
+import { Combobox } from '../../../_shared/components/ui/Combobox'
 
 const COMMON_DATA_TYPES = [
   'VARCHAR',
@@ -199,8 +199,8 @@ function ColumnRow({
       <td className="px-2 py-1.5">
         {needsLength ? (
           <input
-            type="number"
-            min={1}
+            type="text"
+            inputMode="numeric"
             value={column.length ?? ''}
             onChange={(e) => onChange({ length: e.target.value ? Number(e.target.value) : null })}
             className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
@@ -209,16 +209,16 @@ function ColumnRow({
         ) : needsPrecision ? (
           <div className="flex items-center gap-1">
             <input
-              type="number"
-              min={1}
+              type="text"
+              inputMode="numeric"
               value={column.precision ?? ''}
               onChange={(e) => onChange({ precision: e.target.value ? Number(e.target.value) : null })}
               className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
               placeholder="10"
             />
             <input
-              type="number"
-              min={0}
+              type="text"
+              inputMode="numeric"
               value={column.scale ?? ''}
               onChange={(e) => onChange({ scale: e.target.value ? Number(e.target.value) : null })}
               className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
@@ -286,68 +286,16 @@ interface DataTypeSelectProps {
   onChange: (value: string) => void
 }
 
+const DATA_TYPE_ITEMS = COMMON_DATA_TYPES.map((t) => ({ value: t, label: t }))
+
 function DataTypeSelect({ value, onChange }: DataTypeSelectProps) {
-  const [open, setOpen] = useState(false)
-  const [filter, setFilter] = useState(value)
-  const wrapperRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [])
-
-  const filtered = COMMON_DATA_TYPES.filter((t) =>
-    t.toLowerCase().includes(filter.toLowerCase()),
-  )
-  const isCustom = value && !COMMON_DATA_TYPES.includes(value.toUpperCase())
-
   return (
-    <div className="relative" ref={wrapperRef}>
-      <input
-        type="text"
-        value={filter}
-        onChange={(e) => {
-          setFilter(e.target.value)
-          onChange(e.target.value)
-          setOpen(true)
-        }}
-        onFocus={() => {
-          setFilter(value)
-          setOpen(true)
-        }}
-        placeholder="data type"
-        className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
-      />
-      {open && (filtered.length > 0 || isCustom) && (
-        <ul className="absolute z-30 mt-1 max-h-40 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-          {filtered.map((t) => (
-            <li key={t}>
-              <button
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  onChange(t)
-                  setFilter(t)
-                  setOpen(false)
-                }}
-                className="block w-full px-2 py-1 text-left text-xs text-slate-700 hover:bg-blue-50"
-              >
-                {t}
-              </button>
-            </li>
-          ))}
-          {isCustom && (
-            <li className="border-t border-slate-100 px-2 py-1 text-[10px] text-slate-400">
-              Custom: {value}
-            </li>
-          )}
-        </ul>
-      )}
-    </div>
+    <Combobox
+      value={value}
+      onChange={onChange}
+      items={DATA_TYPE_ITEMS}
+      placeholder="data type"
+      allowCustom
+    />
   )
 }

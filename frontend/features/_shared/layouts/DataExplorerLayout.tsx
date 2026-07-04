@@ -5,7 +5,7 @@ import { DataExplorerContextProvider, useDataExplorerContext } from '../context/
 import { useDataExplorerOrchestrator } from '../hooks/useDataExplorerOrchestrator'
 import { useTabStore } from '../store/tabStore'
 import { useShellLayout } from '../store/shellLayoutStore'
-import { useDesignerStore } from '../../sql/store/designerStore'
+import { openDesignerWindow } from '../../sql/services/designerWindowService'
 import { Header } from '../components/layout/Header'
 import { Footer } from '../components/layout/Footer'
 import { PageWorkspace } from '../components/layout/PageWorkspace'
@@ -306,13 +306,6 @@ function DataExplorerLayoutChrome({
       resetWindow()
     }
   }, [isAddModalOpen, connectionModalNonce])
-
-  // Designer store — used by `ContextMenu`'s "Design Table" action. Mirrors
-  // the page's local `handleOpenDesignerForEdit` so the menu can stay at the
-  // layout level. Lifting this helper into the orchestrator is intentionally
-  // deferred to a follow-up task to keep PREP scope minimal.
-  const loadAndOpenForEdit = useDesignerStore((s) => s.loadAndOpenForEdit)
-
   const handleOpenDesignerForEdit = async (tableName: string) => {
     if (!selectedConnection || !isSqlConnectionType(selectedConnection.type)) return
     const databaseName = queryExecution.queryDatabase || explorerData.selectedDatabase || selectedConnection.database
@@ -321,7 +314,9 @@ function DataExplorerLayoutChrome({
         ? queryExecution.querySchema || explorerData.selectedSchema || 'public'
         : databaseName ?? ''
     const payload = { ...(await getConnPayloadWithPassword(selectedConnection)), database: databaseName ?? '' }
-    await loadAndOpenForEdit(payload, tableName, databaseName ?? '', schemaName)
+    await openDesignerWindow(
+      { mode: 'edit', schema: schemaName, database: databaseName ?? '', connectionPayload: payload, tableName },
+    )
   }
 
   return (

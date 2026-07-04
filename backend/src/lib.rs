@@ -45,7 +45,7 @@ pub fn run() {
                 )?;
             }
 
-            // Ensure the new-connection child window stays hidden on launch.
+            // Ensure child windows stay hidden on launch.
             // macOS may show child windows automatically when a parent is visible.
             if let Some(conn_window) = app.get_webview_window("new-connection") {
                 let _ = conn_window.hide();
