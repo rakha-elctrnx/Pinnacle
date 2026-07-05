@@ -179,7 +179,7 @@ interface UseExplorerDataReturn {
   setSelectedDatabase: (db: string) => void;
   setSelectedTable: (table: string | null) => void;
   getTreeNodesForConnection: (conn: ConnectionProfile) => TreeNode[];
-  handleTreeNodeClick: (nodeLabel: string, databaseName?: string, page?: number, pageSize?: number) => boolean;
+  handleTreeNodeClick: (nodeLabel: string, databaseName?: string, page?: number, pageSize?: number, whereClause?: string, orderByClause?: string) => Promise<boolean>;
   fetchSqlTableList: (
     conn: ConnectionProfile,
     databaseName: string,
@@ -431,8 +431,10 @@ export function useExplorerData({
       dbName?: string,
       page?: number,
       pageSize?: number,
+      whereClause?: string,
+      orderByClause?: string,
     ) => {
-      if (!isSqlConnectionType(conn.type)) return;
+      if (!isSqlConnectionType(conn.type)) return Promise.resolve();
       setTableDataLoading(true);
       try {
         const p = page ?? 1;
@@ -449,10 +451,9 @@ export function useExplorerData({
           conn.type === "postgresql"
             ? `${quoteIdentifier(schema, '"')}.${quoteIdentifier(table, '"')}`
             : quoteIdentifier(table, "`");
-
         const dataRes = await executeSql({
           connection: payload,
-          sql: `SELECT * FROM ${fromClause} LIMIT ${ps} OFFSET ${offset}`,
+          sql: `SELECT * FROM ${fromClause}${whereClause ? ' WHERE ' + whereClause : ''}${orderByClause ? ' ORDER BY ' + orderByClause : ''} LIMIT ${ps} OFFSET ${offset}`,
         });
         setRealTableColumns(dataRes.columns);
         setRealTableRows(dataRes.rows);
@@ -460,7 +461,7 @@ export function useExplorerData({
         // Fetch total row count (cached by DB; runs every time for accuracy)
         const countRes = await executeSql({
           connection: payload,
-          sql: `SELECT COUNT(*) as count FROM ${fromClause}`,
+          sql: `SELECT COUNT(*) as count FROM ${fromClause}${whereClause ? ' WHERE ' + whereClause : ''}`,
         });
         setTotalRowCount(Number(countRes.rows[0]?.count ?? 0));
 
@@ -495,6 +496,7 @@ export function useExplorerData({
         });
       } catch (error) {
         console.error("Failed to fetch table data:", error);
+        throw error;
       } finally {
         setTableDataLoading(false);
       }
@@ -712,10 +714,10 @@ export function useExplorerData({
   }, []);
 
   const handleTreeNodeClick = useCallback(
-    (nodeLabel: string, databaseName?: string, page?: number, pageSize?: number) => {
+    (nodeLabel: string, databaseName?: string, page?: number, pageSize?: number, whereClause?: string, orderByClause?: string) => {
       if (selectedConnection && isSqlConnectionType(selectedConnection.type)) {
         const treeData = treeDataMap[selectedConnection.id];
-        if (!treeData) return false;
+        if (!treeData) return Promise.resolve(false);
 
         let isTable = false;
         let schemaName = selectedSchema;
@@ -749,19 +751,21 @@ export function useExplorerData({
           setSelectedTable(nodeLabel);
           setSelectedSchema(schemaName);
           setSelectedDatabase(targetDbName || "");
-          fetchTableData(
+          return fetchTableData(
             selectedConnection,
             schemaName,
             nodeLabel,
             targetDbName,
             page,
             pageSize,
-          );
-          return true;
+            whereClause,
+            orderByClause,
+          ).then(() => true);
         }
-      }
 
-      return false;
+      return Promise.resolve(false);
+      }
+    return Promise.resolve(false);
     },
     [selectedConnection, selectedSchema, treeDataMap, fetchTableData],
   );

@@ -2,14 +2,21 @@ import type { CSSProperties } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
+  ArrowUpDown,
   Check,
+  ChevronDown,
+  ChevronUp,
   CircleMinus,
   CirclePlus,
   Download,
+  Filter,
+  Inbox,
   Keyboard,
+  Key,
   Redo2,
   RefreshCw,
   Undo2,
+  X,
 } from 'lucide-react'
 import {
   flexRender,
@@ -89,7 +96,165 @@ type ColumnMetadata = {
   columnKey?: string
 }
 
+
+// ── Filter Types ─────────────────────────────────────────────────────────────
+
+type FilterOperator = 
+  | '=' 
+  | '!=' 
+  | 'contains' 
+  | 'starts_with' 
+  | 'ends_with' 
+  | '>' 
+  | '>=' 
+  | '<' 
+  | '<=' 
+  | 'is_null' 
+  | 'is_not_null' 
+  | 'in'
+
+type FilterCondition = {
+  column: string
+  operator: FilterOperator
+  value: string
+}
 // ── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Build SQL WHERE condition from a filter condition.
+ * Handles column escaping, value quoting, and operator translation for Postgres/MySQL.
+ */
+function buildSqlForCondition(
+  cond: FilterCondition,
+  dbType: 'postgresql' | 'mysql',
+  columnsMeta: ColumnMetadata[],
+): string {
+  const { column, operator, value } = cond;
+  
+  // Find column metadata for type information
+  const columnMeta = columnsMeta.find((col) => col.columnName === column);
+  const columnType = columnMeta?.dataType?.toLowerCase() || '';
+  
+  // Determine if this is a numeric column
+  const numericTypes = ['int', 'integer', 'bigint', 'smallint', 'serial', 'bigserial', 
+    'decimal', 'numeric', 'float', 'double', 'real'];
+  const isNumeric = numericTypes.some(type => columnType.includes(type));
+  
+  // Escape column identifier based on database type
+  const escapeColumn = (col: string) => {
+    if (dbType === 'postgresql') {
+      return `"${col.replace(/"/g, '""')}"`;
+    } else {
+      return `\`${col.replace(/`/g, '``')}\``;
+    }
+  };
+  
+  // Escape string values and handle special operators
+  const escapeValue = (val: string) => {
+    if (isNumeric && !isNaN(Number(val))) {
+      return val; // Return as-is for numeric values
+    }
+    // Escape single quotes by doubling them
+    return `'${val.replace(/'/g, "''")}'`;
+  };
+  
+  const escapedColumn = escapeColumn(column);
+  
+  switch (operator) {
+    case '=':
+      return `${escapedColumn} = ${escapeValue(value)}`;
+    case '!=':
+      return `${escapedColumn} != ${escapeValue(value)}`;
+    case 'contains':
+      return dbType === 'postgresql'
+        ? `${escapedColumn} ILIKE ${escapeValue(`%${value}%`)}`
+        : `${escapedColumn} LIKE ${escapeValue(`%${value}%`)}`;
+    case 'starts_with':
+      return dbType === 'postgresql'
+        ? `${escapedColumn} ILIKE ${escapeValue(`${value}%`)}`
+        : `${escapedColumn} LIKE ${escapeValue(`${value}%`)}`;
+    case 'ends_with':
+      return dbType === 'postgresql'
+        ? `${escapedColumn} ILIKE ${escapeValue(`%${value}`)}`
+        : `${escapedColumn} LIKE ${escapeValue(`%${value}`)}`;
+    case '>':
+      return `${escapedColumn} > ${escapeValue(value)}`;
+    case '>=':
+      return `${escapedColumn} >= ${escapeValue(value)}`;
+    case '<':
+      return `${escapedColumn} < ${escapeValue(value)}`;
+    case '<=':
+      return `${escapedColumn} <= ${escapeValue(value)}`;
+    case 'is_null':
+      return `${escapedColumn} IS NULL`;
+    case 'is_not_null':
+      return `${escapedColumn} IS NOT NULL`;
+    case 'in': {
+      // Parse comma-separated values for IN clause
+      const values = value.split(',').map(v => escapeValue(v.trim())).join(', ');
+      return `${escapedColumn} IN (${values})`;
+    }
+    default:
+      return `${escapedColumn} = ${escapeValue(value)}`;
+  }
+}
+
+/**
+ * Build complete WHERE clause from multiple filter conditions.
+ * Joins conditions with AND.
+ */
+function buildWhereClause(
+  filters: FilterCondition[],
+  dbType: 'postgresql' | 'mysql',
+  columnsMeta: ColumnMetadata[],
+): string {
+  if (filters.length === 0) return '';
+
+  const conditions = filters.map(cond => 
+    buildSqlForCondition(cond, dbType, columnsMeta)
+  );
+  return conditions.join(' AND ');
+}
+/**
+ * Build ORDER BY clause from sort state.
+ * Escapes column identifiers for Postgres (double-quotes) or MySQL (backticks).
+ */
+function buildOrderByClause(
+  column: string | null,
+  direction: 'asc' | 'desc',
+  dbType: 'postgresql' | 'mysql',
+): string {
+  if (!column) return '';
+  
+  const escapeColumn = (col: string) => {
+    if (dbType === 'postgresql') {
+      return `"${col.replace(/"/g, '""')}"`;
+    } else {
+      return `\`${col.replace(/`/g, '``')}\``;
+    }
+  };
+  
+  return `${escapeColumn(column)} ${direction.toUpperCase()}`;
+}
+
+/** Helper to get display text for operators */
+function getOperatorDisplay(operator: FilterOperator): string {
+  const displayMap: Record<FilterOperator, string> = {
+    '=': '=',
+    '!=': '≠',
+    'contains': 'contains',
+    'starts_with': 'starts with',
+    'ends_with': 'ends with',
+    '>': '>',
+    '>=': '≥',
+    '<': '<',
+    '<=': '≤',
+    'is_null': 'is null',
+    'is_not_null': 'is not null',
+    'in': 'in'
+  };
+  return displayMap[operator] || operator;
+}
 
 function isPrimaryKeyColumn(metadata: ColumnMetadata | undefined): boolean {
   return Boolean(
@@ -198,16 +363,107 @@ export function TableDetailPage() {
   // Track drag state for range selection
   const isDraggingRef = useRef(false)
   const dragAnchorRef = useRef<{ rowIndex: number; columnId: string } | null>(null)
+  const valueInputRef = useRef<HTMLInputElement>(null)
 
   // ── Pagination state (server-side) ────────────────────────────────────────
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
+
+  // ── Filter state ────────────────────────────────────────────────────────────
+  const [filters, setFilters] = useState<FilterCondition[]>([]);
+  const [appliedWhereClause, setAppliedWhereClause] = useState<string>('');
+  const [filterPanelOpen, setFilterPanelOpen] = useState<boolean>(false);
+  const [newFilter, setNewFilter] = useState<Partial<FilterCondition>>({
+    column: '',
+    operator: '=',
+    value: ''
+  });
+
+  // ── Sort state ─────────────────────────────────────────────────────────────
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [appliedOrderByClause, setAppliedOrderByClause] = useState<string>('');
+
+
 
   // ── Detect the first primary key column for row ID stability ────────────
   const tableColumnsMeta = useMemo<ColumnMetadata[]>(() => {
     if (!tableName || !schemaColumnsByTable) return []
     return schemaColumnsByTable[tableName] || []
   }, [tableName, schemaColumnsByTable])
+
+  // ── Filter handler functions (auto-apply) ─────────────────────────────────
+  const handleAddFilter = useCallback(() => {
+    if (!newFilter.column || !newFilter.operator) return;
+    const isNullOp = ['is_null', 'is_not_null'].includes(newFilter.operator);
+    if (!isNullOp && !newFilter.value) return;
+    
+    const next = [...filters, {
+      column: newFilter.column,
+      operator: newFilter.operator as FilterOperator,
+      value: (isNullOp ? '' : newFilter.value) ?? ''
+    }];
+    setFilters(next);
+    setNewFilter({ column: '', operator: '=', value: '' });
+    
+    const dbType = selectedConnection?.type as 'postgresql' | 'mysql';
+    if (dbType && ['postgresql', 'mysql'].includes(dbType) && tableName) {
+      const whereClause = buildWhereClause(next, dbType, tableColumnsMeta);
+      setAppliedWhereClause(whereClause);
+    }
+  }, [filters, newFilter, selectedConnection, tableColumnsMeta, tableName]);
+
+  const handleRemoveFilter = useCallback((index: number) => {
+    const next = filters.filter((_, i) => i !== index);
+    setFilters(next);
+    
+    const dbType = selectedConnection?.type as 'postgresql' | 'mysql';
+    if (dbType && ['postgresql', 'mysql'].includes(dbType) && tableName) {
+      const whereClause = next.length > 0
+        ? buildWhereClause(next, dbType, tableColumnsMeta)
+        : '';
+      setAppliedWhereClause(whereClause);
+    }
+  }, [filters, selectedConnection, tableColumnsMeta, tableName]);
+
+  const handleClearAllFilters = useCallback(() => {
+    setFilters([]);
+    setNewFilter({ column: '', operator: '=', value: '' });
+    setAppliedWhereClause('');
+  }, []);
+
+  const handleSortColumn = useCallback((column: string) => {
+    let nextDirection: 'asc' | 'desc' = 'asc';
+    
+    if (sortColumn === column) {
+      // Clicking the same column toggles direction: asc → desc → null
+      if (sortDirection === 'asc') {
+        nextDirection = 'desc';
+      } else {
+        // Third click clears sort
+        setSortColumn(null);
+        setSortDirection('asc');
+        setAppliedOrderByClause('');
+        return;
+      }
+    }
+    
+    setSortColumn(column);
+    setSortDirection(nextDirection);
+    
+    const dbType = selectedConnection?.type as 'postgresql' | 'mysql';
+    if (dbType && ['postgresql', 'mysql'].includes(dbType)) {
+      const orderByClause = buildOrderByClause(column, nextDirection, dbType);
+      setAppliedOrderByClause(orderByClause);
+    }
+  }, [sortColumn, sortDirection, selectedConnection]);
+
+  const handleColumnFilterClick = useCallback((column: string) => {
+    setFilterPanelOpen(true);
+    setNewFilter(nf => ({ ...nf, column }));
+    setTimeout(() => valueInputRef.current?.focus(), 50);
+  }, []);
+
 
   // Primary key is derived from `realTableIndexes` (already fetched per-table
   // in fetchTableData, populated for both PG and MySQL). `schemaColumnsByTable`
@@ -298,9 +554,9 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
   // ── Trigger data load when URL param changes ─────────────────────────────
   useEffect(() => {
     if (tableName) {
-      handleTreeNodeClick(tableName, undefined, page, pageSize)
+      handleTreeNodeClick(tableName, undefined, page, pageSize, appliedWhereClause, appliedOrderByClause)
     }
-  }, [tableName, handleTreeNodeClick])
+  }, [tableName, handleTreeNodeClick, appliedWhereClause, appliedOrderByClause])
 
   // Sync selectedTreeNode so the Footer breadcrumb updates correctly on
   // direct URL navigation and tab switch. Uses the full tree path stored
@@ -326,12 +582,15 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
   // Reset active row and clear edit store when table changes.
   useEffect(() => {
     queueMicrotask(() => {
-      resetSelection()
-    })
+      resetSelection();
+    });
     clearAll()
     resetInsertCounter()
     setPage(1)
     setPageSize(DEFAULT_PAGE_SIZE)
+    setSortColumn(null)         // Add
+    setSortDirection('asc')     // Add
+    setAppliedOrderByClause('') // Add
   }, [tableName, clearAll, resetSelection])
 
   // Refetch data when page or pageSize changes (skip on mount — handled above).
@@ -343,9 +602,8 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
     if (prevPageRef.current === page && prevPageSizeRef.current === pageSize) return
     prevPageRef.current = page
     prevPageSizeRef.current = pageSize
-    handleTreeNodeClick(tableName, undefined, page, pageSize)
-  }, [tableName, page, pageSize, handleTreeNodeClick])
-
+      handleTreeNodeClick(tableName, undefined, page, pageSize, appliedWhereClause, appliedOrderByClause)
+  }, [tableName, page, pageSize, handleTreeNodeClick, appliedWhereClause, appliedOrderByClause])
   // Track previous realTableRows to reset page when data is fully reloaded
   // (not just a page fetch). Compare reference — new fetch always creates a new array.
   const prevRealTableRowsRef = useRef(realTableRows)
@@ -456,24 +714,68 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
           const columnMetadata = tableColumnsMeta.find((item) => item.columnName === column)
           const dataType = columnMetadata?.dataType
           const isPrimaryKey = isPrimaryKeyColumn(columnMetadata)
-
+          const hasActiveFilter = filters.some(f => f.column === column)
           return (
-            <div className="flex min-w-0 flex-col gap-0.5 overflow-hidden">
-              <div className="flex min-w-0 items-center gap-1.5">
-                <span className="overflow-hidden text-ellipsis text-subheading leading-tight text-text-primary">
-                  {column}
-                </span>
-                {isPrimaryKey && (
-                  <span className="rounded-full border border-primary/40 px-1 text-micro font-semibold uppercase tracking-wide text-primary">
-                    PK
-                  </span>
-                )}
+            <div className="group relative flex min-w-0 items-center overflow-hidden pr-2">
+              {/* ── Column name + data type — full width, click to sort ── */}
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 items-center gap-1.5 rounded px-2 py-1.5 text-left transition-colors hover:bg-bg-hover"
+                onClick={() => handleSortColumn(column)}
+              >
+                <div className="flex min-w-0 flex-col">
+                  <div className="flex min-w-0 items-center gap-1">
+                    <span className={`truncate text-xs leading-tight ${sortColumn === column ? 'text-text-primary font-medium' : 'text-text-secondary'}`}>
+                      {column}
+                    </span>
+                    {isPrimaryKey && (
+                      <Key size={10} className="shrink-0 text-text-muted" />
+                    )}
+                  </div>
+                  {dataType && (
+                    <span className="truncate font-mono text-[11px] leading-tight text-text-muted">
+                      {dataType.toLowerCase()}
+                    </span>
+                  )}
+                </div>
+              </button>
+
+              {/* ── Right: sort + filter icons (absolute overlay) ──── */}
+              <div className={`absolute right-2 top-0 flex h-full items-center gap-0.5 bg-gradient-to-l from-bg-muted from-70% via-bg-muted/80 to-transparent pl-4 transition-opacity ${
+                sortColumn === column || hasActiveFilter
+                  ? 'opacity-100'
+                  : 'opacity-0 group-hover:opacity-100'
+              }`}>
+                <button
+                  type="button"
+                  className="rounded p-1 transition-colors hover:bg-bg-hover"
+                  onClick={(e) => { e.stopPropagation(); handleSortColumn(column) }}
+                  aria-label={sortColumn === column ? (sortDirection === 'asc' ? 'Sort ascending, click to reverse' : 'Sort descending, click to clear') : 'Sort by column'}
+                >
+                  {sortColumn === column ? (
+                    sortDirection === 'asc'
+                      ? <ChevronUp size={13} className="text-primary" />
+                      : <ChevronDown size={13} className="text-primary" />
+                  ) : (
+                    <ArrowUpDown size={13} className="text-text-muted/50" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className={`rounded p-1 transition-colors hover:bg-bg-hover ${
+                    hasActiveFilter ? '' : 'opacity-0 group-hover:opacity-100'
+                  }`}
+                  onClick={(e) => { e.stopPropagation(); handleColumnFilterClick(column) }}
+                  aria-label={hasActiveFilter ? `Filter active on ${column}` : `Add filter on ${column}`}
+                >
+                  <Filter
+                    size={13}
+                    className={hasActiveFilter ? 'text-primary' : 'text-text-muted/50'}
+                  />
+                </button>
               </div>
-              {dataType && (
-                <span className="truncate font-mono text-micro text-text-muted">
-                  {dataType.toLowerCase()}
-                </span>
-              )}
+
+              {/* ── Column resize handle ──────────────────────────── */}
               <span
                 role="separator"
                 aria-label={`Resize ${column}`}
@@ -496,9 +798,7 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
           />
         ),
       })),
-    // ponytail: displayRows removed — columns don't depend on data;
-    // stale onMouseDown/handleDoubleClick is benign via header re-render.
-    [handleDoubleClick, onMouseDown, realTableColumns, tableColumnsMeta, editableColumnMetaMap, tableName, pkColumn],
+    [handleDoubleClick, onMouseDown, handleSortColumn, handleColumnFilterClick, sortColumn, sortDirection, filters, realTableColumns, tableColumnsMeta, editableColumnMetaMap, tableName, pkColumn],
   )
 
   const table = useReactTable({
@@ -841,18 +1141,17 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
     if (totalPending > 0) {
       setConfirmRefreshOpen(true)
     } else {
-      handleTreeNodeClick(tableName)
+      handleTreeNodeClick(tableName, undefined, 1, pageSize, appliedWhereClause, appliedOrderByClause)
     }
-  }, [tableName, handleTreeNodeClick, totalPending])
-
+  }, [tableName, handleTreeNodeClick, totalPending, pageSize, appliedWhereClause, appliedOrderByClause])
   const handleConfirmRefresh = useCallback(() => {
     setConfirmRefreshOpen(false)
     clearAll()
     resetInsertCounter()
     if (tableName) {
-      handleTreeNodeClick(tableName)
+      handleTreeNodeClick(tableName, undefined, 1, pageSize, appliedWhereClause, appliedOrderByClause)
     }
-  }, [tableName, handleTreeNodeClick, clearAll])
+  }, [tableName, handleTreeNodeClick, clearAll, pageSize, appliedWhereClause, appliedOrderByClause])
 
   const handleCancelRefresh = useCallback(() => {
     setConfirmRefreshOpen(false)
@@ -912,7 +1211,7 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
       const committedCount = totalPending
       clearAll()
       resetInsertCounter()
-      handleTreeNodeClick(tableName)
+      handleTreeNodeClick(tableName, undefined, 1, pageSize, appliedWhereClause, appliedOrderByClause)
       setToast({
         kind: 'success',
         message: `Committed ${committedCount} change${committedCount !== 1 ? 's' : ''} successfully`,
@@ -939,6 +1238,9 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
     clearAll,
     handleTreeNodeClick,
     restoreActiveCellFocus,
+    appliedWhereClause,
+    pageSize,
+    appliedOrderByClause
   ])
 
   // Keep latest handleCommit referable from the keyboard callback closure.
@@ -990,6 +1292,17 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
     >
       {/* ── Toolbar with pending changes badge ──────────────────────────── */}
       <div className="flex items-center gap-1 border-b border-border-default px-1.5 py-1.5">
+        <ActionButton
+          icon={<Filter size={14} />}
+          aria-label="Toggle Filter"
+          variant={filters.length > 0 ? 'active' : (filterPanelOpen ? 'accent' : 'default')}
+          onClick={() => setFilterPanelOpen(!filterPanelOpen)}
+        />
+        {filters.length > 0 && (
+          <span className="rounded-full bg-primary px-1 text-micro font-bold text-text-inverse leading-none">
+            {filters.length}
+          </span>
+        )}
         <ActionButton
           icon={<CirclePlus size={14} />}
           aria-label="Add Row"
@@ -1075,6 +1388,153 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
           />
         </div>
       </div>
+
+      {/* ── Filter Bar ───────────────────────────────────────────────────────── */}
+      <div
+        className={`grid transition-[grid-template-rows] duration-200 ease-in-out ${
+          filterPanelOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="border-b border-border-default bg-bg-subtle px-2 py-1.5">
+            {/* ── Active filter chips ────────────────────────────────────────── */}
+            {filters.length > 0 && (
+              <div className="mb-1.5 flex items-center gap-1.5">
+                {filters.map((filter, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-xs transition-colors hover:bg-primary/20"
+                  >
+                    <span className="font-mono font-medium text-text-primary">{filter.column}</span>
+                    <span className="text-text-muted">{getOperatorDisplay(filter.operator)}</span>
+                    {!['is_null', 'is_not_null'].includes(filter.operator) && (
+                      <span className="text-primary">{filter.value}</span>
+                    )}
+                    <button
+                      className="-mr-0.5 ml-0.5 rounded-full p-0.5 text-text-muted transition-colors hover:bg-primary/20 hover:text-danger"
+                      onClick={() => handleRemoveFilter(index)}
+                      aria-label={`Remove filter ${index + 1}`}
+                    >
+                      <X size={10} />
+                    </button>
+                  </span>
+                ))}
+                <button
+                  className="rounded px-1.5 py-0.5 text-xs text-danger transition-colors hover:bg-danger/10"
+                  onClick={handleClearAllFilters}
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
+            {/* ── New filter input row ──────────────────────────────────────── */}
+            <div className="flex items-center gap-1.5">
+              <select
+                className="h-7 rounded-md border border-border-default bg-bg-base px-1.5 text-xs font-mono outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50"
+                value={newFilter.column || ''}
+                onChange={(e) => setNewFilter({ ...newFilter, column: e.target.value })}
+                disabled={realTableColumns.length === 0}
+              >
+                <option value="">Column</option>
+                {realTableColumns.map((column) => (
+                  <option key={column} value={column}>{column}</option>
+                ))}
+              </select>
+              <select
+                className="h-7 rounded-md border border-border-default bg-bg-base px-1.5 text-xs outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50"
+                value={newFilter.operator || '='}
+                onChange={(e) => setNewFilter({ ...newFilter, operator: e.target.value as FilterOperator })}
+                disabled={!newFilter.column}
+              >
+                <option value="=">=</option>
+                <option value="!=">≠</option>
+                <option value="contains">contains</option>
+                <option value="starts_with">starts with</option>
+                <option value="ends_with">ends with</option>
+                <option value=">">&gt;</option>
+                <option value=">=">≥</option>
+                <option value="<">&lt;</option>
+                <option value="<=">≤</option>
+                <option value="is_null">is null</option>
+                <option value="is_not_null">is not null</option>
+                <option value="in">in</option>
+              </select>
+              {!['is_null', 'is_not_null'].includes(newFilter.operator || '=') && (
+                <input
+                  ref={valueInputRef}
+                  type="text"
+                  className="h-7 min-w-[120px] flex-1 rounded-md border border-border-default bg-bg-base px-2 text-xs outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50"
+                  placeholder="Value…"
+                  value={newFilter.value || ''}
+                  onChange={(e) => setNewFilter({ ...newFilter, value: e.target.value })}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddFilter() }}
+                  disabled={!newFilter.column || !newFilter.operator}
+                />
+              )}
+              <ActionButton
+                icon={<Check size={12} />}
+                aria-label="Add filter"
+                variant="accent"
+                onClick={handleAddFilter}
+                disabled={!newFilter.column || !newFilter.operator || (!newFilter.value && !['is_null', 'is_not_null'].includes(newFilter.operator || ''))}
+            />
+            {/* ── Sort controls ──────────────────────────────────────────────── */}
+            <div className="flex items-center gap-1.5 border-l border-border-default pl-1.5 ml-1">
+              <span className="text-xs text-text-muted">Sort by:</span>
+              <select
+                className="h-7 rounded-md border border-border-default bg-bg-base px-1.5 text-xs font-mono outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50"
+                value={sortColumn || ''}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleSortColumn(e.target.value);
+                  } else {
+                    // Clear sort
+                    setSortColumn(null);
+                    setSortDirection('asc');
+                    setAppliedOrderByClause('');
+                  }
+                }}
+                disabled={realTableColumns.length === 0}
+              >
+                <option value="">None</option>
+                {realTableColumns.map((column) => (
+                  <option key={column} value={column}>{column}</option>
+                ))}
+              </select>
+              {sortColumn && (
+                <button
+                  type="button"
+                  className="flex h-7 items-center gap-0.5 rounded-md border border-border-default bg-bg-base px-1.5 text-xs transition-colors hover:bg-bg-hover focus:border-primary focus:ring-1 focus:ring-primary"
+                  onClick={() => {
+                    const nextDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+                    setSortDirection(nextDirection);
+                    const dbType = selectedConnection?.type as 'postgresql' | 'mysql';
+                    if (dbType && ['postgresql', 'mysql'].includes(dbType) && sortColumn) {
+                      const orderByClause = buildOrderByClause(sortColumn, nextDirection, dbType);
+                      setAppliedOrderByClause(orderByClause);
+                    }
+                  }}
+                  aria-label={`Sort direction: ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
+                >
+                  {sortDirection === 'asc' ? (
+                    <>
+                      <ChevronUp size={12} />
+                      <span>Asc</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown size={12} />
+                      <span>Desc</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      </div>
+
 
       {/* ── No primary-key warning banner ─────────────────────────────── */}
       {/*
@@ -1191,18 +1651,44 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                   <td
                     role="gridcell"
                     colSpan={realTableColumns.length + 1 || 1}
-                    className="px-2 py-8 text-center text-text-muted"
+                    className="px-2 py-0"
                   >
-                    <div className="flex flex-col items-center gap-2">
-                      <span>No data available</span>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-caption font-medium text-text-inverse transition-colors hover:bg-primary-hover"
-                        onClick={handleAddRow}
-                      >
-                        <CirclePlus size={12} aria-hidden="true" />
-                        Add Row
-                      </button>
+                    <div className="flex flex-col items-center justify-center gap-4 py-16">
+                      {/* Illustration */}
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-bg-muted/50">
+                        <Inbox className="h-8 w-8 text-text-secondary" strokeWidth={1.5} />
+                      </div>
+
+                      {/* Text */}
+                      <div className="flex flex-col items-center gap-1.5">
+                        <h3 className="text-sm font-semibold text-text-primary">No data</h3>
+                        <p className="text-xs text-text-muted">
+                          {appliedWhereClause
+                            ? 'No rows match the current filter.'
+                            : 'This table is empty.'}
+                        </p>
+                      </div>
+
+                      {/* Action */}
+                      {!appliedWhereClause && (
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-primary/90 active:bg-primary/80"
+                          onClick={handleAddRow}
+                        >
+                          <CirclePlus size={13} aria-hidden="true" />
+                          Add Row
+                        </button>
+                      )}
+                      {appliedWhereClause && (
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-bg-base px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover active:bg-bg-muted"
+                          onClick={handleClearAllFilters}
+                        >
+                          Clear Filters
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

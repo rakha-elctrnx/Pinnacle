@@ -617,7 +617,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     'Mapping': 'mapping',
   }
 
-  const wrappedHandleTreeNodeClick = (nodeLabel: string, databaseName?: string, nodePath?: string) => {
+  const wrappedHandleTreeNodeClick = async (nodeLabel: string, databaseName?: string, nodePath?: string) => {
     if (nodePath?.endsWith('/Queries')) {
       queryExecution.openQueryTabFromTree(databaseName)
       setIsSqlTableListView(false)
@@ -699,7 +699,8 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     }
 
     setSelectedTreeNode(nodePath || nodeLabel)
-    const isTable = explorerData.handleTreeNodeClick(nodeLabel, databaseName)
+    const isTablePromise = explorerData.handleTreeNodeClick(nodeLabel, databaseName)
+    const isTable = await isTablePromise
     if (isTable) {
       setIsSqlTableListView(false)
       const existingTab = openedTableTabs.find((tab) => tab.label === nodeLabel)
