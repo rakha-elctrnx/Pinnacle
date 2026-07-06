@@ -120,7 +120,6 @@ export interface DataExplorerOrchestratorResult {
   wrappedHandleTreeNodeClick: (nodeLabel: string, databaseName?: string, nodePath?: string) => void
   handleCloseTableTab: (tabId: string) => void
   handleActiveTableTabChange: (tabId: string) => void
-  handleActiveQueryTabIdChange: (tabId: string) => void
   handleCloseElasticTab: (tabId: string) => void
   handleActiveElasticTabIdChange: (tabId: string) => void
   handleResizeStart: (e: React.MouseEvent) => void
@@ -619,9 +618,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
 
   const wrappedHandleTreeNodeClick = async (nodeLabel: string, databaseName?: string, nodePath?: string) => {
     if (nodePath?.endsWith('/Queries')) {
-      queryExecution.openQueryTabFromTree(databaseName)
       setIsSqlTableListView(false)
-      // Create global query tab
       if (selectedConnection) {
         const tabTitle = databaseName ? `${databaseName} Query` : 'Query'
         const route = `/sql/${selectedConnection.id}/query`
@@ -791,12 +788,6 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     setTableInfoTab('data')
   }
 
-  const handleActiveQueryTabIdChange = (tabId: string) => {
-    setActiveTableTabId(null)
-    setIsSqlTableListView(false)
-    queryExecution.setActiveQueryTabId(tabId)
-  }
-
   const handleCloseElasticTab = (tabId: string) => {
     // Find the index name from the internal tab to remove the global tab
     const closingTab = openedElasticTabs.find((t) => t.id === tabId)
@@ -883,7 +874,6 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     wrappedHandleTreeNodeClick,
     handleCloseTableTab,
     handleActiveTableTabChange,
-    handleActiveQueryTabIdChange,
     handleCloseElasticTab,
     handleActiveElasticTabIdChange,
     handleResizeStart,

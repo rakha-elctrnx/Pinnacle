@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Copy, Download, Eraser, FileDown, Pencil, RefreshCw, Scissors, TableProperties, Trash2, Unplug } from 'lucide-react'
+import { Copy, Download, Eraser, FileDown, Pencil, RefreshCw, Scissors, SquareTerminal, TableProperties, Trash2, Unplug } from 'lucide-react'
 import { DataExplorerContextProvider, useDataExplorerContext } from '../context/DataExplorerContext'
 import { useDataExplorerOrchestrator } from '../hooks/useDataExplorerOrchestrator'
 import { useTabStore } from '../store/tabStore'
@@ -387,6 +387,27 @@ function DataExplorerLayoutChrome({
               // ── Table-specific actions ──────────────────────────
               ...(contextMenu.tableName
                 ? [
+                    { label: 'New Query', icon: <SquareTerminal size={14} />, action: () => {
+                      const connId = contextMenu.itemId
+                      if (!connId || !selectedConnection) return
+                      const route = `/sql/${connId}/query`
+                      const openTab = useTabStore.getState().openTab
+                      openTab({
+                        id: `${connId}:query`,
+                        label: 'Query',
+                        type: selectedConnection.type,
+                        pageType: 'query',
+                        route,
+                        connectionId: connId,
+                      })
+                      const table = contextMenu.tableName
+                      if (table) {
+                        const hasUpperCase = /[A-Z]/.test(table)
+                        const quoted = hasUpperCase ? `"${table}"` : table
+                        queryExecution.updateActiveQuery(`SELECT * FROM ${quoted};`)
+                      }
+                      navigate(route)
+                    }} as ContextMenuItem,
                     ...(handleOpenDesignerForEdit
                       ? [{ label: 'Design Table', icon: <TableProperties size={14} />, action: () => { handleOpenDesignerForEdit(contextMenu.tableName!) } } as ContextMenuItem]
                       : []),

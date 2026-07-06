@@ -183,7 +183,6 @@ export function ConnectionSidebar() {
     setSelectedTreeNode,
     handleToggleTreeNode,
     handleFetchDatabaseDetails,
-    queryExecution,
     elasticIndices,
     elasticIndicesError,
     elasticLoading,
@@ -193,7 +192,6 @@ export function ConnectionSidebar() {
   } = useDataExplorerContext()
 
   const navigate = useNavigate()
-  const savedQueriesByConnection = queryExecution.savedQueriesByConnection
 
   // Build unified tree with groups and connections as first-class nodes
   const unifiedTree = useMemo(() => {
@@ -423,8 +421,6 @@ export function ConnectionSidebar() {
     }
   }, [expandedTreePaths, groupedConnections, explorerData, handleToggleTreeNode, handleFetchDatabaseDetails])
 
-  const applySavedQueryToActiveTab = queryExecution.applySavedQueryToActiveTab
-
   return (
     <aside className="flex h-full min-w-0 flex-col overflow-hidden bg-bg-subtle/40">
       {/* Header (fixed) */}
@@ -479,8 +475,6 @@ export function ConnectionSidebar() {
               onConnectionSelect={handleConnectionNodeSelect}
               onGroupToggle={handleGroupToggle}
               onConnectionToggle={handleConnectionToggle}
-              savedQueriesByConnection={savedQueriesByConnection}
-              onUseSavedQuery={applySavedQueryToActiveTab}
               onTableNodeContextMenu={handleTableNodeContextMenu}
               onConnectionContextMenu={handleContextMenu}
               groupedConnections={groupedConnections}

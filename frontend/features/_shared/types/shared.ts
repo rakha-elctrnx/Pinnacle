@@ -60,19 +60,6 @@ export interface DatabaseTypeOption {
   hint: string;
 }
 
-export interface QueryTab {
-  id: string
-  title: string
-  sql: string
-}
-
-export interface SavedQuery {
-  id: string
-  title: string
-  sql: string
-  updatedAt: string
-}
-
 export interface QueryResult {
   columns: string[]
   rows: Record<string, string>[]

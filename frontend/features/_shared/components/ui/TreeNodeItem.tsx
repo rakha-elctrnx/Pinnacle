@@ -15,7 +15,7 @@ import {
   Zap,
   Folder,
 } from "lucide-react";
-import type { TreeNode, SavedQuery, ExplorerTreeData } from "../../types/shared";
+import type { TreeNode, ExplorerTreeData } from "../../types/shared";
 import type { ConnectionProfile } from "../../types/domain";
 import { databaseTypeOptions } from "../../constants";
 import { CenteredLoadingState } from "./CenteredLoadingState";
@@ -98,11 +98,8 @@ export function TreeNodeItem({
   onConnectionSelect,
   onGroupToggle,
   onConnectionToggle,
-  savedQueries,
-  onUseSavedQuery,
   onTableNodeContextMenu,
   onConnectionContextMenu,
-  savedQueriesByConnection,
   groupedConnections,
   explorerData,
   elasticIndicesError,
@@ -130,11 +127,8 @@ export function TreeNodeItem({
   onConnectionSelect?: (nodePath: string, connectionId: string) => void;
   onGroupToggle?: (groupPath: string) => void;
   onConnectionToggle?: (connectionPath: string, connectionId: string) => void;
-  savedQueries?: SavedQuery[];
-  onUseSavedQuery?: (sql: string) => void;
   onTableNodeContextMenu?: (event: React.MouseEvent, connectionId: string, tableName: string) => void;
   onConnectionContextMenu?: (event: React.MouseEvent, itemId: string) => void;
-  savedQueriesByConnection?: Record<string, SavedQuery[]>;
   groupedConnections?: Record<string, ConnectionProfile[]> | null;
   explorerData?: ExplorerDataContext;
   elasticIndicesError?: Record<string, string>;
@@ -275,11 +269,6 @@ export function TreeNodeItem({
       }
     }
   };
-
-  // Get saved queries for this connection
-  const connectionSavedQueries = isConnectionNode && node.connectionId && savedQueriesByConnection
-    ? savedQueriesByConnection[node.connectionId]
-    : savedQueries;
 
   // Check if this is an active connection (for styling)
   const isActiveConnection = isConnectionNode && isConnectionActive();
@@ -439,49 +428,6 @@ export function TreeNodeItem({
           />
         )}
       {isExpanded &&
-        (isQueriesFolder ? (
-          <div>
-            {connectionSavedQueries && connectionSavedQueries.length > 0 ? (
-              connectionSavedQueries.map((sq) => (
-                <button
-                  key={sq.id}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const sqPath = `${nodePath}/${sq.id}`;
-                    onSelectedTreeNode?.(sqPath);
-                    onUseSavedQuery?.(sq.sql);
-                  }}
-                  className={[
-                    "group flex w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-caption overflow-hidden cursor-pointer transition-all duration-150",
-                    selectedTreeNode === `${nodePath}/${sq.id}`
-                      ? "bg-primary/10 text-primary"
-                      : "text-text-primary hover:bg-bg-hover/60 hover:text-text-secondary",
-                  ].join(" ")}
-                  style={{ paddingLeft: `${(depth + 1) * 10 + 6}px` }}
-                  title={sq.sql}
-                >
-                  <span className="shrink-0 min-w-[20px] min-h-[20px]" />
-                  <FileText size={11} className="shrink-0 text-amber-500" />
-                  <span className="min-w-0 flex-1 truncate">{sq.title}</span>
-                  <span className="shrink-0 rounded bg-bg-muted/60 px-1 text-mono text-micro tabular-nums text-text-secondary">
-                    {new Date(sq.updatedAt).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </span>
-                </button>
-              ))
-            ) : (
-              <p
-                className="px-2 py-1 text-caption italic text-text-muted"
-                style={{ paddingLeft: `${(depth + 1) * 10 + 6}px` }}
-              >
-                No saved queries
-              </p>
-            )}
-          </div>
-        ) : (
           node.children?.map((child) => (
             <TreeNodeItem
               key={child.label}
@@ -500,11 +446,8 @@ export function TreeNodeItem({
               onConnectionSelect={onConnectionSelect}
               onGroupToggle={onGroupToggle}
               onConnectionToggle={onConnectionToggle}
-              savedQueries={savedQueries}
-              onUseSavedQuery={onUseSavedQuery}
               onTableNodeContextMenu={onTableNodeContextMenu}
               onConnectionContextMenu={onConnectionContextMenu}
-              savedQueriesByConnection={savedQueriesByConnection}
               groupedConnections={groupedConnections}
               explorerData={explorerData}
               elasticIndicesError={elasticIndicesError}
@@ -513,8 +456,7 @@ export function TreeNodeItem({
               focusedNodePath={focusedNodePath}
               setFocusedNodePath={setFocusedNodePath}
             />
-          ))
-        ))}
+          ))}
       </div>
     </div>
   );

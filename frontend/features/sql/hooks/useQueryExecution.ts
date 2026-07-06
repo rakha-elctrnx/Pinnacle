@@ -1,15 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { executeSql } from '../clients/sql'
 import type { ConnectionProfile } from '../../_shared/types/domain'
-import type { QueryTab, QueryResult, ConnectionStatus, SavedQuery } from '../../_shared/types/shared'
+import type { QueryResult, ConnectionStatus } from '../../_shared/types/shared'
 import { isSqlConnectionType, getConnPayloadWithPassword } from '../../_shared/utils'
-
-interface QueryTabInternal {
-  id: string
-  title: string
-  sql: string
-  initialSql: string
-}
 
 interface UseQueryExecutionParams {
   selectedConnection: ConnectionProfile | null
@@ -18,33 +11,106 @@ interface UseQueryExecutionParams {
   setConnectionStatuses: React.Dispatch<React.SetStateAction<Record<string, ConnectionStatus>>>
 }
 
-interface UseQueryExecutionReturn {
-  queryTabs: QueryTab[]
-  queryTabsDirty: Record<string, boolean>
-  activeQueryTabId: string | null
-  activeQueryTab: QueryTab | null
+export interface UseQueryExecutionReturn {
+  querySql: string
   isRunningQuery: boolean
   queryResult: QueryResult | null
   queryMessages: string[]
   queryHistoryByConnection: Record<string, string[]>
-  savedQueriesByConnection: Record<string, SavedQuery[]>
   queryDatabase: string
   querySchema: string
   onQueryDatabaseChange: (db: string) => void
   onQuerySchemaChange: (schema: string) => void
-  addQueryTab: () => void
-  closeQueryTab: (id: string) => void
-  openQueryTabFromTree: (databaseName?: string) => void
   updateActiveQuery: (value: string) => void
-  saveActiveQuery: () => void
-  applySavedQueryToActiveTab: (sql: string) => void
-  setActiveQueryTabId: (id: string) => void
   handleRunQuery: (mode: 'run' | 'run-selected' | 'explain') => Promise<void>
-  /** Reset all query execution state — called when connection is closed. */
   resetQueryData: () => void
 }
 
-const SAVED_QUERY_STORAGE_KEY = 'data-explorer.saved-queries'
+const DEFAULT_SQL = 'SELECT 1;'
+
+const SQL_KEYWORDS = new Set([
+  'SELECT','FROM','WHERE','AND','OR','NOT','IN','IS','NULL','INSERT','INTO',
+  'VALUES','UPDATE','SET','DELETE','CREATE','DROP','ALTER','TABLE','INDEX',
+  'VIEW','AS','ON','JOIN','LEFT','RIGHT','INNER','OUTER','FULL','CROSS',
+  'NATURAL','USING','ORDER','BY','GROUP','HAVING','LIMIT','OFFSET','UNION',
+  'ALL','DISTINCT','EXISTS','BETWEEN','LIKE','ILIKE','CASE','WHEN','THEN',
+  'ELSE','END','ASC','DESC','NULLS','FIRST','LAST','TRUE','FALSE','COUNT',
+  'SUM','AVG','MIN','MAX','COALESCE','CAST','PRIMARY','KEY','FOREIGN',
+  'REFERENCES','CONSTRAINT','UNIQUE','CHECK','DEFAULT','SERIAL','BIGSERIAL',
+  'TEXT','INTEGER','INT','BIGINT','SMALLINT','BOOLEAN','VARCHAR','CHAR',
+  'DECIMAL','NUMERIC','FLOAT','DOUBLE','PRECISION','DATE','TIME','TIMESTAMP',
+  'INTERVAL','WITH','RECURSIVE','EXPLAIN','ANALYZE','VERBOSE','RETURNING',
+  'IF','CASCADE','RESTRICT','ADD','COLUMN','RENAME','TO','SCHEMA','DATABASE',
+  'GRANT','REVOKE','BEGIN','COMMIT','ROLLBACK','TRANSACTION','TRUNCATE',
+  'COPY','TEMPORARY','TEMP','UNLOGGED','MATERIALIZED','REFRESH',
+  'CONCURRENTLY','TYPE','ENUM','TRIGGER','FUNCTION','PROCEDURE','RETURNS',
+  'LANGUAGE','REPLACE','EXECUTE','CALL','DO','RAISE','NOTICE','EXCEPTION',
+  'PERFORM','RECORD','VOID','SETOF','ROW','ROWS','FETCH','NEXT','PRIOR',
+  'ABSOLUTE','RELATIVE','FORWARD','BACKWARD','SCROLL','NO','CURSOR','FOR',
+  'DECLARE','OPEN','CLOSE','MOVE','FOUND','NEW','OLD','INSTEAD','RULE',
+  'ALSO','EACH','BEFORE','AFTER','STATEMENT','DEFERRABLE','DEFERRED',
+  'IMMEDIATE','INITIALLY','ONLY','PARTITION','RANGE','LIST','HASH',
+  'INCLUDE','STORAGE','PLAIN','EXTERNAL','EXTENDED','MAIN','GENERATED',
+  'ALWAYS','IDENTITY','OVERRIDING','SYSTEM','VALUE','SEQUENCE','OWNED',
+  'NONE','LOGGED','INHERIT','INHERITS','OF','SOME','ANY','ARRAY','LATERAL',
+  'ORDINALITY','TABLESAMPLE','BERNOULLI','SIMILAR','ESCAPE','WINDOW','OVER',
+  'FILTER','WITHIN','GROUPING','SETS','CUBE','AGGREGATE','VARIADIC',
+  'PARALLEL','SAFE','UNSAFE','RESTRICTED','COST','SUPPORT','LEAKPROOF',
+  'STRICT','CALLED','INPUT','SECURITY','DEFINER','INVOKER','VOLATILE',
+  'STABLE','IMMUTABLE',
+])
+
+function autoQuoteMixedCaseIdentifiers(sql: string): string {
+  let result = ''
+  let i = 0
+  while (i < sql.length) {
+    if (sql[i] === "'") {
+      let j = i + 1
+      while (j < sql.length) {
+        if (sql[j] === "'" && sql[j + 1] === "'") { j += 2; continue }
+        if (sql[j] === "'") { j++; break }
+        j++
+      }
+      result += sql.slice(i, j)
+      i = j
+      continue
+    }
+    if (sql[i] === '"') {
+      let j = i + 1
+      while (j < sql.length) {
+        if (sql[j] === '"' && sql[j + 1] === '"') { j += 2; continue }
+        if (sql[j] === '"') { j++; break }
+        j++
+      }
+      result += sql.slice(i, j)
+      i = j
+      continue
+    }
+    if (sql[i] === '-' && sql[i + 1] === '-') {
+      let j = i
+      while (j < sql.length && sql[j] !== '\n') j++
+      result += sql.slice(i, j)
+      i = j
+      continue
+    }
+    if (/[a-zA-Z_]/.test(sql[i])) {
+      let j = i
+      while (j < sql.length && /[a-zA-Z0-9_]/.test(sql[j])) j++
+      const word = sql.slice(i, j)
+      const hasMixedCase = /[a-z]/.test(word) && /[A-Z]/.test(word)
+      if (hasMixedCase && !SQL_KEYWORDS.has(word.toUpperCase())) {
+        result += `"${word}"`
+      } else {
+        result += word
+      }
+      i = j
+      continue
+    }
+    result += sql[i]
+    i++
+  }
+  return result
+}
 
 export function useQueryExecution({
   selectedConnection,
@@ -52,131 +118,21 @@ export function useQueryExecution({
   selectedDatabase,
   setConnectionStatuses,
 }: UseQueryExecutionParams): UseQueryExecutionReturn {
-  const [queryTabs, setQueryTabs] = useState<QueryTabInternal[]>([])
-  const [activeQueryTabId, setActiveQueryTabId] = useState<string | null>(null)
+  const [querySql, setQuerySql] = useState(DEFAULT_SQL)
   const [isRunningQuery, setIsRunningQuery] = useState(false)
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null)
   const [queryMessages, setQueryMessages] = useState<string[]>(['Ready.'])
   const [queryHistoryByConnection, setQueryHistoryByConnection] = useState<Record<string, string[]>>({})
   const [queryDatabase, setQueryDatabase] = useState(() => selectedDatabase || (selectedConnection?.database ?? ''))
   const [querySchema, setQuerySchema] = useState(() => selectedSchema)
-  const [savedQueriesByConnection, setSavedQueriesByConnection] = useState<Record<string, SavedQuery[]>>(() => {
-    if (typeof window === 'undefined') return {}
-    try {
-      const raw = window.localStorage.getItem(SAVED_QUERY_STORAGE_KEY)
-      return raw ? (JSON.parse(raw) as Record<string, SavedQuery[]>) : {}
-    } catch {
-      return {}
-    }
-  })
-
-  const activeQueryTab = useMemo(
-    () => queryTabs.find((tab) => tab.id === activeQueryTabId) ?? null,
-    [queryTabs, activeQueryTabId],
-  )
-
-  const queryTabsDirty = useMemo(() => {
-    const map: Record<string, boolean> = {}
-    for (const tab of queryTabs) {
-      map[tab.id] = tab.sql !== tab.initialSql
-    }
-    return map
-  }, [queryTabs])
 
   const appendMessage = useCallback((message: string) => {
     setQueryMessages((prev) => [`${new Date().toLocaleTimeString()}  ${message}`, ...prev].slice(0, 20))
   }, [])
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    window.localStorage.setItem(SAVED_QUERY_STORAGE_KEY, JSON.stringify(savedQueriesByConnection))
-  }, [savedQueriesByConnection])
-
-  const addQueryTab = useCallback(() => {
-    const nextNumber = queryTabs.length + 1
-    const id = `query-${Date.now()}`
-    const sql = 'SELECT 1;'
-    setQueryTabs((prev) => [...prev, { id, title: `Query ${nextNumber}`, sql, initialSql: sql }])
-    setActiveQueryTabId(id)
-  }, [queryTabs.length])
-
-  const openQueryTabFromTree = useCallback(
-    (databaseName?: string) => {
-      const nextNumber = queryTabs.length + 1
-      const id = `query-${Date.now()}`
-      const title = databaseName ? `${databaseName} Query ${nextNumber}` : `Query ${nextNumber}`
-      const sql = 'SELECT 1;'
-      setQueryTabs((prev) => [...prev, { id, title, sql, initialSql: sql }])
-      setActiveQueryTabId(id)
-    },
-    [queryTabs.length],
-  )
-
-  const updateActiveQuery = useCallback(
-    (value: string) => {
-      if (!activeQueryTab) return
-      setQueryTabs((prev) => prev.map((tab) => (tab.id === activeQueryTab.id ? { ...tab, sql: value } : tab)))
-    },
-    [activeQueryTab],
-  )
-
-  const closeQueryTab = useCallback((tabId: string) => {
-    setQueryTabs((prev) => {
-      const nextTabs = prev.filter((tab) => tab.id !== tabId)
-      // Use nextTabs to determine remaining tabs for active tab resolution
-      setActiveQueryTabId((prevActiveId) => {
-        if (prevActiveId !== tabId) return prevActiveId
-        return nextTabs.length > 0 ? nextTabs[nextTabs.length - 1].id : null
-      })
-      return nextTabs
-    })
+  const updateActiveQuery = useCallback((value: string) => {
+    setQuerySql(value)
   }, [])
-
-  const saveActiveQuery = useCallback(() => {
-    if (!selectedConnection || !isSqlConnectionType(selectedConnection.type)) {
-      appendMessage('Select a SQL connection to save query.')
-      return
-    }
-
-    if (!activeQueryTab) {
-      appendMessage('No active query tab to save.')
-      return
-    }
-
-    const sql = activeQueryTab.sql.trim()
-    if (!sql) {
-      appendMessage('Cannot save empty query.')
-      return
-    }
-
-    const now = new Date().toISOString()
-    const saved: SavedQuery = {
-      id: crypto.randomUUID(),
-      title: activeQueryTab.title,
-      sql,
-      updatedAt: now,
-    }
-
-    // Reset dirty state after saving
-    setQueryTabs((prev) =>
-      prev.map((tab) => (tab.id === activeQueryTab.id ? { ...tab, initialSql: tab.sql } : tab)),
-    )
-
-    setSavedQueriesByConnection((prev) => ({
-      ...prev,
-      [selectedConnection.id]: [saved, ...(prev[selectedConnection.id] ?? [])].slice(0, 50),
-    }))
-    appendMessage(`Saved query: ${activeQueryTab.title}`)
-  }, [selectedConnection, activeQueryTab, appendMessage])
-
-  const applySavedQueryToActiveTab = useCallback(
-    (sql: string) => {
-      if (!activeQueryTab) return
-      setQueryTabs((prev) => prev.map((tab) => (tab.id === activeQueryTab.id ? { ...tab, sql } : tab)))
-      appendMessage('Loaded saved query into active tab.')
-    },
-    [activeQueryTab, appendMessage],
-  )
 
   const handleRunQuery = useCallback(
     async (mode: 'run' | 'run-selected' | 'explain') => {
@@ -185,16 +141,15 @@ export function useQueryExecution({
         return
       }
 
-      if (!activeQueryTab) {
-        appendMessage('No active query tab.')
-        return
-      }
-
-      const sql = mode === 'explain' ? `EXPLAIN ${activeQueryTab.sql}` : activeQueryTab.sql
-      if (!sql.trim()) {
+      const raw = mode === 'explain' ? `EXPLAIN ${querySql}` : querySql
+      if (!raw.trim()) {
         appendMessage('No SQL query to execute.')
         return
       }
+
+      const sql = selectedConnection.type === 'postgresql'
+        ? autoQuoteMixedCaseIdentifiers(raw)
+        : raw
 
       setIsRunningQuery(true)
       appendMessage(`${mode.toUpperCase()} started`)
@@ -226,12 +181,11 @@ export function useQueryExecution({
         setIsRunningQuery(false)
       }
     },
-    [selectedConnection, activeQueryTab, queryDatabase, querySchema, appendMessage, setConnectionStatuses],
+    [selectedConnection, querySql, queryDatabase, querySchema, appendMessage, setConnectionStatuses],
   )
 
   const resetQueryData = useCallback(() => {
-    setQueryTabs([])
-    setActiveQueryTabId(null)
+    setQuerySql(DEFAULT_SQL)
     setQueryResult(null)
     setQueryMessages(['Ready.'])
     setQueryDatabase('')
@@ -240,10 +194,7 @@ export function useQueryExecution({
   }, [])
 
   return {
-    queryTabs: queryTabs.map((tab) => ({ id: tab.id, title: tab.title, sql: tab.sql })) as QueryTab[],
-    queryTabsDirty,
-    activeQueryTabId,
-    activeQueryTab: activeQueryTab ? { id: activeQueryTab.id, title: activeQueryTab.title, sql: activeQueryTab.sql } as QueryTab : null,
+    querySql,
     queryDatabase,
     querySchema,
     onQueryDatabaseChange: setQueryDatabase,
@@ -252,14 +203,7 @@ export function useQueryExecution({
     queryResult,
     queryMessages,
     queryHistoryByConnection,
-    savedQueriesByConnection,
-    addQueryTab,
-    closeQueryTab,
-    openQueryTabFromTree,
     updateActiveQuery,
-    saveActiveQuery,
-    applySavedQueryToActiveTab,
-    setActiveQueryTabId,
     handleRunQuery,
     resetQueryData,
   }

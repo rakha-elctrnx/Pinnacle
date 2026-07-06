@@ -237,25 +237,6 @@ function buildOrderByClause(
   return `${escapeColumn(column)} ${direction.toUpperCase()}`;
 }
 
-/** Helper to get display text for operators */
-function getOperatorDisplay(operator: FilterOperator): string {
-  const displayMap: Record<FilterOperator, string> = {
-    '=': '=',
-    '!=': '≠',
-    'contains': 'contains',
-    'starts_with': 'starts with',
-    'ends_with': 'ends with',
-    '>': '>',
-    '>=': '≥',
-    '<': '<',
-    '<=': '≤',
-    'is_null': 'is null',
-    'is_not_null': 'is not null',
-    'in': 'in'
-  };
-  return displayMap[operator] || operator;
-}
-
 function isPrimaryKeyColumn(metadata: ColumnMetadata | undefined): boolean {
   return Boolean(
     metadata?.isPrimaryKey === true ||
@@ -397,7 +378,7 @@ export function TableDetailPage() {
     if (!newFilter.column || !newFilter.operator) return;
     const isNullOp = ['is_null', 'is_not_null'].includes(newFilter.operator);
     if (!isNullOp && !newFilter.value) return;
-    
+
     const next = [...filters, {
       column: newFilter.column,
       operator: newFilter.operator as FilterOperator,
@@ -405,13 +386,24 @@ export function TableDetailPage() {
     }];
     setFilters(next);
     setNewFilter({ column: '', operator: '=', value: '' });
-    
+
     const dbType = selectedConnection?.type as 'postgresql' | 'mysql';
     if (dbType && ['postgresql', 'mysql'].includes(dbType) && tableName) {
       const whereClause = buildWhereClause(next, dbType, tableColumnsMeta);
       setAppliedWhereClause(whereClause);
     }
   }, [filters, newFilter, selectedConnection, tableColumnsMeta, tableName]);
+
+  const handleUpdateFilter = useCallback((index: number, patch: Partial<FilterCondition>) => {
+    const next = filters.map((f, i) => i === index ? { ...f, ...patch } : f);
+    setFilters(next);
+
+    const dbType = selectedConnection?.type as 'postgresql' | 'mysql';
+    if (dbType && ['postgresql', 'mysql'].includes(dbType) && tableName) {
+      const whereClause = buildWhereClause(next, dbType, tableColumnsMeta);
+      setAppliedWhereClause(whereClause);
+    }
+  }, [filters, selectedConnection, tableColumnsMeta, tableName]);
 
   const handleRemoveFilter = useCallback((index: number) => {
     const next = filters.filter((_, i) => i !== index);
@@ -430,6 +422,9 @@ export function TableDetailPage() {
     setFilters([]);
     setNewFilter({ column: '', operator: '=', value: '' });
     setAppliedWhereClause('');
+    setSortColumn(null);
+    setSortDirection('asc');
+    setAppliedOrderByClause('');
   }, []);
 
   const handleSortColumn = useCallback((column: string) => {
@@ -588,9 +583,13 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
     resetInsertCounter()
     setPage(1)
     setPageSize(DEFAULT_PAGE_SIZE)
-    setSortColumn(null)         // Add
-    setSortDirection('asc')     // Add
-    setAppliedOrderByClause('') // Add
+    setFilters([])
+    setNewFilter({ column: '', operator: '=', value: '' })
+    setAppliedWhereClause('')
+    setFilterPanelOpen(false)
+    setSortColumn(null)
+    setSortDirection('asc')
+    setAppliedOrderByClause('')
   }, [tableName, clearAll, resetSelection])
 
   // Refetch data when page or pageSize changes (skip on mount — handled above).
@@ -715,71 +714,75 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
           const dataType = columnMetadata?.dataType
           const isPrimaryKey = isPrimaryKeyColumn(columnMetadata)
           const hasActiveFilter = filters.some(f => f.column === column)
+          const isSorted = sortColumn === column
           return (
-            <div className="group relative flex min-w-0 items-center overflow-hidden pr-2">
-              {/* ── Column name + data type — full width, click to sort ── */}
+            <div className="group/hdr relative flex min-w-0 items-center overflow-hidden">
+              {/* ── Column label — takes full width ── */}
               <button
                 type="button"
-                className="flex min-w-0 flex-1 items-center gap-1.5 rounded px-2 py-1.5 text-left transition-colors hover:bg-bg-hover"
+                className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-2 text-left"
                 onClick={() => handleSortColumn(column)}
               >
-                <div className="flex min-w-0 flex-col">
+                {isPrimaryKey && (
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-primary/10">
+                    <Key size={10} className="text-primary" />
+                  </span>
+                )}
+                <div className="flex min-w-0 flex-col gap-0.5">
                   <div className="flex min-w-0 items-center gap-1">
-                    <span className={`truncate text-xs leading-tight ${sortColumn === column ? 'text-text-primary font-medium' : 'text-text-secondary'}`}>
+                    <span className={`truncate text-xs leading-tight ${isSorted ? 'font-semibold text-text-primary' : 'font-medium text-text-secondary'}`}>
                       {column}
                     </span>
-                    {isPrimaryKey && (
-                      <Key size={10} className="shrink-0 text-text-muted" />
+                    {/* Sort arrow — always visible when sorted, sits next to name */}
+                    {isSorted && (
+                      sortDirection === 'asc'
+                        ? <ChevronUp size={12} className="shrink-0 text-primary" />
+                        : <ChevronDown size={12} className="shrink-0 text-primary" />
                     )}
                   </div>
                   {dataType && (
-                    <span className="truncate font-mono text-[11px] leading-tight text-text-muted">
+                    <span className="truncate text-[10px] leading-tight text-text-muted">
                       {dataType.toLowerCase()}
                     </span>
                   )}
                 </div>
               </button>
-
-              {/* ── Right: sort + filter icons (absolute overlay) ──── */}
-              <div className={`absolute right-2 top-0 flex h-full items-center gap-0.5 bg-gradient-to-l from-bg-muted from-70% via-bg-muted/80 to-transparent pl-4 transition-opacity ${
-                sortColumn === column || hasActiveFilter
-                  ? 'opacity-100'
-                  : 'opacity-0 group-hover:opacity-100'
-              }`}>
+              {/* ── Hover actions overlay — right-aligned, hidden by default ── */}
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-0.5 bg-linear-to-l from-bg-muted from-60% to-transparent pr-1.5 pl-4 opacity-0 transition-opacity group-hover/hdr:pointer-events-auto group-hover/hdr:opacity-100">
                 <button
                   type="button"
-                  className="rounded p-1 transition-colors hover:bg-bg-hover"
+                  className="rounded p-1 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
                   onClick={(e) => { e.stopPropagation(); handleSortColumn(column) }}
-                  aria-label={sortColumn === column ? (sortDirection === 'asc' ? 'Sort ascending, click to reverse' : 'Sort descending, click to clear') : 'Sort by column'}
+                  aria-label={isSorted ? `Sort ${sortDirection === 'asc' ? 'descending' : 'clear'}` : `Sort by ${column}`}
                 >
-                  {sortColumn === column ? (
+                  {isSorted ? (
                     sortDirection === 'asc'
                       ? <ChevronUp size={13} className="text-primary" />
                       : <ChevronDown size={13} className="text-primary" />
                   ) : (
-                    <ArrowUpDown size={13} className="text-text-muted/50" />
+                    <ArrowUpDown size={13} />
                   )}
                 </button>
                 <button
                   type="button"
                   className={`rounded p-1 transition-colors hover:bg-bg-hover ${
-                    hasActiveFilter ? '' : 'opacity-0 group-hover:opacity-100'
+                    hasActiveFilter ? 'text-primary' : 'text-text-muted hover:text-text-primary'
                   }`}
                   onClick={(e) => { e.stopPropagation(); handleColumnFilterClick(column) }}
-                  aria-label={hasActiveFilter ? `Filter active on ${column}` : `Add filter on ${column}`}
+                  aria-label={hasActiveFilter ? `Filter active on ${column}` : `Filter ${column}`}
                 >
-                  <Filter
-                    size={13}
-                    className={hasActiveFilter ? 'text-primary' : 'text-text-muted/50'}
-                  />
+                  <Filter size={13} />
                 </button>
               </div>
-
-              {/* ── Column resize handle ──────────────────────────── */}
+              {/* ── Filter dot — tiny persistent indicator when filter is active ── */}
+              {hasActiveFilter && (
+                <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-primary group-hover/hdr:hidden" />
+              )}
+              {/* ── Resize handle ── */}
               <span
                 role="separator"
                 aria-label={`Resize ${column}`}
-                className="absolute right-0 top-0 z-10 h-full w-1.5 cursor-col-resize bg-transparent hover:bg-primary"
+                className="absolute right-0 top-0 z-10 h-full w-1 cursor-col-resize bg-transparent hover:bg-primary/60"
                 onMouseDown={(event) => onMouseDown(columnIndex, event)}
                 onDoubleClick={(event) => {
                   event.preventDefault()
@@ -1298,8 +1301,8 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
           variant={filters.length > 0 ? 'active' : (filterPanelOpen ? 'accent' : 'default')}
           onClick={() => setFilterPanelOpen(!filterPanelOpen)}
         />
-        {filters.length > 0 && (
-          <span className="rounded-full bg-primary px-1 text-micro font-bold text-text-inverse leading-none">
+        {filters.length > 0 && !filterPanelOpen && (
+          <span className="rounded bg-primary/15 px-1 text-[10px] font-semibold text-primary leading-none">
             {filters.length}
           </span>
         )}
@@ -1392,69 +1395,39 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
       {/* ── Filter Bar ───────────────────────────────────────────────────────── */}
       <div
         className={`grid transition-[grid-template-rows] duration-200 ease-in-out ${
-          filterPanelOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+          filterPanelOpen || filters.length > 0 || sortColumn ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
         }`}
       >
         <div className="overflow-hidden">
-          <div className="border-b border-border-default bg-bg-subtle px-2 py-1.5">
-            {/* ── Active filter chips ────────────────────────────────────────── */}
-            {filters.length > 0 && (
-              <div className="mb-1.5 flex items-center gap-1.5">
-                {filters.map((filter, index) => (
-                  <span
-                    key={index}
-                    className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-xs transition-colors hover:bg-primary/20"
-                  >
-                    <span className="font-mono font-medium text-text-primary">{filter.column}</span>
-                    <span className="text-text-muted">{getOperatorDisplay(filter.operator)}</span>
-                    {!['is_null', 'is_not_null'].includes(filter.operator) && (
-                      <span className="text-primary">{filter.value}</span>
-                    )}
-                    <button
-                      className="-mr-0.5 ml-0.5 rounded-full p-0.5 text-text-muted transition-colors hover:bg-primary/20 hover:text-danger"
-                      onClick={() => handleRemoveFilter(index)}
-                      aria-label={`Remove filter ${index + 1}`}
-                    >
-                      <X size={10} />
-                    </button>
-                  </span>
-                ))}
-                <button
-                  className="rounded px-1.5 py-0.5 text-xs text-danger transition-colors hover:bg-danger/10"
-                  onClick={handleClearAllFilters}
-                >
-                  Clear all
-                </button>
-              </div>
-            )}
-            {/* ── New filter input row ──────────────────────────────────────── */}
-            <div className="flex items-center gap-1.5">
+          <div className="border-b border-border-default">
+            {/* ── Add filter row ──────────────────────────────────────────── */}
+            <div className="flex items-center gap-1 px-2 py-1">
               <select
-                className="h-7 rounded-md border border-border-default bg-bg-base px-1.5 text-xs font-mono outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50"
+                className="h-6 rounded border border-border-default bg-bg-base px-1 text-[11px] font-mono outline-none focus:border-primary disabled:opacity-40"
                 value={newFilter.column || ''}
                 onChange={(e) => setNewFilter({ ...newFilter, column: e.target.value })}
                 disabled={realTableColumns.length === 0}
               >
-                <option value="">Column</option>
-                {realTableColumns.map((column) => (
-                  <option key={column} value={column}>{column}</option>
+                <option value="">Column…</option>
+                {realTableColumns.map((col) => (
+                  <option key={col} value={col}>{col}</option>
                 ))}
               </select>
               <select
-                className="h-7 rounded-md border border-border-default bg-bg-base px-1.5 text-xs outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50"
+                className="h-6 rounded border border-border-default bg-bg-base px-1 text-[11px] outline-none focus:border-primary disabled:opacity-40"
                 value={newFilter.operator || '='}
                 onChange={(e) => setNewFilter({ ...newFilter, operator: e.target.value as FilterOperator })}
                 disabled={!newFilter.column}
               >
                 <option value="=">=</option>
-                <option value="!=">≠</option>
+                <option value="!=">!=</option>
                 <option value="contains">contains</option>
                 <option value="starts_with">starts with</option>
                 <option value="ends_with">ends with</option>
                 <option value=">">&gt;</option>
-                <option value=">=">≥</option>
+                <option value=">=">&gt;=</option>
                 <option value="<">&lt;</option>
-                <option value="<=">≤</option>
+                <option value="<=">&lt;=</option>
                 <option value="is_null">is null</option>
                 <option value="is_not_null">is not null</option>
                 <option value="in">in</option>
@@ -1463,7 +1436,7 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                 <input
                   ref={valueInputRef}
                   type="text"
-                  className="h-7 min-w-[120px] flex-1 rounded-md border border-border-default bg-bg-base px-2 text-xs outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50"
+                  className="h-6 w-28 min-w-0 rounded border border-border-default bg-bg-base px-1.5 text-[11px] outline-none focus:border-primary disabled:opacity-40"
                   placeholder="Value…"
                   value={newFilter.value || ''}
                   onChange={(e) => setNewFilter({ ...newFilter, value: e.target.value })}
@@ -1471,68 +1444,133 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                   disabled={!newFilter.column || !newFilter.operator}
                 />
               )}
-              <ActionButton
-                icon={<Check size={12} />}
-                aria-label="Add filter"
-                variant="accent"
+              <button
+                type="button"
+                className="flex h-6 items-center gap-0.5 rounded bg-primary/10 px-1.5 text-[11px] font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-40 disabled:hover:bg-transparent"
                 onClick={handleAddFilter}
                 disabled={!newFilter.column || !newFilter.operator || (!newFilter.value && !['is_null', 'is_not_null'].includes(newFilter.operator || ''))}
-            />
-            {/* ── Sort controls ──────────────────────────────────────────────── */}
-            <div className="flex items-center gap-1.5 border-l border-border-default pl-1.5 ml-1">
-              <span className="text-xs text-text-muted">Sort by:</span>
-              <select
-                className="h-7 rounded-md border border-border-default bg-bg-base px-1.5 text-xs font-mono outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50"
-                value={sortColumn || ''}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleSortColumn(e.target.value);
-                  } else {
-                    // Clear sort
-                    setSortColumn(null);
-                    setSortDirection('asc');
-                    setAppliedOrderByClause('');
-                  }
-                }}
-                disabled={realTableColumns.length === 0}
               >
-                <option value="">None</option>
-                {realTableColumns.map((column) => (
-                  <option key={column} value={column}>{column}</option>
-                ))}
-              </select>
-              {sortColumn && (
-                <button
-                  type="button"
-                  className="flex h-7 items-center gap-0.5 rounded-md border border-border-default bg-bg-base px-1.5 text-xs transition-colors hover:bg-bg-hover focus:border-primary focus:ring-1 focus:ring-primary"
-                  onClick={() => {
-                    const nextDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-                    setSortDirection(nextDirection);
-                    const dbType = selectedConnection?.type as 'postgresql' | 'mysql';
-                    if (dbType && ['postgresql', 'mysql'].includes(dbType) && sortColumn) {
-                      const orderByClause = buildOrderByClause(sortColumn, nextDirection, dbType);
-                      setAppliedOrderByClause(orderByClause);
-                    }
-                  }}
-                  aria-label={`Sort direction: ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
-                >
-                  {sortDirection === 'asc' ? (
-                    <>
-                      <ChevronUp size={12} />
-                      <span>Asc</span>
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown size={12} />
-                      <span>Desc</span>
-                    </>
-                  )}
-                </button>
+                <CirclePlus size={11} />
+                Add
+              </button>
+              {(filters.length > 0 || sortColumn) && (
+                <>
+                  <span className="ml-auto" />
+                  <button
+                    type="button"
+                    className="flex h-6 items-center rounded px-1.5 text-[11px] text-text-muted transition-colors hover:text-danger"
+                    onClick={handleClearAllFilters}
+                  >
+                    Clear all
+                  </button>
+                </>
               )}
             </div>
+
+            {/* ── Active filters + sort (inline, wrapping) ─────────────── */}
+            {(filters.length > 0 || sortColumn) && (
+              <div className="flex flex-wrap items-center gap-1 border-t border-border-default bg-bg-subtle px-2 py-1">
+                {filters.map((filter, index) => (
+                  <span key={index} className="group/chip inline-flex items-center gap-px rounded border border-primary/20 bg-primary/5 py-px pl-0.5 pr-0.5 text-[11px] leading-tight">
+                    <Filter size={9} className="mx-0.5 shrink-0 text-primary/50" />
+                    <select
+                      className="h-5 rounded border-none bg-transparent px-0 text-[11px] font-mono text-text-primary outline-none focus:ring-0"
+                      value={filter.column}
+                      onChange={(e) => handleUpdateFilter(index, { column: e.target.value })}
+                    >
+                      {realTableColumns.map((col) => (
+                        <option key={col} value={col}>{col}</option>
+                      ))}
+                    </select>
+                    <select
+                      className="h-5 rounded border-none bg-transparent px-0 text-[11px] text-text-muted outline-none focus:ring-0"
+                      value={filter.operator}
+                      onChange={(e) => {
+                        const op = e.target.value as FilterOperator
+                        const isNullOp = ['is_null', 'is_not_null'].includes(op)
+                        handleUpdateFilter(index, { operator: op, ...(isNullOp ? { value: '' } : {}) })
+                      }}
+                    >
+                      <option value="=">=</option>
+                      <option value="!=">!=</option>
+                      <option value="contains">contains</option>
+                      <option value="starts_with">starts with</option>
+                      <option value="ends_with">ends with</option>
+                      <option value=">">&gt;</option>
+                      <option value=">=">&gt;=</option>
+                      <option value="<">&lt;</option>
+                      <option value="<=">&lt;=</option>
+                      <option value="is_null">is null</option>
+                      <option value="is_not_null">is not null</option>
+                      <option value="in">in</option>
+                    </select>
+                    {!['is_null', 'is_not_null'].includes(filter.operator) && (
+                      <input
+                        type="text"
+                        className="h-5 w-16 min-w-0 rounded border-none bg-transparent px-0.5 text-[11px] font-medium text-primary outline-none focus:ring-0"
+                        value={filter.value}
+                        onChange={(e) => handleUpdateFilter(index, { value: e.target.value })}
+                        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                      />
+                    )}
+                    <button
+                      className="rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:text-danger group-hover/chip:opacity-100"
+                      onClick={() => handleRemoveFilter(index)}
+                      aria-label={`Remove filter on ${filter.column}`}
+                    >
+                      <X size={9} />
+                    </button>
+                  </span>
+                ))}
+                {/* ── Sort chip ── */}
+                {sortColumn && (
+                  <span className="group/chip inline-flex items-center gap-px rounded border border-border-default bg-bg-muted py-px pl-0.5 pr-0.5 text-[11px] leading-tight">
+                    {sortDirection === 'asc'
+                      ? <ChevronUp size={10} className="mx-0.5 shrink-0 text-text-muted" />
+                      : <ChevronDown size={10} className="mx-0.5 shrink-0 text-text-muted" />
+                    }
+                    <select
+                      className="h-5 rounded border-none bg-transparent px-0 text-[11px] font-mono text-text-primary outline-none focus:ring-0"
+                      value={sortColumn}
+                      onChange={(e) => {
+                        if (!e.target.value) {
+                          setSortColumn(null); setSortDirection('asc'); setAppliedOrderByClause('')
+                        } else {
+                          handleSortColumn(e.target.value)
+                        }
+                      }}
+                    >
+                      {realTableColumns.map((col) => (
+                        <option key={col} value={col}>{col}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="h-5 rounded bg-transparent px-0.5 text-[11px] text-text-muted outline-none transition-colors hover:text-text-primary"
+                      onClick={() => {
+                        const next = sortDirection === 'asc' ? 'desc' : 'asc'
+                        setSortDirection(next)
+                        const dbType = selectedConnection?.type as 'postgresql' | 'mysql'
+                        if (dbType && ['postgresql', 'mysql'].includes(dbType) && sortColumn) {
+                          setAppliedOrderByClause(buildOrderByClause(sortColumn, next, dbType))
+                        }
+                      }}
+                    >
+                      {sortDirection === 'asc' ? 'asc' : 'desc'}
+                    </button>
+                    <button
+                      className="rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:text-danger group-hover/chip:opacity-100"
+                      onClick={() => { setSortColumn(null); setSortDirection('asc'); setAppliedOrderByClause('') }}
+                      aria-label="Clear sort"
+                    >
+                      <X size={9} />
+                    </button>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
-      </div>
       </div>
 
 
@@ -1613,7 +1651,7 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                 <tr key={headerGroup.id} role="row">
                   <th
                     role="columnheader"
-                    className="sticky left-0 z-30 border-b border-r border-border-default bg-bg-muted px-0 py-1"
+                    className="sticky left-0 z-30 border-b border-r border-border-default bg-bg-muted px-0 py-0.5"
                   />
                   {headerGroup.headers.map((header, columnIndex) => {
                     const columnId = header.column.id
@@ -1630,7 +1668,7 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                         key={header.id}
                         role="columnheader"
                         className={[
-                          'group relative border-b border-r border-border-default px-2 py-1.5 text-left whitespace-nowrap',
+                          'group relative border-b border-r border-border-default px-0 py-0 text-left whitespace-nowrap',
                           stickyLeft == null ? 'bg-bg-muted' : 'sticky z-20 bg-bg-muted shadow-[1px_0_0_0_var(--color-border-default)]',
                         ].join(' ')}
                         style={style}
@@ -1713,7 +1751,7 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                     className={[
                       'text-text-primary transition-colors',
                       rowHasActiveCell ? 'bg-primary-subtle' : '',
-                      hasSelectedCell && !rowHasActiveCell ? 'bg-[var(--color-selection-bg)]' : '',
+                      hasSelectedCell && !rowHasActiveCell ? 'bg-selection-bg' : '',
                       !rowHasActiveCell && !hasSelectedCell ? 'hover:bg-bg-muted/70' : '',
                       isDeletedRow ? 'line-through bg-red-100 dark:bg-red-900/25' : '',
                       isInsertedRow ? 'bg-green-100 dark:bg-green-900/25' : '',
@@ -1814,9 +1852,9 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                               : 'sticky z-10 bg-bg-base',
                             // Selection takes priority over dirty state
                             isActiveCellHere
-                              ? 'ring-2 ring-inset ring-primary z-[5]'
+                              ? 'ring-2 ring-inset ring-primary z-5'
                               : isSelectedCell
-                                ? 'bg-[var(--color-selection-bg)]'
+                                ? 'bg-selection-bg'
                                 : isCellDirty && !isInsertedRow
                                   ? 'bg-yellow-100 dark:bg-yellow-900/25'
                                   : '',
