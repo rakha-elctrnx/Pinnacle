@@ -69,7 +69,7 @@ export const router = createBrowserRouter([
               { index: true, element: <ConnectionWelcomePage /> },
               { path: 'tables', element: <TablesPage /> },
               { path: 'tables/:tableName', element: <TableDetailPage /> },
-              { path: 'query', element: <QueryPage /> },
+              { path: 'query/:queryId', element: <QueryPage /> },
             ],
           },
         ],

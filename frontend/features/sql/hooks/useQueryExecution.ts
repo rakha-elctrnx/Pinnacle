@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { executeSql } from '../clients/sql'
 import type { ConnectionProfile } from '../../_shared/types/domain'
 import type { QueryResult, ConnectionStatus } from '../../_shared/types/shared'
@@ -11,6 +11,12 @@ interface UseQueryExecutionParams {
   setConnectionStatuses: React.Dispatch<React.SetStateAction<Record<string, ConnectionStatus>>>
 }
 
+interface QueryState {
+  sql: string
+  result: QueryResult | null
+  messages: string[]
+}
+
 export interface UseQueryExecutionReturn {
   querySql: string
   isRunningQuery: boolean
@@ -19,14 +25,21 @@ export interface UseQueryExecutionReturn {
   queryHistoryByConnection: Record<string, string[]>
   queryDatabase: string
   querySchema: string
+  activeQueryId: string
   onQueryDatabaseChange: (db: string) => void
   onQuerySchemaChange: (schema: string) => void
   updateActiveQuery: (value: string) => void
+  setActiveQueryId: (id: string) => void
+  createQueryId: () => string
   handleRunQuery: (mode: 'run' | 'run-selected' | 'explain') => Promise<void>
   resetQueryData: () => void
 }
 
 const DEFAULT_SQL = 'SELECT 1;'
+
+function defaultQueryState(): QueryState {
+  return { sql: DEFAULT_SQL, result: null, messages: ['Ready.'] }
+}
 
 const SQL_KEYWORDS = new Set([
   'SELECT','FROM','WHERE','AND','OR','NOT','IN','IS','NULL','INSERT','INTO',
@@ -118,21 +131,59 @@ export function useQueryExecution({
   selectedDatabase,
   setConnectionStatuses,
 }: UseQueryExecutionParams): UseQueryExecutionReturn {
-  const [querySql, setQuerySql] = useState(DEFAULT_SQL)
+  const counterRef = useRef(0)
+  const [queryStates, setQueryStates] = useState<Record<string, QueryState>>({})
+  const [activeQueryId, setActiveQueryIdRaw] = useState('')
   const [isRunningQuery, setIsRunningQuery] = useState(false)
-  const [queryResult, setQueryResult] = useState<QueryResult | null>(null)
-  const [queryMessages, setQueryMessages] = useState<string[]>(['Ready.'])
   const [queryHistoryByConnection, setQueryHistoryByConnection] = useState<Record<string, string[]>>({})
   const [queryDatabase, setQueryDatabase] = useState(() => selectedDatabase || (selectedConnection?.database ?? ''))
   const [querySchema, setQuerySchema] = useState(() => selectedSchema)
 
-  const appendMessage = useCallback((message: string) => {
-    setQueryMessages((prev) => [`${new Date().toLocaleTimeString()}  ${message}`, ...prev].slice(0, 20))
+  const getState = useCallback((id: string): QueryState => {
+    return queryStates[id] ?? defaultQueryState()
+  }, [queryStates])
+
+  const updateState = useCallback((id: string, patch: Partial<QueryState>) => {
+    setQueryStates((prev) => ({
+      ...prev,
+      [id]: { ...(prev[id] ?? defaultQueryState()), ...patch },
+    }))
   }, [])
 
-  const updateActiveQuery = useCallback((value: string) => {
-    setQuerySql(value)
+  const activeState = getState(activeQueryId)
+
+  const createQueryId = useCallback(() => {
+    counterRef.current += 1
+    const id = String(counterRef.current)
+    setQueryStates((prev) => ({ ...prev, [id]: defaultQueryState() }))
+    return id
   }, [])
+
+  const setActiveQueryId = useCallback((id: string) => {
+    setActiveQueryIdRaw(id)
+    setQueryStates((prev) => {
+      if (prev[id]) return prev
+      return { ...prev, [id]: defaultQueryState() }
+    })
+  }, [])
+
+  const appendMessage = useCallback((message: string) => {
+    const ts = new Date().toLocaleTimeString()
+    setQueryStates((prev) => {
+      const cur = prev[activeQueryId] ?? defaultQueryState()
+      return {
+        ...prev,
+        [activeQueryId]: {
+          ...cur,
+          messages: [`${ts}  ${message}`, ...cur.messages].slice(0, 20),
+        },
+      }
+    })
+  }, [activeQueryId])
+
+  const updateActiveQuery = useCallback((value: string) => {
+    updateState(activeQueryId, { sql: value })
+  }, [activeQueryId, updateState])
 
   const handleRunQuery = useCallback(
     async (mode: 'run' | 'run-selected' | 'explain') => {
@@ -141,7 +192,8 @@ export function useQueryExecution({
         return
       }
 
-      const raw = mode === 'explain' ? `EXPLAIN ${querySql}` : querySql
+      const currentSql = activeState.sql
+      const raw = mode === 'explain' ? `EXPLAIN ${currentSql}` : currentSql
       if (!raw.trim()) {
         appendMessage('No SQL query to execute.')
         return
@@ -162,11 +214,13 @@ export function useQueryExecution({
           sql,
         })
 
-        setQueryResult({
-          columns: result.columns,
-          rows: result.rows,
-          rowsAffected: result.rowsAffected,
-          elapsedMs: result.elapsedMs,
+        updateState(activeQueryId, {
+          result: {
+            columns: result.columns,
+            rows: result.rows,
+            rowsAffected: result.rowsAffected,
+            elapsedMs: result.elapsedMs,
+          },
         })
         appendMessage(`Completed in ${result.elapsedMs} ms`)
         setConnectionStatuses((prev) => ({ ...prev, [selectedConnection.id]: 'connected' }))
@@ -181,29 +235,32 @@ export function useQueryExecution({
         setIsRunningQuery(false)
       }
     },
-    [selectedConnection, querySql, queryDatabase, querySchema, appendMessage, setConnectionStatuses],
+    [selectedConnection, activeState.sql, activeQueryId, queryDatabase, querySchema, appendMessage, updateState, setConnectionStatuses],
   )
 
   const resetQueryData = useCallback(() => {
-    setQuerySql(DEFAULT_SQL)
-    setQueryResult(null)
-    setQueryMessages(['Ready.'])
+    setQueryStates({})
+    setActiveQueryIdRaw('')
+    counterRef.current = 0
     setQueryDatabase('')
     setQuerySchema('')
     setQueryHistoryByConnection({})
   }, [])
 
   return {
-    querySql,
+    querySql: activeState.sql,
     queryDatabase,
     querySchema,
+    activeQueryId,
     onQueryDatabaseChange: setQueryDatabase,
     onQuerySchemaChange: setQuerySchema,
     isRunningQuery,
-    queryResult,
-    queryMessages,
+    queryResult: activeState.result,
+    queryMessages: activeState.messages,
     queryHistoryByConnection,
     updateActiveQuery,
+    setActiveQueryId,
+    createQueryId,
     handleRunQuery,
     resetQueryData,
   }

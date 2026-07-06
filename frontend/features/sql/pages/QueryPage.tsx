@@ -1,5 +1,5 @@
 import Editor, { type BeforeMount, type OnMount } from '@monaco-editor/react'
-import { Play, Download, History, ListEnd, Sparkles } from 'lucide-react'
+import { Play, Download, History, ListEnd, Sparkles, WrapText, Minimize2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import * as monacoEditor from 'monaco-editor'
@@ -12,12 +12,13 @@ import { registerSqlProviders } from '../components/query/SqlCompletionProvider'
 import { validateSql } from '../components/query/SqlValidator'
 import type { SchemaColumn } from '../types/sql'
 import type { QueryResultTab } from '../../_shared/types/shared'
+import { beautifySql, minifySql } from '../utils/sqlFormatter'
 
 const RESULT_TABS: QueryResultTab[] = ['results', 'messages', 'statistics']
 const EMPTY_SCHEMA: Record<string, SchemaColumn[]> = {}
 
 export function QueryPage() {
-  const { connectionId } = useParams<{ connectionId: string }>()
+  const { connectionId, queryId } = useParams<{ connectionId: string; queryId: string }>()
   const {
     selectedConnection,
     explorerData,
@@ -34,7 +35,12 @@ export function QueryPage() {
     queryHistoryByConnection,
     updateActiveQuery, handleRunQuery,
     onQueryDatabaseChange, onQuerySchemaChange,
+    setActiveQueryId,
   } = queryExecution
+
+  useEffect(() => {
+    if (queryId) setActiveQueryId(queryId)
+  }, [queryId, setActiveQueryId])
 
   const handleRunQueryRef = useRef(handleRunQuery)
   useEffect(() => { handleRunQueryRef.current = handleRunQuery }, [handleRunQuery])
@@ -140,6 +146,19 @@ export function QueryPage() {
             aria-label="Explain"
             disabled={isRunningQuery}
             onClick={() => void handleRunQuery('explain')}
+          />
+          <span className="mx-0.5 h-5 w-px bg-border-default" />
+          <ActionButton
+            icon={<WrapText size={14} />}
+            aria-label="Beautify SQL"
+            disabled={isRunningQuery || !querySql.trim()}
+            onClick={() => updateActiveQuery(beautifySql(querySql))}
+          />
+          <ActionButton
+            icon={<Minimize2 size={14} />}
+            aria-label="Minify SQL"
+            disabled={isRunningQuery || !querySql.trim()}
+            onClick={() => updateActiveQuery(minifySql(querySql))}
           />
           <span className="mx-0.5 h-5 w-px bg-border-default" />
           <ActionButton

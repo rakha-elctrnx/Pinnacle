@@ -189,6 +189,7 @@ export function ConnectionSidebar() {
     handleRetryElasticIndices,
     focusedNodePath,
     setFocusedNodePath,
+    queryExecution,
   } = useDataExplorerContext()
 
   const navigate = useNavigate()
@@ -329,17 +330,18 @@ export function ConnectionSidebar() {
   const handleQueryNavigate = useCallback(() => {
     const connectionId = selectedConnection?.id;
     if (!connectionId || !selectedConnection) return;
-    const route = `/sql/${connectionId}/query`;
+    const qId = queryExecution.createQueryId();
+    const route = `/sql/${connectionId}/query/${qId}`;
     openTab({
-      id: `${connectionId}:query`,
-      label: 'Query',
+      id: `${connectionId}:query:${qId}`,
+      label: `Query_${qId}`,
       type: selectedConnection.type,
       pageType: 'query',
       route,
       connectionId,
     });
     navigate(route);
-  }, [selectedConnection, navigate, openTab]);
+  }, [selectedConnection, navigate, openTab, queryExecution]);
 
   const handleTablesCategoryClick = useCallback(() => {
     const connectionId = selectedConnection?.id;

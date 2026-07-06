@@ -390,11 +390,12 @@ function DataExplorerLayoutChrome({
                     { label: 'New Query', icon: <SquareTerminal size={14} />, action: () => {
                       const connId = contextMenu.itemId
                       if (!connId || !selectedConnection) return
-                      const route = `/sql/${connId}/query`
+                      const qId = queryExecution.createQueryId()
+                      const route = `/sql/${connId}/query/${qId}`
                       const openTab = useTabStore.getState().openTab
                       openTab({
-                        id: `${connId}:query`,
-                        label: 'Query',
+                        id: `${connId}:query:${qId}`,
+                        label: `Query_${qId}`,
                         type: selectedConnection.type,
                         pageType: 'query',
                         route,
@@ -404,6 +405,7 @@ function DataExplorerLayoutChrome({
                       if (table) {
                         const hasUpperCase = /[A-Z]/.test(table)
                         const quoted = hasUpperCase ? `"${table}"` : table
+                        queryExecution.setActiveQueryId(qId)
                         queryExecution.updateActiveQuery(`SELECT * FROM ${quoted};`)
                       }
                       navigate(route)

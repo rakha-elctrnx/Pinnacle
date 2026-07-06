@@ -656,7 +656,6 @@ export function useExplorerData({
                     },
                   ]
                   : []),
-                { label: "Queries", children: [] },
               ],
             })),
           };
@@ -677,7 +676,6 @@ export function useExplorerData({
                 : []),
               { label: "Views", children: [] },
               { label: "Functions", children: [] },
-              { label: "Queries", children: [] },
             ],
           };
         }

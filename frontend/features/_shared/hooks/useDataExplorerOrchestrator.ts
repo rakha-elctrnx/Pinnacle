@@ -617,23 +617,6 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   }
 
   const wrappedHandleTreeNodeClick = async (nodeLabel: string, databaseName?: string, nodePath?: string) => {
-    if (nodePath?.endsWith('/Queries')) {
-      setIsSqlTableListView(false)
-      if (selectedConnection) {
-        const tabTitle = databaseName ? `${databaseName} Query` : 'Query'
-        const route = `/sql/${selectedConnection.id}/query`
-        useTabStore.getState().openTab({
-          id: `${selectedConnection.id}:query`,
-          label: tabTitle,
-          type: selectedConnection.type,
-          pageType: 'query',
-          route,
-          connectionId: selectedConnection.id,
-        })
-      }
-      return
-    }
-
     // Use capability check instead of raw `type === 'postgresql' || type === 'mysql'`
     if (
       nodePath?.endsWith('/Tables') &&
