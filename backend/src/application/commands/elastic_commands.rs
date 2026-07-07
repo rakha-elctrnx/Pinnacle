@@ -139,3 +139,24 @@ pub async fn elastic_get_nodes_info(payload: ConnectionPayload) -> Result<serde_
         .await
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn elastic_open_index(payload: IndexActionPayload) -> Result<serde_json::Value, String> {
+    elastic::open_index(&payload)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn elastic_close_index(payload: IndexActionPayload) -> Result<serde_json::Value, String> {
+    elastic::close_index(&payload)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn elastic_refresh_index(payload: IndexActionPayload) -> Result<serde_json::Value, String> {
+    elastic::refresh_index(&payload)
+        .await
+        .map_err(|e| e.to_string())
+}

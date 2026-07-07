@@ -10,8 +10,10 @@ use application::commands::elastic_commands::{
     elastic_create_index, elastic_delete_document, elastic_delete_index, elastic_execute_query,
     elastic_get_cluster_health, elastic_get_cluster_info, elastic_get_cluster_stats,
     elastic_get_index_mapping, elastic_get_index_settings, elastic_get_node_stats,
-    elastic_get_nodes_info, elastic_index_document, elastic_list_aliases, elastic_list_indices,
-    elastic_list_pipelines, elastic_list_shards, elastic_list_templates, elastic_search_documents,
+    elastic_get_nodes_info, elastic_index_document, elastic_list_aliases,
+    elastic_list_indices, elastic_list_pipelines, elastic_list_shards,
+    elastic_list_templates, elastic_open_index, elastic_close_index,
+    elastic_refresh_index, elastic_search_documents,
     elastic_test_connection,
 };
 // SQL COMMANDS
@@ -106,6 +108,9 @@ pub fn run() {
             elastic_list_aliases,
             elastic_list_shards,
             elastic_get_nodes_info,
+            elastic_open_index,
+            elastic_close_index,
+            elastic_refresh_index,
             // EXPORT COMMANDS
             estimate_table_export,
             execute_table_export,

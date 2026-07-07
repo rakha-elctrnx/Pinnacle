@@ -8,7 +8,7 @@ import { TreeNodeItem } from "../ui/TreeNodeItem";
 import type { ConnectionProfile, ConnectionType } from "../../types/domain";
 import type { ElasticIndex } from "../../../elasticsearch/types/elasticsearch";
 import type { TreeNode, ExplorerTreeData } from "../../types/shared";
-import { isSqlConnectionType } from "../../utils";
+import { isSqlConnectionType, isElasticsearchType } from "../../utils";
 
 interface ExplorerDataContext {
   treeDataMap: Record<string, ExplorerTreeData>;
@@ -190,6 +190,7 @@ export function ConnectionSidebar() {
     focusedNodePath,
     setFocusedNodePath,
     queryExecution,
+    setExpandedConnectionId,
   } = useDataExplorerContext()
 
   const navigate = useNavigate()
@@ -419,9 +420,11 @@ export function ConnectionSidebar() {
           // Database list exists — fetch details for the first database
           handleFetchDatabaseDetails(treeData.databases[0].name);
         }
+      } else if (profile && isElasticsearchType(profile.type)) {
+        setExpandedConnectionId(connectionId)
       }
     }
-  }, [expandedTreePaths, groupedConnections, explorerData, handleToggleTreeNode, handleFetchDatabaseDetails])
+  }, [expandedTreePaths, groupedConnections, explorerData, handleToggleTreeNode, handleFetchDatabaseDetails, setExpandedConnectionId])
 
   return (
     <aside className="flex h-full min-w-0 flex-col overflow-hidden bg-bg-subtle/40">

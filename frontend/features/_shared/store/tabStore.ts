@@ -6,7 +6,7 @@ import type { ConnectionType } from '../types/domain'
 // ---------------------------------------------------------------------------
 
 /** What kind of page a tab represents. */
-export type TabPageType = 'table' | 'query' | 'elastic-index'
+export type TabPageType = 'table' | 'query' | 'elastic-index' | 'elastic-cluster' | 'elastic-indices' | 'elastic-query' | 'elastic-mappings'
 
 export interface Tab {
   /** Unique identifier — connection id for connection tabs, composite key for sub-pages. */

@@ -7,8 +7,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useConnectionStore } from '../store/connectionStore'
-import { useTabStore } from '../store/tabStore'
+import { useTabStore, type TabPageType } from '../store/tabStore'
 import type { ConnectionProfile } from '../types/domain'
 import { showExportSaveDialog, getConnectionPassword } from '../services/tauriClient'
 // Elasticsearch
@@ -173,6 +174,8 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   const upsert = useConnectionStore((state) => state.upsert)
   const remove = useConnectionStore((state) => state.remove)
   const refreshStore = useConnectionStore((state) => state.refresh)
+
+  const navigate = useNavigate()
 
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null)
   const [expandedConnectionId, setExpandedConnectionId] = useState<string | null>(null)
@@ -616,6 +619,20 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     'Mapping': 'mapping',
   }
 
+  const ELASTIC_PANEL_TO_ROUTE: Record<string, string> = {
+    'cluster': 'cluster',
+    'indices': 'indices',
+    'query': 'query',
+    'mapping': 'mappings',
+  }
+
+  const ELASTIC_PANEL_TO_PAGE_TYPE: Record<string, string> = {
+    'cluster': 'elastic-cluster',
+    'indices': 'elastic-indices',
+    'query': 'elastic-query',
+    'mapping': 'elastic-mappings',
+  }
+
   const wrappedHandleTreeNodeClick = async (nodeLabel: string, databaseName?: string, nodePath?: string) => {
     // Use capability check instead of raw `type === 'postgresql' || type === 'mysql'`
     if (
@@ -644,8 +661,16 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     }
 
     // Handle elasticsearch sidebar navigation — use capability check
-    if (selectedConnection && isElasticsearchLike(selectedConnection.type)) {
-      if (nodePath?.startsWith('Indices/')) {
+    // Derive connection from node path (user may click index child without selecting connection)
+    const esPathName = nodePath?.split('/')[1]
+    const esConn = selectedConnection && isElasticsearchLike(selectedConnection.type)
+      ? selectedConnection
+      : esPathName
+        ? items.find((item) => item.name === esPathName && item.type === 'elasticsearch')
+        : null
+
+    if (esConn && isElasticsearchLike(esConn.type)) {
+      if (nodePath?.includes('/Indices/')) {
         setElasticPanel('documents')
         setSelectedElasticIndex(nodeLabel)
         setSelectedTreeNode(nodePath)
@@ -658,22 +683,39 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
           setActiveElasticTabId(tabId)
         }
         // Create global tab for the elastic index
-        const globalTabId = `${selectedConnection.id}:index:${nodeLabel}`
+        const globalTabId = `${esConn.id}:index:${nodeLabel}`
         useTabStore.getState().openTab({
           id: globalTabId,
           label: nodeLabel,
-          type: selectedConnection.type,
+          type: esConn.type,
           pageType: 'elastic-index',
-          route: `/elasticsearch/${selectedConnection.id}/documents`,
-          connectionId: selectedConnection.id,
+          route: `/elasticsearch/${esConn.id}/documents`,
+          connectionId: esConn.id,
         })
+        navigate(`/elasticsearch/${esConn.id}/documents`)
         return
       }
       if (ELASTIC_LABEL_TO_PANEL[nodeLabel]) {
-        setElasticPanel(ELASTIC_LABEL_TO_PANEL[nodeLabel])
+        const panel = ELASTIC_LABEL_TO_PANEL[nodeLabel]
+        setElasticPanel(panel)
         setSelectedElasticIndex(null)
         setSelectedTreeNode(nodePath || nodeLabel)
         setActiveElasticTabId(null)
+
+        const routeSuffix = ELASTIC_PANEL_TO_ROUTE[panel] || panel
+        const pageType = ELASTIC_PANEL_TO_PAGE_TYPE[panel] || 'elastic-cluster'
+        const route = `/elasticsearch/${esConn.id}/${routeSuffix}`
+        const globalTabId = `${esConn.id}:${panel}`
+        useTabStore.getState().openTab({
+          id: globalTabId,
+          label: nodeLabel,
+          type: esConn.type,
+          pageType: pageType as TabPageType,
+          route,
+          connectionId: esConn.id,
+          treePath: nodePath || undefined,
+        })
+        navigate(route)
         return
       }
     }
@@ -802,7 +844,17 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
 
     setActiveElasticTabId(tabId)
     setSelectedElasticIndex(targetTab.indexName)
-    setSelectedTreeNode(`Indices/${targetTab.indexName}`)
+    const conn = items.find((item) => item.id === selectedConnection?.id)
+    const groupName = conn
+      ? Object.entries(groupedConnections).find(([, profiles]) =>
+          profiles.some((p) => p.id === conn.id)
+        )?.[0]
+      : undefined
+    setSelectedTreeNode(
+      groupName && conn
+        ? `${groupName}/${conn.name}/Indices/${targetTab.indexName}`
+        : `Indices/${targetTab.indexName}`
+    )
   }
 
   return {
