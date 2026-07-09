@@ -1,10 +1,16 @@
-import { useState, useCallback, useEffect } from 'react'
-import type { ConnectionPayload } from '../../_shared/services/tauriClient'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { elasticExecuteQuery } from '../clients/elasticsearch'
 import type { ElasticQueryResult } from '../types/elasticsearch'
-import { Play, Clock, Copy, ChevronDown } from 'lucide-react'
+import type { ConnectionPayload } from '../../_shared/services/tauriClient'
+import { Play, History, Download, Copy, WrapText, Minimize2, ChevronDown, Plus } from 'lucide-react'
 import Editor from '@monaco-editor/react'
 import { CenteredLoadingState } from '../../_shared/components/ui/CenteredLoadingState'
+import { ActionButton } from '../../_shared/components/ui/ActionButton'
+import { downloadTextFile } from '../../_shared/utils'
+import { useTheme } from '../../../app/theme'
+import { useTabStore } from '../../_shared/store/tabStore'
+import { useEsQueryStore } from '../store/queryStore'
 
 interface QueryHistoryEntry {
   id: string
@@ -23,12 +29,7 @@ interface Props {
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'HEAD']
 
 const QUICK_TEMPLATES = [
-  {
-    label: 'Cluster Health',
-    method: 'GET',
-    path: '/_cluster/health',
-    body: '',
-  },
+  { label: 'Cluster Health', method: 'GET', path: '/_cluster/health', body: '' },
   { label: 'Cat Indices', method: 'GET', path: '/_cat/indices?v', body: '' },
   { label: 'Cat Nodes', method: 'GET', path: '/_cat/nodes?v', body: '' },
   {
@@ -41,22 +42,103 @@ const QUICK_TEMPLATES = [
   { label: 'Cat Shards', method: 'GET', path: '/_cat/shards?v', body: '' },
 ]
 
+type ResultTab = 'response' | 'messages' | 'statistics'
+
 export function QueryConsole({ connection }: Props) {
-  const [method, setMethod] = useState('GET')
-  const [path, setPath] = useState('/_cluster/health')
-  const [body, setBody] = useState('')
-  const [result, setResult] = useState<ElasticQueryResult | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { theme } = useTheme()
+  const { connectionId } = useParams<{ connectionId: string }>()
+  const navigate = useNavigate()
+
+  // ── Per-tab state via Zustand ───────────────────────────────────────
+  const activeTabId = useTabStore((s) => s.activeTabId)
+  const tabState = useEsQueryStore((s) => (activeTabId ? s.tabs[activeTabId] : undefined))
+  const setTab = useEsQueryStore((s) => s.setTab)
+
+  const [method, setMethod] = useState(tabState?.method ?? 'GET')
+  const [path, setPath] = useState(tabState?.path ?? '/_cluster/health')
+  const [body, setBody] = useState(tabState?.body ?? '')
+  const [result, setResult] = useState<ElasticQueryResult | null>(
+    tabState?.result ?? null,
+  )
+  const [error, setError] = useState<string | null>(tabState?.error ?? null)
   const [loading, setLoading] = useState(false)
   const [history, setHistory] = useState<QueryHistoryEntry[]>([])
-  const [showHistory, setShowHistory] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
-  const [resultView, setResultView] = useState<'raw' | 'formatted'>('formatted')
+  const [resultTab, setResultTab] = useState<ResultTab>(
+    (tabState?.resultTab as ResultTab) ?? 'response',
+  )
+  const [resultHeight, setResultHeight] = useState(240)
+  const dragRef = useRef<{ startY: number; startH: number } | null>(null)
+
+  const templatesRef = useRef<HTMLDivElement>(null)
+
+  // Persist state to zustand store on every change
+  useEffect(() => {
+    if (!activeTabId) return
+    setTab(activeTabId, { method, path, body, resultTab, result, error })
+  }, [activeTabId, setTab, method, path, body, resultTab, result, error])
+
+  // Persist history separately
+  const historyKey = activeTabId ? `es-query-${activeTabId}-history` : null
+
+  // Load history from sessionStorage on mount
+  useEffect(() => {
+    if (!historyKey) return
+    try {
+      const raw = sessionStorage.getItem(historyKey)
+      if (raw) {
+        setHistory(JSON.parse(raw) as QueryHistoryEntry[])
+      }
+    } catch {
+      // ignore
+    }
+  }, [historyKey])
+
+  // Save history on change
+  useEffect(() => {
+    if (!historyKey) return
+    sessionStorage.setItem(historyKey, JSON.stringify(history))
+  }, [historyKey, history])
+
+  // Sequential tab label counter (persisted across sessions)
+  const tabCounterRef = useRef(() => {
+    const raw = sessionStorage.getItem('es-query-tab-counter')
+    const next = (raw ? parseInt(raw, 10) : 1) + 1
+    sessionStorage.setItem('es-query-tab-counter', String(next))
+    return next
+  })
+
+  const handleNewQuery = useCallback(() => {
+    const newTabId = `es-query-${connectionId}-${Date.now()}`
+    const label = `Query_${tabCounterRef.current()}`
+    const route = `/elasticsearch/${connectionId}/query`
+
+    setMethod('GET')
+    setPath('/_cluster/health')
+    setBody('')
+    setResult(null)
+    setError(null)
+    setHistoryOpen(false)
+    setShowTemplates(false)
+    setResultTab('response')
+
+    useTabStore.getState().openTab({
+      id: newTabId,
+      label,
+      type: 'elasticsearch',
+      pageType: 'elastic-query',
+      route,
+      connectionId,
+    })
+    navigate(route)
+  }, [connectionId, navigate])
 
   const executeQuery = useCallback(async () => {
     setLoading(true)
     setError(null)
     setResult(null)
+    setResultTab('response')
     try {
       const parsedBody = body.trim() ? JSON.parse(body) : undefined
       const res = await elasticExecuteQuery({
@@ -104,15 +186,17 @@ export function QueryConsole({ connection }: Props) {
     setMethod(entry.method)
     setPath(entry.path)
     setBody(entry.body)
-    setShowHistory(false)
   }, [])
 
-  const loadTemplate = useCallback((tpl: (typeof QUICK_TEMPLATES)[number]) => {
-    setMethod(tpl.method)
-    setPath(tpl.path)
-    setBody(tpl.body)
-    setShowTemplates(false)
-  }, [])
+  const loadTemplate = useCallback(
+    (tpl: (typeof QUICK_TEMPLATES)[number]) => {
+      setMethod(tpl.method)
+      setPath(tpl.path)
+      setBody(tpl.body)
+      setShowTemplates(false)
+    },
+    [],
+  )
 
   const copyResult = useCallback(() => {
     if (result) {
@@ -129,7 +213,18 @@ export function QueryConsole({ connection }: Props) {
     }
   }, [body])
 
-  // Global keyboard shortcut for Cmd+Enter / Ctrl+Enter (works with Monaco editor focus)
+  const minifyBody = useCallback(() => {
+    try {
+      const parsed = JSON.parse(body)
+      setBody(JSON.stringify(parsed))
+    } catch {
+      // ignore invalid JSON
+    }
+  }, [body])
+
+  const resultJson = result ? JSON.stringify(result.data, null, 2) : ''
+
+  // Global keyboard shortcut for Cmd+Enter / Ctrl+Enter
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -141,203 +236,395 @@ export function QueryConsole({ connection }: Props) {
     return () => window.removeEventListener('keydown', handler)
   }, [executeQuery])
 
-  const handleContainerKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-        e.preventDefault()
-        executeQuery()
+  // Close templates dropdown on outside click
+  useEffect(() => {
+    if (!showTemplates) return
+    const handleClick = (e: MouseEvent) => {
+      if (templatesRef.current && !templatesRef.current.contains(e.target as Node)) {
+        setShowTemplates(false)
       }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showTemplates])
+
+  const handleResizeMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      dragRef.current = { startY: e.clientY, startH: resultHeight }
+      const onMove = (ev: MouseEvent) => {
+        if (!dragRef.current) return
+        const delta = dragRef.current.startY - ev.clientY
+        setResultHeight(
+          Math.max(80, Math.min(600, dragRef.current.startH + delta)),
+        )
+      }
+      const onUp = () => {
+        dragRef.current = null
+        window.removeEventListener('mousemove', onMove)
+        window.removeEventListener('mouseup', onUp)
+      }
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseup', onUp)
     },
-    [executeQuery],
+    [resultHeight],
   )
 
-  const resultJson = result ? JSON.stringify(result.data, null, 2) : ''
-
   return (
-    <div className="flex flex-col h-full" onKeyDown={handleContainerKeyDown}>
-      {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-200 bg-white">
-        <div className="relative">
-          <button
-            onClick={() => setShowTemplates(!showTemplates)}
-            className="flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-body-secondary hover:bg-slate-50"
-          >
-            Templates <ChevronDown className="h-3 w-3" />
-          </button>
-          {showTemplates && (
-            <div className="absolute top-full left-0 mt-1 w-48 rounded border border-slate-200 bg-white shadow-lg z-20">
-              {QUICK_TEMPLATES.map((tpl) => (
-                <button
-                  key={tpl.label}
-                  onClick={() => loadTemplate(tpl)}
-                  className="w-full text-left px-3 py-2 text-body hover:bg-slate-50"
-                >
-                  {tpl.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="relative">
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            className="flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-body-secondary hover:bg-slate-50"
-          >
-            <Clock className="h-3.5 w-3.5" /> History ({history.length})
-          </button>
-          {showHistory && (
-            <div className="absolute top-full left-0 mt-1 w-80 max-h-64 overflow-auto rounded border border-slate-200 bg-white shadow-lg z-20">
-              {history.length === 0 ? (
-                <div className="px-3 py-2 text-caption">No history yet</div>
-              ) : (
-                history.map((entry) => (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <section className="flex h-full min-h-0 flex-col bg-bg-base">
+        {/* ── Toolbar ────────────────────────────────────────────────── */}
+        <div className="flex items-center gap-1 border-b border-border-default px-1.5 py-1.5">
+          {/* Quick Templates */}
+          <div ref={templatesRef} className="relative">
+            <ActionButton
+              icon={<ChevronDown size={14} />}
+              aria-label="Templates"
+              variant={showTemplates ? 'accent' : 'default'}
+              onClick={() => setShowTemplates((v) => !v)}
+            />
+            {showTemplates && (
+              <div className="absolute left-0 top-full z-30 mt-1 min-w-44 rounded-md border border-border-default bg-bg-base py-0.5 shadow-lg">
+                {QUICK_TEMPLATES.map((tpl) => (
                   <button
-                    key={entry.id}
-                    onClick={() => loadFromHistory(entry)}
-                    className="w-full text-left px-3 py-2 text-body hover:bg-slate-50 border-b border-slate-100"
+                    key={tpl.label}
+                    type="button"
+                    onClick={() => loadTemplate(tpl)}
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-hover"
                   >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`text-label ${entry.method === 'GET' ? 'text-emerald-600' : entry.method === 'POST' ? 'text-sky-600' : entry.method === 'DELETE' ? 'text-red-600' : 'text-amber-600'}`}
-                      >
-                        {entry.method}
-                      </span>
-                      <span className="text-slate-700 text-mono text-caption truncate">
-                        {entry.path}
-                      </span>
-                      {entry.error && (
-                        <span className="text-red-500 text-caption ml-auto">
-                          Error
-                        </span>
-                      )}
-                    </div>
+                    {tpl.label}
                   </button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-      {/* Request Editor */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-200 bg-slate-50">
-        <select
-          value={method}
-          onChange={(e) => setMethod(e.target.value)}
-          className="rounded border border-slate-300 bg-white px-2 py-1.5 text-subheading text-slate-700 focus:border-blue-500 focus:outline-none"
-        >
-          {HTTP_METHODS.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
-        <input
-          type="text"
-          value={path}
-          onChange={(e) => setPath(e.target.value)}
-          placeholder="/_search"
-          className="flex-1 rounded border border-slate-300 bg-white px-3 py-1.5 text-mono text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none"
-        />
-        <button
-          onClick={executeQuery}
-          disabled={loading}
-          className="flex items-center gap-1.5 rounded bg-emerald-600 px-4 py-1.5 text-body text-white hover:bg-emerald-500 disabled:opacity-50"
-        >
-          <Play className="h-3.5 w-3.5" /> Run
-        </button>
-      </div>
+          <span className="mx-0.5 h-5 w-px bg-border-default" />
 
-      {/* Body Editor */}
-      <div
-        className="flex flex-col"
-        style={{ minHeight: '200px', maxHeight: '35%' }}
-      >
-        <div className="flex items-center justify-between px-4 py-1 border-b border-slate-200 bg-slate-50">
-          <span className="text-label">Request Body</span>
-          <button
-            onClick={formatBody}
-            className="text-caption hover:text-slate-700"
+          {/* Method + Path */}
+          <select
+            value={method}
+            onChange={(e) => setMethod(e.target.value)}
+            className="h-7 w-20 rounded border border-border-default bg-bg-base px-1 text-[11px] font-mono outline-none focus:border-primary"
           >
-            Format JSON
-          </button>
+            {HTTP_METHODS.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+          <input
+            type="text"
+            value={path}
+            onChange={(e) => setPath(e.target.value)}
+            placeholder="/_search"
+            className="h-7 flex-1 rounded border border-border-default bg-bg-base px-2 text-[11px] font-mono outline-none placeholder:text-text-muted focus:border-primary"
+          />
+
+          <span className="mx-0.5 h-5 w-px bg-border-default" />
+
+          {/* Run */}
+          <ActionButton
+            icon={<Play size={14} />}
+            aria-label="Run (Cmd+Enter)"
+            variant="accent"
+            disabled={loading}
+            onClick={() => void executeQuery()}
+          />
+
+          <span className="mx-0.5 h-5 w-px bg-border-default" />
+
+          {/* Format / Minify JSON body */}
+          <ActionButton
+            icon={<WrapText size={14} />}
+            aria-label="Format JSON"
+            disabled={!body.trim()}
+            onClick={formatBody}
+          />
+          <ActionButton
+            icon={<Minimize2 size={14} />}
+            aria-label="Minify JSON"
+            disabled={!body.trim()}
+            onClick={minifyBody}
+          />
+
+          <span className="mx-0.5 h-5 w-px bg-border-default" />
+
+          {/* History */}
+          <ActionButton
+            icon={<History size={14} />}
+            aria-label="Query History"
+            variant={historyOpen ? 'accent' : 'default'}
+            onClick={() => setHistoryOpen((v) => !v)}
+          />
+          <ActionButton
+            icon={<Plus size={14} />}
+            aria-label="New Query Tab"
+            onClick={handleNewQuery}
+          />
         </div>
-        <div className="flex-1 min-h-0">
+
+        {/* ── Body Editor ──────────────────────────────────────────────── */}
+        <div className="relative min-h-40 flex-1">
           <Editor
+            height="100%"
             language="json"
             value={body}
-            onChange={(val) => setBody(val ?? '')}
-            theme="light"
+            theme={theme === 'dark' ? 'vs-dark' : 'light'}
+            onChange={(value) => setBody(value ?? '')}
             options={{
-              fontSize: 13,
               minimap: { enabled: false },
-              scrollBeyondLastLine: false,
+              fontSize: 13,
               wordWrap: 'on',
-              automaticLayout: true,
               lineNumbers: 'on',
               padding: { top: 8 },
               tabSize: 2,
+              automaticLayout: true,
+              scrollBeyondLastLine: false,
+              readOnly: loading,
             }}
+            loading={
+              <div className="p-3 text-xs text-text-muted">Loading editor…</div>
+            }
           />
-        </div>
-      </div>
-
-      {/* Divider */}
-      <div className="border-t border-slate-200" />
-
-      {/* Results */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-1 border-b border-slate-200 bg-slate-50">
-          <div className="flex items-center gap-2">
-            <span className="text-label">Response</span>
-            {result && (
-              <span className="text-caption">{result.elapsed_ms}ms</span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() =>
-                setResultView(resultView === 'raw' ? 'formatted' : 'raw')
-              }
-              className="text-caption hover:text-slate-700"
-            >
-              {resultView === 'raw' ? 'Formatted' : 'Raw'}
-            </button>
-            {result && (
-              <button
-                onClick={copyResult}
-                className="text-caption hover:text-slate-700"
-              >
-                <Copy className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
-        <div className="flex-1 overflow-auto">
-          <CenteredLoadingState
-            loading={loading}
-            label="Executing query..."
-            iconSize={3}
-          />
-          {error && (
-            <pre className="px-4 py-3 text-mono text-red-600 whitespace-pre-wrap break-all">
-              {error}
-            </pre>
-          )}
-          {result && (
-            <pre className="px-4 py-3 text-mono text-slate-700 whitespace-pre-wrap break-all">
-              {resultView === 'formatted'
-                ? resultJson
-                : JSON.stringify(result.data)}
-            </pre>
-          )}
-          {!error && !result && !loading && (
-            <div className="flex items-center justify-center h-full text-caption">
-              Press Cmd+Enter or click Run to execute
+          {loading && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-bg-base/60 text-xs text-text-muted">
+              Running…
             </div>
           )}
         </div>
-      </div>
+
+        {/* ── Results ─────────────────────────────────────────────────── */}
+        {(result || error) && (
+          <>
+            {/* Resize handle */}
+            <div
+              className="flex h-1.5 shrink-0 cursor-row-resize items-center justify-center border-t border-border-default bg-bg-subtle/50 transition-colors hover:bg-primary/10 active:bg-primary/15"
+              onMouseDown={handleResizeMouseDown}
+            >
+              <span className="h-px w-8 rounded-full bg-text-muted/40" />
+            </div>
+
+            <div
+              className="flex min-h-0 flex-col"
+              style={{ height: resultHeight }}
+            >
+              {/* ── Result tabs bar ───────────────────────────────── */}
+              <div className="flex items-center gap-1 border-b border-border-default px-1.5 py-1">
+                <button
+                  type="button"
+                  onClick={() => setResultTab('response')}
+                  className={`rounded-md px-2 py-0.5 text-caption capitalize transition-colors ${
+                    resultTab === 'response'
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-text-muted hover:bg-bg-hover hover:text-text-primary'
+                  }`}
+                >
+                  Response
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setResultTab('messages')}
+                  className={`rounded-md px-2 py-0.5 text-caption capitalize transition-colors ${
+                    resultTab === 'messages'
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-text-muted hover:bg-bg-hover hover:text-text-primary'
+                  }`}
+                >
+                  Messages
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setResultTab('statistics')}
+                  className={`rounded-md px-2 py-0.5 text-caption capitalize transition-colors ${
+                    resultTab === 'statistics'
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-text-muted hover:bg-bg-hover hover:text-text-primary'
+                  }`}
+                >
+                  Statistics
+                </button>
+
+                {result && resultTab === 'response' && (
+                  <span className="text-[10px] text-text-muted tabular-nums">
+                    {result.elapsed_ms}ms
+                  </span>
+                )}
+
+                <span className="ml-auto" />
+
+                {result && (
+                  <>
+                    <ActionButton
+                      icon={<Copy size={13} />}
+                      aria-label="Copy response"
+                      onClick={copyResult}
+                    />
+                    <ActionButton
+                      icon={<Download size={13} />}
+                      aria-label="Export"
+                      onClick={() => {
+                        const json = JSON.stringify(result.data, null, 2)
+                        downloadTextFile(
+                          'es-response.json',
+                          json,
+                          'application/json',
+                        )
+                      }}
+                    />
+                  </>
+                )}
+              </div>
+
+              {/* ── Tab content ──────────────────────────────── */}
+              {resultTab === 'response' && (
+                <div className="flex-1 min-h-0">
+                  {error && (
+                    <pre className="whitespace-pre-wrap break-all px-3 py-2 font-mono text-[11px] text-danger">
+                      {error}
+                    </pre>
+                  )}
+                  {result && (
+                    <Editor
+                      height="100%"
+                      language="json"
+                      value={resultJson}
+                      theme={theme === 'dark' ? 'vs-dark' : 'light'}
+                      options={{
+                        minimap: { enabled: false },
+                        fontSize: 13,
+                        wordWrap: 'on',
+                        lineNumbers: 'on',
+                        padding: { top: 8 },
+                        tabSize: 2,
+                        automaticLayout: true,
+                        scrollBeyondLastLine: false,
+                        readOnly: true,
+                        domReadOnly: true,
+                      }}
+                      loading={
+                        <div className="p-3 text-xs text-text-muted">Loading editor…</div>
+                      }
+                    />
+                  )}
+                </div>
+              )}
+
+              {resultTab === 'messages' && (
+                <div className="flex-1 min-h-0 overflow-auto bg-bg-base p-1.5 text-xs text-text-primary font-mono">
+                  {error && (
+                    <div className="rounded px-1.5 py-0.5 text-[11px] text-danger">
+                      ✗ {error}
+                    </div>
+                  )}
+                  {result && (
+                    <div className="rounded px-1.5 py-0.5 text-[11px] text-text-muted">
+                      ✓ Request completed in {result.elapsed_ms}ms
+                    </div>
+                  )}
+                  {!error && !result && (
+                    <div className="rounded px-1.5 py-0.5 text-[11px] text-text-muted">
+                      No messages
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {resultTab === 'statistics' && (
+                <div className="flex items-center gap-4 bg-bg-base px-3 py-2 text-xs">
+                  <div>
+                    <span className="text-text-muted">Method </span>
+                    <span className="font-semibold text-text-primary tabular-nums">
+                      {method}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-text-muted">Path </span>
+                    <span className="font-mono text-[11px] text-text-primary">
+                      {path}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-text-muted">Time </span>
+                    <span className="font-semibold text-text-primary tabular-nums">
+                      {result ? `${result.elapsed_ms}ms` : '-'}
+                    </span>
+                  </div>
+                  {result && (
+                    <div>
+                      <span className="text-text-muted">Size </span>
+                      <span className="font-semibold text-text-primary tabular-nums">
+                        {resultJson.length.toLocaleString()} B
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ── Empty state (no result, no error) ─────────────────────────── */}
+        {!result && !error && !loading && (
+          <div className="flex flex-1 items-center justify-center border-t border-border-default text-xs text-text-muted">
+            Press{' '}
+            <kbd className="mx-1 rounded border border-border-default bg-bg-subtle px-1 py-0.5 font-mono text-[10px]">
+              Cmd+Enter
+            </kbd>{' '}
+            or click{' '}
+            <kbd className="mx-1 rounded border border-border-default bg-bg-subtle px-1 py-0.5 font-mono text-[10px]">
+              Run
+            </kbd>{' '}
+            to execute a request
+          </div>
+        )}
+
+        {/* ── Query History (collapsible) ────────────────────────────── */}
+        {historyOpen && (
+          <div className="border-t border-border-default bg-bg-subtle/50 px-1.5 py-1.5">
+            <div className="max-h-28 space-y-0.5 overflow-auto">
+              {history.length === 0 && (
+                <p className="px-2 py-1 text-caption text-text-muted">
+                  No history yet.
+                </p>
+              )}
+              {history.map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  onClick={() => loadFromHistory(entry)}
+                  className="flex w-full items-center gap-2 rounded px-2 py-0.5 text-left text-[11px] transition-colors hover:bg-bg-hover"
+                  title={`${entry.method} ${entry.path}`}
+                >
+                  <span
+                    className={`shrink-0 font-mono text-[10px] ${
+                      entry.error
+                        ? 'text-danger'
+                        : entry.method === 'GET'
+                          ? 'text-green-500'
+                          : entry.method === 'POST'
+                            ? 'text-sky-500'
+                            : entry.method === 'DELETE'
+                              ? 'text-red-500'
+                              : 'text-amber-500'
+                    }`}
+                  >
+                    {entry.method}
+                  </span>
+                  <span className="truncate font-mono text-[11px] text-text-primary">
+                    {entry.path}
+                  </span>
+                  {entry.error && (
+                    <span className="ml-auto shrink-0 text-[10px] text-danger">
+                      Error
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   )
 }

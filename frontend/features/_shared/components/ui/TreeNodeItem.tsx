@@ -362,7 +362,9 @@ export function TreeNodeItem({
         style={{ paddingLeft: `${depth * 10 + 6}px` }}
       >
         {/* Chevron button: separate click target for expand/collapse */}
-        {(hasChildren && !isLeaf) || isDatabaseNode ? (
+        {((hasChildren && !isLeaf) || isDatabaseNode) &&
+        node.label !== 'Cluster' &&
+        node.label !== 'Query Console' ? (
           <button
             type="button"
             onClick={handleChevronClick}
@@ -379,7 +381,6 @@ export function TreeNodeItem({
         ) : (
           <span className="shrink-0 min-w-[18px] min-h-[18px]" />
         )}
-
         {/* Primary icon */}
         {isGroupNode ? (
           <Folder size={11} className="shrink-0 text-text-muted" />

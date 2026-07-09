@@ -1,3 +1,4 @@
+import { useTabStore } from '../../_shared/store/tabStore'
 import { useOutletContext } from 'react-router-dom'
 import { QueryConsole } from '../components/QueryConsole'
 import type { ElasticLayoutOutletContext } from '../types/pages'
@@ -12,8 +13,9 @@ import type { ElasticLayoutOutletContext } from '../types/pages'
  */
 export function QueryConsolePage() {
   const { payload } = useOutletContext<ElasticLayoutOutletContext>()
+  const activeTabId = useTabStore((s) => s.activeTabId)
 
   if (!payload) return null
 
-  return <QueryConsole connection={payload} />
+  return <QueryConsole key={activeTabId} connection={payload} />
 }
