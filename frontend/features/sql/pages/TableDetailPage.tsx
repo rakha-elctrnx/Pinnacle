@@ -10,7 +10,6 @@ import {
   CirclePlus,
   Download,
   Filter,
-  Inbox,
   Keyboard,
   Key,
   Redo2,
@@ -1992,48 +1991,7 @@ export function TableDetailPage() {
                     colSpan={realTableColumns.length + 1 || 1}
                     className="px-2 py-0"
                   >
-                    <div className="flex flex-col items-center justify-center gap-4 py-16">
-                      {/* Illustration */}
-                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-bg-muted/50">
-                        <Inbox
-                          className="h-8 w-8 text-text-secondary"
-                          strokeWidth={1.5}
-                        />
-                      </div>
-
-                      {/* Text */}
-                      <div className="flex flex-col items-center gap-1.5">
-                        <h3 className="text-sm font-semibold text-text-primary">
-                          No data
-                        </h3>
-                        <p className="text-xs text-text-muted">
-                          {appliedWhereClause
-                            ? 'No rows match the current filter.'
-                            : 'This table is empty.'}
-                        </p>
-                      </div>
-
-                      {/* Action */}
-                      {!appliedWhereClause && (
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-primary/90 active:bg-primary/80"
-                          onClick={handleAddRow}
-                        >
-                          <CirclePlus size={13} aria-hidden="true" />
-                          Add Row
-                        </button>
-                      )}
-                      {appliedWhereClause && (
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-bg-base px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover active:bg-bg-muted"
-                          onClick={handleClearAllFilters}
-                        >
-                          Clear Filters
-                        </button>
-                      )}
-                    </div>
+                    <div className="h-16" />
                   </td>
                 </tr>
               )}
@@ -2227,7 +2185,7 @@ export function TableDetailPage() {
       )}
 
       {/* ── Pagination footer ─────────────────────────────────────────── */}
-      {totalRowCount > 0 && (
+      {!tableDataLoading && (
         <div className="flex items-center justify-between border-t border-border-default px-3 py-2">
           <span className="text-micro text-text-muted">
             {(() => {

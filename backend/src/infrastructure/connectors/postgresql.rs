@@ -7,8 +7,10 @@ use crate::{
 
 use chrono::Utc;
 use sqlx::{
-    postgres::PgConnectOptions, types::BigDecimal as Decimal, types::Uuid, Column, Connection,
-    Executor, Row,
+    postgres::PgConnectOptions,
+    types::BigDecimal as Decimal,
+    types::Uuid,
+    Column, Connection, Executor, Row, Statement,
 };
 
 fn ensure_is_postgresql(payload: &ConnectionPayload) -> bool {
@@ -81,7 +83,14 @@ pub async fn execute_sql(payload: &ConnectionPayload, sql: &str) -> AppResult<Qu
                 .map(|c| c.name().to_string())
                 .collect()
         } else {
-            vec![]
+            // When 0 rows, prepare the statement to extract column metadata
+            // so the frontend can show column headers even with no data.
+            let statement = conn.prepare(sql).await?;
+            statement
+                .columns()
+                .iter()
+                .map(|c| c.name().to_string())
+                .collect()
         };
         let json_rows: Vec<serde_json::Map<String, serde_json::Value>> = rows
             .iter()
