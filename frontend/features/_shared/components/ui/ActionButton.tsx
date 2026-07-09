@@ -15,18 +15,18 @@ const variantMap = {
     'text-text-secondary hover:bg-red-500/10 hover:text-danger active:bg-red-500/15',
   success:
     'text-success hover:bg-emerald-500/10 hover:text-success-text active:bg-emerald-500/15',
-  accent:
-    'text-primary hover:bg-primary/10 active:bg-primary/15',
+  accent: 'text-primary hover:bg-primary/10 active:bg-primary/15',
 } as const
 
 /** Disabled variant — muted icon + flat bg to clearly signal "not actionable". */
-const disabledClasses =
-  'text-[var(--color-disabled-text)]'
+const disabledClasses = 'text-[var(--color-disabled-text)]'
 
 export type ActionButtonVariant = keyof typeof variantMap
 
-interface ActionButtonProps
-  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
+interface ActionButtonProps extends Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  'children'
+> {
   /** Lucide icon node. */
   icon: ReactNode
   /** Accessible label — also used as `title` if no explicit title is provided. */
@@ -54,9 +54,7 @@ export function ActionButton({
     <button
       type="button"
       className={`rounded-lg p-1.5 transition cursor-pointer ${
-        isDisabled
-          ? disabledClasses
-          : `${variantMap[variant]} active:scale-95`
+        isDisabled ? disabledClasses : `${variantMap[variant]} active:scale-95`
       } disabled:cursor-not-allowed ${className}`}
       title={title ?? rest['aria-label']}
       {...rest}

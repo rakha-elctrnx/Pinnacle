@@ -23,14 +23,14 @@ Whether you're a backend engineer debugging a production query, a DBA inspecting
 
 ## 🚀 Supported Connectors
 
-| Connector      | Status        |
-| -------------- | ------------- |
-| **PostgreSQL** | ✅ Supported  |
-| **MySQL**      | ✅ Supported  |
-| **MongoDB**    | 🚧 In progress |
-| **Redis**      | 🚧 In progress |
+| Connector         | Status         |
+| ----------------- | -------------- |
+| **PostgreSQL**    | ✅ Supported   |
+| **MySQL**         | ✅ Supported   |
+| **MongoDB**       | 🚧 In progress |
+| **Redis**         | 🚧 In progress |
 | **Elasticsearch** | 🚧 In progress |
-| **RabbitMQ**   | 🚧 Planned  |
+| **RabbitMQ**      | 🚧 Planned     |
 
 ## 🛠 Tech Stack
 
@@ -63,18 +63,18 @@ make dev
 
 ### Available Commands
 
-| Command           | Description                                      |
-| ----------------- | ------------------------------------------------ |
-| `make dev`        | Run the full Tauri app in dev mode               |
-| `make dev-fe`     | Run only the Vite frontend dev server            |
-| `make build`      | Build the full application for production        |
-| `make build-fe`   | Build only the frontend                          |
-| `make build-be`   | Build only the backend                           |
-| `make lint`       | Run ESLint on the frontend                       |
-| `make typecheck`  | Run TypeScript type checking                     |
-| `make format`     | Format code with Prettier + Cargo fmt            |
-| `make check`      | Run all checks (lint + typecheck + cargo check)  |
-| `make clean`      | Clean build artifacts                            |
+| Command          | Description                                     |
+| ---------------- | ----------------------------------------------- |
+| `make dev`       | Run the full Tauri app in dev mode              |
+| `make dev-fe`    | Run only the Vite frontend dev server           |
+| `make build`     | Build the full application for production       |
+| `make build-fe`  | Build only the frontend                         |
+| `make build-be`  | Build only the backend                          |
+| `make lint`      | Run ESLint on the frontend                      |
+| `make typecheck` | Run TypeScript type checking                    |
+| `make format`    | Format code with Prettier + Cargo fmt           |
+| `make check`     | Run all checks (lint + typecheck + cargo check) |
+| `make clean`     | Clean build artifacts                           |
 
 Run `make help` to see all available commands.
 
@@ -115,6 +115,7 @@ Pinnacle is an **open-source project** and contributions are welcome! Whether it
 4. **Push** to your fork and open a **Pull Request**
 
 Please make sure to:
+
 - Run `make check` before submitting a PR
 - Follow the existing code style and conventions
 - Add tests where applicable
@@ -123,6 +124,7 @@ Please make sure to:
 ### Reporting Issues
 
 Found a bug or have a suggestion? Please [open an issue](https://github.com/yourusername/pinnacle/issues) with:
+
 - A clear description of the problem or idea
 - Steps to reproduce (for bugs)
 - Your environment details (OS, Node version, Rust version)

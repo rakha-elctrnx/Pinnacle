@@ -59,7 +59,11 @@ export function useTableKeyboard({
     (e: KeyboardEvent) => {
       // Don't intercept if user is typing in an input/textarea
       const target = e.target as HTMLElement
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
         // Only intercept Escape in inputs (to exit edit mode)
         if (e.key === 'Escape') {
           // Let EditableCell handle it via its own handler
@@ -130,9 +134,21 @@ export function useTableKeyboard({
       // All remaining keys require an active cell
       if (!current) {
         // If no active cell, any arrow key selects the first cell
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+        if (
+          [
+            'ArrowUp',
+            'ArrowDown',
+            'ArrowLeft',
+            'ArrowRight',
+            'Home',
+            'End',
+          ].includes(e.key)
+        ) {
           e.preventDefault()
-          const pos: CellPosition = { rowIndex: 0, columnId: columnIds[0] ?? '' }
+          const pos: CellPosition = {
+            rowIndex: 0,
+            columnId: columnIds[0] ?? '',
+          }
           selectSingle(pos)
           scrollToCell(pos)
         }
@@ -191,7 +207,9 @@ export function useTableKeyboard({
         e.preventDefault()
         const next: CellPosition = {
           rowIndex: current.rowIndex,
-          columnId: columnIds[Math.min(columnIds.length - 1, colIdx + 1)] ?? current.columnId,
+          columnId:
+            columnIds[Math.min(columnIds.length - 1, colIdx + 1)] ??
+            current.columnId,
         }
         if (isShift) {
           extendSelection(next, columnIds)
@@ -207,7 +225,10 @@ export function useTableKeyboard({
         e.preventDefault()
         if (isMeta) {
           // Ctrl+Home → first cell in table
-          const next: CellPosition = { rowIndex: 0, columnId: columnIds[0] ?? '' }
+          const next: CellPosition = {
+            rowIndex: 0,
+            columnId: columnIds[0] ?? '',
+          }
           if (isShift) {
             extendSelection(next, columnIds)
           } else {
@@ -216,7 +237,10 @@ export function useTableKeyboard({
           scrollToCell(next)
         } else {
           // Home → first cell in row
-          const next: CellPosition = { rowIndex: current.rowIndex, columnId: columnIds[0] ?? '' }
+          const next: CellPosition = {
+            rowIndex: current.rowIndex,
+            columnId: columnIds[0] ?? '',
+          }
           if (isShift) {
             extendSelection(next, columnIds)
           } else {
@@ -270,7 +294,10 @@ export function useTableKeyboard({
         if (isShift) {
           // Shift+Tab → previous cell
           if (colIdx > 0) {
-            selectSingle({ rowIndex: current.rowIndex, columnId: columnIds[colIdx - 1]! })
+            selectSingle({
+              rowIndex: current.rowIndex,
+              columnId: columnIds[colIdx - 1]!,
+            })
           } else if (current.rowIndex > 0) {
             selectSingle({
               rowIndex: current.rowIndex - 1,
@@ -280,9 +307,15 @@ export function useTableKeyboard({
         } else {
           // Tab → next cell
           if (colIdx < columnIds.length - 1) {
-            selectSingle({ rowIndex: current.rowIndex, columnId: columnIds[colIdx + 1]! })
+            selectSingle({
+              rowIndex: current.rowIndex,
+              columnId: columnIds[colIdx + 1]!,
+            })
           } else if (current.rowIndex < rowCount - 1) {
-            selectSingle({ rowIndex: current.rowIndex + 1, columnId: columnIds[0]! })
+            selectSingle({
+              rowIndex: current.rowIndex + 1,
+              columnId: columnIds[0]!,
+            })
           }
         }
         return

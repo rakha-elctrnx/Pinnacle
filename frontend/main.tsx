@@ -8,7 +8,9 @@ import './index.css'
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AppProviders>
-      <ThemeProvider><App /></ThemeProvider>
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
     </AppProviders>
   </StrictMode>,
 )

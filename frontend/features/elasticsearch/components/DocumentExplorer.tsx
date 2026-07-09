@@ -29,7 +29,10 @@ import { CenteredLoadingState } from '../../_shared/components/ui/CenteredLoadin
 import { ActionButton } from '../../_shared/components/ui/ActionButton'
 import { Dropdown } from '../../_shared/components/ui/Dropdown'
 import { ConfirmDialog } from '../../sql/components/table-cells/ConfirmDialog'
-import { useColumnResizer, calculateAutoColumnWidths } from '../../sql/hooks/useColumnResizer'
+import {
+  useColumnResizer,
+  calculateAutoColumnWidths,
+} from '../../sql/hooks/useColumnResizer'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -61,7 +64,9 @@ type FilterCondition = {
 
 // ── ES Query Builder ─────────────────────────────────────────────────────────
 
-function buildEsQueryFromFilters(filters: FilterCondition[]): unknown | undefined {
+function buildEsQueryFromFilters(
+  filters: FilterCondition[],
+): unknown | undefined {
   if (filters.length === 0) return undefined
 
   const must: unknown[] = []
@@ -76,7 +81,11 @@ function buildEsQueryFromFilters(filters: FilterCondition[]): unknown | undefine
         mustNot.push({ term: { [f.field]: f.value } })
         break
       case 'contains':
-        must.push({ wildcard: { [f.field]: { value: `*${f.value}*`, case_insensitive: true } } })
+        must.push({
+          wildcard: {
+            [f.field]: { value: `*${f.value}*`, case_insensitive: true },
+          },
+        })
         break
       case '>':
         must.push({ range: { [f.field]: { gt: f.value } } })
@@ -112,7 +121,10 @@ function buildEsQueryFromFilters(filters: FilterCondition[]): unknown | undefine
   }
 }
 
-function buildEsSort(column: string | null, direction: 'asc' | 'desc'): unknown | undefined {
+function buildEsSort(
+  column: string | null,
+  direction: 'asc' | 'desc',
+): unknown | undefined {
   if (!column) return undefined
   return [{ [column]: { order: direction } }]
 }
@@ -138,7 +150,12 @@ interface Props {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function DocumentExplorer({ connection, indexName, indices, onStateChange }: Props) {
+export function DocumentExplorer({
+  connection,
+  indexName,
+  indices,
+  onStateChange,
+}: Props) {
   const [internalIndex, setInternalIndex] = useState<string | null>(null)
   const currentIndex = indexName ?? internalIndex
 
@@ -186,23 +203,39 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
   const resizeRef = useRef<HTMLDivElement | null>(null)
 
   // ── Confirm dialog state ───────────────────────────────────────────────
-  const [confirmDeleteDocId, setConfirmDeleteDocId] = useState<string | null>(null)
+  const [confirmDeleteDocId, setConfirmDeleteDocId] = useState<string | null>(
+    null,
+  )
 
   // ── Toast ──────────────────────────────────────────────────────────────
-  const [toast, setToast] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
+  const [toast, setToast] = useState<{
+    kind: 'success' | 'error'
+    message: string
+  } | null>(null)
 
   // ── Export dropdown ────────────────────────────────────────────────────
   const [exportOpen, setExportOpen] = useState(false)
 
   // ── Context menu ───────────────────────────────────────────────────────
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; docId: string } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{
+    x: number
+    y: number
+    docId: string
+  } | null>(null)
 
   // ── Refs ────────────────────────────────────────────────────────────────
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   // ── Extract source columns from documents ──────────────────────────────
   const sourceColumns = useMemo(
-    () => Array.from(new Set(documents.flatMap((doc) => (doc._source ? Object.keys(doc._source) : [])))),
+    () =>
+      Array.from(
+        new Set(
+          documents.flatMap((doc) =>
+            doc._source ? Object.keys(doc._source) : [],
+          ),
+        ),
+      ),
     [documents],
   )
 
@@ -232,12 +265,20 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
     [allColumns, displayRows],
   )
 
-  const { widths, onMouseDown: onResizeMouseDown, syncWidths, handleDoubleClick } = useColumnResizer({
+  const {
+    widths,
+    onMouseDown: onResizeMouseDown,
+    syncWidths,
+    handleDoubleClick,
+  } = useColumnResizer({
     initialWidths: autoColumnWidths,
   })
 
   const boundedWidths = useMemo(
-    () => widths.map((w) => Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, w))),
+    () =>
+      widths.map((w) =>
+        Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, w)),
+      ),
     [widths],
   )
 
@@ -251,15 +292,44 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
   }, [currentIndex, autoColumnWidths, syncWidths])
 
   // ── Fetch documents ────────────────────────────────────────────────────
+  const buildSearchQuery = useCallback((q?: string, customQuery?: unknown) => {
+    if (customQuery !== undefined && q && q.trim() !== '') {
+      // Both query and search string provided — combine them
+      return {
+        bool: {
+          must: [customQuery, { simple_query_string: { query: q } }],
+        },
+      }
+    }
+    if (customQuery !== undefined) return customQuery
+    if (q && q.trim() !== '') {
+      // Use simple_query_string for plain search
+      return {
+        simple_query_string: {
+          query: q,
+        },
+      }
+    }
+    return undefined
+  }, [])
+
   const fetchDocs = useCallback(
-    async (idx: string, q?: string, fromOffset?: number, size?: number, query?: unknown, sort?: unknown) => {
+    async (
+      idx: string,
+      q?: string,
+      fromOffset?: number,
+      size?: number,
+      query?: unknown,
+      sort?: unknown,
+    ) => {
       setLoading(true)
       setError(null)
       try {
+        const searchQuery = buildSearchQuery(q, query)
         const result = await elasticSearchDocuments({
           connection,
           indexName: idx,
-          query: query || q || undefined,
+          query: searchQuery,
           fromOffset: fromOffset ?? 0,
           size: size ?? DEFAULT_PAGE_SIZE,
           sort: sort || undefined,
@@ -272,7 +342,7 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
         setLoading(false)
       }
     },
-    [connection],
+    [connection, buildSearchQuery],
   )
 
   const refetchCurrentPage = useCallback(() => {
@@ -280,8 +350,24 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
     const esQuery = buildEsQueryFromFilters(filters)
     const esSort = buildEsSort(sortColumn, sortDirection)
     const offset = (page - 1) * pageSize
-    fetchDocs(currentIndex, searchQuery || undefined, offset, pageSize, esQuery, esSort)
-  }, [currentIndex, filters, sortColumn, sortDirection, page, pageSize, searchQuery, fetchDocs])
+    fetchDocs(
+      currentIndex,
+      searchQuery || undefined,
+      offset,
+      pageSize,
+      esQuery,
+      esSort,
+    )
+  }, [
+    currentIndex,
+    filters,
+    sortColumn,
+    sortDirection,
+    page,
+    pageSize,
+    searchQuery,
+    fetchDocs,
+  ])
 
   // Auto-fetch on index change
   const prevIndexRef = useRef<string | null>(null)
@@ -302,7 +388,14 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
   }, [indexName, fetchDocs, pageSize])
 
   // Refetch when page/pageSize/filters/sort changes
-  const prevParamsRef = useRef({ page, pageSize, filters, sortColumn, sortDirection, searchQuery })
+  const prevParamsRef = useRef({
+    page,
+    pageSize,
+    filters,
+    sortColumn,
+    sortDirection,
+    searchQuery,
+  })
   useEffect(() => {
     if (!currentIndex) return
     const prev = prevParamsRef.current
@@ -314,13 +407,36 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
       prev.sortDirection !== sortDirection ||
       prev.searchQuery !== searchQuery
     if (!changed) return
-    prevParamsRef.current = { page, pageSize, filters, sortColumn, sortDirection, searchQuery }
+    prevParamsRef.current = {
+      page,
+      pageSize,
+      filters,
+      sortColumn,
+      sortDirection,
+      searchQuery,
+    }
 
     const esQuery = buildEsQueryFromFilters(filters)
     const esSort = buildEsSort(sortColumn, sortDirection)
     const offset = (page - 1) * pageSize
-    fetchDocs(currentIndex, searchQuery || undefined, offset, pageSize, esQuery, esSort)
-  }, [currentIndex, page, pageSize, filters, sortColumn, sortDirection, searchQuery, fetchDocs])
+    fetchDocs(
+      currentIndex,
+      searchQuery || undefined,
+      offset,
+      pageSize,
+      esQuery,
+      esSort,
+    )
+  }, [
+    currentIndex,
+    page,
+    pageSize,
+    filters,
+    sortColumn,
+    sortDirection,
+    searchQuery,
+    fetchDocs,
+  ])
 
   // Sync state to parent
   useEffect(() => {
@@ -362,8 +478,23 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
     setPage(1)
     const esQuery = buildEsQueryFromFilters(filters)
     const esSort = buildEsSort(sortColumn, sortDirection)
-    fetchDocs(currentIndex, searchQuery || undefined, 0, pageSize, esQuery, esSort)
-  }, [currentIndex, searchQuery, filters, sortColumn, sortDirection, pageSize, fetchDocs])
+    fetchDocs(
+      currentIndex,
+      searchQuery || undefined,
+      0,
+      pageSize,
+      esQuery,
+      esSort,
+    )
+  }, [
+    currentIndex,
+    searchQuery,
+    filters,
+    sortColumn,
+    sortDirection,
+    pageSize,
+    fetchDocs,
+  ])
 
   // ── Filter handlers ────────────────────────────────────────────────────
   const handleAddFilter = useCallback(() => {
@@ -456,13 +587,20 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
     if (!currentIndex) return
     try {
       const body = JSON.parse(newDocJson)
-      await elasticIndexDocument({ connection, indexName: currentIndex, document: body })
+      await elasticIndexDocument({
+        connection,
+        indexName: currentIndex,
+        document: body,
+      })
       setShowAddDoc(false)
       setNewDocJson('{\n  \n}')
       setToast({ kind: 'success', message: 'Document added successfully' })
       refetchCurrentPage()
     } catch (err) {
-      setToast({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      setToast({
+        kind: 'error',
+        message: err instanceof Error ? err.message : String(err),
+      })
     }
   }, [currentIndex, newDocJson, connection, refetchCurrentPage])
 
@@ -481,7 +619,12 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
       const body = JSON.parse(editJson)
       setSaving(true)
       setEditError(null)
-      await elasticIndexDocument({ connection, indexName: currentIndex, docId: editingDoc._id, document: body })
+      await elasticIndexDocument({
+        connection,
+        indexName: currentIndex,
+        docId: editingDoc._id,
+        document: body,
+      })
       setEditingDoc(null)
       setEditJson('')
       setToast({ kind: 'success', message: 'Document saved successfully' })
@@ -507,7 +650,11 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
   const confirmDeleteDocument = useCallback(async () => {
     if (!currentIndex || !confirmDeleteDocId) return
     try {
-      await elasticDeleteDocument({ connection, indexName: currentIndex, docId: confirmDeleteDocId })
+      await elasticDeleteDocument({
+        connection,
+        indexName: currentIndex,
+        docId: confirmDeleteDocId,
+      })
       if (selectedDocId === confirmDeleteDocId) {
         setSelectedDocId(null)
         setActiveRowIndex(null)
@@ -516,9 +663,18 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
       setToast({ kind: 'success', message: 'Document deleted successfully' })
       refetchCurrentPage()
     } catch (err) {
-      setToast({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      setToast({
+        kind: 'error',
+        message: err instanceof Error ? err.message : String(err),
+      })
     }
-  }, [currentIndex, confirmDeleteDocId, connection, selectedDocId, refetchCurrentPage])
+  }, [
+    currentIndex,
+    confirmDeleteDocId,
+    connection,
+    selectedDocId,
+    refetchCurrentPage,
+  ])
 
   // ── Refresh ────────────────────────────────────────────────────────────
   const handleRefresh = useCallback(() => {
@@ -549,12 +705,16 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
     const cols = allColumns
     const header = cols.join(',')
     const rows = documents.map((doc) => {
-      const row = { _id: doc._id, ...(doc._source ?? {}) } as Record<string, unknown>
+      const row = { _id: doc._id, ...(doc._source ?? {}) } as Record<
+        string,
+        unknown
+      >
       return cols
         .map((col) => {
           const val = row[col]
           if (val == null) return ''
-          const str = typeof val === 'object' ? JSON.stringify(val) : String(val)
+          const str =
+            typeof val === 'object' ? JSON.stringify(val) : String(val)
           return str.includes(',') || str.includes('"') || str.includes('\n')
             ? `"${str.replace(/"/g, '""')}"`
             : str
@@ -571,7 +731,9 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
     if (!contextMenu) return
     const doc = documents.find((d) => d._id === contextMenu.docId)
     if (!doc) return
-    await navigator.clipboard.writeText(JSON.stringify({ _id: doc._id, ...doc._source }, null, 2))
+    await navigator.clipboard.writeText(
+      JSON.stringify({ _id: doc._id, ...doc._source }, null, 2),
+    )
     setToast({ kind: 'success', message: 'Copied JSON to clipboard' })
     setContextMenu(null)
   }, [contextMenu, documents])
@@ -600,7 +762,12 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
       const startHeight = panelHeight
       const onMouseMove = (ev: MouseEvent) => {
         const delta = startY - ev.clientY
-        setPanelHeight(Math.max(150, Math.min(window.innerHeight * 0.8, startHeight + delta)))
+        setPanelHeight(
+          Math.max(
+            150,
+            Math.min(window.innerHeight * 0.8, startHeight + delta),
+          ),
+        )
       }
       const onMouseUp = () => {
         document.removeEventListener('mousemove', onMouseMove)
@@ -625,9 +792,12 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
             <Inbox className="h-8 w-8 text-text-secondary" strokeWidth={1.5} />
           </div>
           <div className="flex flex-col items-center gap-1.5">
-            <h3 className="text-sm font-semibold text-text-primary">No index selected</h3>
+            <h3 className="text-sm font-semibold text-text-primary">
+              No index selected
+            </h3>
             <p className="text-xs text-text-muted">
-              Navigate to the <strong>Indices</strong> tab and select an index to browse its documents.
+              Navigate to the <strong>Indices</strong> tab and select an index
+              to browse its documents.
             </p>
           </div>
         </div>
@@ -659,7 +829,13 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
         <ActionButton
           icon={<Filter size={14} />}
           aria-label="Toggle Filter"
-          variant={filters.length > 0 ? 'active' : filterPanelOpen ? 'accent' : 'default'}
+          variant={
+            filters.length > 0
+              ? 'active'
+              : filterPanelOpen
+                ? 'accent'
+                : 'default'
+          }
           onClick={() => setFilterPanelOpen(!filterPanelOpen)}
         />
         {filters.length > 0 && !filterPanelOpen && (
@@ -753,12 +929,20 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
             items={[
               {
                 label: 'Export as CSV',
-                icon: <span className="font-mono text-micro text-text-muted">CSV</span>,
+                icon: (
+                  <span className="font-mono text-micro text-text-muted">
+                    CSV
+                  </span>
+                ),
                 action: handleExportCSV,
               },
               {
                 label: 'Export as JSON',
-                icon: <span className="font-mono text-micro text-text-muted">JSON</span>,
+                icon: (
+                  <span className="font-mono text-micro text-text-muted">
+                    JSON
+                  </span>
+                ),
                 action: handleExportJSON,
               },
             ]}
@@ -809,7 +993,9 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
       {/* ── Filter Bar ───────────────────────────────────────────────────── */}
       <div
         className={`grid transition-[grid-template-rows] duration-200 ease-in-out ${
-          filterPanelOpen || filters.length > 0 || sortColumn ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+          filterPanelOpen || filters.length > 0 || sortColumn
+            ? 'grid-rows-[1fr]'
+            : 'grid-rows-[0fr]'
         }`}
       >
         <div className="overflow-hidden">
@@ -819,7 +1005,9 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
               <select
                 className="h-6 rounded border border-border-default bg-bg-base px-1 text-[11px] font-mono outline-none focus:border-primary disabled:opacity-40"
                 value={newFilter.field || ''}
-                onChange={(e) => setNewFilter({ ...newFilter, field: e.target.value })}
+                onChange={(e) =>
+                  setNewFilter({ ...newFilter, field: e.target.value })
+                }
                 disabled={sourceColumns.length === 0}
               >
                 <option value="">Field...</option>
@@ -832,7 +1020,12 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
               <select
                 className="h-6 rounded border border-border-default bg-bg-base px-1 text-[11px] outline-none focus:border-primary disabled:opacity-40"
                 value={newFilter.operator || '='}
-                onChange={(e) => setNewFilter({ ...newFilter, operator: e.target.value as FilterOperator })}
+                onChange={(e) =>
+                  setNewFilter({
+                    ...newFilter,
+                    operator: e.target.value as FilterOperator,
+                  })
+                }
                 disabled={!newFilter.field}
               >
                 <option value="=">=</option>
@@ -846,14 +1039,18 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
                 <option value="is_not_null">is not null</option>
                 <option value="in">in</option>
               </select>
-              {!['is_null', 'is_not_null'].includes(newFilter.operator || '=') && (
+              {!['is_null', 'is_not_null'].includes(
+                newFilter.operator || '=',
+              ) && (
                 <input
                   ref={valueInputRef}
                   type="text"
                   className="h-6 w-28 min-w-0 rounded border border-border-default bg-bg-base px-1.5 text-[11px] outline-none focus:border-primary disabled:opacity-40"
                   placeholder="Value..."
                   value={newFilter.value || ''}
-                  onChange={(e) => setNewFilter({ ...newFilter, value: e.target.value })}
+                  onChange={(e) =>
+                    setNewFilter({ ...newFilter, value: e.target.value })
+                  }
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleAddFilter()
                   }}
@@ -867,7 +1064,10 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
                 disabled={
                   !newFilter.field ||
                   !newFilter.operator ||
-                  (!newFilter.value && !['is_null', 'is_not_null'].includes(newFilter.operator || ''))
+                  (!newFilter.value &&
+                    !['is_null', 'is_not_null'].includes(
+                      newFilter.operator || '',
+                    ))
                 }
               >
                 <CirclePlus size={11} />
@@ -895,11 +1095,16 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
                     key={index}
                     className="group/chip inline-flex items-center gap-px rounded border border-primary/20 bg-primary/5 py-px pl-0.5 pr-0.5 text-[11px] leading-tight"
                   >
-                    <Filter size={9} className="mx-0.5 shrink-0 text-primary/50" />
+                    <Filter
+                      size={9}
+                      className="mx-0.5 shrink-0 text-primary/50"
+                    />
                     <select
                       className="h-5 rounded border-none bg-transparent px-0 text-[11px] font-mono text-text-primary outline-none focus:ring-0"
                       value={filter.field}
-                      onChange={(e) => handleUpdateFilter(index, { field: e.target.value })}
+                      onChange={(e) =>
+                        handleUpdateFilter(index, { field: e.target.value })
+                      }
                     >
                       {sourceColumns.map((col) => (
                         <option key={col} value={col}>
@@ -913,7 +1118,10 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
                       onChange={(e) => {
                         const op = e.target.value as FilterOperator
                         const isNullOp = ['is_null', 'is_not_null'].includes(op)
-                        handleUpdateFilter(index, { operator: op, ...(isNullOp ? { value: '' } : {}) })
+                        handleUpdateFilter(index, {
+                          operator: op,
+                          ...(isNullOp ? { value: '' } : {}),
+                        })
                       }}
                     >
                       <option value="=">=</option>
@@ -932,9 +1140,12 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
                         type="text"
                         className="h-5 w-16 min-w-0 rounded border-none bg-transparent px-0.5 text-[11px] font-medium text-primary outline-none focus:ring-0"
                         value={filter.value}
-                        onChange={(e) => handleUpdateFilter(index, { value: e.target.value })}
+                        onChange={(e) =>
+                          handleUpdateFilter(index, { value: e.target.value })
+                        }
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                          if (e.key === 'Enter')
+                            (e.target as HTMLInputElement).blur()
                         }}
                       />
                     )}
@@ -951,9 +1162,15 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
                 {sortColumn && (
                   <span className="group/chip inline-flex items-center gap-px rounded border border-border-default bg-bg-muted py-px pl-0.5 pr-0.5 text-[11px] leading-tight">
                     {sortDirection === 'asc' ? (
-                      <ChevronUp size={10} className="mx-0.5 shrink-0 text-text-muted" />
+                      <ChevronUp
+                        size={10}
+                        className="mx-0.5 shrink-0 text-text-muted"
+                      />
                     ) : (
-                      <ChevronDown size={10} className="mx-0.5 shrink-0 text-text-muted" />
+                      <ChevronDown
+                        size={10}
+                        className="mx-0.5 shrink-0 text-text-muted"
+                      />
                     )}
                     <select
                       className="h-5 rounded border-none bg-transparent px-0 text-[11px] font-mono text-text-primary outline-none focus:ring-0"
@@ -1010,7 +1227,9 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
         <div className="overflow-hidden">
           <div className="flex flex-col gap-2 border-b border-border-default bg-bg-subtle px-3 py-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-text-primary">New Document</span>
+              <span className="text-xs font-medium text-text-primary">
+                New Document
+              </span>
               <button
                 type="button"
                 className="rounded p-0.5 text-text-muted hover:text-text-primary"
@@ -1097,7 +1316,9 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
       )}
 
       {/* ── Loading ───────────────────────────────────────────────────────── */}
-      {loading && <CenteredLoadingState loading={loading} label="Loading documents..." />}
+      {loading && (
+        <CenteredLoadingState loading={loading} label="Loading documents..." />
+      )}
 
       {/* ── Content: Table view ───────────────────────────────────────────── */}
       {!loading && viewMode === 'table' && (
@@ -1155,9 +1376,15 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
                               </span>
                               {isSorted &&
                                 (sortDirection === 'asc' ? (
-                                  <ChevronUp size={12} className="shrink-0 text-primary" />
+                                  <ChevronUp
+                                    size={12}
+                                    className="shrink-0 text-primary"
+                                  />
                                 ) : (
-                                  <ChevronDown size={12} className="shrink-0 text-primary" />
+                                  <ChevronDown
+                                    size={12}
+                                    className="shrink-0 text-primary"
+                                  />
                                 ))}
                             </div>
                             {isIdColumn && (
@@ -1185,9 +1412,15 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
                             >
                               {isSorted ? (
                                 sortDirection === 'asc' ? (
-                                  <ChevronUp size={13} className="text-primary" />
+                                  <ChevronUp
+                                    size={13}
+                                    className="text-primary"
+                                  />
                                 ) : (
-                                  <ChevronDown size={13} className="text-primary" />
+                                  <ChevronDown
+                                    size={13}
+                                    className="text-primary"
+                                  />
                                 )
                               ) : (
                                 <ArrowUpDown size={13} />
@@ -1205,7 +1438,9 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
                                 handleColumnFilterClick(col)
                               }}
                               aria-label={
-                                hasActiveFilter ? `Filter active on ${col}` : `Filter ${col}`
+                                hasActiveFilter
+                                  ? `Filter active on ${col}`
+                                  : `Filter ${col}`
                               }
                             >
                               <Filter size={13} />
@@ -1225,7 +1460,12 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
                           onDoubleClick={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
-                            handleDoubleClick(columnIndex, displayRows, col, undefined)
+                            handleDoubleClick(
+                              columnIndex,
+                              displayRows,
+                              col,
+                              undefined,
+                            )
                           }}
                         />
                       </div>
@@ -1237,13 +1477,22 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
             <tbody>
               {documents.length === 0 && (
                 <tr role="row">
-                  <td role="gridcell" colSpan={allColumns.length + 1} className="px-2 py-0">
+                  <td
+                    role="gridcell"
+                    colSpan={allColumns.length + 1}
+                    className="px-2 py-0"
+                  >
                     <div className="flex flex-col items-center justify-center gap-4 py-16">
                       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-bg-muted/50">
-                        <Inbox className="h-8 w-8 text-text-secondary" strokeWidth={1.5} />
+                        <Inbox
+                          className="h-8 w-8 text-text-secondary"
+                          strokeWidth={1.5}
+                        />
                       </div>
                       <div className="flex flex-col items-center gap-1.5">
-                        <h3 className="text-sm font-semibold text-text-primary">No data</h3>
+                        <h3 className="text-sm font-semibold text-text-primary">
+                          No data
+                        </h3>
                         <p className="text-xs text-text-muted">
                           {filters.length > 0 || searchQuery
                             ? 'No documents match the current filter.'
@@ -1293,7 +1542,11 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
                     onDoubleClick={() => handleRowDoubleClick(doc)}
                     onContextMenu={(e) => {
                       e.preventDefault()
-                      setContextMenu({ x: e.clientX, y: e.clientY, docId: doc._id })
+                      setContextMenu({
+                        x: e.clientX,
+                        y: e.clientY,
+                        docId: doc._id,
+                      })
                     }}
                   >
                     {/* Row gutter */}
@@ -1324,7 +1577,9 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
                           role="gridcell"
                           className={[
                             'overflow-hidden border-b border-r border-border-default px-2 py-1.5 text-xs whitespace-nowrap text-ellipsis select-none',
-                            col === '_id' ? 'font-mono text-text-muted' : 'text-text-primary',
+                            col === '_id'
+                              ? 'font-mono text-text-muted'
+                              : 'text-text-primary',
                             isActiveRow ? 'text-primary' : '',
                           ]
                             .filter(Boolean)
@@ -1352,10 +1607,15 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
           {documents.length === 0 && (
             <div className="flex flex-col items-center justify-center gap-4 py-16">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-bg-muted/50">
-                <Inbox className="h-8 w-8 text-text-secondary" strokeWidth={1.5} />
+                <Inbox
+                  className="h-8 w-8 text-text-secondary"
+                  strokeWidth={1.5}
+                />
               </div>
               <div className="flex flex-col items-center gap-1.5">
-                <h3 className="text-sm font-semibold text-text-primary">No data</h3>
+                <h3 className="text-sm font-semibold text-text-primary">
+                  No data
+                </h3>
                 <p className="text-xs text-text-muted">
                   {filters.length > 0 || searchQuery
                     ? 'No documents match the current filter.'
@@ -1378,7 +1638,11 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
                 onDoubleClick={() => handleRowDoubleClick(doc)}
                 onContextMenu={(e) => {
                   e.preventDefault()
-                  setContextMenu({ x: e.clientX, y: e.clientY, docId: doc._id })
+                  setContextMenu({
+                    x: e.clientX,
+                    y: e.clientY,
+                    docId: doc._id,
+                  })
                 }}
               >
                 <div className="flex items-center justify-between border-b border-border-default px-3 py-1.5">
@@ -1491,7 +1755,9 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
           <div className="flex shrink-0 items-center justify-between border-b border-border-default bg-bg-subtle px-3 py-1.5">
             <div className="flex items-center gap-2">
               <FileJson size={13} className="text-primary" />
-              <span className="text-xs font-medium text-text-primary">Document Detail</span>
+              <span className="text-xs font-medium text-text-primary">
+                Document Detail
+              </span>
               <span className="rounded bg-bg-muted px-1.5 py-0.5 text-[10px] font-mono text-text-muted">
                 _id: {editingDoc._id}
               </span>
@@ -1561,7 +1827,10 @@ export function DocumentExplorer({ connection, indexName, indices, onStateChange
       {/* ── Context Menu ──────────────────────────────────────────────────── */}
       {contextMenu && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setContextMenu(null)}
+          />
           <div
             className="fixed z-50 min-w-44 rounded-xl border border-border-default bg-bg-base p-1 shadow-xl backdrop-blur-sm"
             style={{ left: contextMenu.x, top: contextMenu.y }}

@@ -59,7 +59,8 @@ export function ColumnEditor() {
         <div>
           <h3 className="text-sm font-semibold text-slate-800">Columns</h3>
           <p className="text-xs text-slate-500">
-            Define the column structure of the table. Reorder with up/down arrows.
+            Define the column structure of the table. Reorder with up/down
+            arrows.
           </p>
         </div>
         <button
@@ -145,7 +146,9 @@ function ColumnRow({
   const hasError = errorMessages.length > 0
 
   return (
-    <tr className={`border-b border-slate-100 ${hasError ? 'bg-red-50/40' : 'hover:bg-slate-50/50'}`}>
+    <tr
+      className={`border-b border-slate-100 ${hasError ? 'bg-red-50/40' : 'hover:bg-slate-50/50'}`}
+    >
       <td className="px-2 py-1.5 text-center text-slate-400">{index + 1}</td>
       <td className="px-2 py-1.5">
         <div className="flex flex-col items-center gap-0.5">
@@ -202,7 +205,11 @@ function ColumnRow({
             type="text"
             inputMode="numeric"
             value={column.length ?? ''}
-            onChange={(e) => onChange({ length: e.target.value ? Number(e.target.value) : null })}
+            onChange={(e) =>
+              onChange({
+                length: e.target.value ? Number(e.target.value) : null,
+              })
+            }
             className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
             placeholder="255"
           />
@@ -212,7 +219,11 @@ function ColumnRow({
               type="text"
               inputMode="numeric"
               value={column.precision ?? ''}
-              onChange={(e) => onChange({ precision: e.target.value ? Number(e.target.value) : null })}
+              onChange={(e) =>
+                onChange({
+                  precision: e.target.value ? Number(e.target.value) : null,
+                })
+              }
               className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
               placeholder="10"
             />
@@ -220,7 +231,11 @@ function ColumnRow({
               type="text"
               inputMode="numeric"
               value={column.scale ?? ''}
-              onChange={(e) => onChange({ scale: e.target.value ? Number(e.target.value) : null })}
+              onChange={(e) =>
+                onChange({
+                  scale: e.target.value ? Number(e.target.value) : null,
+                })
+              }
               className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
               placeholder="0"
             />
@@ -253,7 +268,11 @@ function ColumnRow({
           onChange={(e) => onChange({ isAutoIncrement: e.target.checked })}
           className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
           disabled={!['INT', 'BIGINT', 'SMALLINT'].includes(dataType)}
-          title={!['INT', 'BIGINT', 'SMALLINT'].includes(dataType) ? 'Auto-increment only for integer types' : ''}
+          title={
+            !['INT', 'BIGINT', 'SMALLINT'].includes(dataType)
+              ? 'Auto-increment only for integer types'
+              : ''
+          }
         />
       </td>
       <td className="px-2 py-1.5">

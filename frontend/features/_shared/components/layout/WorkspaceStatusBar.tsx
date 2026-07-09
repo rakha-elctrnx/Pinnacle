@@ -51,7 +51,17 @@ interface WorkspaceStatusBarProps {
  * Displays contextual info, data counts, pagination navigation, and runtime status.
  */
 export function WorkspaceStatusBar({ context }: WorkspaceStatusBarProps) {
-  const { connector, entity, mode, dataInfo, pagination, runtimeStatus, errorMessage, connectionStatus, elapsedMs } = context
+  const {
+    connector,
+    entity,
+    mode,
+    dataInfo,
+    pagination,
+    runtimeStatus,
+    errorMessage,
+    connectionStatus,
+    elapsedMs,
+  } = context
 
   const isPaginationEnabled = pagination !== undefined
   const isSqlPagination = isPaginationEnabled && 'totalPages' in pagination!
@@ -82,7 +92,9 @@ export function WorkspaceStatusBar({ context }: WorkspaceStatusBarProps) {
         {/* Center: data info + pagination */}
         <div className="flex items-center gap-2">
           {dataInfo && (
-            <span className="whitespace-nowrap text-on-surface-variant">{dataInfo}</span>
+            <span className="whitespace-nowrap text-on-surface-variant">
+              {dataInfo}
+            </span>
           )}
           {isSqlPagination && (
             <div className="flex items-center gap-1">
@@ -96,12 +108,16 @@ export function WorkspaceStatusBar({ context }: WorkspaceStatusBarProps) {
                 <ChevronLeft size={12} />
               </button>
               <span className="text-micro text-on-surface select-none">
-                {(pagination as SqlPagination).page + 1} of {(pagination as SqlPagination).totalPages}
+                {(pagination as SqlPagination).page + 1} of{' '}
+                {(pagination as SqlPagination).totalPages}
               </span>
               <button
                 type="button"
                 onClick={context.onNextPage}
-                disabled={(pagination as SqlPagination).page + 1 >= (pagination as SqlPagination).totalPages}
+                disabled={
+                  (pagination as SqlPagination).page + 1 >=
+                  (pagination as SqlPagination).totalPages
+                }
                 className="cursor-pointer rounded p-0.5 text-on-surface hover:text-on-surface-variant disabled:opacity-30 transition-colors"
                 title="Next page"
               >
@@ -135,15 +151,33 @@ export function WorkspaceStatusBar({ context }: WorkspaceStatusBarProps) {
         <div className="flex items-center gap-2 shrink-0">
           {runtimeStatus === 'loading' && (
             <span className="inline-flex items-center gap-1 text-amber-600">
-              <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              <svg
+                className="h-3 w-3 animate-spin"
+                viewBox="0 0 24 24"
+                fill="none"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
               </svg>
               loading…
             </span>
           )}
           {runtimeStatus === 'error' && (
-            <span className="inline-flex items-center gap-1 text-red-500" title={errorMessage}>
+            <span
+              className="inline-flex items-center gap-1 text-red-500"
+              title={errorMessage}
+            >
               <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
               error
             </span>
@@ -156,8 +190,12 @@ export function WorkspaceStatusBar({ context }: WorkspaceStatusBarProps) {
           )}
           {connectionStatus && (
             <span className="inline-flex items-center gap-1">
-              <span className={`h-1.5 w-1.5 rounded-full ${statusStyle[connectionStatus] ?? 'text-on-surface-variant'}`} />
-              <span className="text-micro text-on-surface">{connectionStatus}</span>
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${statusStyle[connectionStatus] ?? 'text-on-surface-variant'}`}
+              />
+              <span className="text-micro text-on-surface">
+                {connectionStatus}
+              </span>
             </span>
           )}
         </div>

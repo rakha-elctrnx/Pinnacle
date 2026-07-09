@@ -30,7 +30,9 @@ export function PageWorkspace() {
 
         // Navigate to the new active tab's route, or '/' if all tabs closed.
         const { activeTabId: nextActiveId, tabs } = useTabStore.getState()
-        const nextTab = nextActiveId ? tabs.find((t) => t.id === nextActiveId) : null
+        const nextTab = nextActiveId
+          ? tabs.find((t) => t.id === nextActiveId)
+          : null
         navigate(nextTab?.route ?? '/')
       }
     }

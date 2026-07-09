@@ -1,7 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Copy, Download, Eraser, FileDown, Pencil, RefreshCw, Scissors, SquareTerminal, TableProperties, Trash2, Unplug } from 'lucide-react'
-import { DataExplorerContextProvider, useDataExplorerContext } from '../context/DataExplorerContext'
+import {
+  Braces,
+  Copy,
+  Download,
+  Eraser,
+  FileDown,
+  Pencil,
+  RefreshCw,
+  Scissors,
+  SquareTerminal,
+  TableProperties,
+  Trash2,
+  Unplug,
+} from 'lucide-react'
+import {
+  DataExplorerContextProvider,
+  useDataExplorerContext,
+} from '../context/DataExplorerContext'
 import { useDataExplorerOrchestrator } from '../hooks/useDataExplorerOrchestrator'
 import { useTabStore } from '../store/tabStore'
 import { useShellLayout } from '../store/shellLayoutStore'
@@ -11,7 +27,10 @@ import { Footer } from '../components/layout/Footer'
 import { PageWorkspace } from '../components/layout/PageWorkspace'
 import { ConnectionSidebar } from '../components/layout/ConnectionSidebar'
 import { InspectorPanel } from '../components/layout/InspectorPanel'
-import { GenericContextMenu, type ContextMenuItem } from '../components/ui/ContextMenu'
+import {
+  GenericContextMenu,
+  type ContextMenuItem,
+} from '../components/ui/ContextMenu'
 import { DeleteConnectionModal } from '../components/modals/DeleteConnectionModal'
 import { getConnPayloadWithPassword, isSqlConnectionType } from '../utils'
 import { openNewConnectionWindow } from '../services/newConnectionWindowService'
@@ -60,7 +79,8 @@ function ResizeHandle({
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault()
     draggingRef.current = true
-    document.body.style.cursor = direction === 'horizontal' ? 'col-resize' : 'row-resize'
+    document.body.style.cursor =
+      direction === 'horizontal' ? 'col-resize' : 'row-resize'
     document.body.style.userSelect = 'none'
   }
 
@@ -72,7 +92,9 @@ function ResizeHandle({
       onMouseDown={handleMouseDown}
       className={[
         'shrink-0 group/handle flex items-center justify-center',
-        direction === 'horizontal' ? 'w-1 cursor-col-resize' : 'h-1 cursor-row-resize',
+        direction === 'horizontal'
+          ? 'w-1 cursor-col-resize'
+          : 'h-1 cursor-row-resize',
       ].join(' ')}
     >
       <span
@@ -80,7 +102,9 @@ function ResizeHandle({
         className={[
           'rounded-full bg-border-default/40 transition-all duration-150',
           'group-hover/handle:bg-primary/50',
-          direction === 'horizontal' ? 'h-8 w-0.5 group-hover/handle:w-1' : 'w-8 h-0.5 group-hover/handle:h-1',
+          direction === 'horizontal'
+            ? 'h-8 w-0.5 group-hover/handle:w-1'
+            : 'w-8 h-0.5 group-hover/handle:h-1',
         ].join(' ')}
       />
     </div>
@@ -211,14 +235,19 @@ function DataExplorerLayoutChrome({
     handleRequestExportFromMenu,
   } = useDataExplorerContext()
 
-  const handleCloseConnection = useCallback((itemId: string) => {
-    handleCloseConnectionRaw(itemId)
+  const handleCloseConnection = useCallback(
+    (itemId: string) => {
+      handleCloseConnectionRaw(itemId)
 
-    // Navigate to the new active tab's route, or '/' if no tabs remain.
-    const { activeTabId, tabs } = useTabStore.getState()
-    const nextTab = activeTabId ? tabs.find((t) => t.id === activeTabId) : null
-    navigate(nextTab?.route ?? '/')
-  }, [handleCloseConnectionRaw, navigate])
+      // Navigate to the new active tab's route, or '/' if no tabs remain.
+      const { activeTabId, tabs } = useTabStore.getState()
+      const nextTab = activeTabId
+        ? tabs.find((t) => t.id === activeTabId)
+        : null
+      navigate(nextTab?.route ?? '/')
+    },
+    [handleCloseConnectionRaw, navigate],
+  )
 
   // Derive existingGroups for new connection dropdown
   const existingGroups = useMemo(
@@ -267,7 +296,7 @@ function DataExplorerLayoutChrome({
     const currentEditingId = editingIdRef.current
     const currentItems = itemsRef.current
     const existingProfile = currentEditingId
-      ? currentItems.find((p) => p.id === currentEditingId) ?? null
+      ? (currentItems.find((p) => p.id === currentEditingId) ?? null)
       : null
 
     const resetWindow = () => {
@@ -280,7 +309,10 @@ function DataExplorerLayoutChrome({
         editingId: currentEditingId,
         existingProfile,
         existingGroups: existingGroupsRef.current,
-        theme: (document.documentElement.getAttribute('data-theme') as 'light' | 'dark') || 'light',
+        theme:
+          (document.documentElement.getAttribute('data-theme') as
+            | 'light'
+            | 'dark') || 'light',
       },
       (profile, password) => {
         resetWindow()
@@ -307,16 +339,27 @@ function DataExplorerLayoutChrome({
     }
   }, [isAddModalOpen, connectionModalNonce])
   const handleOpenDesignerForEdit = async (tableName: string) => {
-    if (!selectedConnection || !isSqlConnectionType(selectedConnection.type)) return
-    const databaseName = queryExecution.queryDatabase || explorerData.selectedDatabase || selectedConnection.database
+    if (!selectedConnection || !isSqlConnectionType(selectedConnection.type))
+      return
+    const databaseName =
+      queryExecution.queryDatabase ||
+      explorerData.selectedDatabase ||
+      selectedConnection.database
     const schemaName =
       selectedConnection.type === 'postgresql'
         ? queryExecution.querySchema || explorerData.selectedSchema || 'public'
-        : databaseName ?? ''
-    const payload = { ...(await getConnPayloadWithPassword(selectedConnection)), database: databaseName ?? '' }
-    await openDesignerWindow(
-      { mode: 'edit', schema: schemaName, database: databaseName ?? '', connectionPayload: payload, tableName },
-    )
+        : (databaseName ?? '')
+    const payload = {
+      ...(await getConnPayloadWithPassword(selectedConnection)),
+      database: databaseName ?? '',
+    }
+    await openDesignerWindow({
+      mode: 'edit',
+      schema: schemaName,
+      database: databaseName ?? '',
+      connectionPayload: payload,
+      tableName,
+    })
   }
 
   return (
@@ -344,7 +387,7 @@ function DataExplorerLayoutChrome({
           {/* Central page workspace — fills remaining space and is the
               scroll container for routed pages. */}
           <div className="flex-1 min-w-0 h-full overflow-hidden rounded-2xl border border-border-default bg-bg-base">
-          <PageWorkspace />
+            <PageWorkspace />
           </div>
 
           {inspectorOpen && <ResizeHandle onResize={onInspectorResize} />}
@@ -387,63 +430,195 @@ function DataExplorerLayoutChrome({
               // ── Table-specific actions ──────────────────────────
               ...(contextMenu.tableName
                 ? [
-                    { label: 'New Query', icon: <SquareTerminal size={14} />, action: () => {
-                      const connId = contextMenu.itemId
-                      if (!connId || !selectedConnection) return
-                      const qId = queryExecution.createQueryId()
-                      const route = `/sql/${connId}/query/${qId}`
-                      const openTab = useTabStore.getState().openTab
-                      openTab({
-                        id: `${connId}:query:${qId}`,
-                        label: `Query_${qId}`,
-                        type: selectedConnection.type,
-                        pageType: 'query',
-                        route,
-                        connectionId: connId,
-                      })
-                      const table = contextMenu.tableName
-                      if (table) {
-                        const hasUpperCase = /[A-Z]/.test(table)
-                        const quoted = hasUpperCase ? `"${table}"` : table
-                        queryExecution.setActiveQueryId(qId)
-                        queryExecution.updateActiveQuery(`SELECT * FROM ${quoted};`)
-                      }
-                      navigate(route)
-                    }} as ContextMenuItem,
+                    {
+                      label: 'New Query',
+                      icon: <SquareTerminal size={14} />,
+                      action: () => {
+                        const connId = contextMenu.itemId
+                        if (!connId || !selectedConnection) return
+                        const qId = queryExecution.createQueryId()
+                        const route = `/sql/${connId}/query/${qId}`
+                        const openTab = useTabStore.getState().openTab
+                        openTab({
+                          id: `${connId}:query:${qId}`,
+                          label: `Query_${qId}`,
+                          type: selectedConnection.type,
+                          pageType: 'query',
+                          route,
+                          connectionId: connId,
+                        })
+                        const table = contextMenu.tableName
+                        if (table) {
+                          const hasUpperCase = /[A-Z]/.test(table)
+                          const quoted = hasUpperCase ? `"${table}"` : table
+                          queryExecution.setActiveQueryId(qId)
+                          queryExecution.updateActiveQuery(
+                            `SELECT * FROM ${quoted};`,
+                          )
+                        }
+                        navigate(route)
+                      },
+                    } as ContextMenuItem,
                     ...(handleOpenDesignerForEdit
-                      ? [{ label: 'Design Table', icon: <TableProperties size={14} />, action: () => { handleOpenDesignerForEdit(contextMenu.tableName!) } } as ContextMenuItem]
+                      ? [
+                          {
+                            label: 'Design Table',
+                            icon: <TableProperties size={14} />,
+                            action: () => {
+                              handleOpenDesignerForEdit(contextMenu.tableName!)
+                            },
+                          } as ContextMenuItem,
+                        ]
                       : []),
                     ...(handleRequestDataOperationFromMenu
-                      ? [{ label: 'Empty Table', icon: <Eraser size={14} />, action: () => { handleRequestDataOperationFromMenu(contextMenu.itemId, contextMenu.tableName!, 'empty') } } as ContextMenuItem]
+                      ? [
+                          {
+                            label: 'Empty Table',
+                            icon: <Eraser size={14} />,
+                            action: () => {
+                              handleRequestDataOperationFromMenu(
+                                contextMenu.itemId,
+                                contextMenu.tableName!,
+                                'empty',
+                              )
+                            },
+                          } as ContextMenuItem,
+                        ]
                       : []),
                     ...(handleRequestDataOperationFromMenu
-                      ? [{ label: 'Truncate Table', icon: <Scissors size={14} />, action: () => { handleRequestDataOperationFromMenu(contextMenu.itemId, contextMenu.tableName!, 'truncate') } } as ContextMenuItem]
+                      ? [
+                          {
+                            label: 'Truncate Table',
+                            icon: <Scissors size={14} />,
+                            action: () => {
+                              handleRequestDataOperationFromMenu(
+                                contextMenu.itemId,
+                                contextMenu.tableName!,
+                                'truncate',
+                              )
+                            },
+                          } as ContextMenuItem,
+                        ]
                       : []),
                     ...(handleRequestExportFromMenu
-                      ? [{ label: 'Export Data', icon: <FileDown size={14} />, action: () => { handleRequestExportFromMenu(contextMenu.itemId, contextMenu.tableName!) } } as ContextMenuItem]
+                      ? [
+                          {
+                            label: 'Export Data',
+                            icon: <FileDown size={14} />,
+                            action: () => {
+                              handleRequestExportFromMenu(
+                                contextMenu.itemId,
+                                contextMenu.tableName!,
+                              )
+                            },
+                          } as ContextMenuItem,
+                        ]
                       : []),
                     ...(handleRequestDeleteTableFromMenu
-                      ? [{ label: 'Delete Table', icon: <Trash2 size={14} />, action: () => { handleRequestDeleteTableFromMenu(contextMenu.itemId, contextMenu.tableName!) }, dangerous: true } as ContextMenuItem]
+                      ? [
+                          {
+                            label: 'Delete Table',
+                            icon: <Trash2 size={14} />,
+                            action: () => {
+                              handleRequestDeleteTableFromMenu(
+                                contextMenu.itemId,
+                                contextMenu.tableName!,
+                              )
+                            },
+                            dangerous: true,
+                          } as ContextMenuItem,
+                        ]
                       : []),
                     { divider: true } as ContextMenuItem,
                   ]
                 : [
                     // ── Connection-level actions ──────────────────
-                    { label: 'Rename / Edit', icon: <Pencil size={14} />, action: () => { handleOpenEditModal(contextMenu.itemId) } },
+                    {
+                      label: 'Rename / Edit',
+                      icon: <Pencil size={14} />,
+                      action: () => {
+                        handleOpenEditModal(contextMenu.itemId)
+                      },
+                    },
                     ...(handleOpenDesignerForEdit
-                      ? [{ label: 'Edit Structure', icon: <TableProperties size={14} />, action: () => { handleOpenDesignerForEdit(contextMenu.itemId) } } as ContextMenuItem]
+                      ? [
+                          {
+                            label: 'Edit Structure',
+                            icon: <TableProperties size={14} />,
+                            action: () => {
+                              handleOpenDesignerForEdit(contextMenu.itemId)
+                            },
+                          } as ContextMenuItem,
+                        ]
                       : []),
                   ]),
-              // ── Common actions ───────────────────────────────
-              { label: 'Refresh', icon: <RefreshCw size={14} />, action: () => { handleRefreshConnection(contextMenu.itemId) } },
-              // ── Connection-only extra actions ─────────────────
-              ...(!contextMenu.tableName
+              // ── Elastic index actions ──────────────────────────
+              ...(contextMenu.indexName
                 ? [
-                    { label: 'Duplicate', icon: <Copy size={14} />, action: () => { handleDuplicateConnection(contextMenu.itemId) } },
-                    { label: 'Export Configuration', icon: <Download size={14} />, action: () => { handleExportConnection(contextMenu.itemId) } },
+                    {
+                      label: 'View Mapping',
+                      icon: <Braces size={14} />,
+                      action: () => {
+                        const connId = contextMenu.itemId
+                        if (!connId || !selectedConnection) return
+                        const indexName = contextMenu.indexName!
+                        const route = `/elasticsearch/${connId}/indices/${indexName}/mappings`
+                        const openTab = useTabStore.getState().openTab
+                        openTab({
+                          id: `${connId}:index-mapping`,
+                          label: `${indexName} • Mapping`,
+                          type: selectedConnection.type,
+                          pageType: 'elastic-mappings',
+                          route,
+                          connectionId: connId,
+                        })
+                        navigate(route)
+                      },
+                    } as ContextMenuItem,
                     { divider: true } as ContextMenuItem,
-                    { label: 'Close Connection', icon: <Unplug size={14} />, action: () => { handleCloseConnection(contextMenu.itemId) } },
-                    { label: 'Delete', icon: <Trash2 size={14} />, action: () => { handleDeleteConnection(contextMenu.itemId) }, dangerous: true } as ContextMenuItem,
+                  ]
+                : []),
+              // ── Common actions ───────────────────────────────
+              {
+                label: 'Refresh',
+                icon: <RefreshCw size={14} />,
+                action: () => {
+                  handleRefreshConnection(contextMenu.itemId)
+                },
+              },
+              // ── Connection-only extra actions ─────────────────
+              ...(!contextMenu.tableName && !contextMenu.indexName
+                ? [
+                    {
+                      label: 'Duplicate',
+                      icon: <Copy size={14} />,
+                      action: () => {
+                        handleDuplicateConnection(contextMenu.itemId)
+                      },
+                    },
+                    {
+                      label: 'Export Configuration',
+                      icon: <Download size={14} />,
+                      action: () => {
+                        handleExportConnection(contextMenu.itemId)
+                      },
+                    },
+                    { divider: true } as ContextMenuItem,
+                    {
+                      label: 'Close Connection',
+                      icon: <Unplug size={14} />,
+                      action: () => {
+                        handleCloseConnection(contextMenu.itemId)
+                      },
+                    },
+                    {
+                      label: 'Delete',
+                      icon: <Trash2 size={14} />,
+                      action: () => {
+                        handleDeleteConnection(contextMenu.itemId)
+                      },
+                      dangerous: true,
+                    } as ContextMenuItem,
                   ]
                 : []),
             ]}
@@ -460,8 +635,6 @@ function DataExplorerLayoutChrome({
           onClose={handleCloseDeleteConnectionModal}
         />
       )}
-
     </>
   )
 }
-

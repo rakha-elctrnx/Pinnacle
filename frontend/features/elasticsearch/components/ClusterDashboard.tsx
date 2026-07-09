@@ -96,8 +96,7 @@ export function ClusterDashboard({ health, indices }: Props) {
   )
 
   const totalStorage = useMemo(
-    () =>
-      indices.reduce((sum, idx) => sum + parseSize(idx['store.size']), 0),
+    () => indices.reduce((sum, idx) => sum + parseSize(idx['store.size']), 0),
     [indices],
   )
 
@@ -123,7 +122,8 @@ export function ClusterDashboard({ health, indices }: Props) {
 
   /* mock recent events derived from data */
   const recentEvents = useMemo(() => {
-    const events: { icon: typeof CheckCircle2; color: string; text: string }[] = []
+    const events: { icon: typeof CheckCircle2; color: string; text: string }[] =
+      []
     if (health?.status === 'green') {
       events.push({
         icon: ShieldCheck,
@@ -169,7 +169,10 @@ export function ClusterDashboard({ health, indices }: Props) {
     const perNode = Math.round(100 / nodeCount)
     return Array.from({ length: Math.min(nodeCount, 8) }, (_, i) => ({
       name: `node-${i + 1}`,
-      pct: i === Math.min(nodeCount, 8) - 1 ? 100 - perNode * (Math.min(nodeCount, 8) - 1) : perNode,
+      pct:
+        i === Math.min(nodeCount, 8) - 1
+          ? 100 - perNode * (Math.min(nodeCount, 8) - 1)
+          : perNode,
     }))
   }, [nodeCount])
 
@@ -238,8 +241,12 @@ export function ClusterDashboard({ health, indices }: Props) {
           <div
             className={`flex items-center gap-2 px-3 py-1 rounded-full border text-body ${healthBg(health.status)}`}
           >
-            <span className={`inline-block h-2 w-2 rounded-full ${healthDot(health.status)}`} />
-            <span className={healthColor(health.status)}>{health.cluster_name}</span>
+            <span
+              className={`inline-block h-2 w-2 rounded-full ${healthDot(health.status)}`}
+            />
+            <span className={healthColor(health.status)}>
+              {health.cluster_name}
+            </span>
           </div>
         )}
       </div>
@@ -251,13 +258,13 @@ export function ClusterDashboard({ health, indices }: Props) {
             key={card.label}
             className="rounded-xl border border-slate-200 bg-white p-4 flex items-center gap-4"
           >
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${card.accent}`}>
+            <div
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${card.accent}`}
+            >
               <card.icon className="h-5 w-5" />
             </div>
             <div className="flex flex-col">
-              <span className="text-label text-slate-500">
-                {card.label}
-              </span>
+              <span className="text-label text-slate-500">{card.label}</span>
               <span className="text-display text-slate-800">{card.value}</span>
             </div>
           </div>
@@ -271,13 +278,13 @@ export function ClusterDashboard({ health, indices }: Props) {
             key={card.label}
             className="rounded-xl border border-slate-200 bg-white p-4 flex items-center gap-4"
           >
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${card.accent}`}>
+            <div
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${card.accent}`}
+            >
               <card.icon className="h-5 w-5" />
             </div>
             <div className="flex flex-col">
-              <span className="text-label text-slate-500">
-                {card.label}
-              </span>
+              <span className="text-label text-slate-500">{card.label}</span>
               <span className="text-display text-slate-800">{card.value}</span>
             </div>
           </div>
@@ -288,7 +295,9 @@ export function ClusterDashboard({ health, indices }: Props) {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Cluster Health */}
         <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <h3 className="text-subheading text-slate-700 mb-4">Cluster Health</h3>
+          <h3 className="text-subheading text-slate-700 mb-4">
+            Cluster Health
+          </h3>
           <div className="flex flex-col items-center justify-center gap-3 py-6">
             <div
               className={`flex h-20 w-20 items-center justify-center rounded-full ${healthBg(health?.status)}`}
@@ -311,15 +320,21 @@ export function ClusterDashboard({ health, indices }: Props) {
           {health && (
             <div className="grid grid-cols-3 gap-3 border-t border-slate-100 pt-4">
               <div className="text-center">
-                <span className="block text-display text-slate-800">{health.active_primary_shards}</span>
+                <span className="block text-display text-slate-800">
+                  {health.active_primary_shards}
+                </span>
                 <span className="text-caption">Primary</span>
               </div>
               <div className="text-center">
-                <span className="block text-display text-slate-800">{health.active_shards}</span>
+                <span className="block text-display text-slate-800">
+                  {health.active_shards}
+                </span>
                 <span className="text-caption">Active</span>
               </div>
               <div className="text-center">
-                <span className="block text-display text-slate-800">{health.unassigned_shards}</span>
+                <span className="block text-display text-slate-800">
+                  {health.unassigned_shards}
+                </span>
                 <span className="text-caption">Unassigned</span>
               </div>
             </div>
@@ -335,18 +350,29 @@ export function ClusterDashboard({ health, indices }: Props) {
           <div className="flex items-end justify-between gap-1 h-40 px-2">
             {indices.slice(0, 10).map((idx) => {
               const size = parseSize(idx['store.size'])
-              const maxSize = Math.max(...indices.map((x) => parseSize(x['store.size'])), 1)
+              const maxSize = Math.max(
+                ...indices.map((x) => parseSize(x['store.size'])),
+                1,
+              )
               const pct = Math.max((size / maxSize) * 100, 4)
               return (
-                <div key={idx.uuid} className="flex flex-col items-center gap-1 flex-1">
-                  <div className="w-full flex items-end" style={{ height: '120px' }}>
+                <div
+                  key={idx.uuid}
+                  className="flex flex-col items-center gap-1 flex-1"
+                >
+                  <div
+                    className="w-full flex items-end"
+                    style={{ height: '120px' }}
+                  >
                     <div
                       className="w-full rounded-t-sm bg-sky-400/70 transition-all"
                       style={{ height: `${pct}%` }}
                     />
                   </div>
                   <span className="text-micro text-slate-400 truncate max-w-full text-center">
-                    {idx.index.length > 8 ? idx.index.slice(0, 8) + '…' : idx.index}
+                    {idx.index.length > 8
+                      ? idx.index.slice(0, 8) + '…'
+                      : idx.index}
                   </span>
                 </div>
               )
@@ -371,7 +397,9 @@ export function ClusterDashboard({ health, indices }: Props) {
               const pct = (docs / maxDocs) * 100
               return (
                 <div key={idx.uuid} className="flex items-center gap-3">
-                  <span className="w-32 truncate text-body text-slate-700">{idx.index}</span>
+                  <span className="w-32 truncate text-body text-slate-700">
+                    {idx.index}
+                  </span>
                   <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
                     <div
                       className="h-full rounded-full bg-violet-500 transition-all"
@@ -392,11 +420,15 @@ export function ClusterDashboard({ health, indices }: Props) {
 
         {/* Node Distribution */}
         <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <h3 className="text-subheading text-slate-700 mb-4">Node Distribution</h3>
+          <h3 className="text-subheading text-slate-700 mb-4">
+            Node Distribution
+          </h3>
           <div className="space-y-3">
             {nodeDistribution.map((node) => (
               <div key={node.name} className="flex items-center gap-3">
-                <span className="w-20 text-body text-slate-700">{node.name}</span>
+                <span className="w-20 text-body text-slate-700">
+                  {node.name}
+                </span>
                 <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-sky-500 transition-all"

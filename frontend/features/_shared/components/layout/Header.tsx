@@ -61,9 +61,11 @@ export function Header() {
           setIsFullscreen(fullscreen)
         }
 
-        unlistenFocusChange = await currentWindow.onFocusChanged(({ payload }) => {
-          setIsWindowFocused(payload)
-        })
+        unlistenFocusChange = await currentWindow.onFocusChanged(
+          ({ payload }) => {
+            setIsWindowFocused(payload)
+          },
+        )
 
         // The placeholder traffic lights are only meaningful when the OS
         // chrome is visible. Once the window enters fullscreen the macOS
@@ -102,7 +104,10 @@ export function Header() {
       className="relative grid h-10 grid-cols-[minmax(5rem,1fr)_minmax(16rem,28rem)_minmax(5rem,1fr)] items-center gap-3 px-3 pb-2"
     >
       {/* Left column — reserved for macOS window buttons & drag region */}
-      <div data-tauri-drag-region className="flex h-full items-center justify-start">
+      <div
+        data-tauri-drag-region
+        className="flex h-full items-center justify-start"
+      >
         {!isWindowFocused && !isFullscreen && (
           <div
             className="pointer-events-none absolute left-3 top-4 z-10 flex -translate-y-1/2 items-center gap-2"
@@ -132,7 +137,10 @@ export function Header() {
       </div>
 
       {/* Right column — action group, right-aligned */}
-      <div data-tauri-drag-region className="flex items-center justify-end gap-1">
+      <div
+        data-tauri-drag-region
+        className="flex items-center justify-end gap-1"
+      >
         <ActionButton
           icon={theme === 'light' ? <Sun size={16} /> : <Moon size={16} />}
           aria-label="Theme"
@@ -140,8 +148,16 @@ export function Header() {
         />
 
         <ActionButton
-          icon={inspectorOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
-          aria-label={inspectorOpen ? 'Close inspector panel' : 'Open inspector panel'}
+          icon={
+            inspectorOpen ? (
+              <PanelRightClose size={16} />
+            ) : (
+              <PanelRightOpen size={16} />
+            )
+          }
+          aria-label={
+            inspectorOpen ? 'Close inspector panel' : 'Open inspector panel'
+          }
           aria-pressed={inspectorOpen}
           title={inspectorOpen ? 'Close inspector' : 'Open inspector'}
           variant={inspectorOpen ? 'active' : 'default'}

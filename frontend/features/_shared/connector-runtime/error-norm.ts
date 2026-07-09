@@ -47,7 +47,8 @@ function extractMessage(err: unknown): string {
 function extractSearchable(err: unknown): string {
   const msg = extractMessage(err).toLowerCase()
   // Also include stringified form for deeper matching
-  const stringified = err && typeof err === 'object' ? JSON.stringify(err).toLowerCase() : ''
+  const stringified =
+    err && typeof err === 'object' ? JSON.stringify(err).toLowerCase() : ''
   return `${msg} ${stringified}`
 }
 
@@ -62,35 +63,41 @@ export function normalizeError(err: unknown): NormalizedError {
 
   // ── auth_failed ──────────────────────────────────────────────
   if (
-    /authentication failed|auth failed|invalid credentials|login failed|unauthorized|401|403.*auth/i.test(text)
+    /authentication failed|auth failed|invalid credentials|login failed|unauthorized|401|403.*auth/i.test(
+      text,
+    )
   ) {
     return { category: 'auth_failed', message, original: err }
   }
 
   // ── network_unreachable ─────────────────────────────────────
   if (
-    /econnrefused|econnreset|enetunreach|network.*unreachable|connection refused|dns.*not found|no route to host|getaddrinfo/i.test(text)
+    /econnrefused|econnreset|enetunreach|network.*unreachable|connection refused|dns.*not found|no route to host|getaddrinfo/i.test(
+      text,
+    )
   ) {
     return { category: 'network_unreachable', message, original: err }
   }
 
   // ── timeout ─────────────────────────────────────────────────
-  if (
-    /timeout|timed out|etimedout|time.*exceeded/i.test(text)
-  ) {
+  if (/timeout|timed out|etimedout|time.*exceeded/i.test(text)) {
     return { category: 'timeout', message, original: err }
   }
 
   // ── permission_denied ───────────────────────────────────────
   if (
-    /permission denied|access denied|not authorized|forbidden|403|insufficient privilege/i.test(text)
+    /permission denied|access denied|not authorized|forbidden|403|insufficient privilege/i.test(
+      text,
+    )
   ) {
     return { category: 'permission_denied', message, original: err }
   }
 
   // ── invalid_input ───────────────────────────────────────────
   if (
-    /invalid input|syntax error|malformed|bad request|invalid.*parameter|parse error|validation.*failed/i.test(text)
+    /invalid input|syntax error|malformed|bad request|invalid.*parameter|parse error|validation.*failed/i.test(
+      text,
+    )
   ) {
     return { category: 'invalid_input', message, original: err }
   }

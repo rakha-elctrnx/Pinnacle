@@ -11,16 +11,27 @@ import {
 } from '../../../sql/clients/sql'
 import type { ConnectionPayload } from '../../services/tauriClient'
 import { normalizeError } from '../error-norm'
-import type { ConnectorAdapter, TestConnectionResult, NavigationTreeResult, EntityDetailResult, QueryExecutionResult } from './adapter-types'
+import type {
+  ConnectorAdapter,
+  TestConnectionResult,
+  NavigationTreeResult,
+  EntityDetailResult,
+  QueryExecutionResult,
+} from './adapter-types'
 
 export const sqlAdapter: ConnectorAdapter = {
   label: 'SQL Database',
 
-  async testConnection(payload: ConnectionPayload): Promise<TestConnectionResult> {
+  async testConnection(
+    payload: ConnectionPayload,
+  ): Promise<TestConnectionResult> {
     try {
       const result = await tauriTestConnection(payload)
       if (result.ok) {
-        return { kind: 'success', message: result.message || 'Connection successful' }
+        return {
+          kind: 'success',
+          message: result.message || 'Connection successful',
+        }
       }
       return {
         kind: 'error',
@@ -36,7 +47,9 @@ export const sqlAdapter: ConnectorAdapter = {
     }
   },
 
-  async loadNavigationTree(payload: ConnectionPayload): Promise<NavigationTreeResult> {
+  async loadNavigationTree(
+    payload: ConnectionPayload,
+  ): Promise<NavigationTreeResult> {
     try {
       const result = await executeSql({
         connection: payload,
@@ -53,10 +66,21 @@ export const sqlAdapter: ConnectorAdapter = {
         `,
       })
 
-      const dbMap = new Map<string, {
-        name: string
-        schemas: Map<string, { name: string; tables: string[]; views: string[]; functions: string[] }>
-      }>()
+      const dbMap = new Map<
+        string,
+        {
+          name: string
+          schemas: Map<
+            string,
+            {
+              name: string
+              tables: string[]
+              views: string[]
+              functions: string[]
+            }
+          >
+        }
+      >()
 
       for (const row of result.rows) {
         const dbName = row.database_name || 'default'
@@ -70,7 +94,12 @@ export const sqlAdapter: ConnectorAdapter = {
         const db = dbMap.get(dbName)!
 
         if (!db.schemas.has(schemaName)) {
-          db.schemas.set(schemaName, { name: schemaName, tables: [], views: [], functions: [] })
+          db.schemas.set(schemaName, {
+            name: schemaName,
+            tables: [],
+            views: [],
+            functions: [],
+          })
         }
         const schema = db.schemas.get(schemaName)!
 
@@ -100,7 +129,10 @@ export const sqlAdapter: ConnectorAdapter = {
     }
   },
 
-  async openEntity(payload: ConnectionPayload, entityName: string): Promise<EntityDetailResult> {
+  async openEntity(
+    payload: ConnectionPayload,
+    entityName: string,
+  ): Promise<EntityDetailResult> {
     try {
       // Get columns
       const columnsResult = await executeSql({
@@ -144,7 +176,9 @@ export const sqlAdapter: ConnectorAdapter = {
         `,
       })
 
-      const indexes = indexesResult.rows.map((r) => r.indexname || r.indexdef || '')
+      const indexes = indexesResult.rows.map(
+        (r) => r.indexname || r.indexdef || '',
+      )
 
       const stats = {
         rows: rowCount,
@@ -189,7 +223,10 @@ export const sqlAdapter: ConnectorAdapter = {
     }
   },
 
-  getDefaultContext(payload: ConnectionPayload): { database: string; schema: string } {
+  getDefaultContext(payload: ConnectionPayload): {
+    database: string
+    schema: string
+  } {
     return {
       database: payload.database || 'default',
       schema: 'public',

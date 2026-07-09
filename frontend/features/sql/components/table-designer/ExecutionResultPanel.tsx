@@ -23,7 +23,9 @@ export function ExecutionResultPanel({
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-blue-500" />
-          <p className="mt-2 text-xs text-slate-500">Executing DDL statements...</p>
+          <p className="mt-2 text-xs text-slate-500">
+            Executing DDL statements...
+          </p>
         </div>
       </div>
     )
@@ -42,7 +44,9 @@ export function ExecutionResultPanel({
       {/* Overall status */}
       <div
         className={`flex items-center gap-3 rounded-lg p-3 ${
-          result.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+          result.success
+            ? 'bg-green-50 border border-green-200'
+            : 'bg-red-50 border border-red-200'
         }`}
       >
         {result.success ? (
@@ -51,7 +55,9 @@ export function ExecutionResultPanel({
           <XCircle size={18} className="text-red-600" />
         )}
         <div>
-          <p className={`text-sm font-semibold ${result.success ? 'text-green-800' : 'text-red-800'}`}>
+          <p
+            className={`text-sm font-semibold ${result.success ? 'text-green-800' : 'text-red-800'}`}
+          >
             {result.success ? 'Execution Successful' : 'Execution Failed'}
           </p>
           <p className="text-xs text-slate-600">

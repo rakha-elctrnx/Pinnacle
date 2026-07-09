@@ -1,10 +1,11 @@
 use crate::{
     domain::query::{
-        CommitTableChangesPayload, CommitTableChangesResult, ConnectionTestResult,
-        DdlExecutionResult, DdlPlan, DropTablePayload, DropTableResult, QueryResult, SchemaColumn,
-        SchemaForeignKey, SqlQueryPayload, TableSchemaInfo,
+        CommitTableChangesPayload, CommitTableChangesResult, ConnectionPayload,
+        ConnectionTestResult, DdlExecutionResult, DdlPlan, DropTablePayload, DropTableResult,
+        QueryResult, SchemaColumn, SchemaForeignKey, SqlQueryPayload, TableSchemaInfo,
+        TransactionCommitResult, TransactionHandle, TransactionStepResult,
     },
-    infrastructure::connectors::{ddl, sql},
+    infrastructure::connectors::{ddl, sql, transaction},
 };
 
 #[tauri::command]
@@ -25,6 +26,47 @@ pub async fn execute_sql(payload: SqlQueryPayload) -> Result<QueryResult, String
     sql::execute_sql(&payload.connection, payload.sql.as_str())
         .await
         .map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+pub async fn sql_begin_transaction(
+    payload: ConnectionPayload,
+) -> Result<TransactionHandle, String> {
+    let transaction_id = transaction::begin(&payload).await.map_err(|e| e.to_string())?;
+    Ok(TransactionHandle { transaction_id })
+}
+
+#[tauri::command]
+pub async fn sql_execute_in_transaction(
+    payload: ConnectionPayload,
+    transaction_id: String,
+    sql: String,
+) -> Result<TransactionStepResult, String> {
+    // On error, auto-rollback then return the error
+    match transaction::execute(&transaction_id, &sql).await {
+        Ok(result) => Ok(result),
+        Err(e) => {
+            // Attempt rollback; ignore its result (we're already in error)
+            let _ = transaction::rollback(&transaction_id).await;
+            Err(e)
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn sql_commit_transaction(
+    payload: ConnectionPayload,
+    transaction_id: String,
+) -> Result<TransactionCommitResult, String> {
+    transaction::commit(&transaction_id).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn sql_rollback_transaction(
+    payload: ConnectionPayload,
+    transaction_id: String,
+) -> Result<TransactionCommitResult, String> {
+    transaction::rollback(&transaction_id).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]

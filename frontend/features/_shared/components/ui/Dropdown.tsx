@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -32,7 +38,12 @@ export interface DropdownProps {
  * - Backdrop click-outside
  * - Left/right alignment
  */
-export function Dropdown({ open, onClose, items, align = 'right' }: DropdownProps) {
+export function Dropdown({
+  open,
+  onClose,
+  items,
+  align = 'right',
+}: DropdownProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const [activeIndex, setActiveIndex] = useState(0)
 
@@ -118,11 +129,15 @@ export function Dropdown({ open, onClose, items, align = 'right' }: DropdownProp
                 .join(' ')}
             >
               {item.icon && (
-                <span className="flex-shrink-0 text-text-muted">{item.icon}</span>
+                <span className="flex-shrink-0 text-text-muted">
+                  {item.icon}
+                </span>
               )}
               <span className="flex-1 text-left">{item.label}</span>
               {item.shortcut && (
-                <span className="flex-shrink-0 text-micro text-text-muted">{item.shortcut}</span>
+                <span className="flex-shrink-0 text-micro text-text-muted">
+                  {item.shortcut}
+                </span>
               )}
             </button>
             {item.dividerAfter && (

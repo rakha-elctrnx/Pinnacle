@@ -17,13 +17,17 @@ import {
   type ChangeEvent,
 } from 'react'
 import type { CellContext } from '@tanstack/react-table'
-import { useTableEditStore, validateCellValue, type EditableColumnMeta } from '../../store/tableEditStore'
+import {
+  useTableEditStore,
+  validateCellValue,
+  type EditableColumnMeta,
+} from '../../store/tableEditStore'
 
 // ── Timestamp formatting ─────────────────────────────────────────────
 
 const TIMESTAMP_TYPES = new Set([
   'TIMESTAMP',
-  'TIMESTAMPTZ', 
+  'TIMESTAMPTZ',
   'DATETIME',
   'DATE',
   'TIME',
@@ -34,7 +38,7 @@ const TIMESTAMP_TYPES = new Set([
 function formatTimestampValue(ts: string): string {
   // Try parsing as ISO date first
   let date: Date | null = null
-  
+
   // Handle ISO format: 2024-01-15T10:30:45.123Z or 2024-01-15T10:30:45+07:00
   if (ts.includes('T')) {
     date = new Date(ts)
@@ -42,14 +46,17 @@ function formatTimestampValue(ts: string): string {
   // Handle PostgreSQL/MySQL format: 2024-01-15 10:30:45.123456+07 or 2024-01-15 10:30:45
   else if (ts.match(/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/)) {
     // Remove timezone and microseconds for parsing
-    const cleanTs = ts.replace(/\.\d+/, '').replace(/[+-]\d{2}:?\d{2}$/, '').trim()
+    const cleanTs = ts
+      .replace(/\.\d+/, '')
+      .replace(/[+-]\d{2}:?\d{2}$/, '')
+      .trim()
     date = new Date(cleanTs)
   }
   // Handle date only: 2024-01-15
   else if (ts.match(/^\d{4}-\d{2}-\d{2}$/)) {
     date = new Date(ts)
   }
-  
+
   if (date && !isNaN(date.getTime())) {
     // For DATE type, show only date part
     if (ts.match(/^\d{4}-\d{2}-\d{2}$/)) {
@@ -58,7 +65,7 @@ function formatTimestampValue(ts: string): string {
     // For time types, show time with date
     return date.toISOString().replace('T', ' ').substring(0, 19)
   }
-  
+
   // If parsing fails, return original
   return ts
 }
@@ -95,15 +102,27 @@ function isBinaryColumn(dataType: string | undefined): boolean {
 
 // ── Component ───────────────────────────────────────────────────────
 
-export function EditableCell({ context, columnMeta, getRowId: getRowIdFn }: EditableCellProps) {
+export function EditableCell({
+  context,
+  columnMeta,
+  getRowId: getRowIdFn,
+}: EditableCellProps) {
   const { row, column, getValue } = context
   const field = column.id
   const rawValue = getValue()
-  const displayValue = rawValue === null || rawValue === undefined ? '' : String(rawValue)
+  const displayValue =
+    rawValue === null || rawValue === undefined ? '' : String(rawValue)
   // Format timestamp values
-  const isTimestamp = columnMeta?.dataType && TIMESTAMP_TYPES.has(columnMeta.dataType.toUpperCase())
-  const formattedValue = isTimestamp && rawValue ? formatTimestampValue(String(rawValue)) : isTimestamp ? '&#8203;' : null
-  
+  const isTimestamp =
+    columnMeta?.dataType &&
+    TIMESTAMP_TYPES.has(columnMeta.dataType.toUpperCase())
+  const formattedValue =
+    isTimestamp && rawValue
+      ? formatTimestampValue(String(rawValue))
+      : isTimestamp
+        ? '&#8203;'
+        : null
+
   const isNull = rawValue === null || rawValue === undefined
 
   // Resolve stable rowId from the row context
@@ -124,7 +143,8 @@ export function EditableCell({ context, columnMeta, getRowId: getRowIdFn }: Edit
   const stagedValue = existingEdit?.newValue
 
   // Show staged value if present, otherwise original value
-  const effectiveValue = stagedValue !== undefined ? String(stagedValue) : displayValue
+  const effectiveValue =
+    stagedValue !== undefined ? String(stagedValue) : displayValue
 
   // ── Binary column detection ───────────────────────────────────────
   const isBinary = isBinaryColumn(columnMeta?.dataType)
@@ -181,7 +201,8 @@ export function EditableCell({ context, columnMeta, getRowId: getRowIdFn }: Edit
     }
 
     // Compare with original value (unwrapped from "null" display)
-    const originalRaw = rawValue === null || rawValue === undefined ? null : String(rawValue)
+    const originalRaw =
+      rawValue === null || rawValue === undefined ? null : String(rawValue)
     const newRaw = newValue === null ? null : String(newValue)
 
     if (newRaw !== originalRaw) {
@@ -257,7 +278,9 @@ export function EditableCell({ context, columnMeta, getRowId: getRowIdFn }: Edit
 
   const cellClasses = [
     'block min-w-0 truncate px-2 py-1.5',
-    isNull && !isEditing && !stagedValue ? 'italic text-text-muted' : 'text-text-primary',
+    isNull && !isEditing && !stagedValue
+      ? 'italic text-text-muted'
+      : 'text-text-primary',
     isInvalid && isEditing && validationError ? 'ring-2 ring-red-500' : '',
     'transition-colors',
   ]
@@ -267,7 +290,10 @@ export function EditableCell({ context, columnMeta, getRowId: getRowIdFn }: Edit
   // ── Rendered when editing ─────────────────────────────────────────
   if (isEditing) {
     return (
-      <div ref={containerRef as React.RefObject<HTMLDivElement>} className="relative">
+      <div
+        ref={containerRef as React.RefObject<HTMLDivElement>}
+        className="relative"
+      >
         <input
           ref={inputRef}
           type="text"
@@ -319,7 +345,7 @@ export function EditableCell({ context, columnMeta, getRowId: getRowIdFn }: Edit
       className={cellClasses}
       title={
         isInvalid
-          ? validationError ?? displayValue
+          ? (validationError ?? displayValue)
           : stagedValue !== undefined
             ? `Changed: ${displayValue} → ${String(stagedValue)}`
             : displayValue
@@ -330,7 +356,12 @@ export function EditableCell({ context, columnMeta, getRowId: getRowIdFn }: Edit
       role="gridcell"
       aria-label={`${field}: ${isNull ? 'NULL' : displayValue}${isCellDirty ? ' (modified)' : ''}`}
     >
-      {isNull ? '(null)' : stagedValue !== undefined ? String(stagedValue) : formattedValue || displayValue || <span className="text-text-muted">&#8203;</span>}
+      {isNull
+        ? '(null)'
+        : stagedValue !== undefined
+          ? String(stagedValue)
+          : formattedValue ||
+            displayValue || <span className="text-text-muted">&#8203;</span>}
     </span>
   )
 }

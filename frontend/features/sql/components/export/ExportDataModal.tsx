@@ -1,4 +1,16 @@
-import { AlertTriangle, Check, Database, Download, FileText, FileSpreadsheet, FileJson, FileCode, Loader2, Table, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  Check,
+  Database,
+  Download,
+  FileText,
+  FileSpreadsheet,
+  FileJson,
+  FileCode,
+  Loader2,
+  Table,
+  X,
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type {
   TableExportFormat,
@@ -9,7 +21,12 @@ import type {
   RecentTableExport,
 } from '../../../_shared/types/shared'
 
-type ModalPhase = 'configure' | 'confirm-large' | 'loading' | 'success' | 'error'
+type ModalPhase =
+  | 'configure'
+  | 'confirm-large'
+  | 'loading'
+  | 'success'
+  | 'error'
 
 const FORMAT_OPTIONS: Array<{
   value: TableExportFormat
@@ -17,26 +34,60 @@ const FORMAT_OPTIONS: Array<{
   description: string
   icon: typeof FileText
 }> = [
-  { value: 'csv', label: 'CSV', description: 'Comma-separated values', icon: FileText },
-  { value: 'json', label: 'JSON', description: 'Array of row objects', icon: FileJson },
-  { value: 'txt', label: 'TXT', description: 'Tab-delimited plain text', icon: FileText },
-  { value: 'sql', label: 'SQL', description: 'INSERT statements', icon: FileCode },
-  { value: 'xlsx', label: 'XLSX', description: 'Excel workbook', icon: FileSpreadsheet },
+  {
+    value: 'csv',
+    label: 'CSV',
+    description: 'Comma-separated values',
+    icon: FileText,
+  },
+  {
+    value: 'json',
+    label: 'JSON',
+    description: 'Array of row objects',
+    icon: FileJson,
+  },
+  {
+    value: 'txt',
+    label: 'TXT',
+    description: 'Tab-delimited plain text',
+    icon: FileText,
+  },
+  {
+    value: 'sql',
+    label: 'SQL',
+    description: 'INSERT statements',
+    icon: FileCode,
+  },
+  {
+    value: 'xlsx',
+    label: 'XLSX',
+    description: 'Excel workbook',
+    icon: FileSpreadsheet,
+  },
 ]
 
-const ENCODING_OPTIONS: Array<{ value: TableExportOptions['encoding']; label: string }> = [
+const ENCODING_OPTIONS: Array<{
+  value: TableExportOptions['encoding']
+  label: string
+}> = [
   { value: 'utf-8', label: 'UTF-8' },
   { value: 'utf-16', label: 'UTF-16' },
   { value: 'latin1', label: 'Latin-1' },
 ]
 
-const SQL_MODE_OPTIONS: Array<{ value: TableExportOptions['sqlMode']; label: string }> = [
+const SQL_MODE_OPTIONS: Array<{
+  value: TableExportOptions['sqlMode']
+  label: string
+}> = [
   { value: 'data-only', label: 'Data Only' },
   { value: 'schema-only', label: 'Schema Only' },
   { value: 'schema-and-data', label: 'Schema + Data' },
 ]
 
-const TXT_DELIMITER_OPTIONS: Array<{ value: TableExportOptions['txtDelimiter']; label: string }> = [
+const TXT_DELIMITER_OPTIONS: Array<{
+  value: TableExportOptions['txtDelimiter']
+  label: string
+}> = [
   { value: '\t', label: 'Tab' },
   { value: ',', label: 'Comma' },
   { value: '|', label: 'Pipe' },
@@ -51,7 +102,10 @@ interface ExportDataModalProps {
   job: TableExportJob
   recentExports: RecentTableExport[]
   onFormatChange?: (format: TableExportFormat) => void
-  onSubmit: (target: TableExportTarget, options: TableExportOptions) => Promise<void>
+  onSubmit: (
+    target: TableExportTarget,
+    options: TableExportOptions,
+  ) => Promise<void>
   onUseRecent: (recent: RecentTableExport) => void
   onClose: () => void
 }
@@ -60,7 +114,8 @@ function formatBytes(bytes: number | null): string {
   if (bytes === null) return '—'
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
 }
 
@@ -69,11 +124,28 @@ function formatRowCount(count: number | null): string {
   return count.toLocaleString()
 }
 
-function suggestedFilename(target: TableExportTarget, format: TableExportFormat): string {
-  const parts = [target.connectionName, target.database, target.schema, target.tableName]
+function suggestedFilename(
+  target: TableExportTarget,
+  format: TableExportFormat,
+): string {
+  const parts = [
+    target.connectionName,
+    target.database,
+    target.schema,
+    target.tableName,
+  ]
     .filter(Boolean)
     .map((p) => p.replaceAll(/[^a-zA-Z0-9_-]/g, '_'))
-  const ext = format === 'xlsx' ? 'xlsx' : format === 'sql' ? 'sql' : format === 'json' ? 'json' : format === 'csv' ? 'csv' : 'txt'
+  const ext =
+    format === 'xlsx'
+      ? 'xlsx'
+      : format === 'sql'
+        ? 'sql'
+        : format === 'json'
+          ? 'json'
+          : format === 'csv'
+            ? 'csv'
+            : 'txt'
   return `${parts.join('_')}.${ext}`
 }
 
@@ -102,12 +174,15 @@ export function ExportDataModal({
   }, [estimate.estimatedSizeBytes])
 
   // Derive phase from job status unless user has overridden (e.g., configure, confirm-large)
-  const phase: ModalPhase = overridePhase ?? (
-    job.status === 'preparing' || job.status === 'exporting' ? 'loading' :
-    job.status === 'success' ? 'success' :
-    job.status === 'error' ? 'error' :
-    'configure'
-  )
+  const phase: ModalPhase =
+    overridePhase ??
+    (job.status === 'preparing' || job.status === 'exporting'
+      ? 'loading'
+      : job.status === 'success'
+        ? 'success'
+        : job.status === 'error'
+          ? 'error'
+          : 'configure')
 
   const handleFormatChange = (format: TableExportFormat) => {
     setOptions((prev) => ({ ...prev, format }))
@@ -152,7 +227,9 @@ export function ExportDataModal({
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-bg-subtle">
               <Download size={16} className="text-text-muted" />
             </span>
-            <h2 className="text-subheading text-text-primary">Export Table Data</h2>
+            <h2 className="text-subheading text-text-primary">
+              Export Table Data
+            </h2>
           </div>
           {phase !== 'loading' && (
             <button
@@ -226,7 +303,10 @@ export function ExportDataModal({
                   })}
                 </div>
                 <p className="mt-1.5 text-caption text-text-muted">
-                  {FORMAT_OPTIONS.find((f) => f.value === options.format)?.description}
+                  {
+                    FORMAT_OPTIONS.find((f) => f.value === options.format)
+                      ?.description
+                  }
                 </p>
               </div>
 
@@ -237,7 +317,12 @@ export function ExportDataModal({
                     <input
                       type="checkbox"
                       checked={options.includeHeaders}
-                      onChange={(e) => setOptions((prev) => ({ ...prev, includeHeaders: e.target.checked }))}
+                      onChange={(e) =>
+                        setOptions((prev) => ({
+                          ...prev,
+                          includeHeaders: e.target.checked,
+                        }))
+                      }
                       className="h-3.5 w-3.5 rounded border-border-strong text-text-secondary focus:ring-border-strong"
                     />
                     Include Headers
@@ -247,7 +332,11 @@ export function ExportDataModal({
                     <select
                       value={options.encoding}
                       onChange={(e) =>
-                        setOptions((prev) => ({ ...prev, encoding: e.target.value as TableExportOptions['encoding'] }))
+                        setOptions((prev) => ({
+                          ...prev,
+                          encoding: e.target
+                            .value as TableExportOptions['encoding'],
+                        }))
                       }
                       className="rounded border border-border-default bg-bg-base px-1.5 py-0.5 text-label focus:outline-none focus:ring-1 focus:ring-border-strong"
                     >
@@ -267,7 +356,11 @@ export function ExportDataModal({
                   <select
                     value={options.txtDelimiter}
                     onChange={(e) =>
-                      setOptions((prev) => ({ ...prev, txtDelimiter: e.target.value as TableExportOptions['txtDelimiter'] }))
+                      setOptions((prev) => ({
+                        ...prev,
+                        txtDelimiter: e.target
+                          .value as TableExportOptions['txtDelimiter'],
+                      }))
                     }
                     className="rounded border border-border-default bg-bg-base px-1.5 py-0.5 text-label focus:outline-none focus:ring-1 focus:ring-border-strong"
                   >
@@ -286,7 +379,11 @@ export function ExportDataModal({
                   <select
                     value={options.sqlMode}
                     onChange={(e) =>
-                      setOptions((prev) => ({ ...prev, sqlMode: e.target.value as TableExportOptions['sqlMode'] }))
+                      setOptions((prev) => ({
+                        ...prev,
+                        sqlMode: e.target
+                          .value as TableExportOptions['sqlMode'],
+                      }))
                     }
                     className="rounded border border-border-default bg-bg-base px-1.5 py-0.5 text-label focus:outline-none focus:ring-1 focus:ring-border-strong"
                   >
@@ -314,16 +411,22 @@ export function ExportDataModal({
                     <Loader2 size={13} className="animate-spin" /> Calculating…
                   </div>
                 ) : estimate.error ? (
-                  <p className="text-caption text-text-muted">Unable to estimate — export will proceed without preview.</p>
+                  <p className="text-caption text-text-muted">
+                    Unable to estimate — export will proceed without preview.
+                  </p>
                 ) : (
                   <div className="flex items-center gap-4 text-body">
                     <div>
                       <span className="text-text-secondary">Rows:</span>{' '}
-                      <span className="text-body">{formatRowCount(estimate.rowCount)}</span>
+                      <span className="text-body">
+                        {formatRowCount(estimate.rowCount)}
+                      </span>
                     </div>
                     <div>
                       <span className="text-text-secondary">Size:</span>{' '}
-                      <span className="text-body">{formatBytes(estimate.estimatedSizeBytes)}</span>
+                      <span className="text-body">
+                        {formatBytes(estimate.estimatedSizeBytes)}
+                      </span>
                     </div>
                     <span className="text-caption text-text-muted">
                       ({suggestedFilename(target, options.format)})
@@ -335,9 +438,14 @@ export function ExportDataModal({
               {/* Large export warning (inline, subtle) */}
               {isLargeExport && (
                 <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                  <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-500" />
+                  <AlertTriangle
+                    size={14}
+                    className="mt-0.5 shrink-0 text-amber-500"
+                  />
                   <p className="text-caption text-amber-700">
-                    This export appears large ({formatBytes(estimate.estimatedSizeBytes)}). It may run as a background job.
+                    This export appears large (
+                    {formatBytes(estimate.estimatedSizeBytes)}). It may run as a
+                    background job.
                   </p>
                 </div>
               )}
@@ -357,11 +465,15 @@ export function ExportDataModal({
                         className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-caption text-text-secondary hover:bg-bg-subtle"
                       >
                         <span>
-                          <span className="text-body">{recent.options.format.toUpperCase()}</span>
+                          <span className="text-body">
+                            {recent.options.format.toUpperCase()}
+                          </span>
                           {' · '}
                           {recent.target.tableName}
                         </span>
-                        <span className="text-text-muted">{new Date(recent.timestamp).toLocaleDateString()}</span>
+                        <span className="text-text-muted">
+                          {new Date(recent.timestamp).toLocaleDateString()}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -374,12 +486,19 @@ export function ExportDataModal({
           {phase === 'confirm-large' && (
             <>
               <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5">
-                <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-500" />
+                <AlertTriangle
+                  size={16}
+                  className="mt-0.5 shrink-0 text-amber-500"
+                />
                 <div>
-                  <p className="text-body text-amber-800">Large Export Warning</p>
+                  <p className="text-body text-amber-800">
+                    Large Export Warning
+                  </p>
                   <p className="mt-1 text-caption text-amber-600">
-                    This export is approximately {formatBytes(estimate.estimatedSizeBytes)} with {formatRowCount(estimate.rowCount)} rows.
-                    It may take some time and run as a background job.
+                    This export is approximately{' '}
+                    {formatBytes(estimate.estimatedSizeBytes)} with{' '}
+                    {formatRowCount(estimate.rowCount)} rows. It may take some
+                    time and run as a background job.
                   </p>
                 </div>
               </div>
@@ -388,15 +507,21 @@ export function ExportDataModal({
                 <div className="flex items-center gap-4 text-body">
                   <div>
                     <span className="text-text-secondary">Format:</span>{' '}
-                    <span className="text-body">{options.format.toUpperCase()}</span>
+                    <span className="text-body">
+                      {options.format.toUpperCase()}
+                    </span>
                   </div>
                   <div>
                     <span className="text-text-secondary">Rows:</span>{' '}
-                    <span className="text-body">{formatRowCount(estimate.rowCount)}</span>
+                    <span className="text-body">
+                      {formatRowCount(estimate.rowCount)}
+                    </span>
                   </div>
                   <div>
                     <span className="text-text-secondary">Size:</span>{' '}
-                    <span className="text-body">{formatBytes(estimate.estimatedSizeBytes)}</span>
+                    <span className="text-body">
+                      {formatBytes(estimate.estimatedSizeBytes)}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -430,12 +555,16 @@ export function ExportDataModal({
                 <Check size={20} className="text-success" />
               </span>
               <div className="text-center">
-                <p className="text-subheading text-text-primary">Export Complete</p>
+                <p className="text-subheading text-text-primary">
+                  Export Complete
+                </p>
                 <p className="mt-1 text-body-secondary text-text-secondary">
                   {target.tableName} exported as {options.format.toUpperCase()}
                 </p>
                 {job.savedPath && (
-                  <p className="mt-1 max-w-xs truncate text-mono">{job.savedPath}</p>
+                  <p className="mt-1 max-w-xs truncate text-mono">
+                    {job.savedPath}
+                  </p>
                 )}
               </div>
             </div>
@@ -448,8 +577,12 @@ export function ExportDataModal({
                 <AlertTriangle size={20} className="text-danger" />
               </span>
               <div className="text-center">
-                <p className="text-subheading text-text-primary">Export Failed</p>
-                <p className="mt-1 max-w-xs text-caption text-danger">{job.error ?? 'An unexpected error occurred.'}</p>
+                <p className="text-subheading text-text-primary">
+                  Export Failed
+                </p>
+                <p className="mt-1 max-w-xs text-caption text-danger">
+                  {job.error ?? 'An unexpected error occurred.'}
+                </p>
               </div>
             </div>
           )}

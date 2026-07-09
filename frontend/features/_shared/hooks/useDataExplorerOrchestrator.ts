@@ -11,16 +11,33 @@ import { useNavigate } from 'react-router-dom'
 import { useConnectionStore } from '../store/connectionStore'
 import { useTabStore, type TabPageType } from '../store/tabStore'
 import type { ConnectionProfile } from '../types/domain'
-import { showExportSaveDialog, getConnectionPassword } from '../services/tauriClient'
+import {
+  showExportSaveDialog,
+  getConnectionPassword,
+} from '../services/tauriClient'
 // Elasticsearch
 import type { ElasticIndex } from '../../elasticsearch/types/elasticsearch'
 import { elasticListIndices } from '../../elasticsearch/clients/elasticsearch'
-// SQL 
-import { estimateTableExport, executeTableExport } from '../../sql/clients/sql'
+// SQL
+import {
+  estimateTableExport,
+  executeTableExport,
+  sqlRollbackTransaction,
+} from '../../sql/clients/sql'
 import type { TableExportProgressEvent } from '../../sql/clients/sql'
 // OTHER
-import type { ConnectionStatus, ContextMenuState, DataOperationTarget, DeleteTableTarget, DetailStat, TableExportEstimate, TableExportJob, TableExportOptions, TableExportTarget, RecentTableExport } from '../types/shared'
-import type { ElasticPanel, ElasticIndexTab } from '../../elasticsearch/components/ElasticExplorerWorkspace'
+import type {
+  ConnectionStatus,
+  ContextMenuState,
+  DataOperationTarget,
+  DeleteTableTarget,
+  DetailStat,
+  TableExportEstimate,
+  TableExportJob,
+  TableExportOptions,
+  TableExportTarget,
+  RecentTableExport,
+} from '../types/shared'
 import { downloadTextFile, getConnPayload } from '../utils'
 import { useExplorerData } from '../../sql/hooks/useExplorerData'
 import { useQueryExecution } from '../../sql/hooks/useQueryExecution'
@@ -41,10 +58,15 @@ interface OpenedTableTab {
   /** Full tree path for path-based selection, e.g. "mydb/public/Tables/users" */
   nodePath?: string
 }
+/** Elasticsearch panel types */
+type ElasticPanel = 'cluster' | 'indices' | 'query'
 
 /** Check if a connection type is ES-like (elasticsearch adapter). */
 function isElasticsearchLike(type: string): boolean {
-  return hasCapability(defaultConnectorRegistry, type, 'run-query') && type === 'elasticsearch'
+  return (
+    hasCapability(defaultConnectorRegistry, type, 'run-query') &&
+    type === 'elasticsearch'
+  )
 }
 
 // ── Recent export history (localStorage) ────────────────────────
@@ -64,7 +86,10 @@ function loadRecentExports(): RecentTableExport[] {
 
 function persistRecentExports(exports: RecentTableExport[]) {
   try {
-    localStorage.setItem(RECENT_EXPORTS_KEY, JSON.stringify(exports.slice(0, MAX_RECENT_EXPORTS)))
+    localStorage.setItem(
+      RECENT_EXPORTS_KEY,
+      JSON.stringify(exports.slice(0, MAX_RECENT_EXPORTS)),
+    )
   } catch {
     // Ignore storage failures
   }
@@ -90,16 +115,10 @@ export interface DataExplorerOrchestratorResult {
   contextMenu: ContextMenuState | null
   contextMenuRef: React.RefObject<HTMLDivElement | null>
   isDetailsPanelOpen: boolean
-  elasticPanel: ElasticPanel
-  selectedElasticIndex: string | null
   elasticIndices: Record<string, ElasticIndex[]>
   elasticIndicesError: Record<string, string>
   elasticLoading: Record<string, boolean>
-  openedElasticTabs: ElasticIndexTab[]
-  activeElasticTabId: string | null
   openedTableTabs: OpenedTableTab[]
-  activeTableTabId: string | null
-  isSqlTableListView: boolean
   tableInfoTab: 'data' | 'structure' | 'indexes' | 'relationships'
   queryResultTab: 'results' | 'messages' | 'statistics'
   lastRefreshedAt: string
@@ -118,12 +137,13 @@ export interface DataExplorerOrchestratorResult {
   handleSaveConnection: (profile: ConnectionProfile, password?: string) => void
   handleToggleTreeNode: (path: string) => void
   handleFetchDatabaseDetails: (dbName: string) => void
-  wrappedHandleTreeNodeClick: (nodeLabel: string, databaseName?: string, nodePath?: string) => void
+  wrappedHandleTreeNodeClick: (
+    nodeLabel: string,
+    databaseName?: string,
+    nodePath?: string,
+  ) => void
   handleCloseTableTab: (tabId: string) => void
   handleActiveTableTabChange: (tabId: string) => void
-  handleCloseElasticTab: (tabId: string) => void
-  handleActiveElasticTabIdChange: (tabId: string) => void
-  handleResizeStart: (e: React.MouseEvent) => void
   handleRetryElasticIndices: (connectionId: string) => void
   handleDeleteConnection: (itemId: string) => void
   deleteConnectionTarget: { id: string; name: string } | null
@@ -133,11 +153,21 @@ export interface DataExplorerOrchestratorResult {
   connectionModalNonce: number
   deleteTableTarget: DeleteTableTarget | null
   handleRequestDeleteTable: (tableName: string) => void
-  handleRequestDeleteTableFromMenu: (connectionId: string, tableName: string) => void
+  handleRequestDeleteTableFromMenu: (
+    connectionId: string,
+    tableName: string,
+  ) => void
   handleCloseDeleteTableModal: () => void
   dataOperationTarget: DataOperationTarget | null
-  handleRequestDataOperation: (tableName: string, operation: 'empty' | 'truncate') => void
-  handleRequestDataOperationFromMenu: (connectionId: string, tableName: string, operation: 'empty' | 'truncate') => void
+  handleRequestDataOperation: (
+    tableName: string,
+    operation: 'empty' | 'truncate',
+  ) => void
+  handleRequestDataOperationFromMenu: (
+    connectionId: string,
+    tableName: string,
+    operation: 'empty' | 'truncate',
+  ) => void
   handleCloseDataOperationModal: () => void
   setExpandedConnectionId: (id: string | null) => void
   // ── Table export ──
@@ -147,21 +177,20 @@ export interface DataExplorerOrchestratorResult {
   recentExports: RecentTableExport[]
   handleRequestExport: (tableName: string) => void
   handleRequestExportFromMenu: (connectionId: string, tableName: string) => void
-  handleSubmitExport: (target: TableExportTarget, options: TableExportOptions) => Promise<void>
+  handleSubmitExport: (
+    target: TableExportTarget,
+    options: TableExportOptions,
+  ) => Promise<void>
   handleUseRecentExport: (recent: RecentTableExport) => void
   handleCloseExportModal: () => void
   setContextMenu: (state: ContextMenuState | null) => void
   setSelectedTreeNode: (node: string | null) => void
   focusedNodePath: string | null
   setFocusedNodePath: (path: string | null) => void
-  setElasticPanel: (panel: ElasticPanel) => void
-  setSelectedElasticIndex: (index: string | null) => void
-  setIsDetailsPanelOpen: React.Dispatch<React.SetStateAction<boolean>>
-  setIsSqlTableListView: (view: boolean) => void
-  setTableInfoTab: (tab: 'data' | 'structure' | 'indexes' | 'relationships') => void
+  setTableInfoTab: (
+    tab: 'data' | 'structure' | 'indexes' | 'relationships',
+  ) => void
   setQueryResultTab: (tab: 'results' | 'messages' | 'statistics') => void
-  setOpenedElasticTabs: React.Dispatch<React.SetStateAction<ElasticIndexTab[]>>
-  setActiveElasticTabId: React.Dispatch<React.SetStateAction<string | null>>
   setSelectedConnectionId: React.Dispatch<React.SetStateAction<string | null>>
   setEditingId: React.Dispatch<React.SetStateAction<string | null>>
   setIsAddModalOpen: React.Dispatch<React.SetStateAction<boolean>>
@@ -177,8 +206,12 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
 
   const navigate = useNavigate()
 
-  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null)
-  const [expandedConnectionId, setExpandedConnectionId] = useState<string | null>(null)
+  const [selectedConnectionId, setSelectedConnectionId] = useState<
+    string | null
+  >(null)
+  const [expandedConnectionId, setExpandedConnectionId] = useState<
+    string | null
+  >(null)
   const [selectedTreeNode, setSelectedTreeNode] = useState<string | null>(null)
   const [expandedTreePaths, setExpandedTreePaths] = useState<string[]>([])
   const [focusedNodePath, setFocusedNodePath] = useState<string | null>(null)
@@ -187,36 +220,59 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const contextMenuRef = useRef<HTMLDivElement>(null)
-  const [connectionStatuses, setConnectionStatuses] = useState<Record<string, ConnectionStatus>>({})
-  const [lastRefreshedAt, setLastRefreshedAt] = useState(() => new Date().toLocaleTimeString())
-  const [tableInfoTab, setTableInfoTab] = useState<'data' | 'structure' | 'indexes' | 'relationships'>('data')
-  const [queryResultTab, setQueryResultTab] = useState<'results' | 'messages' | 'statistics'>('results')
+  const [connectionStatuses, setConnectionStatuses] = useState<
+    Record<string, ConnectionStatus>
+  >({})
+  const [lastRefreshedAt, setLastRefreshedAt] = useState(() =>
+    new Date().toLocaleTimeString(),
+  )
+  const [tableInfoTab, setTableInfoTab] = useState<
+    'data' | 'structure' | 'indexes' | 'relationships'
+  >('data')
+  const [queryResultTab, setQueryResultTab] = useState<
+    'results' | 'messages' | 'statistics'
+  >('results')
   const [openedTableTabs, setOpenedTableTabs] = useState<OpenedTableTab[]>([])
   const [activeTableTabId, setActiveTableTabId] = useState<string | null>(null)
-  const [isSqlTableListView, setIsSqlTableListView] = useState(false)
-  const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState(false)
-  const [elasticPanel, setElasticPanel] = useState<ElasticPanel>('cluster')
-  const [selectedElasticIndex, setSelectedElasticIndex] = useState<string | null>(null)
-  const [elasticIndices, setElasticIndices] = useState<Record<string, ElasticIndex[]>>({})
-  const [elasticIndicesError, setElasticIndicesError] = useState<Record<string, string>>({})
-  const [elasticLoading, setElasticLoading] = useState<Record<string, boolean>>({})
-  const [openedElasticTabs, setOpenedElasticTabs] = useState<ElasticIndexTab[]>([])
-  const [activeElasticTabId, setActiveElasticTabId] = useState<string | null>(null)
+  const [isDetailsPanelOpen, _setIsDetailsPanelOpen] = useState(false)
+  const [elasticIndices, setElasticIndices] = useState<
+    Record<string, ElasticIndex[]>
+  >({})
+  const [elasticIndicesError, setElasticIndicesError] = useState<
+    Record<string, string>
+  >({})
+  const [elasticLoading, setElasticLoading] = useState<Record<string, boolean>>(
+    {},
+  )
   const [sidebarWidth, setSidebarWidth] = useState(280)
   const [isResizing, setIsResizing] = useState(false)
-  const [deleteTableTarget, setDeleteTableTarget] = useState<DeleteTableTarget | null>(null)
-  const [deleteConnectionTarget, setDeleteConnectionTarget] = useState<{ id: string; name: string } | null>(null)
-  const [dataOperationTarget, setDataOperationTarget] = useState<DataOperationTarget | null>(null)
+  const [deleteTableTarget, setDeleteTableTarget] =
+    useState<DeleteTableTarget | null>(null)
+  const [deleteConnectionTarget, setDeleteConnectionTarget] = useState<{
+    id: string
+    name: string
+  } | null>(null)
+  const [dataOperationTarget, setDataOperationTarget] =
+    useState<DataOperationTarget | null>(null)
 
   // ── Export state ───────────────────────────────────────────────
-  const [exportModalTarget, setExportModalTarget] = useState<TableExportTarget | null>(null)
+  const [exportModalTarget, setExportModalTarget] =
+    useState<TableExportTarget | null>(null)
   const [exportEstimate, setExportEstimate] = useState<TableExportEstimate>({
-    rowCount: null, estimatedSizeBytes: null, loading: false, error: null,
+    rowCount: null,
+    estimatedSizeBytes: null,
+    loading: false,
+    error: null,
   })
   const [exportJob, setExportJob] = useState<TableExportJob>({
-    status: 'idle', progress: null, savedPath: null, error: null,
+    status: 'idle',
+    progress: null,
+    savedPath: null,
+    error: null,
   })
-  const [recentExports, setRecentExports] = useState<RecentTableExport[]>(() => loadRecentExports())
+  const [recentExports, setRecentExports] = useState<RecentTableExport[]>(() =>
+    loadRecentExports(),
+  )
   const exportProgressUnlistenRef = useRef<(() => void) | null>(null)
 
   // ── Load persisted connections from backend on startup ──────
@@ -228,17 +284,19 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   useEffect(() => {
     if (!exportModalTarget) return
 
-    const conn = items.find((item) => item.id === exportModalTarget.connectionId)
+    const conn = items.find(
+      (item) => item.id === exportModalTarget.connectionId,
+    )
     if (!conn) return
 
     let cancelled = false
 
     // Fetch password from keyring and add to payload
     getConnectionPassword(conn.id).then((password) => {
-      const payload = { 
-        ...getConnPayload(conn, exportModalTarget.schema), 
+      const payload = {
+        ...getConnPayload(conn, exportModalTarget.schema),
         database: exportModalTarget.database || conn.database,
-        password
+        password,
       }
 
       setExportEstimate((prev) => ({ ...prev, loading: true, error: null }))
@@ -256,13 +314,17 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
         .catch((err) => {
           if (cancelled) return
           setExportEstimate({
-            rowCount: null, estimatedSizeBytes: null, loading: false,
+            rowCount: null,
+            estimatedSizeBytes: null,
+            loading: false,
             error: err instanceof Error ? err.message : String(err),
           })
         })
     })
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [exportModalTarget, items])
 
   // ── Cleanup progress listener on unmount ──────────────────────
@@ -275,9 +337,18 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
 
   // ── Derived state (via domain services) ──────────────────────────
 
-  const filtered = useMemo(() => filterConnections(items, search), [items, search])
-  const groupedConnections = useMemo(() => groupConnectionsByTag(filtered), [filtered])
-  const recentConnections = useMemo(() => getRecentConnections(items, 5), [items])
+  const filtered = useMemo(
+    () => filterConnections(items, search),
+    [items, search],
+  )
+  const groupedConnections = useMemo(
+    () => groupConnectionsByTag(filtered),
+    [filtered],
+  )
+  const recentConnections = useMemo(
+    () => getRecentConnections(items, 5),
+    [items],
+  )
 
   const selectedConnection = useMemo(
     () => items.find((item) => item.id === selectedConnectionId) ?? null,
@@ -294,10 +365,12 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
 
     const loadElasticIndices = async () => {
       setElasticLoading((prev) => ({ ...prev, [conn.id]: true }))
-      
+
       // Fetch password from keyring
-      const password = conn.passwordRef ? await getConnectionPassword(conn.id) : ''
-      
+      const password = conn.passwordRef
+        ? await getConnectionPassword(conn.id)
+        : ''
+
       const payload = {
         type: conn.type,
         host: conn.host,
@@ -346,59 +419,57 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   }, [expandedConnectionId, items])
 
   // ── Elasticsearch indices retry handler ───────────────────────────
-  const handleRetryElasticIndices = useCallback((connectionId: string) => {
-    const conn = items.find((item) => item.id === connectionId)
-    if (!conn || !isElasticsearchLike(conn.type)) return
+  const handleRetryElasticIndices = useCallback(
+    (connectionId: string) => {
+      const conn = items.find((item) => item.id === connectionId)
+      if (!conn || !isElasticsearchLike(conn.type)) return
 
-    setElasticIndicesError((prev) => {
-      const next = { ...prev }
-      delete next[conn.id]
-      return next
-    })
+      setElasticIndicesError((prev) => {
+        const next = { ...prev }
+        delete next[conn.id]
+        return next
+      })
 
-    setElasticLoading((prev) => ({ ...prev, [conn.id]: true }))
+      setElasticLoading((prev) => ({ ...prev, [conn.id]: true }))
 
-    // Fetch password from keyring
-    getConnectionPassword(conn.id).then((password) => {
-      const payload = {
-        type: conn.type,
-        host: conn.host,
-        port: conn.port,
-        database: conn.database ?? '',
-        username: conn.username,
-        password,
-        ssl: conn.ssl ?? false,
-      }
+      // Fetch password from keyring
+      getConnectionPassword(conn.id).then((password) => {
+        const payload = {
+          type: conn.type,
+          host: conn.host,
+          port: conn.port,
+          database: conn.database ?? '',
+          username: conn.username,
+          password,
+          ssl: conn.ssl ?? false,
+        }
 
-      elasticListIndices(payload)
-        .then((indices) => {
-          setElasticIndices((prev) => ({
-            ...prev,
-            [conn.id]: indices ?? [],
-          }))
-        })
-        .catch((err) => {
-          setElasticIndicesError((prev) => ({
-            ...prev,
-            [conn.id]: err instanceof Error ? err.message : String(err),
-          }))
-        })
-        .finally(() => {
-          setElasticLoading((prev) => {
-            const next = { ...prev }
-            delete next[conn.id]
-            return next
+        elasticListIndices(payload)
+          .then((indices) => {
+            setElasticIndices((prev) => ({
+              ...prev,
+              [conn.id]: indices ?? [],
+            }))
           })
-        })
-    })
-  }, [items])
+          .catch((err) => {
+            setElasticIndicesError((prev) => ({
+              ...prev,
+              [conn.id]: err instanceof Error ? err.message : String(err),
+            }))
+          })
+          .finally(() => {
+            setElasticLoading((prev) => {
+              const next = { ...prev }
+              delete next[conn.id]
+              return next
+            })
+          })
+      })
+    },
+    [items],
+  )
 
   // ── Sidebar resize handlers ──────────────────────────────────────
-
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    setIsResizing(true)
-  }, [])
 
   useEffect(() => {
     if (!isResizing) return
@@ -430,7 +501,10 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     if (!contextMenu) return
 
     const handlePointerDown = (e: PointerEvent) => {
-      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+      if (
+        contextMenuRef.current &&
+        !contextMenuRef.current.contains(e.target as Node)
+      ) {
         setContextMenu(null)
       }
     }
@@ -452,6 +526,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     selectedSchema: explorerData.selectedSchema,
     selectedDatabase: explorerData.selectedDatabase,
     setConnectionStatuses,
+    onQueryTabChange: setQueryResultTab,
   })
 
   // Detail stats
@@ -459,7 +534,10 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     if (explorerData.realDbStats.length > 0) return explorerData.realDbStats
     if (!selectedConnection) return []
     return [
-      { label: 'Status', value: connectionStatuses[selectedConnection.id] ?? 'disconnected' },
+      {
+        label: 'Status',
+        value: connectionStatuses[selectedConnection.id] ?? 'disconnected',
+      },
     ]
   }, [explorerData.realDbStats, selectedConnection, connectionStatuses])
 
@@ -475,12 +553,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     setSelectedConnectionId(id)
     setOpenedTableTabs([])
     setActiveTableTabId(null)
-    setIsSqlTableListView(false)
     setSelectedTreeNode(null)
-    setElasticPanel('cluster')
-    setSelectedElasticIndex(null)
-    setOpenedElasticTabs([])
-    setActiveElasticTabId(null)
     explorerData.setSelectedTable(null)
   }
 
@@ -543,6 +616,30 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     // 2. Clear explorer tree data + table detail data
     explorerData.resetConnectionData(itemId)
 
+    // 2a. Rollback any open transaction for this connection
+    if (queryExecution.activeTransactionId) {
+      const conn = selectedConnection
+      if (conn) {
+        // Build a lightweight payload for rollback + ignore errors (idempotent)
+        getConnectionPassword(conn.id).then((password) => {
+          const payload = {
+            type: conn.type,
+            host: conn.host,
+            port: conn.port,
+            database: conn.database ?? '',
+            username: conn.username,
+            password,
+            ssl: conn.ssl ?? false,
+          }
+          sqlRollbackTransaction(
+            payload,
+            queryExecution.activeTransactionId!,
+          ).catch(() => {
+            /* idempotent — ignore */
+          })
+        })
+      }
+    }
     // 3. Clear query execution data (tabs, result, messages)
     queryExecution.resetQueryData()
 
@@ -566,12 +663,6 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     // 5. Clear local table/elastic sub-tabs and tree selection
     setOpenedTableTabs([])
     setActiveTableTabId(null)
-    setOpenedElasticTabs([])
-    setActiveElasticTabId(null)
-    setSelectedTreeNode(null)
-    setSelectedElasticIndex(null)
-    setElasticPanel('cluster')
-    setIsSqlTableListView(false)
     explorerData.setSelectedTable(null)
 
     // 6. Close ALL global tabs belonging to this connection
@@ -584,7 +675,10 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     }
   }
 
-  const handleSaveConnection = (profile: ConnectionProfile, password?: string) => {
+  const handleSaveConnection = (
+    profile: ConnectionProfile,
+    password?: string,
+  ) => {
     upsert(profile, password)
     setConnectionStatuses((prev) => ({
       ...prev,
@@ -606,34 +700,39 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       const treeData = explorerData.treeDataMap[selectedConnection.id]
       const db = treeData?.databases.find((d) => d.name === dbName)
       if (db && !db.loaded) {
-        explorerData.fetchDatabaseDetails(selectedConnection.id, selectedConnection, dbName)
+        explorerData.fetchDatabaseDetails(
+          selectedConnection.id,
+          selectedConnection,
+          dbName,
+        )
       }
     }
   }
 
   /** Map sidebar label to elastic panel key */
   const ELASTIC_LABEL_TO_PANEL: Record<string, ElasticPanel> = {
-    'Cluster': 'cluster',
-    'Indices': 'indices',
+    Cluster: 'cluster',
+    Indices: 'indices',
     'Query Console': 'query',
-    'Mapping': 'mapping',
   }
 
   const ELASTIC_PANEL_TO_ROUTE: Record<string, string> = {
-    'cluster': 'cluster',
-    'indices': 'indices',
-    'query': 'query',
-    'mapping': 'mappings',
+    cluster: 'cluster',
+    indices: 'indices',
+    query: 'query',
   }
 
   const ELASTIC_PANEL_TO_PAGE_TYPE: Record<string, string> = {
-    'cluster': 'elastic-cluster',
-    'indices': 'elastic-indices',
-    'query': 'elastic-query',
-    'mapping': 'elastic-mappings',
+    cluster: 'elastic-cluster',
+    indices: 'elastic-indices',
+    query: 'elastic-query',
   }
 
-  const wrappedHandleTreeNodeClick = async (nodeLabel: string, databaseName?: string, nodePath?: string) => {
+  const wrappedHandleTreeNodeClick = async (
+    nodeLabel: string,
+    databaseName?: string,
+    nodePath?: string,
+  ) => {
     // Use capability check instead of raw `type === 'postgresql' || type === 'mysql'`
     if (
       nodePath?.endsWith('/Tables') &&
@@ -641,7 +740,8 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       hasCapabilityWithAdapter(selectedConnection.type, 'load-navigation-tree')
     ) {
       const pathParts = nodePath.split('/').filter(Boolean)
-      const targetDatabase = databaseName || pathParts[0] || selectedConnection.database
+      const targetDatabase =
+        databaseName || pathParts[0] || selectedConnection.database
       const targetSchema =
         selectedConnection.type === 'postgresql' && pathParts.length >= 3
           ? pathParts[pathParts.length - 2]
@@ -649,10 +749,13 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
 
       setSelectedTreeNode(nodePath)
       setActiveTableTabId(null)
-      setIsSqlTableListView(true)
 
       if (targetDatabase) {
-        void explorerData.fetchSqlTableList(selectedConnection, targetDatabase, targetSchema)
+        void explorerData.fetchSqlTableList(
+          selectedConnection,
+          targetDatabase,
+          targetSchema,
+        )
         queryExecution.onQueryDatabaseChange(targetDatabase)
         queryExecution.onQuerySchemaChange(targetSchema || '')
       }
@@ -663,44 +766,35 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     // Handle elasticsearch sidebar navigation — use capability check
     // Derive connection from node path (user may click index child without selecting connection)
     const esPathName = nodePath?.split('/')[1]
-    const esConn = selectedConnection && isElasticsearchLike(selectedConnection.type)
-      ? selectedConnection
-      : esPathName
-        ? items.find((item) => item.name === esPathName && item.type === 'elasticsearch')
-        : null
+    const esConn =
+      selectedConnection && isElasticsearchLike(selectedConnection.type)
+        ? selectedConnection
+        : esPathName
+          ? items.find(
+              (item) =>
+                item.name === esPathName && item.type === 'elasticsearch',
+            )
+          : null
 
     if (esConn && isElasticsearchLike(esConn.type)) {
       if (nodePath?.includes('/Indices/')) {
-        setElasticPanel('documents')
-        setSelectedElasticIndex(nodeLabel)
         setSelectedTreeNode(nodePath)
-        const existingTab = openedElasticTabs.find((tab) => tab.indexName === nodeLabel)
-        if (existingTab) {
-          setActiveElasticTabId(existingTab.id)
-        } else {
-          const tabId = crypto.randomUUID()
-          setOpenedElasticTabs((prev) => [...prev, { id: tabId, indexName: nodeLabel }])
-          setActiveElasticTabId(tabId)
-        }
-        // Create global tab for the elastic index
+        // Create global tab for the elastic index with per-index route
         const globalTabId = `${esConn.id}:index:${nodeLabel}`
         useTabStore.getState().openTab({
           id: globalTabId,
           label: nodeLabel,
           type: esConn.type,
           pageType: 'elastic-index',
-          route: `/elasticsearch/${esConn.id}/documents`,
+          route: `/elasticsearch/${esConn.id}/indices/${nodeLabel}`,
           connectionId: esConn.id,
         })
-        navigate(`/elasticsearch/${esConn.id}/documents`)
+        navigate(`/elasticsearch/${esConn.id}/indices/${nodeLabel}`)
         return
       }
       if (ELASTIC_LABEL_TO_PANEL[nodeLabel]) {
         const panel = ELASTIC_LABEL_TO_PANEL[nodeLabel]
-        setElasticPanel(panel)
-        setSelectedElasticIndex(null)
         setSelectedTreeNode(nodePath || nodeLabel)
-        setActiveElasticTabId(null)
 
         const routeSuffix = ELASTIC_PANEL_TO_ROUTE[panel] || panel
         const pageType = ELASTIC_PANEL_TO_PAGE_TYPE[panel] || 'elastic-cluster'
@@ -719,22 +813,24 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
         return
       }
     }
-
     setSelectedTreeNode(nodePath || nodeLabel)
-    const isTablePromise = explorerData.handleTreeNodeClick(nodeLabel, databaseName)
-    const isTable = await isTablePromise
+    const isTable = await explorerData.handleTreeNodeClick(
+      nodeLabel,
+      databaseName,
+    )
     if (isTable) {
-      setIsSqlTableListView(false)
       const existingTab = openedTableTabs.find((tab) => tab.label === nodeLabel)
       if (existingTab) {
         setActiveTableTabId(existingTab.id)
       } else {
         const tabId = crypto.randomUUID()
-        setOpenedTableTabs((prev) => [...prev, { id: tabId, label: nodeLabel, nodePath }])
+        setOpenedTableTabs((prev) => [
+          ...prev,
+          { id: tabId, label: nodeLabel, nodePath },
+        ])
         setActiveTableTabId(tabId)
       }
       setTableInfoTab('data')
-
       // Create global tab for the table
       if (selectedConnection) {
         const globalTabId = `${selectedConnection.id}:table:${nodeLabel}`
@@ -805,56 +901,10 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   const handleActiveTableTabChange = (tabId: string) => {
     const targetTab = openedTableTabs.find((tab) => tab.id === tabId)
     if (!targetTab) return
-
     setActiveTableTabId(tabId)
-    setIsSqlTableListView(false)
     setSelectedTreeNode(targetTab.nodePath || targetTab.label)
     explorerData.handleTreeNodeClick(targetTab.label)
     setTableInfoTab('data')
-  }
-
-  const handleCloseElasticTab = (tabId: string) => {
-    // Find the index name from the internal tab to remove the global tab
-    const closingTab = openedElasticTabs.find((t) => t.id === tabId)
-    if (closingTab && selectedConnection) {
-      const globalTabId = `${selectedConnection.id}:index:${closingTab.indexName}`
-      useTabStore.getState().closeTab(globalTabId)
-    }
-
-    setOpenedElasticTabs((prev) => {
-      const nextTabs = prev.filter((tab) => tab.id !== tabId)
-
-      if (activeElasticTabId === tabId) {
-        const fallbackTab = nextTabs[nextTabs.length - 1] ?? null
-        setActiveElasticTabId(fallbackTab?.id ?? null)
-        if (fallbackTab) {
-          setSelectedElasticIndex(fallbackTab.indexName)
-        } else {
-          setSelectedElasticIndex(null)
-        }
-      }
-
-      return nextTabs
-    })
-  }
-
-  const handleActiveElasticTabIdChange = (tabId: string) => {
-    const targetTab = openedElasticTabs.find((tab) => tab.id === tabId)
-    if (!targetTab) return
-
-    setActiveElasticTabId(tabId)
-    setSelectedElasticIndex(targetTab.indexName)
-    const conn = items.find((item) => item.id === selectedConnection?.id)
-    const groupName = conn
-      ? Object.entries(groupedConnections).find(([, profiles]) =>
-          profiles.some((p) => p.id === conn.id)
-        )?.[0]
-      : undefined
-    setSelectedTreeNode(
-      groupName && conn
-        ? `${groupName}/${conn.name}/Indices/${targetTab.indexName}`
-        : `Indices/${targetTab.indexName}`
-    )
   }
 
   return {
@@ -871,22 +921,17 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     expandedConnectionId,
     selectedTreeNode,
     expandedTreePaths,
+    focusedNodePath,
     connectionStatuses,
     isAddModalOpen,
     editingId,
     contextMenu,
     contextMenuRef,
     isDetailsPanelOpen,
-    elasticPanel,
-    selectedElasticIndex,
     elasticIndices,
     elasticIndicesError,
     elasticLoading,
-    openedElasticTabs,
-    activeElasticTabId,
     openedTableTabs,
-    activeTableTabId,
-    isSqlTableListView,
     tableInfoTab,
     queryResultTab,
     lastRefreshedAt,
@@ -909,28 +954,17 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     wrappedHandleTreeNodeClick,
     handleCloseTableTab,
     handleActiveTableTabChange,
-    handleCloseElasticTab,
-    handleActiveElasticTabIdChange,
-    handleResizeStart,
-    handleRetryElasticIndices,
-    setExpandedConnectionId,
-    setContextMenu,
-    setSelectedTreeNode,
-    focusedNodePath,
-    setFocusedNodePath,
-    setElasticPanel,
-    setSelectedElasticIndex,
-    setIsDetailsPanelOpen,
-    setIsSqlTableListView,
-    setTableInfoTab,
-    setQueryResultTab,
-    setOpenedElasticTabs,
-    setActiveElasticTabId,
     setSelectedConnectionId,
     setEditingId,
     setIsAddModalOpen,
+    setExpandedConnectionId,
+    setContextMenu,
+    setSelectedTreeNode,
+    setFocusedNodePath,
+    setTableInfoTab,
+    setQueryResultTab,
+    handleRetryElasticIndices,
     handleDeleteConnection: (itemId: string) => {
-      // Open confirmation modal instead of deleting immediately
       const conn = items.find((item) => item.id === itemId)
       setDeleteConnectionTarget({ id: itemId, name: conn?.name ?? 'Unknown' })
     },
@@ -953,11 +987,16 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     deleteTableTarget,
     handleRequestDeleteTable: (tableName: string) => {
       if (!selectedConnection) return
-      const databaseName = queryExecution.queryDatabase || explorerData.selectedDatabase || selectedConnection.database
+      const databaseName =
+        queryExecution.queryDatabase ||
+        explorerData.selectedDatabase ||
+        selectedConnection.database
       const schemaName =
         selectedConnection.type === 'postgresql'
-          ? queryExecution.querySchema || explorerData.selectedSchema || 'public'
-          : databaseName ?? ''
+          ? queryExecution.querySchema ||
+            explorerData.selectedSchema ||
+            'public'
+          : (databaseName ?? '')
       setDeleteTableTarget({
         connectionId: selectedConnection.id,
         connectionName: selectedConnection.name,
@@ -967,7 +1006,10 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
         tableName,
       })
     },
-    handleRequestDeleteTableFromMenu: (connectionId: string, tableName: string) => {
+    handleRequestDeleteTableFromMenu: (
+      connectionId: string,
+      tableName: string,
+    ) => {
       const conn = items.find((item) => item.id === connectionId)
       if (!conn) return
       const databaseName = conn.database ?? ''
@@ -985,13 +1027,21 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       setDeleteTableTarget(null)
     },
     dataOperationTarget,
-    handleRequestDataOperation: (tableName: string, operation: 'empty' | 'truncate') => {
+    handleRequestDataOperation: (
+      tableName: string,
+      operation: 'empty' | 'truncate',
+    ) => {
       if (!selectedConnection) return
-      const databaseName = queryExecution.queryDatabase || explorerData.selectedDatabase || selectedConnection.database
+      const databaseName =
+        queryExecution.queryDatabase ||
+        explorerData.selectedDatabase ||
+        selectedConnection.database
       const schemaName =
         selectedConnection.type === 'postgresql'
-          ? queryExecution.querySchema || explorerData.selectedSchema || 'public'
-          : databaseName ?? ''
+          ? queryExecution.querySchema ||
+            explorerData.selectedSchema ||
+            'public'
+          : (databaseName ?? '')
       setDataOperationTarget({
         connectionId: selectedConnection.id,
         connectionName: selectedConnection.name,
@@ -1002,7 +1052,11 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
         operation,
       })
     },
-    handleRequestDataOperationFromMenu: (connectionId: string, tableName: string, operation: 'empty' | 'truncate') => {
+    handleRequestDataOperationFromMenu: (
+      connectionId: string,
+      tableName: string,
+      operation: 'empty' | 'truncate',
+    ) => {
       const conn = items.find((item) => item.id === connectionId)
       if (!conn) return
       const databaseName = conn.database ?? ''
@@ -1030,11 +1084,16 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
 
     handleRequestExport: (tableName: string) => {
       if (!selectedConnection) return
-      const databaseName = queryExecution.queryDatabase || explorerData.selectedDatabase || selectedConnection.database
+      const databaseName =
+        queryExecution.queryDatabase ||
+        explorerData.selectedDatabase ||
+        selectedConnection.database
       const schemaName =
         selectedConnection.type === 'postgresql'
-          ? queryExecution.querySchema || explorerData.selectedSchema || 'public'
-          : databaseName ?? ''
+          ? queryExecution.querySchema ||
+            explorerData.selectedSchema ||
+            'public'
+          : (databaseName ?? '')
       setExportModalTarget({
         connectionId: selectedConnection.id,
         connectionName: selectedConnection.name,
@@ -1043,8 +1102,18 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
         schema: schemaName ?? '',
         tableName,
       })
-      setExportEstimate({ rowCount: null, estimatedSizeBytes: null, loading: false, error: null })
-      setExportJob({ status: 'idle', progress: null, savedPath: null, error: null })
+      setExportEstimate({
+        rowCount: null,
+        estimatedSizeBytes: null,
+        loading: false,
+        error: null,
+      })
+      setExportJob({
+        status: 'idle',
+        progress: null,
+        savedPath: null,
+        error: null,
+      })
     },
 
     handleRequestExportFromMenu: (connectionId: string, tableName: string) => {
@@ -1060,20 +1129,43 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
         schema: schemaName,
         tableName,
       })
-      setExportEstimate({ rowCount: null, estimatedSizeBytes: null, loading: false, error: null })
-      setExportJob({ status: 'idle', progress: null, savedPath: null, error: null })
+      setExportEstimate({
+        rowCount: null,
+        estimatedSizeBytes: null,
+        loading: false,
+        error: null,
+      })
+      setExportJob({
+        status: 'idle',
+        progress: null,
+        savedPath: null,
+        error: null,
+      })
     },
 
-    handleSubmitExport: async (target: TableExportTarget, options: TableExportOptions) => {
+    handleSubmitExport: async (
+      target: TableExportTarget,
+      options: TableExportOptions,
+    ) => {
       const conn = items.find((item) => item.id === target.connectionId)
       if (!conn) {
-        setExportJob({ status: 'error', progress: null, savedPath: null, error: 'Connection not found' })
+        setExportJob({
+          status: 'error',
+          progress: null,
+          savedPath: null,
+          error: 'Connection not found',
+        })
         return
       }
 
       // 1. Show native save dialog with suggested filename
       const ext = options.format === 'xlsx' ? 'xlsx' : options.format
-      const nameParts = [target.connectionName, target.database, target.schema, target.tableName]
+      const nameParts = [
+        target.connectionName,
+        target.database,
+        target.schema,
+        target.tableName,
+      ]
         .filter(Boolean)
         .map((p) => p.replaceAll(/[^a-zA-Z0-9_-]/g, '_'))
       const suggestedName = `${nameParts.join('_')}.${ext}`
@@ -1085,35 +1177,57 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       }
 
       // 2. Set loading state
-      setExportJob({ status: 'exporting', progress: 0, savedPath: null, error: null })
+      setExportJob({
+        status: 'exporting',
+        progress: 0,
+        savedPath: null,
+        error: null,
+      })
 
       // 3. Listen for progress events
-      const unlisten = await listen<TableExportProgressEvent>('export://progress', (event) => {
-        const progress = event.payload
-        if (progress.totalRows > 0) {
-          const pct = Math.round((progress.rowsExported / progress.totalRows) * 100)
-          setExportJob((prev) => ({ ...prev, progress: pct }))
-        }
-        if (progress.error) {
-          setExportJob({
-            status: 'error', progress: null, savedPath: null,
-            error: progress.error,
-          })
-        }
-      })
+      const unlisten = await listen<TableExportProgressEvent>(
+        'export://progress',
+        (event) => {
+          const progress = event.payload
+          if (progress.totalRows > 0) {
+            const pct = Math.round(
+              (progress.rowsExported / progress.totalRows) * 100,
+            )
+            setExportJob((prev) => ({ ...prev, progress: pct }))
+          }
+          if (progress.error) {
+            setExportJob({
+              status: 'error',
+              progress: null,
+              savedPath: null,
+              error: progress.error,
+            })
+          }
+        },
+      )
       exportProgressUnlistenRef.current = unlisten
 
       // 4. Build payload for Rust command (convert frontend values to Rust-expected format)
       // Fetch password from keyring
       const password = await getConnectionPassword(conn.id)
-      const connection = { 
-        ...getConnPayload(conn, target.schema), 
+      const connection = {
+        ...getConnPayload(conn, target.schema),
         database: target.database || conn.database,
-        password
+        password,
       }
       const rustFormat = options.format.toUpperCase()
-      const rustEncoding = options.encoding === 'utf-8' ? 'UTF8' : options.encoding === 'utf-16' ? 'UTF16' : 'ASCII'
-      const rustSqlMode = options.sqlMode === 'data-only' ? 'dataOnly' : options.sqlMode === 'schema-only' ? 'schemaOnly' : 'schemaAndData'
+      const rustEncoding =
+        options.encoding === 'utf-8'
+          ? 'UTF8'
+          : options.encoding === 'utf-16'
+            ? 'UTF16'
+            : 'ASCII'
+      const rustSqlMode =
+        options.sqlMode === 'data-only'
+          ? 'dataOnly'
+          : options.sqlMode === 'schema-only'
+            ? 'schemaOnly'
+            : 'schemaAndData'
       const payload = {
         connection,
         tableName: target.tableName,
@@ -1148,10 +1262,17 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
             persistRecentExports(next)
             return next
           })
-          setExportJob({ status: 'success', progress: 100, savedPath: savedFilePath, error: null })
+          setExportJob({
+            status: 'success',
+            progress: 100,
+            savedPath: savedFilePath,
+            error: null,
+          })
         } else {
           setExportJob({
-            status: 'error', progress: null, savedPath: null,
+            status: 'error',
+            progress: null,
+            savedPath: null,
             error: result.error ?? 'Export failed',
           })
         }
@@ -1161,7 +1282,9 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
         exportProgressUnlistenRef.current = null
 
         setExportJob({
-          status: 'error', progress: null, savedPath: null,
+          status: 'error',
+          progress: null,
+          savedPath: null,
           error: err instanceof Error ? err.message : String(err),
         })
       }
@@ -1169,13 +1292,28 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
 
     handleUseRecentExport: (recent: RecentTableExport) => {
       setExportModalTarget(recent.target)
-      setExportEstimate({ rowCount: null, estimatedSizeBytes: null, loading: false, error: null })
-      setExportJob({ status: 'idle', progress: null, savedPath: null, error: null })
+      setExportEstimate({
+        rowCount: null,
+        estimatedSizeBytes: null,
+        loading: false,
+        error: null,
+      })
+      setExportJob({
+        status: 'idle',
+        progress: null,
+        savedPath: null,
+        error: null,
+      })
     },
 
     handleCloseExportModal: () => {
       setExportModalTarget(null)
-      setExportJob({ status: 'idle', progress: null, savedPath: null, error: null })
+      setExportJob({
+        status: 'idle',
+        progress: null,
+        savedPath: null,
+        error: null,
+      })
     },
   }
 }

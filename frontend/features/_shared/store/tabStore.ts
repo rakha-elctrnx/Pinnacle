@@ -6,7 +6,14 @@ import type { ConnectionType } from '../types/domain'
 // ---------------------------------------------------------------------------
 
 /** What kind of page a tab represents. */
-export type TabPageType = 'table' | 'query' | 'elastic-index' | 'elastic-cluster' | 'elastic-indices' | 'elastic-query' | 'elastic-mappings'
+export type TabPageType =
+  | 'table'
+  | 'query'
+  | 'elastic-index'
+  | 'elastic-cluster'
+  | 'elastic-indices'
+  | 'elastic-query'
+  | 'elastic-mappings'
 
 export interface Tab {
   /** Unique identifier — connection id for connection tabs, composite key for sub-pages. */
@@ -63,7 +70,14 @@ export const useTabStore = create<TabState>((set) => ({
         return {
           activeTabId: tab.id,
           tabs: state.tabs.map((t) =>
-            t.id === tab.id ? { ...t, route: tab.route, label: tab.label, ...tab.treePath ? { treePath: tab.treePath } : {} } : t
+            t.id === tab.id
+              ? {
+                  ...t,
+                  route: tab.route,
+                  label: tab.label,
+                  ...(tab.treePath ? { treePath: tab.treePath } : {}),
+                }
+              : t,
           ),
         }
       }
@@ -127,9 +141,12 @@ export const useTabStore = create<TabState>((set) => ({
         nextActiveId = null
       } else {
         // Check if the active tab was among the removed ones.
-        const activeWasRemoved = !remaining.some((t) => t.id === state.activeTabId)
+        const activeWasRemoved = !remaining.some(
+          (t) => t.id === state.activeTabId,
+        )
         if (activeWasRemoved) {
-          nextActiveId = remaining.length > 0 ? remaining[remaining.length - 1].id : null
+          nextActiveId =
+            remaining.length > 0 ? remaining[remaining.length - 1].id : null
         } else {
           nextActiveId = state.activeTabId
         }

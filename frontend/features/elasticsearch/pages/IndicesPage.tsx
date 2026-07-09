@@ -1,6 +1,5 @@
 import { useOutletContext, useNavigate, useParams } from 'react-router-dom'
 import { IndexManager } from '../components/IndexManager'
-import { useDataExplorerContext } from '../../_shared/context/DataExplorerContext'
 import type { ElasticLayoutOutletContext } from '../types/pages'
 
 /**
@@ -14,30 +13,14 @@ import type { ElasticLayoutOutletContext } from '../types/pages'
 export function IndicesPage() {
   const { connectionId } = useParams<{ connectionId: string }>()
   const navigate = useNavigate()
-  const { setElasticPanel, setSelectedElasticIndex, setOpenedElasticTabs, setActiveElasticTabId } =
-    useDataExplorerContext()
-  const { payload, indices, refresh } = useOutletContext<ElasticLayoutOutletContext>()
+  const { payload, indices, refresh } =
+    useOutletContext<ElasticLayoutOutletContext>()
 
   if (!payload) return null
 
   const handleSelectIndex = (name: string) => {
-    setSelectedElasticIndex(name)
-
-    // Open a tab for this index
-    const tabId = `elastic-${name}-${Date.now()}`
-    setOpenedElasticTabs((prev) => {
-      const existing = prev.find((t) => t.indexName === name)
-      if (existing) {
-        setActiveElasticTabId(existing.id)
-        return prev
-      }
-      return [...prev, { id: tabId, indexName: name }]
-    })
-    setActiveElasticTabId(tabId)
-
-    // Navigate to documents page for this index
-    setElasticPanel('documents')
-    navigate(`/elasticsearch/${connectionId}/documents`)
+    // Navigate to the per-index documents route (like SQL tables/:tableName)
+    navigate(`/elasticsearch/${connectionId}/indices/${name}`)
   }
 
   return (

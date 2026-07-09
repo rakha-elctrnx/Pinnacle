@@ -23,10 +23,20 @@ interface Props {
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'HEAD']
 
 const QUICK_TEMPLATES = [
-  { label: 'Cluster Health', method: 'GET', path: '/_cluster/health', body: '' },
+  {
+    label: 'Cluster Health',
+    method: 'GET',
+    path: '/_cluster/health',
+    body: '',
+  },
   { label: 'Cat Indices', method: 'GET', path: '/_cat/indices?v', body: '' },
   { label: 'Cat Nodes', method: 'GET', path: '/_cat/nodes?v', body: '' },
-  { label: 'Search All', method: 'POST', path: '/_search', body: '{\n  "query": {\n    "match_all": {}\n  }\n}' },
+  {
+    label: 'Search All',
+    method: 'POST',
+    path: '/_search',
+    body: '{\n  "query": {\n    "match_all": {}\n  }\n}',
+  },
   { label: 'Cluster Stats', method: 'GET', path: '/_cluster/stats', body: '' },
   { label: 'Cat Shards', method: 'GET', path: '/_cat/shards?v', body: '' },
 ]
@@ -56,25 +66,35 @@ export function QueryConsole({ connection }: Props) {
         body: parsedBody,
       })
       setResult(res)
-      setHistory((prev) => [{
-        id: `${Date.now()}`,
-        method,
-        path,
-        body,
-        timestamp: Date.now(),
-        result: res,
-      }, ...prev].slice(0, 50))
+      setHistory((prev) =>
+        [
+          {
+            id: `${Date.now()}`,
+            method,
+            path,
+            body,
+            timestamp: Date.now(),
+            result: res,
+          },
+          ...prev,
+        ].slice(0, 50),
+      )
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setError(msg)
-      setHistory((prev) => [{
-        id: `${Date.now()}`,
-        method,
-        path,
-        body,
-        timestamp: Date.now(),
-        error: msg,
-      }, ...prev].slice(0, 50))
+      setHistory((prev) =>
+        [
+          {
+            id: `${Date.now()}`,
+            method,
+            path,
+            body,
+            timestamp: Date.now(),
+            error: msg,
+          },
+          ...prev,
+        ].slice(0, 50),
+      )
     } finally {
       setLoading(false)
     }
@@ -87,7 +107,7 @@ export function QueryConsole({ connection }: Props) {
     setShowHistory(false)
   }, [])
 
-  const loadTemplate = useCallback((tpl: typeof QUICK_TEMPLATES[number]) => {
+  const loadTemplate = useCallback((tpl: (typeof QUICK_TEMPLATES)[number]) => {
     setMethod(tpl.method)
     setPath(tpl.path)
     setBody(tpl.body)
@@ -121,12 +141,15 @@ export function QueryConsole({ connection }: Props) {
     return () => window.removeEventListener('keydown', handler)
   }, [executeQuery])
 
-  const handleContainerKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      e.preventDefault()
-      executeQuery()
-    }
-  }, [executeQuery])
+  const handleContainerKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault()
+        executeQuery()
+      }
+    },
+    [executeQuery],
+  )
 
   const resultJson = result ? JSON.stringify(result.data, null, 2) : ''
 
@@ -174,11 +197,19 @@ export function QueryConsole({ connection }: Props) {
                     className="w-full text-left px-3 py-2 text-body hover:bg-slate-50 border-b border-slate-100"
                   >
                     <div className="flex items-center gap-2">
-                      <span className={`text-label ${entry.method === 'GET' ? 'text-emerald-600' : entry.method === 'POST' ? 'text-sky-600' : entry.method === 'DELETE' ? 'text-red-600' : 'text-amber-600'}`}>
+                      <span
+                        className={`text-label ${entry.method === 'GET' ? 'text-emerald-600' : entry.method === 'POST' ? 'text-sky-600' : entry.method === 'DELETE' ? 'text-red-600' : 'text-amber-600'}`}
+                      >
                         {entry.method}
                       </span>
-                      <span className="text-slate-700 text-mono text-caption truncate">{entry.path}</span>
-                      {entry.error && <span className="text-red-500 text-caption ml-auto">Error</span>}
+                      <span className="text-slate-700 text-mono text-caption truncate">
+                        {entry.path}
+                      </span>
+                      {entry.error && (
+                        <span className="text-red-500 text-caption ml-auto">
+                          Error
+                        </span>
+                      )}
                     </div>
                   </button>
                 ))
@@ -196,7 +227,9 @@ export function QueryConsole({ connection }: Props) {
           className="rounded border border-slate-300 bg-white px-2 py-1.5 text-subheading text-slate-700 focus:border-blue-500 focus:outline-none"
         >
           {HTTP_METHODS.map((m) => (
-            <option key={m} value={m}>{m}</option>
+            <option key={m} value={m}>
+              {m}
+            </option>
           ))}
         </select>
         <input
@@ -216,10 +249,18 @@ export function QueryConsole({ connection }: Props) {
       </div>
 
       {/* Body Editor */}
-      <div className="flex flex-col" style={{ minHeight: '200px', maxHeight: '35%' }}>
+      <div
+        className="flex flex-col"
+        style={{ minHeight: '200px', maxHeight: '35%' }}
+      >
         <div className="flex items-center justify-between px-4 py-1 border-b border-slate-200 bg-slate-50">
           <span className="text-label">Request Body</span>
-          <button onClick={formatBody} className="text-caption hover:text-slate-700">Format JSON</button>
+          <button
+            onClick={formatBody}
+            className="text-caption hover:text-slate-700"
+          >
+            Format JSON
+          </button>
         </div>
         <div className="flex-1 min-h-0">
           <Editor
@@ -250,27 +291,34 @@ export function QueryConsole({ connection }: Props) {
           <div className="flex items-center gap-2">
             <span className="text-label">Response</span>
             {result && (
-              <span className="text-caption">
-                {result.elapsed_ms}ms
-              </span>
+              <span className="text-caption">{result.elapsed_ms}ms</span>
             )}
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setResultView(resultView === 'raw' ? 'formatted' : 'raw')}
+              onClick={() =>
+                setResultView(resultView === 'raw' ? 'formatted' : 'raw')
+              }
               className="text-caption hover:text-slate-700"
             >
               {resultView === 'raw' ? 'Formatted' : 'Raw'}
             </button>
             {result && (
-              <button onClick={copyResult} className="text-caption hover:text-slate-700">
+              <button
+                onClick={copyResult}
+                className="text-caption hover:text-slate-700"
+              >
                 <Copy className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
         </div>
         <div className="flex-1 overflow-auto">
-          <CenteredLoadingState loading={loading} label="Executing query..." iconSize={3} />
+          <CenteredLoadingState
+            loading={loading}
+            label="Executing query..."
+            iconSize={3}
+          />
           {error && (
             <pre className="px-4 py-3 text-mono text-red-600 whitespace-pre-wrap break-all">
               {error}
@@ -278,7 +326,9 @@ export function QueryConsole({ connection }: Props) {
           )}
           {result && (
             <pre className="px-4 py-3 text-mono text-slate-700 whitespace-pre-wrap break-all">
-              {resultView === 'formatted' ? resultJson : JSON.stringify(result.data)}
+              {resultView === 'formatted'
+                ? resultJson
+                : JSON.stringify(result.data)}
             </pre>
           )}
           {!error && !result && !loading && (

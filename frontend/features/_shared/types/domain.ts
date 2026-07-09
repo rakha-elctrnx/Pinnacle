@@ -1,5 +1,11 @@
 // CONNECTION TYPES
-export type ConnectionType = 'postgresql' | 'mysql' | 'mongodb' | 'redis' | 'rabbitmq' | 'elasticsearch'
+export type ConnectionType =
+  | 'postgresql'
+  | 'mysql'
+  | 'mongodb'
+  | 'redis'
+  | 'rabbitmq'
+  | 'elasticsearch'
 
 // Connection profile stored in frontend (NO password - that's in OS keyring)
 export interface ConnectionProfile {
@@ -24,7 +30,10 @@ export interface ConnectionProfile {
 
 // Request to save a connection (includes password temporarily)
 export interface SaveConnectionRequest {
-  profile: Omit<ConnectionProfile, 'passwordRef' | 'createdAt' | 'updatedAt'> & {
+  profile: Omit<
+    ConnectionProfile,
+    'passwordRef' | 'createdAt' | 'updatedAt'
+  > & {
     password?: string
   }
   // For new connections, omit id to generate one
@@ -41,5 +50,3 @@ export interface ConnectionResponse {
 export interface ConnectionListResponse {
   connections: ConnectionResponse[]
 }
-
-

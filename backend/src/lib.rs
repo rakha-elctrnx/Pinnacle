@@ -18,8 +18,10 @@ use application::commands::elastic_commands::{
 };
 // SQL COMMANDS
 use application::commands::query_commands::{
-    commit_table_changes, execute_sql, sql_drop_table, sql_execute_ddl, sql_generate_ddl,
-    sql_get_all_columns, sql_get_all_foreign_keys, sql_get_table_schema, test_connection,
+    commit_table_changes, execute_sql, sql_begin_transaction, sql_commit_transaction,
+    sql_drop_table, sql_execute_ddl, sql_execute_in_transaction, sql_generate_ddl,
+    sql_get_all_columns, sql_get_all_foreign_keys, sql_get_table_schema,
+    sql_rollback_transaction, test_connection,
 };
 // EXPORT COMMANDS
 use application::commands::export_commands::{estimate_table_export, execute_table_export};
@@ -86,6 +88,10 @@ pub fn run() {
             sql_generate_ddl,
             sql_execute_ddl,
             sql_drop_table,
+            sql_begin_transaction,
+            sql_execute_in_transaction,
+            sql_commit_transaction,
+            sql_rollback_transaction,
             sql_get_all_foreign_keys,
             sql_get_all_columns,
             // ELASTICSEARCH COMMANDS

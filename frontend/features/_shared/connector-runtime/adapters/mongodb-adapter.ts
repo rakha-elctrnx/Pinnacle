@@ -12,7 +12,13 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import { normalizeError } from '../error-norm'
-import type { ConnectorAdapter, TestConnectionResult, NavigationTreeResult, EntityDetailResult, QueryExecutionResult } from './adapter-types'
+import type {
+  ConnectorAdapter,
+  TestConnectionResult,
+  NavigationTreeResult,
+  EntityDetailResult,
+  QueryExecutionResult,
+} from './adapter-types'
 import type { ConnectionPayload } from '../../services/tauriClient'
 
 /**
@@ -20,17 +26,23 @@ import type { ConnectionPayload } from '../../services/tauriClient'
  * Jika command tidak tersedia (bln backend belum diimplementasi),
  * fallback ke simulated test.
  */
-async function tryMongoTestConnection(payload: ConnectionPayload): Promise<{ ok: boolean; message: string }> {
+async function tryMongoTestConnection(
+  payload: ConnectionPayload,
+): Promise<{ ok: boolean; message: string }> {
   try {
-    const result = await invoke<{ ok: boolean; message: string }>('mongo_test_connection', { payload })
+    const result = await invoke<{ ok: boolean; message: string }>(
+      'mongo_test_connection',
+      { payload },
+    )
     return result
   } catch {
     // Backend command belum tersedia — simulated check
     return {
       ok: payload.host.length > 0 && payload.port > 0,
-      message: payload.host.length > 0 && payload.port > 0
-        ? 'Connection test simulated (backend pending)'
-        : 'Invalid connection parameters',
+      message:
+        payload.host.length > 0 && payload.port > 0
+          ? 'Connection test simulated (backend pending)'
+          : 'Invalid connection parameters',
     }
   }
 }
@@ -38,11 +50,16 @@ async function tryMongoTestConnection(payload: ConnectionPayload): Promise<{ ok:
 export const mongodbAdapter: ConnectorAdapter = {
   label: 'MongoDB',
 
-  async testConnection(payload: ConnectionPayload): Promise<TestConnectionResult> {
+  async testConnection(
+    payload: ConnectionPayload,
+  ): Promise<TestConnectionResult> {
     try {
       const result = await tryMongoTestConnection(payload)
       if (result.ok) {
-        return { kind: 'success', message: result.message || 'Connection successful' }
+        return {
+          kind: 'success',
+          message: result.message || 'Connection successful',
+        }
       }
       return {
         kind: 'error',
@@ -58,26 +75,36 @@ export const mongodbAdapter: ConnectorAdapter = {
     }
   },
 
-  async loadNavigationTree(payload: ConnectionPayload): Promise<NavigationTreeResult> {
+  async loadNavigationTree(
+    payload: ConnectionPayload,
+  ): Promise<NavigationTreeResult> {
     void payload
     // Progressive: stub — akan diimplementasi di fase lanjutan
     return {
-      databases: [{
-        name: 'mongodb',
-        schemas: [{
-          name: 'default',
-          tables: [],
-          views: [],
-          functions: [],
-        }],
-        loaded: false,
-      }],
+      databases: [
+        {
+          name: 'mongodb',
+          schemas: [
+            {
+              name: 'default',
+              tables: [],
+              views: [],
+              functions: [],
+            },
+          ],
+          loaded: false,
+        },
+      ],
       flatTables: [],
     }
   },
 
-  async openEntity(payload: ConnectionPayload, entityName: string): Promise<EntityDetailResult> {
-    void payload; void entityName
+  async openEntity(
+    payload: ConnectionPayload,
+    entityName: string,
+  ): Promise<EntityDetailResult> {
+    void payload
+    void entityName
     // Progressive: stub — akan diimplementasi di fase lanjutan
     return {
       stats: null,
@@ -88,8 +115,12 @@ export const mongodbAdapter: ConnectorAdapter = {
     }
   },
 
-  async runQuery(payload: ConnectionPayload, query: string): Promise<QueryExecutionResult> {
-    void payload; void query
+  async runQuery(
+    payload: ConnectionPayload,
+    query: string,
+  ): Promise<QueryExecutionResult> {
+    void payload
+    void query
     // Progressive: stub — akan diimplementasi di fase lanjutan
     return {
       columns: [],
@@ -99,7 +130,10 @@ export const mongodbAdapter: ConnectorAdapter = {
     }
   },
 
-  getDefaultContext(payload: ConnectionPayload): { database: string; schema: string } {
+  getDefaultContext(payload: ConnectionPayload): {
+    database: string
+    schema: string
+  } {
     void payload
     // MongoDB tidak punya konsep schema seperti SQL
     return {

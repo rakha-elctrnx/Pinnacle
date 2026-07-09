@@ -112,7 +112,7 @@ pub async fn execute_sql(payload: &ConnectionPayload, sql: &str) -> AppResult<Qu
     }
 }
 
-fn extract_pg_value(row: &sqlx::postgres::PgRow, column_name: &str) -> serde_json::Value {
+pub(crate) fn extract_pg_value(row: &sqlx::postgres::PgRow, column_name: &str) -> serde_json::Value {
     if let Ok(Some(v)) = row.try_get::<Option<bool>, _>(column_name) {
         return serde_json::json!(v);
     }

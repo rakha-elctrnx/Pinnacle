@@ -45,6 +45,7 @@ When adding a backend capability, touch all layers: Rust command → register in
 ## Project structure
 
 **Frontend (`src/`):**
+
 - `features/data-explorer/` — main feature, self-contained: `components/`, `domain/`, `hooks/`, `layouts/`, `pages/`, `context/`, plus `constants.ts`, `types.ts`, `utils.ts`.
 - `domain/<service>/<capability>/` — domain logic grouped by service (sql, mongodb, redis, rabbitmq, elasticsearch) and `_shared/`.
 - `services/clients/` — Tauri `invoke` wrappers per service.
@@ -53,6 +54,7 @@ When adding a backend capability, touch all layers: Rust command → register in
 - `types/` — shared domain types per service.
 
 **Backend (`src-tauri/src/`)** follows Clean Architecture:
+
 - `application/commands/` — Tauri command handlers (thin).
 - `domain/` — domain models (`query.rs`, `export.rs`).
 - `infrastructure/connectors/` — actual DB/service drivers.
@@ -61,6 +63,7 @@ When adding a backend capability, touch all layers: Rust command → register in
 ## Conventions
 
 **TypeScript:**
+
 - 2-space indent, single quotes, no unnecessary semicolons (Prettier is the source of truth).
 - Use `import type { ... }` for type-only imports.
 - Zustand stores: `create<State>()(...)`, name the hook `use<Name>Store`, use `persist` middleware with a `pinnacle-*` key for persisted state.
@@ -68,11 +71,13 @@ When adding a backend capability, touch all layers: Rust command → register in
 - Prefer feature/domain-local code; promote to `_shared/` only when reused across services.
 
 **Rust:**
+
 - Errors use the `AppError` enum (`core/error.rs`) with `thiserror`; add `From` impls for new error sources.
 - Keep command handlers thin — delegate to `infrastructure/connectors/`.
 - Register every new command module in `application/commands/mod.rs` and the command in the Tauri builder.
 
 **Design system** (when building UI):
+
 - Primary `#009ddc`; supporting `#61bb47 #fcb827 #f6821f #e03a3e #973d97`.
 - macOS-like feel: clean layout, generous spacing, rounded corners (12–16px), **dark mode first**, subtle glassmorphism, smooth transitions, sidebar nav, command palette (Cmd/Ctrl+K).
 - Inspirations: TablePlus, Raycast, Arc, Linear.
@@ -93,11 +98,11 @@ When adding a backend capability, touch all layers: Rust command → register in
 
 The project uses a tiered workflow. Pick the lightest tier that fits the work:
 
-| Work size | Workflow |
-| --- | --- |
-| Small / obvious change (< 20 lines, no design question) | Code directly. Run `pnpm typecheck` + `pnpm lint`. Commit. |
-| Feature or decision with design/architecture questions | Run the `analyst` skill (or `create-adr` prompt) to produce an ADR in the Notion ADRs database first, then implement. |
-| Tracked feature that needs QA / handoff / traceability | Full ritual: `create-task` → Notion page, then `execute-task` to implement, then `audit-task` for QA. |
+| Work size                                               | Workflow                                                                                                              |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Small / obvious change (< 20 lines, no design question) | Code directly. Run `pnpm typecheck` + `pnpm lint`. Commit.                                                            |
+| Feature or decision with design/architecture questions  | Run the `analyst` skill (or `create-adr` prompt) to produce an ADR in the Notion ADRs database first, then implement. |
+| Tracked feature that needs QA / handoff / traceability  | Full ritual: `create-task` → Notion page, then `execute-task` to implement, then `audit-task` for QA.                 |
 
 ### Where things live
 

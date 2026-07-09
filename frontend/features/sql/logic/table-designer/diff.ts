@@ -79,7 +79,9 @@ function diffColumns(
         name: col.name,
         description: `Drop column "${col.name}"`,
         isDestructive: true,
-        details: ['This action is irreversible and will delete all data in this column.'],
+        details: [
+          'This action is irreversible and will delete all data in this column.',
+        ],
       })
     }
   }
@@ -124,9 +126,7 @@ function getColumnChangeDetails(
     details.push(`Scale: ${orig.scale ?? 'none'} → ${pend.scale ?? 'none'}`)
   }
   if (orig.isNullable !== pend.isNullable) {
-    details.push(
-      `Nullable: ${orig.isNullable} → ${pend.isNullable}`,
-    )
+    details.push(`Nullable: ${orig.isNullable} → ${pend.isNullable}`)
   }
   if (orig.defaultValue !== pend.defaultValue) {
     details.push(
@@ -134,7 +134,9 @@ function getColumnChangeDetails(
     )
   }
   if (orig.isAutoIncrement !== pend.isAutoIncrement) {
-    details.push(`Auto-increment: ${orig.isAutoIncrement} → ${pend.isAutoIncrement}`)
+    details.push(
+      `Auto-increment: ${orig.isAutoIncrement} → ${pend.isAutoIncrement}`,
+    )
   }
   if (orig.comment !== pend.comment) {
     details.push(
@@ -358,10 +360,7 @@ function diffIndexes(
         name: idx.name ?? idx.id,
         description: `Create index on (${idx.columns.join(', ')})`,
         isDestructive: false,
-        details: [
-          `Type: ${idx.indexType}`,
-          `Unique: ${idx.isUnique}`,
-        ],
+        details: [`Type: ${idx.indexType}`, `Unique: ${idx.isUnique}`],
       })
     }
   }
@@ -386,7 +385,9 @@ function diffIndexes(
     const details: string[] = []
 
     if (origIdx.name !== pendIdx.name) {
-      details.push(`Name: ${origIdx.name ?? 'auto'} → ${pendIdx.name ?? 'auto'}`)
+      details.push(
+        `Name: ${origIdx.name ?? 'auto'} → ${pendIdx.name ?? 'auto'}`,
+      )
     }
     if (!arrayEqual(origIdx.columns, pendIdx.columns)) {
       details.push(

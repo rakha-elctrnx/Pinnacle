@@ -13,7 +13,9 @@ export function PrimaryKeyEditor() {
   if (!pendingModel) return null
 
   const pk = pendingModel.primaryKey
-  const availableColumns = pendingModel.columns.filter((c) => c.name.trim() !== '')
+  const availableColumns = pendingModel.columns.filter(
+    (c) => c.name.trim() !== '',
+  )
 
   const handleAdd = () => {
     setPrimaryKey(createDefaultPrimaryKey())
@@ -56,7 +58,9 @@ export function PrimaryKeyEditor() {
         <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
           <Key size={28} className="mx-auto text-slate-300" />
           <p className="mt-2 text-sm text-slate-500">No primary key defined.</p>
-          <p className="text-xs text-slate-400">Click "Add Primary Key" to create one.</p>
+          <p className="text-xs text-slate-400">
+            Click "Add Primary Key" to create one.
+          </p>
         </div>
       ) : (
         <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-3 space-y-3">
@@ -68,7 +72,9 @@ export function PrimaryKeyEditor() {
               <input
                 type="text"
                 value={pk.name ?? ''}
-                onChange={(e) => setPrimaryKey({ ...pk, name: e.target.value || null })}
+                onChange={(e) =>
+                  setPrimaryKey({ ...pk, name: e.target.value || null })
+                }
                 placeholder="Auto-generated if empty"
                 className="mt-1 w-full max-w-xs rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
               />

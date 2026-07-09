@@ -1,4 +1,10 @@
-import { useLayoutEffect, useRef, useState, useCallback, useEffect } from 'react'
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  useCallback,
+  useEffect,
+} from 'react'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -98,7 +104,6 @@ export function GenericContextMenu({
     return () => document.removeEventListener('keydown', handleKey)
   }, [])
 
-
   // ── Keyboard navigation ─────────────────────────────────────────────
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -149,7 +154,12 @@ export function GenericContextMenu({
     >
       {items.map((item, index) => {
         if (item.divider) {
-          return <div key={`divider-${index}`} className="my-1 border-t border-border-default" />
+          return (
+            <div
+              key={`divider-${index}`}
+              className="my-1 border-t border-border-default"
+            />
+          )
         }
         return (
           <div key={item.label}>
@@ -182,7 +192,9 @@ export function GenericContextMenu({
               )}
               <span className="flex-1 text-left">{item.label}</span>
               {item.shortcut && (
-                <span className="shrink-0 text-micro text-text-muted">{item.shortcut}</span>
+                <span className="shrink-0 text-micro text-text-muted">
+                  {item.shortcut}
+                </span>
               )}
             </button>
             {item.dividerAfter && (

@@ -32,21 +32,29 @@ export function getVisibleNodes(
     const nodePath = parentPath ? `${parentPath}/${node.label}` : node.label
     result.push({ path: nodePath, node, depth })
     if (node.children && expandedPaths.includes(nodePath)) {
-      result.push(...getVisibleNodes(node.children, expandedPaths, nodePath, depth + 1))
+      result.push(
+        ...getVisibleNodes(node.children, expandedPaths, nodePath, depth + 1),
+      )
     }
   }
   return result
 }
 
 /** Return the path of the node immediately after `currentPath`, or null if last. */
-export function getNextNode(visibleNodes: VisibleNode[], currentPath: string): string | null {
+export function getNextNode(
+  visibleNodes: VisibleNode[],
+  currentPath: string,
+): string | null {
   const idx = visibleNodes.findIndex((n) => n.path === currentPath)
   if (idx < 0 || idx >= visibleNodes.length - 1) return null
   return visibleNodes[idx + 1].path
 }
 
 /** Return the path of the node immediately before `currentPath`, or null if first. */
-export function getPreviousNode(visibleNodes: VisibleNode[], currentPath: string): string | null {
+export function getPreviousNode(
+  visibleNodes: VisibleNode[],
+  currentPath: string,
+): string | null {
   const idx = visibleNodes.findIndex((n) => n.path === currentPath)
   if (idx <= 0) return null
   return visibleNodes[idx - 1].path
@@ -59,11 +67,15 @@ export function getParentPath(nodePath: string): string | null {
 }
 
 /** Return the path of the first node in the visible list. */
-export function getFirstVisibleNode(visibleNodes: VisibleNode[]): string | null {
+export function getFirstVisibleNode(
+  visibleNodes: VisibleNode[],
+): string | null {
   return visibleNodes.length > 0 ? visibleNodes[0].path : null
 }
 
 /** Return the path of the last node in the visible list. */
 export function getLastVisibleNode(visibleNodes: VisibleNode[]): string | null {
-  return visibleNodes.length > 0 ? visibleNodes[visibleNodes.length - 1].path : null
+  return visibleNodes.length > 0
+    ? visibleNodes[visibleNodes.length - 1].path
+    : null
 }

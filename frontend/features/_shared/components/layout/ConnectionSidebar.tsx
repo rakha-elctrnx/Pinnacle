@@ -1,23 +1,28 @@
-import { useCallback, useMemo, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  Plus,
-} from "lucide-react";
-import { ActionButton } from "../ui/ActionButton";
-import { TreeNodeItem } from "../ui/TreeNodeItem";
-import type { ConnectionProfile, ConnectionType } from "../../types/domain";
-import type { ElasticIndex } from "../../../elasticsearch/types/elasticsearch";
-import type { TreeNode, ExplorerTreeData } from "../../types/shared";
-import { isSqlConnectionType, isElasticsearchType } from "../../utils";
+import { useCallback, useMemo, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Plus } from 'lucide-react'
+import { ActionButton } from '../ui/ActionButton'
+import { TreeNodeItem } from '../ui/TreeNodeItem'
+import type { ConnectionProfile, ConnectionType } from '../../types/domain'
+import type { ElasticIndex } from '../../../elasticsearch/types/elasticsearch'
+import type { TreeNode, ExplorerTreeData } from '../../types/shared'
+import { isSqlConnectionType, isElasticsearchType } from '../../utils'
 
 interface ExplorerDataContext {
-  treeDataMap: Record<string, ExplorerTreeData>;
-  treeLoading: Record<string, boolean>;
-  getTreeNodesForConnection: (profile: ConnectionProfile) => TreeNode[];
-  fetchDatabaseDetails: (connectionId: string, profile: ConnectionProfile, dbName: string) => Promise<void>;
-  refreshConnectionData: (connId: string, conn: ConnectionProfile) => Promise<void>;
+  treeDataMap: Record<string, ExplorerTreeData>
+  treeLoading: Record<string, boolean>
+  getTreeNodesForConnection: (profile: ConnectionProfile) => TreeNode[]
+  fetchDatabaseDetails: (
+    connectionId: string,
+    profile: ConnectionProfile,
+    dbName: string,
+  ) => Promise<void>
+  refreshConnectionData: (
+    connId: string,
+    conn: ConnectionProfile,
+  ) => Promise<void>
 }
-import { useDataExplorerContext } from "../../context/DataExplorerContext";
+import { useDataExplorerContext } from '../../context/DataExplorerContext'
 import {
   getVisibleNodes,
   getNextNode,
@@ -25,9 +30,9 @@ import {
   getParentPath,
   getFirstVisibleNode,
   getLastVisibleNode,
-} from "../../utils/treeNavigation";
-import { useTabStore } from "../../store/tabStore";
-import { getConnectionDefaultRoute } from "../../utils";
+} from '../../utils/treeNavigation'
+import { useTabStore } from '../../store/tabStore'
+import { getConnectionDefaultRoute } from '../../utils'
 
 /**
  * ConnectionSidebar — connection tree panel.
@@ -42,43 +47,45 @@ import { getConnectionDefaultRoute } from "../../utils";
  * SQL types (postgresql, mysql) use dynamic tree from getTreeNodesForConnection.
  * @param indices - optional Elasticsearch indices to populate the "Indices" node children.
  */
-function getStaticTreeNodes(type: ConnectionType, indices?: ElasticIndex[]): TreeNode[] {
+function getStaticTreeNodes(
+  type: ConnectionType,
+  indices?: ElasticIndex[],
+): TreeNode[] {
   switch (type) {
-    case "redis":
+    case 'redis':
       return [
-        { label: "Keys", children: [] },
-        { label: "Indexes", children: [] },
-        { label: "Queries", children: [] },
-      ];
-    case "mongodb":
+        { label: 'Keys', children: [] },
+        { label: 'Indexes', children: [] },
+        { label: 'Queries', children: [] },
+      ]
+    case 'mongodb':
       return [
-        { label: "Tables", children: [] },
-        { label: "Views", children: [] },
-        { label: "Indexes", children: [] },
-        { label: "Queries", children: [] },
-      ];
-    case "elasticsearch":
+        { label: 'Tables', children: [] },
+        { label: 'Views', children: [] },
+        { label: 'Indexes', children: [] },
+        { label: 'Queries', children: [] },
+      ]
+    case 'elasticsearch':
       return [
-        { label: "Cluster", children: [] },
+        { label: 'Cluster', children: [] },
         {
-          label: "Indices",
+          label: 'Indices',
           children: indices
             ? indices
-              .filter((idx) => !idx.index.startsWith("."))
-              .map((idx) => ({ label: idx.index }))
+                .filter((idx) => !idx.index.startsWith('.'))
+                .map((idx) => ({ label: idx.index }))
             : [],
         },
-        { label: "Query Console", children: [] },
-        { label: "Mapping", children: [] },
-      ];
-    case "rabbitmq":
+        { label: 'Query Console', children: [] },
+      ]
+    case 'rabbitmq':
       return [
-        { label: "Exchanges", children: [] },
-        { label: "Queues", children: [] },
-        { label: "Channels", children: [] },
-      ];
+        { label: 'Exchanges', children: [] },
+        { label: 'Queues', children: [] },
+        { label: 'Channels', children: [] },
+      ]
     default:
-      return [];
+      return []
   }
 }
 /**
@@ -91,9 +98,9 @@ function buildUnifiedTree(
   elasticIndices: Record<string, ElasticIndex[]> | null,
   expandedTreePaths: string[],
 ): TreeNode[] {
-  if (!groupedConnections) return [];
+  if (!groupedConnections) return []
 
-  const tree: TreeNode[] = [];
+  const tree: TreeNode[] = []
 
   for (const [groupName, profiles] of Object.entries(groupedConnections)) {
     // Group node
@@ -101,7 +108,7 @@ function buildUnifiedTree(
       label: groupName,
       nodeType: 'group',
       children: [],
-    };
+    }
 
     // Connection nodes under this group
     for (const profile of profiles) {
@@ -110,31 +117,31 @@ function buildUnifiedTree(
         nodeType: 'connection',
         connectionId: profile.id,
         children: [],
-      };
+      }
 
       // Get the subtree for this connection
       const sqlTreeNodes = isSqlConnectionType(profile.type)
         ? explorerData.getTreeNodesForConnection(profile)
-        : [];
-      const connectionIndices = elasticIndices?.[profile.id];
+        : []
+      const connectionIndices = elasticIndices?.[profile.id]
       const staticTreeNodes = isSqlConnectionType(profile.type)
         ? []
-        : getStaticTreeNodes(profile.type, connectionIndices);
-      const treeNodes = sqlTreeNodes.length > 0 ? sqlTreeNodes : staticTreeNodes;
+        : getStaticTreeNodes(profile.type, connectionIndices)
+      const treeNodes = sqlTreeNodes.length > 0 ? sqlTreeNodes : staticTreeNodes
 
       // Only include children if the connection is expanded
-      const connectionPath = `${groupName}/${profile.name}`;
+      const connectionPath = `${groupName}/${profile.name}`
       if (expandedTreePaths.includes(connectionPath)) {
-        connectionNode.children = treeNodes;
+        connectionNode.children = treeNodes
       }
 
-      groupNode.children?.push(connectionNode);
+      groupNode.children?.push(connectionNode)
     }
 
-    tree.push(groupNode);
+    tree.push(groupNode)
   }
 
-  return tree;
+  return tree
 }
 
 /**
@@ -145,18 +152,18 @@ function getConnectionFromPath(
   path: string,
   groupedConnections: Record<string, ConnectionProfile[]> | null,
 ): ConnectionProfile | null {
-  if (!groupedConnections || !path) return null;
+  if (!groupedConnections || !path) return null
 
-  const parts = path.split('/');
-  if (parts.length < 2) return null;
+  const parts = path.split('/')
+  if (parts.length < 2) return null
 
-  const groupName = parts[0];
-  const connectionName = parts[1];
+  const groupName = parts[0]
+  const connectionName = parts[1]
 
-  const profiles = groupedConnections[groupName];
-  if (!profiles) return null;
+  const profiles = groupedConnections[groupName]
+  if (!profiles) return null
 
-  return profiles.find((p) => p.name === connectionName) ?? null;
+  return profiles.find((p) => p.name === connectionName) ?? null
 }
 
 /**
@@ -166,8 +173,8 @@ function getConnectionIdFromPath(
   path: string,
   groupedConnections: Record<string, ConnectionProfile[]> | null,
 ): string | null {
-  const profile = getConnectionFromPath(path, groupedConnections);
-  return profile?.id ?? null;
+  const profile = getConnectionFromPath(path, groupedConnections)
+  return profile?.id ?? null
 }
 export function ConnectionSidebar() {
   const {
@@ -197,7 +204,12 @@ export function ConnectionSidebar() {
 
   // Build unified tree with groups and connections as first-class nodes
   const unifiedTree = useMemo(() => {
-    return buildUnifiedTree(groupedConnections, explorerData, elasticIndices, expandedTreePaths)
+    return buildUnifiedTree(
+      groupedConnections,
+      explorerData,
+      elasticIndices,
+      expandedTreePaths,
+    )
   }, [groupedConnections, explorerData, elasticIndices, expandedTreePaths])
 
   // Compute visible nodes from the unified tree
@@ -208,21 +220,43 @@ export function ConnectionSidebar() {
 
   // Focus management: imperatively focus DOM element when focusedNodePath changes
   const treeContainerRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
+  const focusEffect = () => {
     if (!focusedNodePath || !treeContainerRef.current) return
     const el = treeContainerRef.current.querySelector<HTMLElement>(
       `[data-node-path="${CSS.escape(focusedNodePath)}"]`,
     )
     el?.focus()
-  }, [focusedNodePath])
+    el?.scrollIntoView({ block: 'nearest' })
+  }
+  useEffect(focusEffect, [focusedNodePath])
 
-// Reset focused node when the expanded connection changes
-    useEffect(() => {
+  // Scroll tree to show the selected node when it changes programmatically
+  // (e.g. tab switch, tab close fallback) — without stealing focus from content.
+  const scrollEffect = () => {
+    if (!selectedTreeNode || !treeContainerRef.current) return
+    // Already handled by focusEffect when focusedNodePath matches
+    if (focusedNodePath === selectedTreeNode) return
+    const el = treeContainerRef.current.querySelector<HTMLElement>(
+      `[data-node-path="${CSS.escape(selectedTreeNode)}"]`,
+    )
+    el?.scrollIntoView({ block: 'nearest' })
+  }
+  useEffect(scrollEffect, [selectedTreeNode, focusedNodePath])
+
+  // Reset focused node only on connection-scoped tree changes, not every re-render.
+  // Observe only connection identity switches — the narrower scope prevents focus
+  // from being wiped when e.g. a lazy subtree fills in.
+  const prevConnectionId = useRef<string | null>(null)
+  useEffect(() => {
+    const currentConnectionId = selectedConnection?.id ?? null
+    if (currentConnectionId !== prevConnectionId.current) {
       setFocusedNodePath(null)
-    }, [unifiedTree, setFocusedNodePath])
+      prevConnectionId.current = currentConnectionId
+    }
+  }, [selectedConnection, selectedTreeNode, setFocusedNodePath])
 
-    // Root-level keyboard handler for the tree container
-    const handleTreeKeyDown = (e: React.KeyboardEvent) => {
+  // Root-level keyboard handler for the tree container
+  const handleTreeKeyDown = (e: React.KeyboardEvent) => {
     if (!focusedNodePath) return
 
     const idx = visibleNodes.findIndex((n) => n.path === focusedNodePath)
@@ -230,30 +264,35 @@ export function ConnectionSidebar() {
     const current = visibleNodes[idx]
 
     switch (e.key) {
-      case "ArrowDown": {
+      case 'ArrowDown': {
         e.preventDefault()
         const next = getNextNode(visibleNodes, focusedNodePath)
         if (next) setFocusedNodePath(next)
         break
       }
-      case "ArrowUp": {
+      case 'ArrowUp': {
         e.preventDefault()
         const prev = getPreviousNode(visibleNodes, focusedNodePath)
         if (prev) setFocusedNodePath(prev)
         break
       }
-      case "ArrowRight": {
+      case 'ArrowRight': {
         e.preventDefault()
         const isExpanded = expandedTreePaths.includes(focusedNodePath)
         const hasChildren = current.node.children !== undefined
-        
+
         if (!isExpanded && hasChildren) {
           handleToggleTreeNode(focusedNodePath)
           // For connection nodes (depth 1), trigger lazy fetch
           if (current.depth === 1 && current.node.nodeType === 'connection') {
-            const connectionId = getConnectionIdFromPath(focusedNodePath, groupedConnections)
+            const connectionId = getConnectionIdFromPath(
+              focusedNodePath,
+              groupedConnections,
+            )
             if (connectionId) {
-              const profile = Object.values(groupedConnections ?? {}).flat().find(p => p.id === connectionId)
+              const profile = Object.values(groupedConnections ?? {})
+                .flat()
+                .find((p) => p.id === connectionId)
               if (profile && isSqlConnectionType(profile.type)) {
                 const treeData = explorerData.treeDataMap[connectionId]
                 if (!treeData) {
@@ -264,13 +303,17 @@ export function ConnectionSidebar() {
               }
             }
           }
-        } else if (isExpanded && current.node.children && current.node.children.length > 0) {
+        } else if (
+          isExpanded &&
+          current.node.children &&
+          current.node.children.length > 0
+        ) {
           const childPath = `${focusedNodePath}/${current.node.children[0].label}`
           setFocusedNodePath(childPath)
         }
         break
       }
-      case "ArrowLeft": {
+      case 'ArrowLeft': {
         e.preventDefault()
         const isExpanded = expandedTreePaths.includes(focusedNodePath)
         if (isExpanded) {
@@ -281,8 +324,8 @@ export function ConnectionSidebar() {
         }
         break
       }
-      case "Enter":
-      case " ": {
+      case 'Enter':
+      case ' ': {
         e.preventDefault()
         // Simulate click — the outer div with data-node-path now handles selection
         const el = treeContainerRef.current?.querySelector<HTMLElement>(
@@ -291,13 +334,13 @@ export function ConnectionSidebar() {
         el?.click()
         break
       }
-      case "Home": {
+      case 'Home': {
         e.preventDefault()
         const first = getFirstVisibleNode(visibleNodes)
         if (first) setFocusedNodePath(first)
         break
       }
-      case "End": {
+      case 'End': {
         e.preventDefault()
         const last = getLastVisibleNode(visibleNodes)
         if (last) setFocusedNodePath(last)
@@ -311,9 +354,9 @@ export function ConnectionSidebar() {
   // URL-driven navigation handlers
   const handleTableNavigate = useCallback(
     (tableName: string, treePath?: string) => {
-      const connectionId = selectedConnection?.id;
-      if (!connectionId || !selectedConnection) return;
-      const route = `/sql/${connectionId}/tables/${encodeURIComponent(tableName)}`;
+      const connectionId = selectedConnection?.id
+      if (!connectionId || !selectedConnection) return
+      const route = `/sql/${connectionId}/tables/${encodeURIComponent(tableName)}`
       openTab({
         id: `${connectionId}:table:${tableName}`,
         label: tableName,
@@ -322,17 +365,17 @@ export function ConnectionSidebar() {
         route,
         connectionId,
         treePath,
-      });
-      navigate(route);
+      })
+      navigate(route)
     },
     [selectedConnection, navigate, openTab],
-  );
+  )
 
   const handleQueryNavigate = useCallback(() => {
-    const connectionId = selectedConnection?.id;
-    if (!connectionId || !selectedConnection) return;
-    const qId = queryExecution.createQueryId();
-    const route = `/sql/${connectionId}/query/${qId}`;
+    const connectionId = selectedConnection?.id
+    if (!connectionId || !selectedConnection) return
+    const qId = queryExecution.createQueryId()
+    const route = `/sql/${connectionId}/query/${qId}`
     openTab({
       id: `${connectionId}:query:${qId}`,
       label: `Query_${qId}`,
@@ -340,14 +383,14 @@ export function ConnectionSidebar() {
       pageType: 'query',
       route,
       connectionId,
-    });
-    navigate(route);
-  }, [selectedConnection, navigate, openTab, queryExecution]);
+    })
+    navigate(route)
+  }, [selectedConnection, navigate, openTab, queryExecution])
 
   const handleTablesCategoryClick = useCallback(() => {
-    const connectionId = selectedConnection?.id;
-    if (!connectionId || !selectedConnection) return;
-    const route = `/sql/${connectionId}/tables`;
+    const connectionId = selectedConnection?.id
+    if (!connectionId || !selectedConnection) return
+    const route = `/sql/${connectionId}/tables`
     openTab({
       id: `${connectionId}:tables`,
       label: 'Tables',
@@ -355,9 +398,9 @@ export function ConnectionSidebar() {
       pageType: 'table',
       route,
       connectionId,
-    });
-    navigate(route);
-  }, [selectedConnection, navigate, openTab]);
+    })
+    navigate(route)
+  }, [selectedConnection, navigate, openTab])
 
   const handleContextMenu = (event: React.MouseEvent, itemId: string) => {
     event.preventDefault()
@@ -377,54 +420,86 @@ export function ConnectionSidebar() {
     })
   }
 
-  // Handle connection node selection from tree — no tab created, just navigate
-  const handleConnectionNodeSelect = useCallback((
-    nodePath: string,
+  const handleIndexNodeContextMenu = (
+    event: React.MouseEvent,
     connectionId: string,
+    indexName: string,
   ) => {
-    handleConnectionSelectionChange(connectionId);
-    setSelectedTreeNode(nodePath);
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      itemId: connectionId,
+      indexName,
+    })
+  }
 
-    // Find the connection profile to get its default route
-    const profile = Object.values(groupedConnections ?? {}).flat().find((p) => p.id === connectionId)
-    if (profile) {
-      const route = getConnectionDefaultRoute(profile.type, connectionId)
-      navigate(route)
-    } else {
-      navigate(`/sql/${connectionId}`)
-    }
-  }, [handleConnectionSelectionChange, navigate, setSelectedTreeNode, groupedConnections]);
+  // Handle connection node selection from tree — no tab created, just navigate
+  const handleConnectionNodeSelect = useCallback(
+    (nodePath: string, connectionId: string) => {
+      handleConnectionSelectionChange(connectionId)
+      setSelectedTreeNode(nodePath)
+
+      // Find the connection profile to get its default route
+      const profile = Object.values(groupedConnections ?? {})
+        .flat()
+        .find((p) => p.id === connectionId)
+      if (profile) {
+        const route = getConnectionDefaultRoute(profile.type, connectionId)
+        navigate(route)
+      } else {
+        navigate(`/sql/${connectionId}`)
+      }
+    },
+    [
+      handleConnectionSelectionChange,
+      navigate,
+      setSelectedTreeNode,
+      groupedConnections,
+    ],
+  )
 
   // Handle group node toggle
-  const handleGroupToggle = useCallback((groupPath: string) => {
-    handleToggleTreeNode(groupPath);
-  }, [handleToggleTreeNode]);
+  const handleGroupToggle = useCallback(
+    (groupPath: string) => {
+      handleToggleTreeNode(groupPath)
+    },
+    [handleToggleTreeNode],
+  )
 
   // Handle connection node toggle (expand/collapse)
-  const handleConnectionToggle = useCallback((
-    connectionPath: string,
-    connectionId: string,
-  ) => {
-    const wasExpanded = expandedTreePaths.includes(connectionPath);
-    handleToggleTreeNode(connectionPath);
+  const handleConnectionToggle = useCallback(
+    (connectionPath: string, connectionId: string) => {
+      const wasExpanded = expandedTreePaths.includes(connectionPath)
+      handleToggleTreeNode(connectionPath)
 
-    // When expanding a connection, trigger the initial data fetch if needed
-    if (!wasExpanded) {
-      const profile = Object.values(groupedConnections ?? {}).flat().find(p => p.id === connectionId);
-      if (profile && isSqlConnectionType(profile.type)) {
-        const treeData = explorerData.treeDataMap[connectionId];
-        if (!treeData) {
-          // No data at all — fetch the database list first
-          explorerData.refreshConnectionData(connectionId, profile);
-        } else if (treeData.databases?.[0]) {
-          // Database list exists — fetch details for the first database
-          handleFetchDatabaseDetails(treeData.databases[0].name);
+      // When expanding a connection, trigger the initial data fetch if needed
+      if (!wasExpanded) {
+        const profile = Object.values(groupedConnections ?? {})
+          .flat()
+          .find((p) => p.id === connectionId)
+        if (profile && isSqlConnectionType(profile.type)) {
+          const treeData = explorerData.treeDataMap[connectionId]
+          if (!treeData) {
+            // No data at all — fetch the database list first
+            explorerData.refreshConnectionData(connectionId, profile)
+          } else if (treeData.databases?.[0]) {
+            // Database list exists — fetch details for the first database
+            handleFetchDatabaseDetails(treeData.databases[0].name)
+          }
+        } else if (profile && isElasticsearchType(profile.type)) {
+          setExpandedConnectionId(connectionId)
         }
-      } else if (profile && isElasticsearchType(profile.type)) {
-        setExpandedConnectionId(connectionId)
       }
-    }
-  }, [expandedTreePaths, groupedConnections, explorerData, handleToggleTreeNode, handleFetchDatabaseDetails, setExpandedConnectionId])
+    },
+    [
+      expandedTreePaths,
+      groupedConnections,
+      explorerData,
+      handleToggleTreeNode,
+      handleFetchDatabaseDetails,
+      setExpandedConnectionId,
+    ],
+  )
 
   return (
     <aside className="flex h-full min-w-0 flex-col overflow-hidden bg-bg-subtle/40">
@@ -432,9 +507,7 @@ export function ConnectionSidebar() {
       <div className="flex shrink-0 items-center justify-between border-b border-border-default/60 pl-4 pr-2.5 py-2 backdrop-blur-sm">
         <div className="flex items-center gap-1.5">
           {/* <ChevronsLeftRightEllipsis size={14} className="text-text-secondary" /> */}
-          <p className="text-label text-text-primary">
-            Connections
-          </p>
+          <p className="text-label text-text-primary">Connections</p>
         </div>
         <ActionButton
           icon={<Plus size={14} />}
@@ -451,7 +524,11 @@ export function ConnectionSidebar() {
           ref={treeContainerRef}
           role="tree"
           aria-label="Connections tree"
-          aria-activedescendant={focusedNodePath ? `treeitem-${focusedNodePath.replace(/\//g, "-")}` : undefined}
+          aria-activedescendant={
+            focusedNodePath
+              ? `treeitem-${focusedNodePath.replace(/\//g, '-')}`
+              : undefined
+          }
           tabIndex={0}
           onFocus={() => {
             // When tree receives focus via Tab, set focus to selected or first node
@@ -481,6 +558,7 @@ export function ConnectionSidebar() {
               onGroupToggle={handleGroupToggle}
               onConnectionToggle={handleConnectionToggle}
               onTableNodeContextMenu={handleTableNodeContextMenu}
+              onIndexNodeContextMenu={handleIndexNodeContextMenu}
               onConnectionContextMenu={handleContextMenu}
               groupedConnections={groupedConnections}
               explorerData={explorerData}
@@ -494,5 +572,5 @@ export function ConnectionSidebar() {
         </div>
       </div>
     </aside>
-  );
+  )
 }

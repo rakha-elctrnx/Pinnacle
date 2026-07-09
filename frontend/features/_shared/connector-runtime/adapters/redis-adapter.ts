@@ -1,6 +1,12 @@
 import type { ConnectionPayload } from '../../services/tauriClient'
 import { normalizeError } from '../error-norm'
-import type { ConnectorAdapter, EntityDetailResult, NavigationTreeResult, QueryExecutionResult, TestConnectionResult } from './adapter-types'
+import type {
+  ConnectorAdapter,
+  EntityDetailResult,
+  NavigationTreeResult,
+  QueryExecutionResult,
+  TestConnectionResult,
+} from './adapter-types'
 
 function isReachablePayload(payload: ConnectionPayload): boolean {
   return payload.host.trim().length > 0 && payload.port > 0
@@ -9,7 +15,9 @@ function isReachablePayload(payload: ConnectionPayload): boolean {
 export const redisAdapter: ConnectorAdapter = {
   label: 'Redis',
 
-  async testConnection(payload: ConnectionPayload): Promise<TestConnectionResult> {
+  async testConnection(
+    payload: ConnectionPayload,
+  ): Promise<TestConnectionResult> {
     if (isReachablePayload(payload)) {
       return {
         kind: 'success',
@@ -25,7 +33,9 @@ export const redisAdapter: ConnectorAdapter = {
     }
   },
 
-  async loadNavigationTree(payload: ConnectionPayload): Promise<NavigationTreeResult> {
+  async loadNavigationTree(
+    payload: ConnectionPayload,
+  ): Promise<NavigationTreeResult> {
     void payload
     return {
       databases: [],
@@ -33,7 +43,10 @@ export const redisAdapter: ConnectorAdapter = {
     }
   },
 
-  async openEntity(payload: ConnectionPayload, entityName: string): Promise<EntityDetailResult> {
+  async openEntity(
+    payload: ConnectionPayload,
+    entityName: string,
+  ): Promise<EntityDetailResult> {
     void payload
     void entityName
     return {
@@ -45,7 +58,10 @@ export const redisAdapter: ConnectorAdapter = {
     }
   },
 
-  async runQuery(payload: ConnectionPayload, query: string): Promise<QueryExecutionResult> {
+  async runQuery(
+    payload: ConnectionPayload,
+    query: string,
+  ): Promise<QueryExecutionResult> {
     void payload
     void query
     return {
@@ -56,7 +72,10 @@ export const redisAdapter: ConnectorAdapter = {
     }
   },
 
-  getDefaultContext(payload: ConnectionPayload): { database: string; schema: string } {
+  getDefaultContext(payload: ConnectionPayload): {
+    database: string
+    schema: string
+  } {
     void payload
     return {
       database: 'redis',

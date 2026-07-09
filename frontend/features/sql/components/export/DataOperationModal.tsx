@@ -1,6 +1,9 @@
 import { AlertTriangle, Check, Database, Loader2, Table, X } from 'lucide-react'
 import { useState } from 'react'
-import type { DataOperation, DataOperationTarget } from '../../../_shared/types/shared'
+import type {
+  DataOperation,
+  DataOperationTarget,
+} from '../../../_shared/types/shared'
 
 type ModalPhase = 'confirm' | 'loading' | 'success' | 'error'
 
@@ -10,17 +13,20 @@ interface DataOperationModalProps {
   onClose: () => void
 }
 
-const OPERATION_META: Record<DataOperation, {
-  title: string
-  verb: string
-  warningTitle: string
-  warningDetail: string
-  confirmLabel: string
-  successTitle: string
-  successDetail: (tableName: string) => string
-  errorTitle: string
-  loadingText: (tableName: string) => string
-}> = {
+const OPERATION_META: Record<
+  DataOperation,
+  {
+    title: string
+    verb: string
+    warningTitle: string
+    warningDetail: string
+    confirmLabel: string
+    successTitle: string
+    successDetail: (tableName: string) => string
+    errorTitle: string
+    loadingText: (tableName: string) => string
+  }
+> = {
   empty: {
     title: 'Empty Table',
     verb: 'empty',
@@ -47,7 +53,11 @@ const OPERATION_META: Record<DataOperation, {
   },
 }
 
-export function DataOperationModal({ target, onExecute, onClose }: DataOperationModalProps) {
+export function DataOperationModal({
+  target,
+  onExecute,
+  onClose,
+}: DataOperationModalProps) {
   const [phase, setPhase] = useState<ModalPhase>('confirm')
   const [acknowledged, setAcknowledged] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -95,10 +105,14 @@ export function DataOperationModal({ target, onExecute, onClose }: DataOperation
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div className="flex items-center gap-2.5">
-            <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${accentBg}`}>
+            <span
+              className={`flex h-8 w-8 items-center justify-center rounded-lg ${accentBg}`}
+            >
               <AlertTriangle size={16} className={accentText} />
             </span>
-            <h2 className="text-sm font-semibold text-slate-800">{meta.title}</h2>
+            <h2 className="text-sm font-semibold text-slate-800">
+              {meta.title}
+            </h2>
           </div>
           {phase !== 'loading' && (
             <button
@@ -116,7 +130,9 @@ export function DataOperationModal({ target, onExecute, onClose }: DataOperation
           {phase === 'confirm' && (
             <>
               {/* Warning message */}
-              <div className={`rounded-lg border ${accentBorder} ${accentBgLight} px-3.5 py-2.5`}>
+              <div
+                className={`rounded-lg border ${accentBorder} ${accentBgLight} px-3.5 py-2.5`}
+              >
                 <p className={`text-[13px] font-medium ${accentTextBold}`}>
                   {meta.warningTitle}
                 </p>
@@ -133,13 +149,19 @@ export function DataOperationModal({ target, onExecute, onClose }: DataOperation
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2 text-sm">
                     <Database size={13} className="shrink-0 text-slate-400" />
-                    <span className="font-medium text-slate-500">Connection:</span>
-                    <span className="font-semibold text-slate-800">{target.connectionName}</span>
+                    <span className="font-medium text-slate-500">
+                      Connection:
+                    </span>
+                    <span className="font-semibold text-slate-800">
+                      {target.connectionName}
+                    </span>
                   </div>
                   {target.schema && (
                     <div className="flex items-center gap-2 text-sm">
                       <span className="w-3.25" />
-                      <span className="font-medium text-slate-500">Schema:</span>
+                      <span className="font-medium text-slate-500">
+                        Schema:
+                      </span>
                       <span className="rounded bg-slate-200 px-1.5 py-0.5 font-mono text-xs text-slate-700">
                         {target.schema}
                       </span>
@@ -148,7 +170,9 @@ export function DataOperationModal({ target, onExecute, onClose }: DataOperation
                   <div className="flex items-center gap-2 text-sm">
                     <Table size={13} className="shrink-0 text-slate-400" />
                     <span className="font-medium text-slate-500">Table:</span>
-                    <span className={`rounded ${accentBg} px-1.5 py-0.5 font-mono text-xs font-semibold ${accentTextBold}`}>
+                    <span
+                      className={`rounded ${accentBg} px-1.5 py-0.5 font-mono text-xs font-semibold ${accentTextBold}`}
+                    >
                       {target.tableName}
                     </span>
                   </div>
@@ -156,7 +180,9 @@ export function DataOperationModal({ target, onExecute, onClose }: DataOperation
               </div>
 
               {/* Acknowledgement checkbox */}
-              <div className={`rounded-lg border ${accentBorder} ${accentBgLighter} px-3.5 py-3`}>
+              <div
+                className={`rounded-lg border ${accentBorder} ${accentBgLighter} px-3.5 py-3`}
+              >
                 <label className="flex cursor-pointer items-start gap-3">
                   <input
                     type="checkbox"
@@ -165,7 +191,8 @@ export function DataOperationModal({ target, onExecute, onClose }: DataOperation
                     className={`mt-0.5 h-4 w-4 rounded border-slate-300 ${checkColor} ${ringColor}`}
                   />
                   <span className={`text-sm font-medium ${accentTextBold}`}>
-                    I understand that all data in this table will be permanently removed
+                    I understand that all data in this table will be permanently
+                    removed
                   </span>
                 </label>
               </div>
@@ -187,7 +214,9 @@ export function DataOperationModal({ target, onExecute, onClose }: DataOperation
                 <Check size={20} className="text-emerald-600" />
               </span>
               <div className="text-center">
-                <p className="text-sm font-semibold text-slate-800">{meta.successTitle}</p>
+                <p className="text-sm font-semibold text-slate-800">
+                  {meta.successTitle}
+                </p>
                 <p className="mt-1 text-xs text-slate-500">
                   {meta.successDetail(target.tableName)}
                 </p>
@@ -201,8 +230,12 @@ export function DataOperationModal({ target, onExecute, onClose }: DataOperation
                 <X size={20} className="text-red-600" />
               </span>
               <div className="text-center">
-                <p className="text-sm font-semibold text-slate-800">{meta.errorTitle}</p>
-                <p className="mt-1 max-w-sm text-xs text-red-500">{errorMessage}</p>
+                <p className="text-sm font-semibold text-slate-800">
+                  {meta.errorTitle}
+                </p>
+                <p className="mt-1 max-w-sm text-xs text-red-500">
+                  {errorMessage}
+                </p>
               </div>
             </div>
           )}

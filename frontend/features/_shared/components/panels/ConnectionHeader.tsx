@@ -4,9 +4,7 @@ interface ConnectionHeaderProps {
   onRefresh: () => void
 }
 
-export function ConnectionHeader({
-  onRefresh,
-}: ConnectionHeaderProps) {
+export function ConnectionHeader({ onRefresh }: ConnectionHeaderProps) {
   return (
     <header className="border-b border-slate-200 bg-slate-50 px-4 py-3">
       <div className="flex flex-wrap items-center gap-2">

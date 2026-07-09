@@ -68,6 +68,32 @@ pub struct QueryResult {
     pub rows: Vec<serde_json::Map<String, serde_json::Value>>,
 }
 
+// ── Transaction Mode Types ─────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransactionHandle {
+    pub transaction_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransactionStepResult {
+    pub statement_index: u32,
+    pub success: bool,
+    pub error: Option<String>,
+    pub elapsed_ms: u64,
+    pub query_result: Option<QueryResult>,
+    pub rows_affected: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransactionCommitResult {
+    pub committed: bool,
+    pub elapsed_ms: u64,
+}
+
 // ── Table Schema Introspection Types ──────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

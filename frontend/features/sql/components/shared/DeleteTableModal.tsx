@@ -10,7 +10,11 @@ interface DeleteTableModalProps {
   onClose: () => void
 }
 
-export function DeleteTableModal({ target, onDelete, onClose }: DeleteTableModalProps) {
+export function DeleteTableModal({
+  target,
+  onDelete,
+  onClose,
+}: DeleteTableModalProps) {
   const [phase, setPhase] = useState<ModalPhase>('confirm')
   const [acknowledged, setAcknowledged] = useState(false)
   const [cascade, setCascade] = useState(false)
@@ -72,15 +76,14 @@ export function DeleteTableModal({ target, onDelete, onClose }: DeleteTableModal
                   This action is permanent and cannot be undone.
                 </p>
                 <p className="mt-1 text-caption text-danger/70">
-                  All data, indexes, and constraints associated with this table will be permanently removed.
+                  All data, indexes, and constraints associated with this table
+                  will be permanently removed.
                 </p>
               </div>
 
               {/* Table identity card */}
               <div className="rounded-lg border border-border-default bg-bg-subtle p-3">
-                <p className="mb-2 text-label">
-                  Table to be deleted
-                </p>
+                <p className="mb-2 text-label">Table to be deleted</p>
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2 text-body">
                     <Database size={13} className="shrink-0 text-text-muted" />
@@ -116,9 +119,13 @@ export function DeleteTableModal({ target, onDelete, onClose }: DeleteTableModal
                     className="mt-0.5 h-4 w-4 rounded border-border-strong text-danger focus:ring-danger"
                   />
                   <div>
-                    <p className="text-body font-medium text-text-primary">Drop with cascade</p>
+                    <p className="text-body font-medium text-text-primary">
+                      Drop with cascade
+                    </p>
                     <p className="mt-0.5 text-caption text-text-muted">
-                      Also remove dependent objects such as foreign key references, views, or other objects that depend on this table.
+                      Also remove dependent objects such as foreign key
+                      references, views, or other objects that depend on this
+                      table.
                     </p>
                   </div>
                 </label>
@@ -134,7 +141,8 @@ export function DeleteTableModal({ target, onDelete, onClose }: DeleteTableModal
                     className="mt-0.5 h-4 w-4 rounded border-border-strong text-danger focus:ring-danger"
                   />
                   <span className="text-body font-medium text-danger">
-                    I understand that this action is permanent and cannot be undone
+                    I understand that this action is permanent and cannot be
+                    undone
                   </span>
                 </label>
               </div>
@@ -145,7 +153,8 @@ export function DeleteTableModal({ target, onDelete, onClose }: DeleteTableModal
             <div className="flex flex-col items-center gap-3 py-6">
               <Loader2 size={28} className="animate-spin text-danger" />
               <p className="text-body-secondary">
-                Deleting <span className="text-mono">{target.tableName}</span>...
+                Deleting <span className="text-mono">{target.tableName}</span>
+                ...
               </p>
             </div>
           )}
@@ -158,7 +167,8 @@ export function DeleteTableModal({ target, onDelete, onClose }: DeleteTableModal
               <div className="text-center">
                 <p className="text-subheading">Table deleted successfully</p>
                 <p className="mt-1 text-body-secondary">
-                  <span className="text-mono">{target.tableName}</span> has been removed.
+                  <span className="text-mono">{target.tableName}</span> has been
+                  removed.
                 </p>
               </div>
             </div>
@@ -171,7 +181,9 @@ export function DeleteTableModal({ target, onDelete, onClose }: DeleteTableModal
               </span>
               <div className="text-center">
                 <p className="text-subheading">Failed to delete table</p>
-                <p className="mt-1 max-w-sm text-caption text-danger">{errorMessage}</p>
+                <p className="mt-1 max-w-sm text-caption text-danger">
+                  {errorMessage}
+                </p>
               </div>
             </div>
           )}

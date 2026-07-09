@@ -1,5 +1,16 @@
 import Editor, { type BeforeMount, type OnMount } from '@monaco-editor/react'
-import { Play, Download, History, ListEnd, Sparkles, WrapText, Minimize2 } from 'lucide-react'
+import {
+  Play,
+  Download,
+  History,
+  ListEnd,
+  Sparkles,
+  WrapText,
+  Minimize2,
+  GitBranch,
+  Check,
+  Undo2,
+} from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import * as monacoEditor from 'monaco-editor'
@@ -18,7 +29,10 @@ const RESULT_TABS: QueryResultTab[] = ['results', 'messages', 'statistics']
 const EMPTY_SCHEMA: Record<string, SchemaColumn[]> = {}
 
 export function QueryPage() {
-  const { connectionId, queryId } = useParams<{ connectionId: string; queryId: string }>()
+  const { connectionId, queryId } = useParams<{
+    connectionId: string
+    queryId: string
+  }>()
   const {
     selectedConnection,
     explorerData,
@@ -30,12 +44,25 @@ export function QueryPage() {
   const { theme } = useTheme()
 
   const {
-    querySql, isRunningQuery,
-    queryResult, queryMessages, queryDatabase, querySchema,
+    querySql,
+    isRunningQuery,
+    queryResult,
+    queryMessages,
+    queryDatabase,
+    querySchema,
     queryHistoryByConnection,
-    updateActiveQuery, handleRunQuery,
-    onQueryDatabaseChange, onQuerySchemaChange,
+    updateActiveQuery,
+    handleRunQuery,
+    registerEditor,
+    onQueryDatabaseChange,
+    onQuerySchemaChange,
     setActiveQueryId,
+    transactionMode,
+    activeTransactionId,
+    transactionSteps,
+    toggleTransactionMode,
+    handleCommitTransaction,
+    handleRollbackTransaction,
   } = queryExecution
 
   useEffect(() => {
@@ -43,14 +70,23 @@ export function QueryPage() {
   }, [queryId, setActiveQueryId])
 
   const handleRunQueryRef = useRef(handleRunQuery)
-  useEffect(() => { handleRunQueryRef.current = handleRunQuery }, [handleRunQuery])
+  useEffect(() => {
+    handleRunQueryRef.current = handleRunQuery
+  }, [handleRunQuery])
 
   const schemaColumnsByTable = explorerData.schemaColumnsByTable ?? EMPTY_SCHEMA
   const connectionType = selectedConnection?.type ?? ''
-  const history = connectionId ? (queryHistoryByConnection[connectionId] ?? []) : []
+  const history = connectionId
+    ? (queryHistoryByConnection[connectionId] ?? [])
+    : []
 
-  const treeData = connectionId ? explorerData.treeDataMap[connectionId] : undefined
-  const databases = useMemo(() => treeData?.databases.map((d) => d.name) ?? [], [treeData])
+  const treeData = connectionId
+    ? explorerData.treeDataMap[connectionId]
+    : undefined
+  const databases = useMemo(
+    () => treeData?.databases.map((d) => d.name) ?? [],
+    [treeData],
+  )
   const schemas = useMemo(() => {
     if (connectionType !== 'postgresql' || !treeData) return []
     const db = treeData.databases.find((d) => d.name === queryDatabase)
@@ -62,63 +98,99 @@ export function QueryPage() {
   const exportRef = useRef<HTMLDivElement>(null)
   const [resultHeight, setResultHeight] = useState(240)
   const dragRef = useRef<{ startY: number; startH: number } | null>(null)
+  const [confirmTxExit, setConfirmTxExit] = useState(false)
 
-  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    dragRef.current = { startY: e.clientY, startH: resultHeight }
-    const onMove = (ev: MouseEvent) => {
-      if (!dragRef.current) return
-      const delta = dragRef.current.startY - ev.clientY
-      setResultHeight(Math.max(80, Math.min(600, dragRef.current.startH + delta)))
-    }
-    const onUp = () => {
-      dragRef.current = null
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  }, [resultHeight])
+  const handleResizeMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      dragRef.current = { startY: e.clientY, startH: resultHeight }
+      const onMove = (ev: MouseEvent) => {
+        if (!dragRef.current) return
+        const delta = dragRef.current.startY - ev.clientY
+        setResultHeight(
+          Math.max(80, Math.min(600, dragRef.current.startH + delta)),
+        )
+      }
+      const onUp = () => {
+        dragRef.current = null
+        window.removeEventListener('mousemove', onMove)
+        window.removeEventListener('mouseup', onUp)
+      }
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseup', onUp)
+    },
+    [resultHeight],
+  )
 
   useEffect(() => {
     if (!exportOpen) return
     const handleClick = (e: MouseEvent) => {
-      if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false)
+      if (exportRef.current && !exportRef.current.contains(e.target as Node))
+        setExportOpen(false)
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [exportOpen])
 
   const tablesRef = useRef(schemaColumnsByTable)
-  useEffect(() => { tablesRef.current = schemaColumnsByTable }, [schemaColumnsByTable])
+  useEffect(() => {
+    tablesRef.current = schemaColumnsByTable
+  }, [schemaColumnsByTable])
 
-  const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null)
+  const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(
+    null,
+  )
   const monacoRef = useRef<typeof monacoEditor | null>(null)
 
   useEffect(() => {
-    const editor = editorRef.current, mono = monacoRef.current
+    const editor = editorRef.current,
+      mono = monacoRef.current
     if (!editor || !mono) return
     const model = editor.getModel()
     if (!model) return
-    mono.editor.setModelMarkers(model, 'sql-validator', validateSql(querySql, mono))
+    mono.editor.setModelMarkers(
+      model,
+      'sql-validator',
+      validateSql(querySql, mono),
+    )
   }, [querySql])
 
   const handleBeforeMount: BeforeMount = (monacoInstance) => {
     registerSqlProviders(monacoInstance, tablesRef)
   }
   const handleMount: OnMount = (editor, monacoInstance) => {
-    editorRef.current = editor
+    registerEditor(editor)
     monacoRef.current = monacoInstance as unknown as typeof monacoEditor
     const model = editor.getModel()
     if (model) {
       const mono = monacoInstance as unknown as typeof monacoEditor
-      mono.editor.setModelMarkers(model, 'sql-validator', validateSql(querySql, mono))
+      mono.editor.setModelMarkers(
+        model,
+        'sql-validator',
+        validateSql(querySql, mono),
+      )
     }
     editor.addAction({
       id: 'run-query',
       label: 'Run Query',
-      keybindings: [monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter],
-      run: () => { void handleRunQueryRef.current('run') },
+      keybindings: [
+        monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter,
+      ],
+      run: () => {
+        void handleRunQueryRef.current('run')
+      },
+    })
+    editor.addAction({
+      id: 'run-selected-query',
+      label: 'Run Selected Query',
+      keybindings: [
+        monacoInstance.KeyMod.CtrlCmd |
+          monacoInstance.KeyMod.Shift |
+          monacoInstance.KeyCode.Enter,
+      ],
+      run: () => {
+        void handleRunQueryRef.current('run-selected')
+      },
     })
   }
 
@@ -146,6 +218,20 @@ export function QueryPage() {
             aria-label="Explain"
             disabled={isRunningQuery}
             onClick={() => void handleRunQuery('explain')}
+          />
+          <span className="mx-0.5 h-5 w-px bg-border-default" />
+          <ActionButton
+            icon={<GitBranch size={14} />}
+            aria-label="Transaction Mode"
+            variant={transactionMode ? 'accent' : 'default'}
+            disabled={isRunningQuery}
+            onClick={() => {
+              if (transactionMode && activeTransactionId) {
+                setConfirmTxExit(true)
+              } else {
+                void toggleTransactionMode()
+              }
+            }}
           />
           <span className="mx-0.5 h-5 w-px bg-border-default" />
           <ActionButton
@@ -181,7 +267,9 @@ export function QueryPage() {
                 <option value={queryDatabase}>{queryDatabase}</option>
               )}
               {databases.map((db) => (
-                <option key={db} value={db}>{db}</option>
+                <option key={db} value={db}>
+                  {db}
+                </option>
               ))}
             </select>
             {connectionType === 'postgresql' && (
@@ -194,33 +282,97 @@ export function QueryPage() {
                   <option value={querySchema}>{querySchema}</option>
                 )}
                 {schemas.map((s) => (
-                  <option key={s} value={s}>{s}</option>
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
                 ))}
               </select>
             )}
           </div>
         </div>
 
+        {/* ── Transaction Status Bar ─────────────────────────────────── */}
+        {transactionMode && activeTransactionId && (
+          <div className="flex items-center gap-2 border-b border-border-default bg-blue-500/5 px-3 py-1.5 text-[11px]">
+            <span className="font-medium text-text-primary">
+              Transaction:{' '}
+              <span className="font-mono text-primary">
+                {activeTransactionId.slice(0, 8)}
+              </span>
+            </span>
+            <span className="text-text-muted">·</span>
+            <span className="text-text-muted">
+              {transactionSteps.length} step
+              {transactionSteps.length !== 1 ? 's' : ''}
+            </span>
+            {selectedConnection?.type === 'mysql' && (
+              <span
+                className="rounded bg-yellow-500/10 px-1.5 py-0.5 text-[10px] text-yellow-600"
+                title="MySQL DDL auto-commits"
+              >
+                MySQL DDL auto-commits
+              </span>
+            )}
+            <span className="ml-auto flex items-center gap-1">
+              <ActionButton
+                icon={<Check size={13} />}
+                aria-label="Commit"
+                variant="success"
+                disabled={isRunningQuery}
+                onClick={() => void handleCommitTransaction()}
+              />
+              <ActionButton
+                icon={<Undo2 size={13} />}
+                aria-label="Rollback"
+                variant="danger"
+                disabled={isRunningQuery}
+                onClick={() => void handleRollbackTransaction()}
+              />
+            </span>
+          </div>
+        )}
+
         {/* ── Editor ──────────────────────────────────────────────────── */}
         <div className="relative min-h-45 flex-1">
-          <Editor height="100%" language="sql" value={querySql}
+          <Editor
+            height="100%"
+            language="sql"
+            value={querySql}
             theme={theme === 'dark' ? 'vs-dark' : 'light'}
             onChange={(value) => updateActiveQuery(value ?? '')}
             options={{
-              minimap: { enabled: false }, fontSize: 13, wordWrap: 'on',
-              quickSuggestions: { other: true, comments: false, strings: false },
-              suggestOnTriggerCharacters: true, parameterHints: { enabled: true },
-              tabCompletion: 'on', acceptSuggestionOnCommitCharacter: true,
+              minimap: { enabled: false },
+              fontSize: 13,
+              wordWrap: 'on',
+              quickSuggestions: {
+                other: true,
+                comments: false,
+                strings: false,
+              },
+              suggestOnTriggerCharacters: true,
+              parameterHints: { enabled: true },
+              tabCompletion: 'on',
+              acceptSuggestionOnCommitCharacter: true,
               acceptSuggestionOnEnter: 'smart',
               suggest: {
-                showKeywords: true, showSnippets: true, showFunctions: true,
-                showClasses: true, showFields: true, showWords: false,
-                insertMode: 'replace', preview: true,
+                showKeywords: true,
+                showSnippets: true,
+                showFunctions: true,
+                showClasses: true,
+                showFields: true,
+                showWords: false,
+                insertMode: 'replace',
+                preview: true,
               },
-              suggestFontSize: 13, suggestLineHeight: 22, readOnly: isRunningQuery,
+              suggestFontSize: 13,
+              suggestLineHeight: 22,
+              readOnly: isRunningQuery,
             }}
-            beforeMount={handleBeforeMount} onMount={handleMount}
-            loading={<div className="p-3 text-xs text-text-muted">Loading editor…</div>}
+            beforeMount={handleBeforeMount}
+            onMount={handleMount}
+            loading={
+              <div className="p-3 text-xs text-text-muted">Loading editor…</div>
+            }
           />
           {isRunningQuery && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-bg-base/60 text-xs text-text-muted">
@@ -239,90 +391,138 @@ export function QueryPage() {
             >
               <span className="h-px w-8 rounded-full bg-text-muted/40" />
             </div>
-            <div className="flex min-h-0 flex-col" style={{ height: resultHeight }}>
-            <div className="flex items-center gap-1 px-1.5 py-1">
-              {RESULT_TABS.map((tab) => (
-                <button key={tab} type="button" onClick={() => setQueryResultTab(tab)}
-                  className={`rounded-md px-2 py-0.5 text-caption capitalize transition-colors ${
-                    queryResultTab === tab
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-text-muted hover:bg-bg-hover hover:text-text-primary'
-                  }`}>
-                  {tab}
-                </button>
-              ))}
-              {queryResultTab === 'results' && (
-                <span className="text-[10px] text-text-muted tabular-nums">
-                  {queryResult.rows.length} rows · {queryResult.elapsedMs}ms
-                </span>
-              )}
-              <span className="ml-auto" />
-              <div ref={exportRef} className="relative">
-                <ActionButton
-                  icon={<Download size={13} />}
-                  aria-label="Export"
-                  onClick={() => setExportOpen((v) => !v)}
-                />
-                {exportOpen && (
-                  <div className="absolute right-0 top-full z-30 mt-1 min-w-28 rounded-md border border-border-default bg-bg-base py-0.5 shadow-lg">
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-hover"
-                      onClick={() => {
-                        downloadTextFile('query-result.json', JSON.stringify(queryResult.rows, null, 2), 'application/json')
-                        setExportOpen(false)
-                      }}
-                    >
-                      JSON
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-hover"
-                      onClick={() => {
-                        downloadTextFile('query-result.csv', createCsv(queryResult.columns, queryResult.rows), 'text/csv')
-                        setExportOpen(false)
-                      }}
-                    >
-                      CSV
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {queryResultTab === 'results' && (
-              <DataGrid
-                columns={queryResult.columns}
-                rows={queryResult.rows}
-                emptyMessage="No results"
-              />
-            )}
-
-            {queryResultTab === 'messages' && (
-              <ul className="flex-1 min-h-0 space-y-0.5 overflow-auto bg-bg-base p-1.5 text-xs text-text-primary font-mono">
-                {queryMessages.map((m, i) => (
-                  <li key={`${m}-${i}`} className="rounded px-1.5 py-0.5 hover:bg-bg-subtle text-[11px]">{m}</li>
+            <div
+              className="flex min-h-0 flex-col"
+              style={{ height: resultHeight }}
+            >
+              <div className="flex items-center gap-1 px-1.5 py-1">
+                {RESULT_TABS.map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setQueryResultTab(tab)}
+                    className={`rounded-md px-2 py-0.5 text-caption capitalize transition-colors ${
+                      queryResultTab === tab
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-text-muted hover:bg-bg-hover hover:text-text-primary'
+                    }`}
+                  >
+                    {tab}
+                  </button>
                 ))}
-              </ul>
-            )}
-
-            {queryResultTab === 'statistics' && (
-              <div className="flex items-center gap-4 bg-bg-base px-3 py-2 text-xs">
-                <div>
-                  <span className="text-text-muted">Rows </span>
-                  <span className="font-semibold text-text-primary tabular-nums">{queryResult.rows.length}</span>
-                </div>
-                <div>
-                  <span className="text-text-muted">Time </span>
-                  <span className="font-semibold text-text-primary tabular-nums">{queryResult.elapsedMs}ms</span>
-                </div>
-                <div>
-                  <span className="text-text-muted">Affected </span>
-                  <span className="font-semibold text-text-primary tabular-nums">{queryResult.rowsAffected}</span>
+                {queryResultTab === 'results' && (
+                  <span className="text-[10px] text-text-muted tabular-nums">
+                    {queryResult.rows.length} rows · {queryResult.elapsedMs}ms
+                  </span>
+                )}
+                <span className="ml-auto" />
+                <div ref={exportRef} className="relative">
+                  <ActionButton
+                    icon={<Download size={13} />}
+                    aria-label="Export"
+                    onClick={() => setExportOpen((v) => !v)}
+                  />
+                  {exportOpen && (
+                    <div className="absolute right-0 top-full z-30 mt-1 min-w-28 rounded-md border border-border-default bg-bg-base py-0.5 shadow-lg">
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-hover"
+                        onClick={() => {
+                          downloadTextFile(
+                            'query-result.json',
+                            JSON.stringify(queryResult.rows, null, 2),
+                            'application/json',
+                          )
+                          setExportOpen(false)
+                        }}
+                      >
+                        JSON
+                      </button>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-hover"
+                        onClick={() => {
+                          downloadTextFile(
+                            'query-result.csv',
+                            createCsv(queryResult.columns, queryResult.rows),
+                            'text/csv',
+                          )
+                          setExportOpen(false)
+                        }}
+                      >
+                        CSV
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
+
+              {queryResultTab === 'results' && (
+                <DataGrid
+                  columns={queryResult.columns}
+                  rows={queryResult.rows}
+                  emptyMessage="No results"
+                />
+              )}
+
+              {queryResultTab === 'messages' && (
+                <ul className="flex-1 min-h-0 space-y-0.5 overflow-auto bg-bg-base p-1.5 text-xs text-text-primary font-mono">
+                  {transactionMode &&
+                    transactionSteps.map((step, i) => (
+                      <li
+                        key={`tx-${i}`}
+                        className="rounded px-1.5 py-0.5 hover:bg-bg-subtle text-[11px]"
+                      >
+                        <span
+                          className={
+                            step.success ? 'text-green-500' : 'text-red-500'
+                          }
+                        >
+                          {step.success ? '✓' : '✗'}
+                        </span>{' '}
+                        [step {step.statementIndex}]{' '}
+                        {step.success
+                          ? `Completed in ${step.elapsedMs} ms`
+                          : `Error: ${step.error ?? 'Unknown error'}`}
+                        {step.rowsAffected > 0 && (
+                          <> · {step.rowsAffected} rows</>
+                        )}
+                      </li>
+                    ))}
+                  {queryMessages.map((m, i) => (
+                    <li
+                      key={`msg-${i}`}
+                      className="rounded px-1.5 py-0.5 hover:bg-bg-subtle text-[11px]"
+                    >
+                      {m}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {queryResultTab === 'statistics' && (
+                <div className="flex items-center gap-4 bg-bg-base px-3 py-2 text-xs">
+                  <div>
+                    <span className="text-text-muted">Rows </span>
+                    <span className="font-semibold text-text-primary tabular-nums">
+                      {queryResult.rows.length}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-text-muted">Time </span>
+                    <span className="font-semibold text-text-primary tabular-nums">
+                      {queryResult.elapsedMs}ms
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-text-muted">Affected </span>
+                    <span className="font-semibold text-text-primary tabular-nums">
+                      {queryResult.rowsAffected}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
           </>
         )}
 
@@ -331,15 +531,73 @@ export function QueryPage() {
           <div className="border-t border-border-default bg-bg-subtle/50 px-1.5 py-1.5">
             <div className="max-h-28 space-y-0.5 overflow-auto">
               {history.length === 0 && (
-                <p className="px-2 py-1 text-caption text-text-muted">No history yet.</p>
+                <p className="px-2 py-1 text-caption text-text-muted">
+                  No history yet.
+                </p>
               )}
               {history.map((q, i) => (
-                <button key={`${i}-${q}`} type="button" onClick={() => updateActiveQuery(q)}
+                <button
+                  key={`${i}-${q}`}
+                  type="button"
+                  onClick={() => updateActiveQuery(q)}
                   className="block w-full truncate rounded px-2 py-0.5 text-left text-[11px] font-mono text-text-primary transition-colors hover:bg-bg-hover"
-                  title={q}>
+                  title={q}
+                >
                   {q}
                 </button>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Confirm Transaction Exit Popover ────────────────────────── */}
+        {confirmTxExit && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+            onClick={() => setConfirmTxExit(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Transaction exit"
+          >
+            <div
+              className="min-w-[300px] max-w-sm rounded-xl bg-bg-base p-5 shadow-xl outline-none"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="mb-2 text-sm font-semibold text-text-primary">
+                Transaction in progress
+              </h3>
+              <p className="mb-5 text-xs text-text-muted">
+                You have an open transaction. What would you like to do?
+              </p>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  className="w-full rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover"
+                  onClick={() => {
+                    setConfirmTxExit(false)
+                    void handleCommitTransaction()
+                  }}
+                >
+                  Commit &amp; exit
+                </button>
+                <button
+                  type="button"
+                  className="w-full rounded-lg border border-border-default px-3 py-1.5 text-xs text-text-primary transition-colors hover:bg-bg-muted"
+                  onClick={() => {
+                    setConfirmTxExit(false)
+                    void handleRollbackTransaction()
+                  }}
+                >
+                  Rollback &amp; exit
+                </button>
+                <button
+                  type="button"
+                  className="w-full rounded-lg border border-border-default px-3 py-1.5 text-xs text-text-muted transition-colors hover:bg-bg-hover"
+                  onClick={() => setConfirmTxExit(false)}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         )}

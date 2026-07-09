@@ -9,7 +9,8 @@ import type { DataExplorerOrchestratorResult } from '../hooks/useDataExplorerOrc
  * The provider is mounted exactly once at the DataExplorerLayout level
  * so a single orchestrator instance is shared across the entire shell.
  */
-const DataExplorerContext = createContext<DataExplorerOrchestratorResult | null>(null)
+const DataExplorerContext =
+  createContext<DataExplorerOrchestratorResult | null>(null)
 
 /** Internal provider component — prefer the named export from `DataExplorerLayout`. */
 export const DataExplorerContextProvider = DataExplorerContext.Provider

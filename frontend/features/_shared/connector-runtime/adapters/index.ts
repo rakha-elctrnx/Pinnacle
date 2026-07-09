@@ -60,5 +60,8 @@ export function hasCapabilityWithAdapter(
   type: string,
   capability: import('../types').ConnectorCapability,
 ): boolean {
-  return hasCapability(defaultConnectorRegistry, type, capability) && getAdapter(type) !== undefined
+  return (
+    hasCapability(defaultConnectorRegistry, type, capability) &&
+    getAdapter(type) !== undefined
+  )
 }

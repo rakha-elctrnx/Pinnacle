@@ -27,7 +27,10 @@ import {
   ClipboardList,
   FileSpreadsheet,
 } from 'lucide-react'
-import { GenericContextMenu, type ContextMenuItem } from '../../_shared/components/ui/ContextMenu'
+import {
+  GenericContextMenu,
+  type ContextMenuItem,
+} from '../../_shared/components/ui/ContextMenu'
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -112,7 +115,16 @@ export function GridContextMenu({
         dangerous: true,
       },
     ],
-    [onCopyRow, onCopyWithHeaders, onCopyAsSQL, onCopyAsCSV, onPaste, onSetToNull, onDeleteRows, onGenerateSQL],
+    [
+      onCopyRow,
+      onCopyWithHeaders,
+      onCopyAsSQL,
+      onCopyAsCSV,
+      onPaste,
+      onSetToNull,
+      onDeleteRows,
+      onGenerateSQL,
+    ],
   )
 
   return (

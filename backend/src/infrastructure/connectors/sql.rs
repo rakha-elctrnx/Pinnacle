@@ -38,7 +38,7 @@ fn is_read_query(sql: &str) -> bool {
         || upper.starts_with("WITH")
 }
 
-fn extract_mysql_value(row: &sqlx::mysql::MySqlRow, column_name: &str) -> serde_json::Value {
+pub(crate) fn extract_mysql_value(row: &sqlx::mysql::MySqlRow, column_name: &str) -> serde_json::Value {
     if let Ok(Some(v)) = row.try_get::<Option<bool>, _>(column_name) {
         return serde_json::json!(v);
     }

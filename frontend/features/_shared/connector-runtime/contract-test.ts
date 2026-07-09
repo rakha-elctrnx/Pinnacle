@@ -43,7 +43,10 @@ export interface ContractTestReport {
  */
 export function runContractTests(connectorType: string): ContractTestReport {
   const results: ContractTestResult[] = []
-  const capabilities = getConnectorCapabilities(defaultConnectorRegistry, connectorType)
+  const capabilities = getConnectorCapabilities(
+    defaultConnectorRegistry,
+    connectorType,
+  )
   const adapter = getAdapter(connectorType)
 
   // Test 1: Registry entry exists
@@ -81,35 +84,39 @@ export function runContractTests(connectorType: string): ContractTestReport {
     results.push({
       name: 'label-consistency',
       passed: adapter.label === capabilities.label,
-      detail: adapter.label === capabilities.label
-        ? `Labels match: "${adapter.label}"`
-        : `Label mismatch: adapter="${adapter.label}", registry="${capabilities.label}"`,
+      detail:
+        adapter.label === capabilities.label
+          ? `Labels match: "${adapter.label}"`
+          : `Label mismatch: adapter="${adapter.label}", registry="${capabilities.label}"`,
     })
   }
 
   // Test 4: All registry capabilities have adapter method coverage
   if (adapter) {
     const methodMap: Record<ConnectorCapability, keyof ConnectorAdapter> = {
-      'connect': 'testConnection',
+      connect: 'testConnection',
       'test-connection': 'testConnection',
       'load-navigation-tree': 'loadNavigationTree',
       'open-entity': 'openEntity',
       'run-query': 'runQuery',
       'map-error': 'testConnection',
       'get-default-context': 'getDefaultContext',
-      'observability': 'testConnection',
+      observability: 'testConnection',
     }
 
     for (const cap of capabilities.capabilities) {
       const methodName = methodMap[cap]
       if (methodName) {
-        const method = (adapter as unknown as Record<string, unknown>)[methodName]
+        const method = (adapter as unknown as Record<string, unknown>)[
+          methodName
+        ]
         results.push({
           name: `capability-${cap}`,
           passed: typeof method === 'function',
-          detail: typeof method === 'function'
-            ? `Method "${methodName}" exists for capability "${cap}"`
-            : `Missing method "${methodName}" for capability "${cap}"`,
+          detail:
+            typeof method === 'function'
+              ? `Method "${methodName}" exists for capability "${cap}"`
+              : `Missing method "${methodName}" for capability "${cap}"`,
         })
       }
     }
@@ -126,7 +133,8 @@ export function runContractTests(connectorType: string): ContractTestReport {
       database: 'test',
       ssl: false,
     })
-    const contextValid = typeof ctx.database === 'string' && typeof ctx.schema === 'string'
+    const contextValid =
+      typeof ctx.database === 'string' && typeof ctx.schema === 'string'
     results.push({
       name: 'default-context-shape',
       passed: contextValid,

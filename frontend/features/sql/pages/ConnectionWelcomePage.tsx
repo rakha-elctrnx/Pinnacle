@@ -19,9 +19,7 @@ export function ConnectionWelcomePage() {
         </div>
 
         {/* Heading */}
-        <h1 className="text-display text-text-primary">
-          Connection Active
-        </h1>
+        <h1 className="text-display text-text-primary">Connection Active</h1>
 
         {/* Description */}
         <p className="text-body-secondary text-text-secondary leading-relaxed">
@@ -32,7 +30,8 @@ export function ConnectionWelcomePage() {
 
         {/* Hint */}
         <p className="text-caption text-text-muted opacity-70 pt-2">
-          Tip: expand the connection in the sidebar and click on a table to get started.
+          Tip: expand the connection in the sidebar and click on a table to get
+          started.
         </p>
       </div>
     </div>

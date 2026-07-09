@@ -8,18 +8,26 @@ import { useDesignerStore } from '../../store/designerStore'
 export function UniqueConstraintEditor() {
   const pendingModel = useDesignerStore((s) => s.pendingModel)
   const addUniqueConstraint = useDesignerStore((s) => s.addUniqueConstraint)
-  const updateUniqueConstraint = useDesignerStore((s) => s.updateUniqueConstraint)
-  const removeUniqueConstraint = useDesignerStore((s) => s.removeUniqueConstraint)
+  const updateUniqueConstraint = useDesignerStore(
+    (s) => s.updateUniqueConstraint,
+  )
+  const removeUniqueConstraint = useDesignerStore(
+    (s) => s.removeUniqueConstraint,
+  )
 
   if (!pendingModel) return null
 
-  const availableColumns = pendingModel.columns.filter((c) => c.name.trim() !== '')
+  const availableColumns = pendingModel.columns.filter(
+    (c) => c.name.trim() !== '',
+  )
 
   return (
     <section className="flex flex-col gap-3">
       <header className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-slate-800">Unique Constraints</h3>
+          <h3 className="text-sm font-semibold text-slate-800">
+            Unique Constraints
+          </h3>
           <p className="text-xs text-slate-500">
             Ensure values in selected columns are unique across all rows.
           </p>
@@ -36,8 +44,12 @@ export function UniqueConstraintEditor() {
       {pendingModel.uniqueConstraints.length === 0 ? (
         <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
           <Copy size={28} className="mx-auto text-slate-300" />
-          <p className="mt-2 text-sm text-slate-500">No unique constraints defined.</p>
-          <p className="text-xs text-slate-400">Click "Add Unique" to create one.</p>
+          <p className="mt-2 text-sm text-slate-500">
+            No unique constraints defined.
+          </p>
+          <p className="text-xs text-slate-400">
+            Click "Add Unique" to create one.
+          </p>
         </div>
       ) : (
         pendingModel.uniqueConstraints.map((uq) => (
@@ -54,7 +66,9 @@ export function UniqueConstraintEditor() {
                   type="text"
                   value={uq.name ?? ''}
                   onChange={(e) =>
-                    updateUniqueConstraint(uq.id, { name: e.target.value || null })
+                    updateUniqueConstraint(uq.id, {
+                      name: e.target.value || null,
+                    })
                   }
                   placeholder="Auto-generated if empty"
                   className="mt-1 w-full max-w-xs rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"

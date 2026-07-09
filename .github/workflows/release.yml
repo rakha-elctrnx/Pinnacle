@@ -1,9 +1,9 @@
-name: "Release"
+name: 'Release'
 
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -15,18 +15,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: "macos-latest"
+          - platform: 'macos-latest'
             target: aarch64-apple-darwin
-            label: "macOS ARM64"
-          - platform: "macos-latest"
+            label: 'macOS ARM64'
+          - platform: 'macos-latest'
             target: x86_64-apple-darwin
-            label: "macOS Intel"
-          - platform: "windows-latest"
+            label: 'macOS Intel'
+          - platform: 'windows-latest'
             target: x86_64-pc-windows-msvc
-            label: "Windows"
-          - platform: "ubuntu-22.04"
+            label: 'Windows'
+          - platform: 'ubuntu-22.04'
             target: x86_64-unknown-linux-gnu
-            label: "Linux"
+            label: 'Linux'
 
     runs-on: ${{ matrix.platform }}
     name: Build · ${{ matrix.label }}
@@ -38,8 +38,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "lts/*"
-          cache: "npm"
+          node-version: 'lts/*'
+          cache: 'npm'
 
       - name: Install frontend dependencies
         run: npm ci
@@ -47,7 +47,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: "./src-tauri -> target"
+          workspaces: './src-tauri -> target'
 
       - name: Install Rust toolchain (macOS Intel cross-compile)
         if: matrix.target == 'x86_64-apple-darwin'
@@ -76,7 +76,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "Pinnacle ${{ github.ref_name }}"
+          releaseName: 'Pinnacle ${{ github.ref_name }}'
           releaseBody: |
             ## Pinnacle ${{ github.ref_name }}
 

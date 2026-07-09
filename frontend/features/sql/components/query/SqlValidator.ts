@@ -24,7 +24,7 @@
  *  - Duplicate clauses (two WHERE clauses, two FROM clauses, …)
  */
 
-import type * as Monaco from 'monaco-editor';
+import type * as Monaco from 'monaco-editor'
 
 // ─── Token types ──────────────────────────────────────────────────────────────
 
@@ -34,7 +34,7 @@ type TokenType =
   | 'NUMBER'
   | 'STRING'
   | 'OPERATOR'
-  | 'PUNCTUATION'  // ( ) , ; .
+  | 'PUNCTUATION' // ( ) , ; .
   | 'COMMENT'
   | 'WHITESPACE'
   | 'UNKNOWN'
@@ -51,29 +51,106 @@ interface Token {
 // ─── SQL keywords ─────────────────────────────────────────────────────────────
 
 const CLAUSE_KEYWORDS = new Set([
-  'SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'FULL',
-  'OUTER', 'CROSS', 'ON', 'GROUP', 'ORDER', 'BY', 'HAVING', 'LIMIT',
-  'OFFSET', 'UNION', 'INTERSECT', 'EXCEPT', 'INTO', 'VALUES', 'SET',
-  'RETURNING', 'WITH', 'RECURSIVE',
+  'SELECT',
+  'FROM',
+  'WHERE',
+  'JOIN',
+  'LEFT',
+  'RIGHT',
+  'INNER',
+  'FULL',
+  'OUTER',
+  'CROSS',
+  'ON',
+  'GROUP',
+  'ORDER',
+  'BY',
+  'HAVING',
+  'LIMIT',
+  'OFFSET',
+  'UNION',
+  'INTERSECT',
+  'EXCEPT',
+  'INTO',
+  'VALUES',
+  'SET',
+  'RETURNING',
+  'WITH',
+  'RECURSIVE',
 ])
 
 const DML_KEYWORDS = new Set([
-  'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'MERGE', 'REPLACE',
+  'SELECT',
+  'INSERT',
+  'UPDATE',
+  'DELETE',
+  'MERGE',
+  'REPLACE',
 ])
 
 const DDL_KEYWORDS = new Set([
-  'CREATE', 'ALTER', 'DROP', 'TRUNCATE', 'RENAME', 'COMMENT',
+  'CREATE',
+  'ALTER',
+  'DROP',
+  'TRUNCATE',
+  'RENAME',
+  'COMMENT',
 ])
 
 const FUNCTION_KEYWORDS = new Set([
-  'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'COALESCE', 'NULLIF', 'CAST',
-  'CONVERT', 'SUBSTRING', 'TRIM', 'UPPER', 'LOWER', 'LENGTH', 'REPLACE',
-  'NOW', 'DATE_TRUNC', 'DATE_PART', 'EXTRACT', 'ROUND', 'FLOOR', 'CEIL',
-  'ABS', 'IF', 'IFF', 'IFNULL', 'NVL', 'ROW_NUMBER', 'RANK', 'DENSE_RANK',
-  'LAG', 'LEAD', 'FIRST_VALUE', 'LAST_VALUE', 'NTILE', 'STRING_AGG',
-  'ARRAY_AGG', 'JSON_AGG', 'GROUP_CONCAT', 'PARSE_JSON', 'JSON_VALUE',
-  'JSON_EXTRACT', 'SPLIT_PART', 'POSITION', 'CONCAT', 'REGEXP_REPLACE',
-  'TO_DATE', 'TO_CHAR', 'DATEDIFF', 'DATEADD', 'POWER', 'SQRT', 'MOD',
+  'COUNT',
+  'SUM',
+  'AVG',
+  'MIN',
+  'MAX',
+  'COALESCE',
+  'NULLIF',
+  'CAST',
+  'CONVERT',
+  'SUBSTRING',
+  'TRIM',
+  'UPPER',
+  'LOWER',
+  'LENGTH',
+  'REPLACE',
+  'NOW',
+  'DATE_TRUNC',
+  'DATE_PART',
+  'EXTRACT',
+  'ROUND',
+  'FLOOR',
+  'CEIL',
+  'ABS',
+  'IF',
+  'IFF',
+  'IFNULL',
+  'NVL',
+  'ROW_NUMBER',
+  'RANK',
+  'DENSE_RANK',
+  'LAG',
+  'LEAD',
+  'FIRST_VALUE',
+  'LAST_VALUE',
+  'NTILE',
+  'STRING_AGG',
+  'ARRAY_AGG',
+  'JSON_AGG',
+  'GROUP_CONCAT',
+  'PARSE_JSON',
+  'JSON_VALUE',
+  'JSON_EXTRACT',
+  'SPLIT_PART',
+  'POSITION',
+  'CONCAT',
+  'REGEXP_REPLACE',
+  'TO_DATE',
+  'TO_CHAR',
+  'DATEDIFF',
+  'DATEADD',
+  'POWER',
+  'SQRT',
+  'MOD',
 ])
 
 const ALL_KNOWN_KEYWORDS = new Set([
@@ -81,14 +158,61 @@ const ALL_KNOWN_KEYWORDS = new Set([
   ...DML_KEYWORDS,
   ...DDL_KEYWORDS,
   ...FUNCTION_KEYWORDS,
-  'AS', 'DISTINCT', 'ALL', 'AND', 'OR', 'NOT', 'IN', 'EXISTS',
-  'BETWEEN', 'LIKE', 'ILIKE', 'IS', 'NULL', 'TRUE', 'FALSE', 'CASE',
-  'WHEN', 'THEN', 'ELSE', 'END', 'TABLE', 'VIEW', 'INDEX', 'SCHEMA',
-  'DATABASE', 'IF', 'DEFAULT', 'PRIMARY', 'KEY', 'FOREIGN', 'REFERENCES',
-  'UNIQUE', 'CHECK', 'CONSTRAINT', 'CASCADE', 'RESTRICT', 'ASC', 'DESC',
-  'OVER', 'PARTITION', 'ROWS', 'RANGE', 'UNBOUNDED', 'PRECEDING',
-  'FOLLOWING', 'CURRENT', 'ROW', 'WINDOW', 'LATERAL', 'APPLY',
-  'TABLESAMPLE', 'PIVOT', 'UNPIVOT', 'QUALIFY', 'MINUS',
+  'AS',
+  'DISTINCT',
+  'ALL',
+  'AND',
+  'OR',
+  'NOT',
+  'IN',
+  'EXISTS',
+  'BETWEEN',
+  'LIKE',
+  'ILIKE',
+  'IS',
+  'NULL',
+  'TRUE',
+  'FALSE',
+  'CASE',
+  'WHEN',
+  'THEN',
+  'ELSE',
+  'END',
+  'TABLE',
+  'VIEW',
+  'INDEX',
+  'SCHEMA',
+  'DATABASE',
+  'IF',
+  'DEFAULT',
+  'PRIMARY',
+  'KEY',
+  'FOREIGN',
+  'REFERENCES',
+  'UNIQUE',
+  'CHECK',
+  'CONSTRAINT',
+  'CASCADE',
+  'RESTRICT',
+  'ASC',
+  'DESC',
+  'OVER',
+  'PARTITION',
+  'ROWS',
+  'RANGE',
+  'UNBOUNDED',
+  'PRECEDING',
+  'FOLLOWING',
+  'CURRENT',
+  'ROW',
+  'WINDOW',
+  'LATERAL',
+  'APPLY',
+  'TABLESAMPLE',
+  'PIVOT',
+  'UNPIVOT',
+  'QUALIFY',
+  'MINUS',
 ])
 
 /**
@@ -98,28 +222,117 @@ const ALL_KNOWN_KEYWORDS = new Set([
  */
 const KEYWORD_CANDIDATES: string[] = [
   // DML
-  'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'MERGE', 'REPLACE',
+  'SELECT',
+  'INSERT',
+  'UPDATE',
+  'DELETE',
+  'MERGE',
+  'REPLACE',
   // DDL
-  'CREATE', 'ALTER', 'DROP', 'TRUNCATE', 'RENAME',
+  'CREATE',
+  'ALTER',
+  'DROP',
+  'TRUNCATE',
+  'RENAME',
   // Clauses
-  'FROM', 'WHERE', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'FULL', 'OUTER',
-  'CROSS', 'ON', 'USING', 'GROUP', 'ORDER', 'BY', 'HAVING', 'LIMIT',
-  'OFFSET', 'UNION', 'INTERSECT', 'EXCEPT', 'INTO', 'VALUES', 'SET',
-  'RETURNING', 'WITH', 'RECURSIVE',
+  'FROM',
+  'WHERE',
+  'JOIN',
+  'LEFT',
+  'RIGHT',
+  'INNER',
+  'FULL',
+  'OUTER',
+  'CROSS',
+  'ON',
+  'USING',
+  'GROUP',
+  'ORDER',
+  'BY',
+  'HAVING',
+  'LIMIT',
+  'OFFSET',
+  'UNION',
+  'INTERSECT',
+  'EXCEPT',
+  'INTO',
+  'VALUES',
+  'SET',
+  'RETURNING',
+  'WITH',
+  'RECURSIVE',
   // Logical / comparison
-  'AND', 'OR', 'NOT', 'IN', 'EXISTS', 'BETWEEN', 'LIKE', 'ILIKE', 'IS',
-  'NULL', 'TRUE', 'FALSE',
+  'AND',
+  'OR',
+  'NOT',
+  'IN',
+  'EXISTS',
+  'BETWEEN',
+  'LIKE',
+  'ILIKE',
+  'IS',
+  'NULL',
+  'TRUE',
+  'FALSE',
   // Misc
-  'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'AS', 'DISTINCT', 'ALL',
-  'OVER', 'PARTITION', 'ROWS', 'RANGE', 'WINDOW',
+  'CASE',
+  'WHEN',
+  'THEN',
+  'ELSE',
+  'END',
+  'AS',
+  'DISTINCT',
+  'ALL',
+  'OVER',
+  'PARTITION',
+  'ROWS',
+  'RANGE',
+  'WINDOW',
   // Functions
-  'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'COALESCE', 'NULLIF', 'CAST',
-  'CONVERT', 'CONCAT', 'SUBSTRING', 'TRIM', 'UPPER', 'LOWER', 'LENGTH',
-  'REPLACE', 'NOW', 'EXTRACT', 'ROUND', 'FLOOR', 'CEIL', 'ABS',
-  'ROW_NUMBER', 'RANK', 'DENSE_RANK', 'LAG', 'LEAD', 'FIRST_VALUE',
-  'LAST_VALUE', 'NTILE', 'STRING_AGG', 'ARRAY_AGG', 'JSON_AGG',
-  'COALESCE', 'IF', 'IFF', 'IFNULL', 'NVL', 'DATE_TRUNC', 'DATE_PART',
-  'DATEDIFF', 'DATEADD', 'TO_DATE', 'TO_CHAR',
+  'COUNT',
+  'SUM',
+  'AVG',
+  'MIN',
+  'MAX',
+  'COALESCE',
+  'NULLIF',
+  'CAST',
+  'CONVERT',
+  'CONCAT',
+  'SUBSTRING',
+  'TRIM',
+  'UPPER',
+  'LOWER',
+  'LENGTH',
+  'REPLACE',
+  'NOW',
+  'EXTRACT',
+  'ROUND',
+  'FLOOR',
+  'CEIL',
+  'ABS',
+  'ROW_NUMBER',
+  'RANK',
+  'DENSE_RANK',
+  'LAG',
+  'LEAD',
+  'FIRST_VALUE',
+  'LAST_VALUE',
+  'NTILE',
+  'STRING_AGG',
+  'ARRAY_AGG',
+  'JSON_AGG',
+  'COALESCE',
+  'IF',
+  'IFF',
+  'IFNULL',
+  'NVL',
+  'DATE_TRUNC',
+  'DATE_PART',
+  'DATEDIFF',
+  'DATEADD',
+  'TO_DATE',
+  'TO_CHAR',
 ]
 
 // ─── Tokeniser ────────────────────────────────────────────────────────────────
@@ -132,12 +345,19 @@ function tokenise(sql: string): Token[] {
 
   function advance(count = 1) {
     for (let i = 0; i < count; i++) {
-      if (sql[pos] === '\n') { line++; col = 1 } else { col++ }
+      if (sql[pos] === '\n') {
+        line++
+        col = 1
+      } else {
+        col++
+      }
       pos++
     }
   }
 
-  function peek(offset = 0) { return sql[pos + offset] ?? '' }
+  function peek(offset = 0) {
+    return sql[pos + offset] ?? ''
+  }
 
   while (pos < sql.length) {
     const startLine = line
@@ -148,7 +368,8 @@ function tokenise(sql: string): Token[] {
     if (ch === '-' && peek(1) === '-') {
       let value = ''
       while (pos < sql.length && sql[pos] !== '\n') {
-        value += sql[pos]; advance()
+        value += sql[pos]
+        advance()
       }
       tokens.push({ type: 'COMMENT', value, line: startLine, col: startCol })
       continue
@@ -156,11 +377,16 @@ function tokenise(sql: string): Token[] {
 
     // ── Block comment  /* ... */
     if (ch === '/' && peek(1) === '*') {
-      let value = '/*'; advance(2)
+      let value = '/*'
+      advance(2)
       while (pos < sql.length && !(sql[pos] === '*' && peek(1) === '/')) {
-        value += sql[pos]; advance()
+        value += sql[pos]
+        advance()
       }
-      if (pos < sql.length) { value += '*/'; advance(2) }
+      if (pos < sql.length) {
+        value += '*/'
+        advance(2)
+      }
       tokens.push({ type: 'COMMENT', value, line: startLine, col: startCol })
       continue
     }
@@ -169,23 +395,35 @@ function tokenise(sql: string): Token[] {
     if (/\s/.test(ch)) {
       let value = ''
       while (pos < sql.length && /\s/.test(sql[pos])) {
-        value += sql[pos]; advance()
+        value += sql[pos]
+        advance()
       }
-      tokens.push({ type: 'WHITESPACE', value, line: startLine, col: startCol })
+      tokens.push({
+        type: 'WHITESPACE',
+        value,
+        line: startLine,
+        col: startCol,
+      })
       continue
     }
 
     // ── Single-quoted string  'value'
     if (ch === "'") {
-      let value = "'"; advance()
+      let value = "'"
+      advance()
       let closed = false
       while (pos < sql.length) {
         if (sql[pos] === "'" && peek(1) === "'") {
-          value += "''"; advance(2) // escaped quote
+          value += "''"
+          advance(2) // escaped quote
         } else if (sql[pos] === "'") {
-          value += "'"; advance(); closed = true; break
+          value += "'"
+          advance()
+          closed = true
+          break
         } else {
-          value += sql[pos]; advance()
+          value += sql[pos]
+          advance()
         }
       }
       tokens.push({
@@ -199,15 +437,21 @@ function tokenise(sql: string): Token[] {
 
     // ── Double-quoted identifier  "name"
     if (ch === '"') {
-      let value = '"'; advance()
+      let value = '"'
+      advance()
       let closed = false
       while (pos < sql.length) {
         if (sql[pos] === '"' && peek(1) === '"') {
-          value += '""'; advance(2)
+          value += '""'
+          advance(2)
         } else if (sql[pos] === '"') {
-          value += '"'; advance(); closed = true; break
+          value += '"'
+          advance()
+          closed = true
+          break
         } else {
-          value += sql[pos]; advance()
+          value += sql[pos]
+          advance()
         }
       }
       tokens.push({
@@ -221,13 +465,18 @@ function tokenise(sql: string): Token[] {
 
     // ── Backtick-quoted identifier  `name`
     if (ch === '`') {
-      let value = '`'; advance()
+      let value = '`'
+      advance()
       let closed = false
       while (pos < sql.length) {
         if (sql[pos] === '`') {
-          value += '`'; advance(); closed = true; break
+          value += '`'
+          advance()
+          closed = true
+          break
         } else {
-          value += sql[pos]; advance()
+          value += sql[pos]
+          advance()
         }
       }
       tokens.push({
@@ -241,13 +490,18 @@ function tokenise(sql: string): Token[] {
 
     // ── Bracket-quoted identifier  [name]
     if (ch === '[') {
-      let value = '['; advance()
+      let value = '['
+      advance()
       let closed = false
       while (pos < sql.length) {
         if (sql[pos] === ']') {
-          value += ']'; advance(); closed = true; break
+          value += ']'
+          advance()
+          closed = true
+          break
         } else {
-          value += sql[pos]; advance()
+          value += sql[pos]
+          advance()
         }
       }
       tokens.push({
@@ -263,7 +517,8 @@ function tokenise(sql: string): Token[] {
     if (/[0-9]/.test(ch) || (ch === '.' && /[0-9]/.test(peek(1)))) {
       let value = ''
       while (pos < sql.length && /[0-9._eExX]/.test(sql[pos])) {
-        value += sql[pos]; advance()
+        value += sql[pos]
+        advance()
       }
       tokens.push({ type: 'NUMBER', value, line: startLine, col: startCol })
       continue
@@ -271,17 +526,24 @@ function tokenise(sql: string): Token[] {
 
     // ── Punctuation
     if ('(),;.'.includes(ch)) {
-      tokens.push({ type: 'PUNCTUATION', value: ch, line: startLine, col: startCol })
+      tokens.push({
+        type: 'PUNCTUATION',
+        value: ch,
+        line: startLine,
+        col: startCol,
+      })
       advance()
       continue
     }
 
     // ── Operators
     if ('=<>!+\\-*/%|&^~'.includes(ch)) {
-      let value = ch; advance()
+      let value = ch
+      advance()
       // Multi-char operators: !=  <>  <=  >=  ||  ::  =>
-      if (pos < sql.length && (/[=><|:]/.test(sql[pos]))) {
-        value += sql[pos]; advance()
+      if (pos < sql.length && /[=><|:]/.test(sql[pos])) {
+        value += sql[pos]
+        advance()
       }
       tokens.push({ type: 'OPERATOR', value, line: startLine, col: startCol })
       continue
@@ -291,11 +553,19 @@ function tokenise(sql: string): Token[] {
     if (/[A-Za-z_$#@]/.test(ch)) {
       let value = ''
       while (pos < sql.length && /[\w$#@]/.test(sql[pos])) {
-        value += sql[pos]; advance()
+        value += sql[pos]
+        advance()
       }
       const upper = value.toUpperCase()
-      const type: TokenType = ALL_KNOWN_KEYWORDS.has(upper) ? 'KEYWORD' : 'IDENTIFIER'
-      tokens.push({ type, value: upper === value ? upper : value, line: startLine, col: startCol })
+      const type: TokenType = ALL_KNOWN_KEYWORDS.has(upper)
+        ? 'KEYWORD'
+        : 'IDENTIFIER'
+      tokens.push({
+        type,
+        value: upper === value ? upper : value,
+        line: startLine,
+        col: startCol,
+      })
       continue
     }
 
@@ -334,7 +604,7 @@ function makeMarker(
 // ─── Statement splitter ───────────────────────────────────────────────────────
 
 interface Statement {
-  tokens: Token[]  // all tokens (including whitespace/comments) for position tracking
+  tokens: Token[] // all tokens (including whitespace/comments) for position tracking
 }
 
 /**
@@ -348,7 +618,8 @@ function splitStatements(tokens: Token[]): Statement[] {
 
   for (const tok of tokens) {
     if (tok.type === 'PUNCTUATION' && tok.value === '(') depth++
-    if (tok.type === 'PUNCTUATION' && tok.value === ')') depth = Math.max(0, depth - 1)
+    if (tok.type === 'PUNCTUATION' && tok.value === ')')
+      depth = Math.max(0, depth - 1)
 
     if (tok.type === 'PUNCTUATION' && tok.value === ';' && depth === 0) {
       if (meaningful(current).length > 0) statements.push({ tokens: current })
@@ -364,7 +635,8 @@ function splitStatements(tokens: Token[]): Statement[] {
 
 /** Classic bottom-up Levenshtein edit distance. */
 function levenshtein(a: string, b: string): number {
-  const m = a.length, n = b.length
+  const m = a.length,
+    n = b.length
   const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
     Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)),
   )
@@ -382,9 +654,9 @@ function levenshtein(a: string, b: string): number {
  * Short words are held to a tighter standard to avoid false positives.
  */
 function maxEditDistance(len: number): number {
-  if (len <= 2) return 0  // "id", "or" — too risky to fuzzy-match
-  if (len <= 5) return 1  // "selec", "inser" — allow one missing/extra/swapped char
-  return 2                // longer words — allow two edits
+  if (len <= 2) return 0 // "id", "or" — too risky to fuzzy-match
+  if (len <= 5) return 1 // "selec", "inser" — allow one missing/extra/swapped char
+  return 2 // longer words — allow two edits
 }
 
 /**
@@ -416,7 +688,8 @@ function findClosestKeyword(word: string): { kw: string; dist: number } | null {
     //   - longer keyword wins (avoids preferring short keywords like "IN" over "INTO")
     let sharedPrefix = 0
     for (let i = 0; i < Math.min(upper.length, kw.length); i++) {
-      if (upper[i] === kw[i]) sharedPrefix++; else break
+      if (upper[i] === kw[i]) sharedPrefix++
+      else break
     }
     const score = -d * 100 + sharedPrefix * 10 + kw.length
 
@@ -452,21 +725,36 @@ function validateMisspelledKeywords(
 
   // Positions immediately after a table-name-expected keyword: skip those identifiers
   const TABLE_EXPECTED_AFTER = new Set([
-    'FROM', 'JOIN', 'INTO', 'UPDATE', 'TABLE', 'VIEW', 'INDEX',
-    'LEFT', 'RIGHT', 'INNER', 'FULL', 'OUTER', 'CROSS',
+    'FROM',
+    'JOIN',
+    'INTO',
+    'UPDATE',
+    'TABLE',
+    'VIEW',
+    'INDEX',
+    'LEFT',
+    'RIGHT',
+    'INNER',
+    'FULL',
+    'OUTER',
+    'CROSS',
   ])
   // Positions where we definitely expect an identifier (column alias, etc.) — skip
-  const IDENTIFIER_EXPECTED_AFTER = new Set([
-    'AS', 'ON', 'BY', 'SET', '.', ',',
-  ])
+  const IDENTIFIER_EXPECTED_AFTER = new Set(['AS', 'ON', 'BY', 'SET', '.', ','])
 
   let depth = 0
 
   for (let i = 0; i < m.length; i++) {
     const tok = m[i]
 
-    if (tok.type === 'PUNCTUATION' && tok.value === '(') { depth++; continue }
-    if (tok.type === 'PUNCTUATION' && tok.value === ')') { depth = Math.max(0, depth - 1); continue }
+    if (tok.type === 'PUNCTUATION' && tok.value === '(') {
+      depth++
+      continue
+    }
+    if (tok.type === 'PUNCTUATION' && tok.value === ')') {
+      depth = Math.max(0, depth - 1)
+      continue
+    }
 
     // Only look at IDENTIFIER tokens (the tokeniser already classified real keywords)
     if (tok.type !== 'IDENTIFIER') continue
@@ -481,12 +769,22 @@ function validateMisspelledKeywords(
     if (nextMeaningful?.value === '.') continue
 
     // Skip if immediately after a keyword that expects a table/object name
-    if (prevMeaningful?.type === 'KEYWORD' && TABLE_EXPECTED_AFTER.has(prevMeaningful.value)) continue
+    if (
+      prevMeaningful?.type === 'KEYWORD' &&
+      TABLE_EXPECTED_AFTER.has(prevMeaningful.value)
+    )
+      continue
 
     // Skip if immediately after AS, ON, BY, SET, . — these are always identifiers
-    if (prevMeaningful && IDENTIFIER_EXPECTED_AFTER.has(
-      prevMeaningful.type === 'KEYWORD' ? prevMeaningful.value : prevMeaningful.value,
-    )) continue
+    if (
+      prevMeaningful &&
+      IDENTIFIER_EXPECTED_AFTER.has(
+        prevMeaningful.type === 'KEYWORD'
+          ? prevMeaningful.value
+          : prevMeaningful.value,
+      )
+    )
+      continue
 
     // Skip if followed by ( — this is a function call, probably intentional
     if (nextMeaningful?.value === '(') continue
@@ -513,7 +811,6 @@ function validateMisspelledKeywords(
   }
 }
 
-
 // ─── Per-statement validators ─────────────────────────────────────────────────
 
 type Marker = Monaco.editor.IMarkerData
@@ -530,14 +827,28 @@ function validateParentheses(
       stack.push(tok)
     } else if (tok.value === ')') {
       if (stack.length === 0) {
-        markers.push(makeMarker(tok, 'Unexpected closing parenthesis — no matching opening parenthesis.', mono.MarkerSeverity.Error, mono))
+        markers.push(
+          makeMarker(
+            tok,
+            'Unexpected closing parenthesis — no matching opening parenthesis.',
+            mono.MarkerSeverity.Error,
+            mono,
+          ),
+        )
       } else {
         stack.pop()
       }
     }
   }
   for (const unmatched of stack) {
-    markers.push(makeMarker(unmatched, 'Unclosed parenthesis — add a matching closing parenthesis.', mono.MarkerSeverity.Error, mono))
+    markers.push(
+      makeMarker(
+        unmatched,
+        'Unclosed parenthesis — add a matching closing parenthesis.',
+        mono.MarkerSeverity.Error,
+        mono,
+      ),
+    )
   }
 }
 
@@ -549,13 +860,41 @@ function validateUnclosedStrings(
   for (const tok of tokens) {
     if (tok.type === 'UNKNOWN') {
       if (tok.value.startsWith("'"))
-        markers.push(makeMarker(tok, 'Unclosed string literal — missing closing single quote.', mono.MarkerSeverity.Error, mono))
+        markers.push(
+          makeMarker(
+            tok,
+            'Unclosed string literal — missing closing single quote.',
+            mono.MarkerSeverity.Error,
+            mono,
+          ),
+        )
       else if (tok.value.startsWith('"'))
-        markers.push(makeMarker(tok, 'Unclosed quoted identifier — missing closing double quote.', mono.MarkerSeverity.Error, mono))
+        markers.push(
+          makeMarker(
+            tok,
+            'Unclosed quoted identifier — missing closing double quote.',
+            mono.MarkerSeverity.Error,
+            mono,
+          ),
+        )
       else if (tok.value.startsWith('`'))
-        markers.push(makeMarker(tok, 'Unclosed quoted identifier — missing closing backtick.', mono.MarkerSeverity.Error, mono))
+        markers.push(
+          makeMarker(
+            tok,
+            'Unclosed quoted identifier — missing closing backtick.',
+            mono.MarkerSeverity.Error,
+            mono,
+          ),
+        )
       else if (tok.value.startsWith('['))
-        markers.push(makeMarker(tok, 'Unclosed bracketed identifier — missing closing bracket `]`.', mono.MarkerSeverity.Error, mono))
+        markers.push(
+          makeMarker(
+            tok,
+            'Unclosed bracketed identifier — missing closing bracket `]`.',
+            mono.MarkerSeverity.Error,
+            mono,
+          ),
+        )
     }
   }
 }
@@ -563,13 +902,22 @@ function validateUnclosedStrings(
 /**
  * Collect top-level keyword occurrences (depth=0 only) for clause-order checks.
  */
-function collectTopLevelKeywords(tokens: Token[]): { kw: string; tok: Token }[] {
+function collectTopLevelKeywords(
+  tokens: Token[],
+): { kw: string; tok: Token }[] {
   const result: { kw: string; tok: Token }[] = []
   let depth = 0
   for (const tok of tokens) {
-    if (tok.type === 'PUNCTUATION' && tok.value === '(') { depth++; continue }
-    if (tok.type === 'PUNCTUATION' && tok.value === ')') { depth = Math.max(0, depth - 1); continue }
-    if (depth === 0 && tok.type === 'KEYWORD') result.push({ kw: tok.value, tok })
+    if (tok.type === 'PUNCTUATION' && tok.value === '(') {
+      depth++
+      continue
+    }
+    if (tok.type === 'PUNCTUATION' && tok.value === ')') {
+      depth = Math.max(0, depth - 1)
+      continue
+    }
+    if (depth === 0 && tok.type === 'KEYWORD')
+      result.push({ kw: tok.value, tok })
   }
   return result
 }
@@ -597,49 +945,98 @@ function validateClauseOrder(
 
   // ── SELECT-specific rules ─────────────────────────────────────────────────
   if (firstKw === 'SELECT') {
-    const iFrom   = kwIndex(topKws, 'FROM')
-    const iWhere  = kwIndex(topKws, 'WHERE')
-    const iGroup  = topKws.findIndex((x) => x.kw === 'GROUP')
+    const iFrom = kwIndex(topKws, 'FROM')
+    const iWhere = kwIndex(topKws, 'WHERE')
+    const iGroup = topKws.findIndex((x) => x.kw === 'GROUP')
     const iHaving = kwIndex(topKws, 'HAVING')
-    const iOrder  = topKws.findIndex((x) => x.kw === 'ORDER')
-    const iLimit  = kwIndex(topKws, 'LIMIT')
+    const iOrder = topKws.findIndex((x) => x.kw === 'ORDER')
+    const iLimit = kwIndex(topKws, 'LIMIT')
     const iOffset = kwIndex(topKws, 'OFFSET')
 
     // WHERE before FROM
     if (iWhere !== -1 && iFrom !== -1 && iWhere < iFrom) {
       console.log('WHERE before FROM', iWhere, iFrom, topKws)
-      markers.push(makeMarker(topKws[iWhere].tok, 'WHERE must come after FROM.', mono.MarkerSeverity.Error, mono))
+      markers.push(
+        makeMarker(
+          topKws[iWhere].tok,
+          'WHERE must come after FROM.',
+          mono.MarkerSeverity.Error,
+          mono,
+        ),
+      )
     }
 
     // HAVING before GROUP BY
     if (iHaving !== -1 && iGroup === -1) {
-      markers.push(makeMarker(topKws[iHaving].tok, 'HAVING requires a GROUP BY clause.', mono.MarkerSeverity.Error, mono))
+      markers.push(
+        makeMarker(
+          topKws[iHaving].tok,
+          'HAVING requires a GROUP BY clause.',
+          mono.MarkerSeverity.Error,
+          mono,
+        ),
+      )
     }
     if (iHaving !== -1 && iGroup !== -1 && iHaving < iGroup) {
-      markers.push(makeMarker(topKws[iHaving].tok, 'HAVING must come after GROUP BY.', mono.MarkerSeverity.Error, mono))
+      markers.push(
+        makeMarker(
+          topKws[iHaving].tok,
+          'HAVING must come after GROUP BY.',
+          mono.MarkerSeverity.Error,
+          mono,
+        ),
+      )
     }
 
     // ORDER BY before GROUP BY
     if (iOrder !== -1 && iGroup !== -1 && iOrder < iGroup) {
-      markers.push(makeMarker(topKws[iOrder].tok, 'ORDER BY must come after GROUP BY.', mono.MarkerSeverity.Error, mono))
+      markers.push(
+        makeMarker(
+          topKws[iOrder].tok,
+          'ORDER BY must come after GROUP BY.',
+          mono.MarkerSeverity.Error,
+          mono,
+        ),
+      )
     }
 
     // OFFSET without LIMIT
     if (iOffset !== -1 && iLimit === -1) {
-      markers.push(makeMarker(topKws[iOffset].tok, 'OFFSET requires a LIMIT clause.', mono.MarkerSeverity.Warning, mono))
+      markers.push(
+        makeMarker(
+          topKws[iOffset].tok,
+          'OFFSET requires a LIMIT clause.',
+          mono.MarkerSeverity.Warning,
+          mono,
+        ),
+      )
     }
   }
 
   // ── INSERT-specific ───────────────────────────────────────────────────────
   if (firstKw === 'INSERT') {
-    const hasInto  = topKws.some((x) => x.kw === 'INTO')
+    const hasInto = topKws.some((x) => x.kw === 'INTO')
     const hasValues = topKws.some((x) => x.kw === 'VALUES')
     const hasSelect = topKws.some((x) => x.kw === 'SELECT')
     if (!hasInto) {
-      markers.push(makeMarker(first, 'INSERT requires INTO.', mono.MarkerSeverity.Error, mono))
+      markers.push(
+        makeMarker(
+          first,
+          'INSERT requires INTO.',
+          mono.MarkerSeverity.Error,
+          mono,
+        ),
+      )
     }
     if (!hasValues && !hasSelect) {
-      markers.push(makeMarker(first, 'INSERT requires VALUES or a SELECT subquery.', mono.MarkerSeverity.Warning, mono))
+      markers.push(
+        makeMarker(
+          first,
+          'INSERT requires VALUES or a SELECT subquery.',
+          mono.MarkerSeverity.Warning,
+          mono,
+        ),
+      )
     }
   }
 
@@ -647,7 +1044,14 @@ function validateClauseOrder(
   if (firstKw === 'UPDATE') {
     const hasSet = topKws.some((x) => x.kw === 'SET')
     if (!hasSet) {
-      markers.push(makeMarker(first, 'UPDATE requires a SET clause.', mono.MarkerSeverity.Error, mono))
+      markers.push(
+        makeMarker(
+          first,
+          'UPDATE requires a SET clause.',
+          mono.MarkerSeverity.Error,
+          mono,
+        ),
+      )
     }
   }
 
@@ -655,7 +1059,14 @@ function validateClauseOrder(
   if (firstKw === 'DELETE') {
     const hasFrom = topKws.some((x) => x.kw === 'FROM')
     if (!hasFrom) {
-      markers.push(makeMarker(first, 'DELETE requires FROM.', mono.MarkerSeverity.Error, mono))
+      markers.push(
+        makeMarker(
+          first,
+          'DELETE requires FROM.',
+          mono.MarkerSeverity.Error,
+          mono,
+        ),
+      )
     }
   }
 }
@@ -665,7 +1076,14 @@ function validateDuplicateClauses(
   markers: Marker[],
   mono: typeof Monaco,
 ): void {
-  const UNIQUE_CLAUSES = ['SELECT', 'FROM', 'WHERE', 'HAVING', 'LIMIT', 'OFFSET']
+  const UNIQUE_CLAUSES = [
+    'SELECT',
+    'FROM',
+    'WHERE',
+    'HAVING',
+    'LIMIT',
+    'OFFSET',
+  ]
   const topKws = collectTopLevelKeywords(meaningful(tokens))
 
   for (const kw of UNIQUE_CLAUSES) {
@@ -673,7 +1091,14 @@ function validateDuplicateClauses(
     if (occurrences.length > 1) {
       // Mark everything from the second one onwards
       for (const extra of occurrences.slice(1)) {
-        markers.push(makeMarker(extra.tok, `Duplicate ${kw} clause — each clause may only appear once in a statement.`, mono.MarkerSeverity.Error, mono))
+        markers.push(
+          makeMarker(
+            extra.tok,
+            `Duplicate ${kw} clause — each clause may only appear once in a statement.`,
+            mono.MarkerSeverity.Error,
+            mono,
+          ),
+        )
       }
     }
   }
@@ -686,9 +1111,23 @@ function validateTrailingComma(
 ): void {
   const m = meaningful(tokens)
   const COMMA_ILLEGAL_AFTER = new Set([
-    'FROM', 'WHERE', 'GROUP', 'ORDER', 'HAVING', 'LIMIT', 'OFFSET',
-    'JOIN', 'LEFT', 'RIGHT', 'INNER', 'FULL', 'CROSS', 'OUTER',
-    'UNION', 'INTERSECT', 'EXCEPT',
+    'FROM',
+    'WHERE',
+    'GROUP',
+    'ORDER',
+    'HAVING',
+    'LIMIT',
+    'OFFSET',
+    'JOIN',
+    'LEFT',
+    'RIGHT',
+    'INNER',
+    'FULL',
+    'CROSS',
+    'OUTER',
+    'UNION',
+    'INTERSECT',
+    'EXCEPT',
   ])
 
   for (let i = 0; i < m.length - 1; i++) {
@@ -697,11 +1136,25 @@ function validateTrailingComma(
     if (tok.type === 'PUNCTUATION' && tok.value === ',') {
       // trailing comma before a clause keyword
       if (next.type === 'KEYWORD' && COMMA_ILLEGAL_AFTER.has(next.value)) {
-        markers.push(makeMarker(tok, `Trailing comma before ${next.value} — remove the comma.`, mono.MarkerSeverity.Error, mono))
+        markers.push(
+          makeMarker(
+            tok,
+            `Trailing comma before ${next.value} — remove the comma.`,
+            mono.MarkerSeverity.Error,
+            mono,
+          ),
+        )
       }
       // trailing comma before closing paren
       if (next.type === 'PUNCTUATION' && next.value === ')') {
-        markers.push(makeMarker(tok, 'Trailing comma before closing parenthesis — remove the comma.', mono.MarkerSeverity.Error, mono))
+        markers.push(
+          makeMarker(
+            tok,
+            'Trailing comma before closing parenthesis — remove the comma.',
+            mono.MarkerSeverity.Error,
+            mono,
+          ),
+        )
       }
     }
   }
@@ -722,7 +1175,14 @@ function validateLogicalOperatorAtStart(
   // More specifically: flag AND/OR at top-level depth when they are the very first
   // token of the statement (common paste mistake)
   if (['AND', 'OR'].includes(firstKw)) {
-    markers.push(makeMarker(m[0], `Statement starts with ${firstKw} — did you mean to add a WHERE clause first?`, mono.MarkerSeverity.Error, mono))
+    markers.push(
+      makeMarker(
+        m[0],
+        `Statement starts with ${firstKw} — did you mean to add a WHERE clause first?`,
+        mono.MarkerSeverity.Error,
+        mono,
+      ),
+    )
   }
 }
 
@@ -742,8 +1202,14 @@ function validateSelectColumns(
 
   for (let i = 0; i < m.length; i++) {
     const tok = m[i]
-    if (tok.type === 'PUNCTUATION' && tok.value === '(') { depth++; continue }
-    if (tok.type === 'PUNCTUATION' && tok.value === ')') { depth = Math.max(0, depth - 1); continue }
+    if (tok.type === 'PUNCTUATION' && tok.value === '(') {
+      depth++
+      continue
+    }
+    if (tok.type === 'PUNCTUATION' && tok.value === ')') {
+      depth = Math.max(0, depth - 1)
+      continue
+    }
     if (depth !== 0) continue
     if (tok.value === 'SELECT' && selectIdx === -1) selectIdx = i
     if (tok.value === 'FROM' && fromIdx === -1) fromIdx = i
@@ -752,11 +1218,21 @@ function validateSelectColumns(
   if (selectIdx === -1) return
 
   // Tokens between SELECT and FROM (or end of statement)
-  const columnTokens = m.slice(selectIdx + 1, fromIdx === -1 ? undefined : fromIdx)
+  const columnTokens = m.slice(
+    selectIdx + 1,
+    fromIdx === -1 ? undefined : fromIdx,
+  )
 
   // Check for SELECT with nothing between it and FROM
   if (columnTokens.length === 0 && fromIdx !== -1) {
-    markers.push(makeMarker(m[selectIdx], 'SELECT has no column list — add at least one column or *.', mono.MarkerSeverity.Error, mono))
+    markers.push(
+      makeMarker(
+        m[selectIdx],
+        'SELECT has no column list — add at least one column or *.',
+        mono.MarkerSeverity.Error,
+        mono,
+      ),
+    )
   }
 }
 
@@ -771,8 +1247,14 @@ function validateJoinOnClause(
   let depth = 0
   for (let i = 0; i < m.length; i++) {
     const tok = m[i]
-    if (tok.type === 'PUNCTUATION' && tok.value === '(') { depth++; continue }
-    if (tok.type === 'PUNCTUATION' && tok.value === ')') { depth = Math.max(0, depth - 1); continue }
+    if (tok.type === 'PUNCTUATION' && tok.value === '(') {
+      depth++
+      continue
+    }
+    if (tok.type === 'PUNCTUATION' && tok.value === ')') {
+      depth = Math.max(0, depth - 1)
+      continue
+    }
     if (depth !== 0) continue
 
     // Detect JOIN (possibly preceded by LEFT/RIGHT/INNER/FULL/OUTER)
@@ -780,7 +1262,13 @@ function validateJoinOnClause(
       // Look ahead: skip identifier(s) and find if ON appears before the next JOIN/WHERE/GROUP/etc
       let j = i + 1
       // skip table name
-      while (j < m.length && (m[j].type === 'IDENTIFIER' || m[j].type === 'STRING' || (m[j].type === 'PUNCTUATION' && m[j].value === '.'))) j++
+      while (
+        j < m.length &&
+        (m[j].type === 'IDENTIFIER' ||
+          m[j].type === 'STRING' ||
+          (m[j].type === 'PUNCTUATION' && m[j].value === '.'))
+      )
+        j++
       // skip optional alias
       if (j < m.length && m[j].type === 'IDENTIFIER') j++
 
@@ -791,22 +1279,49 @@ function validateJoinOnClause(
       // Check if this was a CROSS JOIN (prev keyword = CROSS)
       for (let k = i - 1; k >= 0; k--) {
         if (m[k].type === 'WHITESPACE') continue
-        if (m[k].value === 'CROSS') { foundCross = true }
+        if (m[k].value === 'CROSS') {
+          foundCross = true
+        }
         break
       }
 
       if (!foundCross) {
-        const CLAUSE_STOP = new Set(['WHERE', 'GROUP', 'ORDER', 'HAVING', 'LIMIT', 'UNION', 'INTERSECT', 'EXCEPT'])
+        const CLAUSE_STOP = new Set([
+          'WHERE',
+          'GROUP',
+          'ORDER',
+          'HAVING',
+          'LIMIT',
+          'UNION',
+          'INTERSECT',
+          'EXCEPT',
+        ])
         for (let k = j; k < m.length; k++) {
-          if (m[k].type === 'PUNCTUATION' && m[k].value === '(') { depth++; continue }
-          if (m[k].type === 'PUNCTUATION' && m[k].value === ')') { depth = Math.max(0, depth - 1); continue }
+          if (m[k].type === 'PUNCTUATION' && m[k].value === '(') {
+            depth++
+            continue
+          }
+          if (m[k].type === 'PUNCTUATION' && m[k].value === ')') {
+            depth = Math.max(0, depth - 1)
+            continue
+          }
           if (depth !== 0) continue
-          if (m[k].value === 'ON' || m[k].value === 'USING') { foundOn = true; break }
+          if (m[k].value === 'ON' || m[k].value === 'USING') {
+            foundOn = true
+            break
+          }
           if (m[k].value === 'JOIN') break // next join — stop
           if (CLAUSE_STOP.has(m[k].value)) break
         }
         if (!foundOn) {
-          markers.push(makeMarker(tok, 'JOIN is missing an ON (or USING) clause.', mono.MarkerSeverity.Warning, mono))
+          markers.push(
+            makeMarker(
+              tok,
+              'JOIN is missing an ON (or USING) clause.',
+              mono.MarkerSeverity.Warning,
+              mono,
+            ),
+          )
         }
       }
     }
@@ -841,7 +1356,6 @@ function validateUnknownTopLevelKeyword(
     )
   }
 }
-
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 

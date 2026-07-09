@@ -114,8 +114,12 @@ export function TableDesignerModal() {
               <AlertTriangle size={24} />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-900">Failed to load table schema</h3>
-              <p className="mt-1 max-w-md text-sm text-slate-500">{loadError}</p>
+              <h3 className="text-base font-semibold text-slate-900">
+                Failed to load table schema
+              </h3>
+              <p className="mt-1 max-w-md text-sm text-slate-500">
+                {loadError}
+              </p>
             </div>
             <button
               type="button"
@@ -146,10 +150,14 @@ export function TableDesignerModal() {
             </div>
             <div>
               <h2 className="text-base font-semibold text-slate-900">
-                {isCreating ? 'Create New Table' : `Edit Table: ${pendingModel.tableName}`}
+                {isCreating
+                  ? 'Create New Table'
+                  : `Edit Table: ${pendingModel.tableName}`}
               </h2>
               <p className="text-xs text-slate-400">
-                {isCreating ? 'Define a new table structure' : 'Modify existing table structure'}
+                {isCreating
+                  ? 'Define a new table structure'
+                  : 'Modify existing table structure'}
                 {isDirty && ' • Unsaved changes'}
               </p>
             </div>
@@ -228,7 +236,8 @@ export function TableDesignerModal() {
             <div className="flex items-center gap-2">
               <AlertTriangle size={13} className="shrink-0 text-red-500" />
               <p className="text-xs text-red-700">
-                {errors.length} validation error{errors.length !== 1 ? 's' : ''} found. Fix them before previewing or saving.
+                {errors.length} validation error{errors.length !== 1 ? 's' : ''}{' '}
+                found. Fix them before previewing or saving.
               </p>
             </div>
           </div>

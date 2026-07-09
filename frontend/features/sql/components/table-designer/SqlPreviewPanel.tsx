@@ -11,7 +11,10 @@ interface SqlPreviewPanelProps {
  * SQL Preview Panel — displays the ordered DDL statements with
  * copy-SQL functionality and destructive-statement highlighting.
  */
-export function SqlPreviewPanel({ ddlPlan, isGenerating }: SqlPreviewPanelProps) {
+export function SqlPreviewPanel({
+  ddlPlan,
+  isGenerating,
+}: SqlPreviewPanelProps) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = () => {
@@ -27,7 +30,9 @@ export function SqlPreviewPanel({ ddlPlan, isGenerating }: SqlPreviewPanelProps)
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-blue-500" />
-          <p className="mt-2 text-xs text-slate-500">Generating SQL preview...</p>
+          <p className="mt-2 text-xs text-slate-500">
+            Generating SQL preview...
+          </p>
         </div>
       </div>
     )
@@ -38,7 +43,9 @@ export function SqlPreviewPanel({ ddlPlan, isGenerating }: SqlPreviewPanelProps)
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-sm text-slate-500">No SQL to preview.</p>
-          <p className="text-xs text-slate-400">Generate a preview after making changes.</p>
+          <p className="text-xs text-slate-400">
+            Generate a preview after making changes.
+          </p>
         </div>
       </div>
     )
@@ -50,7 +57,8 @@ export function SqlPreviewPanel({ ddlPlan, isGenerating }: SqlPreviewPanelProps)
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-slate-800">
-            {ddlPlan.statements.length} statement{ddlPlan.statements.length !== 1 ? 's' : ''}
+            {ddlPlan.statements.length} statement
+            {ddlPlan.statements.length !== 1 ? 's' : ''}
           </span>
           {ddlPlan.isDestructive && (
             <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600">
@@ -63,7 +71,11 @@ export function SqlPreviewPanel({ ddlPlan, isGenerating }: SqlPreviewPanelProps)
           onClick={handleCopy}
           className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 transition-colors hover:bg-slate-50"
         >
-          {copied ? <Check size={12} className="text-green-600" /> : <Copy size={12} />}
+          {copied ? (
+            <Check size={12} className="text-green-600" />
+          ) : (
+            <Copy size={12} />
+          )}
           {copied ? 'Copied!' : 'Copy SQL'}
         </button>
       </div>

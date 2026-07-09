@@ -64,7 +64,9 @@ export function ConfirmDialog({
         className="min-w-[300px] max-w-sm rounded-xl bg-bg-base p-5 shadow-xl outline-none"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-2 text-sm font-semibold text-text-primary">{title}</h3>
+        <h3 className="mb-2 text-sm font-semibold text-text-primary">
+          {title}
+        </h3>
         <p className="mb-5 text-xs text-text-muted">{message}</p>
         <div className="flex justify-end gap-2">
           <button

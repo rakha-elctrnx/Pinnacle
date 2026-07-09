@@ -23,13 +23,19 @@ interface WorkspaceToolbarProps {
  * Displays action buttons (max 5) and optional left-side filter/search controls.
  * If no items are visible, the toolbar is not rendered.
  */
-export function WorkspaceToolbar({ items, leftContent }: WorkspaceToolbarProps) {
-  const visibleItems = items.filter((item) => item.visible !== false).slice(0, 5)
+export function WorkspaceToolbar({
+  items,
+  leftContent,
+}: WorkspaceToolbarProps) {
+  const visibleItems = items
+    .filter((item) => item.visible !== false)
+    .slice(0, 5)
 
   if (visibleItems.length === 0 && !leftContent) return null
 
   const variantStyles: Record<string, string> = {
-    primary: 'bg-primary-container text-on-primary-container hover:bg-primary-container/40 disabled:opacity-60',
+    primary:
+      'bg-primary-container text-on-primary-container hover:bg-primary-container/40 disabled:opacity-60',
     secondary:
       'border border-primary text-on-surface hover:bg-surface-container-low disabled:opacity-50',
     danger:
@@ -38,7 +44,9 @@ export function WorkspaceToolbar({ items, leftContent }: WorkspaceToolbarProps) 
 
   return (
     <div className="flex items-center justify-between gap-3 border-b border-outline-variant px-3 py-1.5 bg-surface-variant">
-      {leftContent && <div className="flex items-center gap-2 min-w-0">{leftContent}</div>}
+      {leftContent && (
+        <div className="flex items-center gap-2 min-w-0">{leftContent}</div>
+      )}
       {visibleItems.length > 0 && (
         <div className="flex items-center gap-2 ml-auto">
           {visibleItems.map((item) => {

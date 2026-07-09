@@ -1,6 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Trash2, Search, List, Network, Columns3Cog, CirclePlus } from 'lucide-react'
+import {
+  Trash2,
+  Search,
+  List,
+  Network,
+  Columns3Cog,
+  CirclePlus,
+} from 'lucide-react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { useDataExplorerContext } from '../../_shared/context/DataExplorerContext'
 import { CenteredLoadingState } from '../../_shared/components/ui/CenteredLoadingState'
@@ -8,7 +15,11 @@ import { ActionButton } from '../../_shared/components/ui/ActionButton'
 import { ERDiagramViewer } from '../components/shared/ERDiagramViewer'
 import { openDesignerWindow } from '../services/designerWindowService'
 import { executeSql } from '../clients/sql'
-import { getConnPayloadWithPassword, isSqlConnectionType, quoteIdentifier } from '../../_shared/utils'
+import {
+  getConnPayloadWithPassword,
+  isSqlConnectionType,
+  quoteIdentifier,
+} from '../../_shared/utils'
 import type { SqlTableListItem } from '../../_shared/types/shared'
 import type { SchemaColumn, SchemaForeignKey } from '../types/sql'
 
@@ -35,18 +46,28 @@ export function TablesPage() {
   const {
     selectedConnection,
     groupedConnections,
-    explorerData: { sqlTableList, sqlTableListLoading, schemaForeignKeys, schemaColumns, selectedDatabase, selectedSchema, fetchSqlTableList, fetchDatabaseDetails },
+    explorerData: {
+      sqlTableList,
+      sqlTableListLoading,
+      schemaForeignKeys,
+      schemaColumns,
+      selectedDatabase,
+      selectedSchema,
+      fetchSqlTableList,
+      fetchDatabaseDetails,
+    },
     queryExecution: { queryDatabase, querySchema },
     handleRequestDeleteTable,
     wrappedHandleTreeNodeClick,
   } = useDataExplorerContext()
 
-
   // ── State ──
   const [search, setSearch] = useState('')
   const [sortField, setSortField] = useState<SortField>('tableName')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
-  const [selectedTableName, setSelectedTableName] = useState<string | null>(null)
+  const [selectedTableName, setSelectedTableName] = useState<string | null>(
+    null,
+  )
   const [showEditForm, setShowEditForm] = useState(false)
   const [nextTableName, setNextTableName] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
@@ -58,10 +79,11 @@ export function TablesPage() {
     const normalizedSearch = search.trim().toLowerCase()
 
     const searched = normalizedSearch
-      ? sqlTableList.filter((row) =>
-          row.tableName.toLowerCase().includes(normalizedSearch) ||
-          row.owner.toLowerCase().includes(normalizedSearch) ||
-          row.tableType.toLowerCase().includes(normalizedSearch),
+      ? sqlTableList.filter(
+          (row) =>
+            row.tableName.toLowerCase().includes(normalizedSearch) ||
+            row.owner.toLowerCase().includes(normalizedSearch) ||
+            row.tableType.toLowerCase().includes(normalizedSearch),
         )
       : sqlTableList
 
@@ -86,18 +108,23 @@ export function TablesPage() {
     if (!selectedConnection || !isSqlConnectionType(selectedConnection.type)) {
       throw new Error('SQL connection is required')
     }
-    const databaseName = queryDatabase || selectedDatabase || selectedConnection.database
+    const databaseName =
+      queryDatabase || selectedDatabase || selectedConnection.database
     const schemaName =
       selectedConnection.type === 'postgresql'
         ? querySchema || selectedSchema || 'public'
-        : databaseName ?? ''
+        : (databaseName ?? '')
     if (!databaseName) throw new Error('Database context is missing')
     return { connection: selectedConnection, databaseName, schemaName }
   }
 
   const refreshTableList = async () => {
     const { connection, databaseName, schemaName } = getSqlContext()
-    await fetchSqlTableList(connection, databaseName, connection.type === 'postgresql' ? schemaName : undefined)
+    await fetchSqlTableList(
+      connection,
+      databaseName,
+      connection.type === 'postgresql' ? schemaName : undefined,
+    )
     await fetchDatabaseDetails(connection.id, connection, databaseName)
   }
 
@@ -113,7 +140,11 @@ export function TablesPage() {
 
   const sortIndicator = (field: SortField) => {
     if (sortField !== field) return null
-    return <span className="ml-1 text-text-muted">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+    return (
+      <span className="ml-1 text-text-muted">
+        {sortDirection === 'asc' ? '▲' : '▼'}
+      </span>
+    )
   }
 
   // ── Selection ──
@@ -131,9 +162,18 @@ export function TablesPage() {
   // ── Designer integration (separate window) ──
   const handleOpenDesignerForEdit = async (tableName: string) => {
     const { connection, databaseName, schemaName } = getSqlContext()
-    const payload = { ...(await getConnPayloadWithPassword(connection)), database: databaseName }
+    const payload = {
+      ...(await getConnPayloadWithPassword(connection)),
+      database: databaseName,
+    }
     await openDesignerWindow(
-      { mode: 'edit', schema: schemaName, database: databaseName, connectionPayload: payload, tableName },
+      {
+        mode: 'edit',
+        schema: schemaName,
+        database: databaseName,
+        connectionPayload: payload,
+        tableName,
+      },
       async () => {
         await refreshTableList()
       },
@@ -143,9 +183,17 @@ export function TablesPage() {
   const handleCreateInDesigner = async () => {
     const { connection, databaseName, schemaName } = getSqlContext()
     if (!databaseName) return
-    const payload = { ...(await getConnPayloadWithPassword(connection)), database: databaseName }
+    const payload = {
+      ...(await getConnPayloadWithPassword(connection)),
+      database: databaseName,
+    }
     await openDesignerWindow(
-      { mode: 'create', schema: schemaName, database: databaseName, connectionPayload: payload },
+      {
+        mode: 'create',
+        schema: schemaName,
+        database: databaseName,
+        connectionPayload: payload,
+      },
       async () => {
         await refreshTableList()
       },
@@ -165,7 +213,10 @@ export function TablesPage() {
     setActionError(null)
     try {
       const { connection, databaseName, schemaName } = getSqlContext()
-      const payload = { ...(await getConnPayloadWithPassword(connection)), database: databaseName }
+      const payload = {
+        ...(await getConnPayloadWithPassword(connection)),
+        database: databaseName,
+      }
       const sql =
         connection.type === 'postgresql'
           ? `ALTER TABLE ${quoteIdentifier(schemaName, '"')}.${quoteIdentifier(selectedTableName, '"')} RENAME TO ${quoteIdentifier(trimmedNext, '"')}`
@@ -190,15 +241,19 @@ export function TablesPage() {
   const handleRowDoubleClick = (tableName: string) => {
     navigate(`/sql/${connectionId}/tables/${encodeURIComponent(tableName)}`)
     const db = selectedDatabase || queryDatabase || selectedConnection?.database
-    const schema = selectedConnection?.type === 'postgresql' ? (selectedSchema || querySchema || 'public') : undefined
-    
+    const schema =
+      selectedConnection?.type === 'postgresql'
+        ? selectedSchema || querySchema || 'public'
+        : undefined
+
     // Find the group name for this connection
-    const groupName = selectedConnection && groupedConnections
-      ? Object.entries(groupedConnections).find(([, profiles]) => 
-          profiles.some(p => p.id === selectedConnection.id)
-        )?.[0]
-      : undefined
-    
+    const groupName =
+      selectedConnection && groupedConnections
+        ? Object.entries(groupedConnections).find(([, profiles]) =>
+            profiles.some((p) => p.id === selectedConnection.id),
+          )?.[0]
+        : undefined
+
     // Build full tree path: groupName/connectionName/db/schema/Tables/tableName
     const parts = []
     if (groupName && selectedConnection) {
@@ -208,12 +263,8 @@ export function TablesPage() {
     if (schema) parts.push(schema)
     parts.push('Tables', tableName)
     const tablePath = parts.join('/')
-    
-    wrappedHandleTreeNodeClick(
-      tableName,
-      db,
-      tablePath,
-    )
+
+    wrappedHandleTreeNodeClick(tableName, db, tablePath)
   }
 
   // ── Render ──
@@ -243,7 +294,8 @@ export function TablesPage() {
             variant="secondary"
             disabled={!selectedTableName}
             onClick={() => {
-              if (selectedTableName) void handleOpenDesignerForEdit(selectedTableName)
+              if (selectedTableName)
+                void handleOpenDesignerForEdit(selectedTableName)
             }}
           />
           <ActionButton
@@ -311,7 +363,9 @@ export function TablesPage() {
           className="flex items-center gap-2 border-b border-border-default bg-bg-subtle px-3 py-1.5"
           onClick={(e) => e.stopPropagation()}
         >
-          <span className="shrink-0 text-label text-text-secondary">Rename:</span>
+          <span className="shrink-0 text-label text-text-secondary">
+            Rename:
+          </span>
           <span className="shrink-0 rounded bg-bg-muted px-1.5 py-0.5 text-mono text-text-primary">
             {selectedTableName}
           </span>
@@ -367,7 +421,10 @@ export function TablesPage() {
 
       {/* ── Content ── */}
       {sqlTableListLoading && (
-        <CenteredLoadingState loading={sqlTableListLoading} label="Loading tables..." />
+        <CenteredLoadingState
+          loading={sqlTableListLoading}
+          label="Loading tables..."
+        />
       )}
 
       {!sqlTableListLoading && viewMode === 'er-diagram' && (
@@ -389,7 +446,10 @@ export function TablesPage() {
           className="scrollbar-thin flex-1 min-h-0 overflow-auto border border-border-default [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-bg-muted [&::-webkit-scrollbar-track]:bg-bg-subtle"
           onClick={(e) => e.stopPropagation()}
         >
-          <table className="w-full border-collapse text-xs" style={{ tableLayout: 'fixed' }}>
+          <table
+            className="w-full border-collapse text-xs"
+            style={{ tableLayout: 'fixed' }}
+          >
             <thead className="sticky top-0 z-10 bg-bg-subtle shadow-[0_1px_0_0_var(--color-border-default)]">
               <tr className="text-left text-text-secondary">
                 <th
@@ -431,7 +491,10 @@ export function TablesPage() {
             <tbody>
               {filteredRows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-2 py-8 text-center text-text-muted">
+                  <td
+                    colSpan={5}
+                    className="px-2 py-8 text-center text-text-muted"
+                  >
                     No tables found
                   </td>
                 </tr>
@@ -443,7 +506,9 @@ export function TablesPage() {
                     key={row.tableName}
                     className={[
                       'cursor-pointer text-text-primary even:bg-bg-subtle/50 hover:bg-primary-subtle/40',
-                      isSelected ? 'bg-primary-subtle/70! even:bg-primary-subtle/70!' : '',
+                      isSelected
+                        ? 'bg-primary-subtle/70! even:bg-primary-subtle/70!'
+                        : '',
                     ].join(' ')}
                     onClick={() => handleRowSelection(row.tableName)}
                     onDoubleClick={() => handleRowDoubleClick(row.tableName)}

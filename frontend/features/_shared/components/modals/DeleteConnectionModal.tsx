@@ -73,15 +73,14 @@ export function DeleteConnectionModal({
                   This action is permanent and cannot be undone.
                 </p>
                 <p className="mt-1 text-caption text-danger/70">
-                  The connection profile and all saved queries associated with it will be permanently removed.
+                  The connection profile and all saved queries associated with
+                  it will be permanently removed.
                 </p>
               </div>
 
               {/* Connection identity card */}
               <div className="rounded-lg border border-border-default bg-bg-subtle p-3">
-                <p className="mb-2 text-label">
-                  Connection to be deleted
-                </p>
+                <p className="mb-2 text-label">Connection to be deleted</p>
                 <div className="flex items-center gap-2 text-body">
                   <Plug size={13} className="shrink-0 text-text-muted" />
                   <span className="text-body-secondary">Name:</span>
@@ -110,7 +109,8 @@ export function DeleteConnectionModal({
               <div className="text-center">
                 <p className="text-subheading">Connection deleted</p>
                 <p className="mt-1 text-body-secondary">
-                  <span className="text-mono">{connectionName}</span> has been removed.
+                  <span className="text-mono">{connectionName}</span> has been
+                  removed.
                 </p>
               </div>
             </div>
@@ -123,7 +123,9 @@ export function DeleteConnectionModal({
               </span>
               <div className="text-center">
                 <p className="text-subheading">Failed to delete connection</p>
-                <p className="mt-1 text-caption text-text-muted">{errorMessage}</p>
+                <p className="mt-1 text-caption text-text-muted">
+                  {errorMessage}
+                </p>
               </div>
             </div>
           )}

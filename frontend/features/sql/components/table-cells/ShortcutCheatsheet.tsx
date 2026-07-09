@@ -64,7 +64,9 @@ export function ShortcutCheatsheet({ open, onClose }: ShortcutCheatsheetProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-text-primary">Keyboard shortcuts</h3>
+          <h3 className="text-sm font-semibold text-text-primary">
+            Keyboard shortcuts
+          </h3>
           <ActionButton
             icon={<X size={14} />}
             aria-label="Close shortcuts"
@@ -74,7 +76,10 @@ export function ShortcutCheatsheet({ open, onClose }: ShortcutCheatsheetProps) {
         </div>
         <ul className="space-y-1.5">
           {SHORTCUTS.map((row) => (
-            <li key={row.keys} className="flex items-center justify-between gap-4 text-xs">
+            <li
+              key={row.keys}
+              className="flex items-center justify-between gap-4 text-xs"
+            >
               <span className="text-text-muted">{row.action}</span>
               <kbd className="rounded border border-border-default bg-bg-muted px-1.5 py-0.5 font-mono text-micro text-text-secondary">
                 {row.keys}

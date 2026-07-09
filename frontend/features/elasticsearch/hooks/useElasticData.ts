@@ -19,14 +19,16 @@ export function useElasticData(connection: ConnectionPayload | null) {
     Promise.all([
       elasticGetClusterHealth(connection),
       elasticListIndices(connection),
-    ]).then(([healthData, indicesData]) => {
-      setHealth(healthData)
-      setIndices(indicesData ?? [])
-      setLoading(false)
-    }).catch((err) => {
-      setError(err instanceof Error ? err.message : String(err))
-      setLoading(false)
-    })
+    ])
+      .then(([healthData, indicesData]) => {
+        setHealth(healthData)
+        setIndices(indicesData ?? [])
+        setLoading(false)
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : String(err))
+        setLoading(false)
+      })
   }, [connection])
 
   return { health, indices, loading, error, refresh, setIndices }

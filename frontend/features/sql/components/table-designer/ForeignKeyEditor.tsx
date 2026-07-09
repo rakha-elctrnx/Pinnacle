@@ -22,7 +22,9 @@ export function ForeignKeyEditor() {
 
   if (!pendingModel) return null
 
-  const availableColumns = pendingModel.columns.filter((c) => c.name.trim() !== '')
+  const availableColumns = pendingModel.columns.filter(
+    (c) => c.name.trim() !== '',
+  )
 
   return (
     <section className="flex flex-col gap-3">
@@ -45,8 +47,12 @@ export function ForeignKeyEditor() {
       {pendingModel.foreignKeys.length === 0 ? (
         <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
           <Link size={28} className="mx-auto text-slate-300" />
-          <p className="mt-2 text-sm text-slate-500">No foreign keys defined.</p>
-          <p className="text-xs text-slate-400">Click "Add Foreign Key" to create one.</p>
+          <p className="mt-2 text-sm text-slate-500">
+            No foreign keys defined.
+          </p>
+          <p className="text-xs text-slate-400">
+            Click "Add Foreign Key" to create one.
+          </p>
         </div>
       ) : (
         pendingModel.foreignKeys.map((fk) => (
@@ -120,7 +126,9 @@ export function ForeignKeyEditor() {
                   type="text"
                   value={fk.referencedSchema}
                   onChange={(e) =>
-                    updateForeignKey(fk.id, { referencedSchema: e.target.value })
+                    updateForeignKey(fk.id, {
+                      referencedSchema: e.target.value,
+                    })
                   }
                   placeholder="public"
                   className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
@@ -162,7 +170,9 @@ export function ForeignKeyEditor() {
                     <button
                       type="button"
                       onClick={() => {
-                        const next = fk.referencedColumns.filter((_, idx) => idx !== i)
+                        const next = fk.referencedColumns.filter(
+                          (_, idx) => idx !== i,
+                        )
                         updateForeignKey(fk.id, { referencedColumns: next })
                       }}
                       className="rounded p-0.5 text-red-400 hover:bg-red-50"

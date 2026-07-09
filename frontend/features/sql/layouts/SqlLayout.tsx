@@ -5,7 +5,10 @@ import { useDataExplorerContext } from '../../_shared/context/DataExplorerContex
 import { DeleteTableModal } from '../components/shared/DeleteTableModal'
 import { ExportDataModal } from '../components/export/ExportDataModal'
 import { DataOperationModal } from '../components/export/DataOperationModal'
-import { isSqlConnectionType, getConnPayloadWithPassword } from '../../_shared/utils'
+import {
+  isSqlConnectionType,
+  getConnPayloadWithPassword,
+} from '../../_shared/utils'
 
 /**
  * SqlLayout — per-connection context provider for the SQL feature.
@@ -55,7 +58,12 @@ export function SqlLayout() {
     if (connection && selectedConnection?.id !== connectionId) {
       handleConnectionSelectionChange(connectionId!)
     }
-  }, [connectionId, connection, selectedConnection, handleConnectionSelectionChange])
+  }, [
+    connectionId,
+    connection,
+    selectedConnection,
+    handleConnectionSelectionChange,
+  ])
 
   // ── Sync tab store with URL ──
   // Activate the tab whose route matches the current URL.
@@ -74,7 +82,10 @@ export function SqlLayout() {
   }, [location.pathname, connectionId])
 
   const currentDatabase =
-    queryExecution.queryDatabase || explorerData.selectedDatabase || connection?.database || ''
+    queryExecution.queryDatabase ||
+    explorerData.selectedDatabase ||
+    connection?.database ||
+    ''
   const currentSchema =
     queryExecution.querySchema || explorerData.selectedSchema || 'public'
 
@@ -83,7 +94,9 @@ export function SqlLayout() {
   if (!connectionId) {
     return (
       <div className="flex h-full w-full items-center justify-center text-text-muted">
-        <p className="text-body-secondary text-text-secondary">Select a connection from the sidebar to get started.</p>
+        <p className="text-body-secondary text-text-secondary">
+          Select a connection from the sidebar to get started.
+        </p>
       </div>
     )
   }
@@ -108,8 +121,13 @@ export function SqlLayout() {
             if (!isSqlConnectionType(connection.type)) return
             const databaseName = currentDatabase
             const schemaName =
-              connection.type === 'postgresql' ? currentSchema : databaseName ?? ''
-            const basePayload = await getConnPayloadWithPassword(connection, schemaName)
+              connection.type === 'postgresql'
+                ? currentSchema
+                : (databaseName ?? '')
+            const basePayload = await getConnPayloadWithPassword(
+              connection,
+              schemaName,
+            )
             const payload = { ...basePayload, database: databaseName }
             const { executeSql } = await import('../clients/sql')
             const sql =
@@ -129,8 +147,13 @@ export function SqlLayout() {
             if (!isSqlConnectionType(connection.type)) return
             const databaseName = currentDatabase
             const schemaName =
-              connection.type === 'postgresql' ? currentSchema : databaseName ?? ''
-            const basePayload = await getConnPayloadWithPassword(connection, schemaName)
+              connection.type === 'postgresql'
+                ? currentSchema
+                : (databaseName ?? '')
+            const basePayload = await getConnPayloadWithPassword(
+              connection,
+              schemaName,
+            )
             const payload = { ...basePayload, database: databaseName }
             const { executeSql } = await import('../clients/sql')
             const qualifiedName =

@@ -11,9 +11,12 @@ import type { ElasticLayoutOutletContext } from '../types/pages'
  * existing `ClusterDashboard` component.
  */
 export function ClusterPage() {
-  const { payload, health, indices } = useOutletContext<ElasticLayoutOutletContext>()
+  const { payload, health, indices } =
+    useOutletContext<ElasticLayoutOutletContext>()
 
   if (!payload) return null
 
-  return <ClusterDashboard connection={payload} health={health} indices={indices} />
+  return (
+    <ClusterDashboard connection={payload} health={health} indices={indices} />
+  )
 }

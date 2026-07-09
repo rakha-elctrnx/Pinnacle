@@ -3,12 +3,30 @@ import { listen, emit } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import type { ConnectionProfile, ConnectionType } from '../../types/domain'
 import type { ConnectionStep, TestConnectionResult } from '../../types/shared'
-import { databaseTypeOptions, defaultPortByType, defaultInitialDatabaseByType } from '../../constants'
+import {
+  databaseTypeOptions,
+  defaultPortByType,
+  defaultInitialDatabaseByType,
+} from '../../constants'
 import { elasticTestConnection } from '../../../elasticsearch/clients/elasticsearch'
 import { testConnection } from '../../../sql/clients/sql'
 import { redisTestConnection } from '../../../redis/clients/redis'
-import { isSqlConnectionType, isElasticsearchType, isRedisConnectionType } from '../../utils'
-import { AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Plug, Plus, X } from 'lucide-react'
+import {
+  isSqlConnectionType,
+  isElasticsearchType,
+  isRedisConnectionType,
+} from '../../utils'
+import {
+  AlertTriangle,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Plug,
+  Plus,
+  X,
+} from 'lucide-react'
 import { CustomTitlebar } from '../../components/layout/CustomTitlebar'
 
 /**
@@ -43,16 +61,20 @@ interface FieldError {
 }
 
 export function NewConnectionPage() {
-  const [openPayload, setOpenPayload] = useState<NewConnectionOpenPayload | null>(null)
+  const [openPayload, setOpenPayload] =
+    useState<NewConnectionOpenPayload | null>(null)
   const [isReady, setIsReady] = useState(false)
 
   // Sync theme from the main window (this webview may not share localStorage).
   useEffect(() => {
     let mounted = true
-    const unlistenPromise = listen<{ theme: 'light' | 'dark' }>('theme-changed', (event) => {
-      if (!mounted) return
-      document.documentElement.setAttribute('data-theme', event.payload.theme)
-    })
+    const unlistenPromise = listen<{ theme: 'light' | 'dark' }>(
+      'theme-changed',
+      (event) => {
+        if (!mounted) return
+        document.documentElement.setAttribute('data-theme', event.payload.theme)
+      },
+    )
     return () => {
       mounted = false
       unlistenPromise.then((fn) => fn())
@@ -64,13 +86,19 @@ export function NewConnectionPage() {
     let mounted = true
 
     const setup = async () => {
-      const unlisten = await listen<NewConnectionOpenPayload>('new-connection-open', (event) => {
-        if (!mounted) return
-        // Apply theme from main window immediately
-        document.documentElement.setAttribute('data-theme', event.payload.theme)
-        setOpenPayload(event.payload)
-        setIsReady(true)
-      })
+      const unlisten = await listen<NewConnectionOpenPayload>(
+        'new-connection-open',
+        (event) => {
+          if (!mounted) return
+          // Apply theme from main window immediately
+          document.documentElement.setAttribute(
+            'data-theme',
+            event.payload.theme,
+          )
+          setOpenPayload(event.payload)
+          setIsReady(true)
+        },
+      )
 
       // Tell the main window we are ready to receive the payload.
       await emit('new-connection-ready', {})
@@ -177,10 +205,14 @@ function ConnectionFormEmbedded({
   onClose,
 }: ConnectionFormProps) {
   const [step, setStep] = useState<ConnectionStep>(1)
-  const [newType, setNewType] = useState<ConnectionType>(existingProfile?.type ?? 'postgresql')
+  const [newType, setNewType] = useState<ConnectionType>(
+    existingProfile?.type ?? 'postgresql',
+  )
   const [newName, setNewName] = useState(existingProfile?.name ?? '')
   const [newHost, setNewHost] = useState(existingProfile?.host ?? 'localhost')
-  const [newPort, setNewPort] = useState(String(existingProfile?.port ?? defaultPortByType.postgresql))
+  const [newPort, setNewPort] = useState(
+    String(existingProfile?.port ?? defaultPortByType.postgresql),
+  )
   const [newInitialDatabase, setNewInitialDatabase] = useState(
     existingProfile?.database ?? defaultInitialDatabaseByType.postgresql,
   )
@@ -192,7 +224,8 @@ function ConnectionFormEmbedded({
   const groupInputRef = useRef<HTMLInputElement>(null)
   const groupDropdownRef = useRef<HTMLDivElement>(null)
   const [isTestingConnection, setIsTestingConnection] = useState(false)
-  const [testConnectionResult, setTestConnectionResult] = useState<TestConnectionResult | null>(null)
+  const [testConnectionResult, setTestConnectionResult] =
+    useState<TestConnectionResult | null>(null)
   const [skipTest, setSkipTest] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<FieldError>({})
 
@@ -220,7 +253,8 @@ function ConnectionFormEmbedded({
     return unique.filter((g) => g.toLowerCase().includes(query))
   }, [existingGroups, newGroup])
 
-  const isNewGroupValue = newGroup.trim() !== '' && !existingGroups.includes(newGroup.trim())
+  const isNewGroupValue =
+    newGroup.trim() !== '' && !existingGroups.includes(newGroup.trim())
 
   // Inline validation for step 2 fields
   const validateFields = useMemo(() => {
@@ -303,10 +337,13 @@ function ConnectionFormEmbedded({
       const payload = {
         type: newType,
         host: newHost.trim(),
-        port: Number.isFinite(parsedPort) ? parsedPort : defaultPortByType[newType],
+        port: Number.isFinite(parsedPort)
+          ? parsedPort
+          : defaultPortByType[newType],
         username: newUser.trim(),
         password: newPassword,
-        database: newInitialDatabase.trim() || defaultInitialDatabaseByType[newType],
+        database:
+          newInitialDatabase.trim() || defaultInitialDatabaseByType[newType],
         ssl: newType === 'redis' && Number(newPort) === 6380 ? true : newSsl,
       }
       if (isEsType) {
@@ -330,13 +367,15 @@ function ConnectionFormEmbedded({
       } else {
         setTestConnectionResult({
           kind: 'success',
-          message: 'Connector validated locally (deep test not available for this type).',
+          message:
+            'Connector validated locally (deep test not available for this type).',
         })
       }
     } catch (error) {
       setTestConnectionResult({
         kind: 'error',
-        message: error instanceof Error ? error.message : 'Failed to test connection.',
+        message:
+          error instanceof Error ? error.message : 'Failed to test connection.',
       })
     } finally {
       setIsTestingConnection(false)
@@ -347,7 +386,10 @@ function ConnectionFormEmbedded({
     const errors = validateFields
     setFieldErrors(errors)
     if (!newName.trim()) {
-      setFieldErrors((prev) => ({ ...prev, name: 'Connection name is required' }))
+      setFieldErrors((prev) => ({
+        ...prev,
+        name: 'Connection name is required',
+      }))
       return
     }
     if (Object.keys(errors).length > 0) return
@@ -363,9 +405,12 @@ function ConnectionFormEmbedded({
         name: newName.trim(),
         type: newType,
         host: newHost.trim(),
-        port: Number.isFinite(parsedPort) ? parsedPort : defaultPortByType[newType],
+        port: Number.isFinite(parsedPort)
+          ? parsedPort
+          : defaultPortByType[newType],
         username: newUser.trim(),
-        database: newInitialDatabase.trim() || defaultInitialDatabaseByType[newType],
+        database:
+          newInitialDatabase.trim() || defaultInitialDatabaseByType[newType],
         ssl: newType === 'redis' && Number(newPort) === 6380 ? true : newSsl,
         passwordRef: `keyring://${savedId}`,
         tags: group ? [group] : ['Ungrouped'],
@@ -387,313 +432,375 @@ function ConnectionFormEmbedded({
 
   return (
     <section className="flex flex-col w-full h-full overflow-hidden bg-bg-base">
-
-      <CustomTitlebar title={editingId ? 'Edit Connection' : 'New Connection'} />
+      <CustomTitlebar
+        title={editingId ? 'Edit Connection' : 'New Connection'}
+      />
 
       {/* Scrollable content area — flex-1 pushes footer to bottom */}
       <div className="flex-1 overflow-y-auto">
-
-      {/* Step Indicator */}
-      <div className="flex items-center gap-3 px-6 pt-5">
-        <div className={`flex items-center gap-2 text-label transition-colors ${step >= 1 ? 'text-primary' : 'text-text-muted'}`}>
-          <span className={`flex h-6 w-6 items-center justify-center rounded-full text-caption transition-all ${step === 1 ? 'bg-primary text-text-inverse shadow-sm' : step > 1 ? 'bg-primary-subtle text-primary' : 'bg-bg-muted text-text-muted'}`}>
-            1
-          </span>
-          Database Type
+        {/* Step Indicator */}
+        <div className="flex items-center gap-3 px-6 pt-5">
+          <div
+            className={`flex items-center gap-2 text-label transition-colors ${step >= 1 ? 'text-primary' : 'text-text-muted'}`}
+          >
+            <span
+              className={`flex h-6 w-6 items-center justify-center rounded-full text-caption transition-all ${step === 1 ? 'bg-primary text-text-inverse shadow-sm' : step > 1 ? 'bg-primary-subtle text-primary' : 'bg-bg-muted text-text-muted'}`}
+            >
+              1
+            </span>
+            Database Type
+          </div>
+          <div
+            className={`h-px flex-1 rounded-full transition-colors ${step >= 2 ? 'bg-primary/30' : 'bg-border-default'}`}
+          />
+          <div
+            className={`flex items-center gap-2 text-label transition-colors ${step >= 2 ? 'text-primary' : 'text-text-muted'}`}
+          >
+            <span
+              className={`flex h-6 w-6 items-center justify-center rounded-full text-caption transition-all ${step === 2 ? 'bg-primary text-text-inverse shadow-sm' : 'bg-bg-muted text-text-muted'}`}
+            >
+              2
+            </span>
+            Connection Details
+          </div>
         </div>
-        <div className={`h-px flex-1 rounded-full transition-colors ${step >= 2 ? 'bg-primary/30' : 'bg-border-default'}`} />
-        <div className={`flex items-center gap-2 text-label transition-colors ${step >= 2 ? 'text-primary' : 'text-text-muted'}`}>
-          <span className={`flex h-6 w-6 items-center justify-center rounded-full text-caption transition-all ${step === 2 ? 'bg-primary text-text-inverse shadow-sm' : 'bg-bg-muted text-text-muted'}`}>
-            2
-          </span>
-          Connection Details
-        </div>
-      </div>
 
-      {/* Step 1: Select Database Type */}
-      {step === 1 && (
-        <div className="px-6 py-5">
-          <p className="mb-4 text-body text-text-muted">Choose the database you want to connect to.</p>
-          <div className="grid grid-cols-2 gap-3">
-            {databaseTypeOptions.map((option) => {
-              const active = option.value === newType
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => handleChangeType(option.value)}
-                  className={[
-                    'group relative flex items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-all',
-                    active
-                      ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20'
-                      : 'border-border-default bg-bg-subtle/50 hover:border-border-strong hover:bg-bg-hover hover:shadow-xs',
-                  ].join(' ')}
-                >
-                  <span
-                    className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg transition ${active ? 'bg-primary/10' : 'bg-bg-muted/70 group-hover:bg-bg-subtle'
-                      }`}
+        {/* Step 1: Select Database Type */}
+        {step === 1 && (
+          <div className="px-6 py-5">
+            <p className="mb-4 text-body text-text-muted">
+              Choose the database you want to connect to.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {databaseTypeOptions.map((option) => {
+                const active = option.value === newType
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handleChangeType(option.value)}
+                    className={[
+                      'group relative flex items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-all',
+                      active
+                        ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20'
+                        : 'border-border-default bg-bg-subtle/50 hover:border-border-strong hover:bg-bg-hover hover:shadow-xs',
+                    ].join(' ')}
                   >
-                    {(() => { const Icon = option.Icon; return <Icon size={28} />; })()}
-                  </span>
-                  <span className="min-w-0">
-                    <span className={`block text-subheading ${active ? 'text-primary' : 'text-text-primary'}`}>
-                      {option.label}
+                    <span
+                      className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg transition ${
+                        active
+                          ? 'bg-primary/10'
+                          : 'bg-bg-muted/70 group-hover:bg-bg-subtle'
+                      }`}
+                    >
+                      {(() => {
+                        const Icon = option.Icon
+                        return <Icon size={28} />
+                      })()}
                     </span>
-                    <span className={`block text-caption ${active ? 'text-primary/70' : 'text-text-muted'}`}>{option.hint}</span>
-                  </span>
-                  {active && (
-                    <span className="ml-auto grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary">
-                      <Check size={12} className="text-text-inverse" strokeWidth={3} />
+                    <span className="min-w-0">
+                      <span
+                        className={`block text-subheading ${active ? 'text-primary' : 'text-text-primary'}`}
+                      >
+                        {option.label}
+                      </span>
+                      <span
+                        className={`block text-caption ${active ? 'text-primary/70' : 'text-text-muted'}`}
+                      >
+                        {option.hint}
+                      </span>
                     </span>
+                    {active && (
+                      <span className="ml-auto grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary">
+                        <Check
+                          size={12}
+                          className="text-text-inverse"
+                          strokeWidth={3}
+                        />
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Connection Details + Test */}
+        {step === 2 && (
+          <div className="px-6 py-5">
+            {/* Selected type badge */}
+            <div className="mb-5 flex items-center gap-2.5">
+              <span className="grid h-8 w-8 place-items-center rounded-lg border border-border-default bg-bg-subtle">
+                {selectedOption &&
+                  (() => {
+                    const Icon = selectedOption.Icon
+                    return <Icon size={18} />
+                  })()}
+              </span>
+              <span className="text-subheading text-text-primary">
+                {selectedOption?.label}
+              </span>
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="ml-auto text-label text-primary hover:text-primary-hover cursor-pointer hover:underline"
+              >
+                Change
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Name */}
+              <div>
+                <input
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Connection name"
+                  className={
+                    fieldErrors.name ? inputErrorClasses : inputClasses
+                  }
+                />
+                {fieldErrors.name && (
+                  <p className="mt-1 flex items-center gap-1 text-caption text-danger">
+                    <AlertTriangle size={11} />
+                    {fieldErrors.name}
+                  </p>
+                )}
+              </div>
+
+              {/* Host & Port */}
+              <div className="flex gap-2">
+                <div className="w-2/3">
+                  <input
+                    value={newHost}
+                    onChange={(e) => setNewHost(e.target.value)}
+                    placeholder="Host"
+                    className={
+                      fieldErrors.host
+                        ? `${inputErrorClasses} w-full`
+                        : `${inputClasses} w-full`
+                    }
+                  />
+                  {fieldErrors.host && (
+                    <p className="mt-1 flex items-center gap-1 text-caption text-danger">
+                      <AlertTriangle size={11} />
+                      {fieldErrors.host}
+                    </p>
+                  )}
+                </div>
+                <div className="w-1/3">
+                  <input
+                    value={newPort}
+                    onChange={(e) => setNewPort(e.target.value)}
+                    placeholder="Port"
+                    className={
+                      fieldErrors.port
+                        ? `${inputErrorClasses} w-full`
+                        : `${inputClasses} w-full`
+                    }
+                  />
+                  {fieldErrors.port && (
+                    <p className="mt-1 flex items-center gap-1 text-caption text-danger">
+                      <AlertTriangle size={11} />
+                      {fieldErrors.port}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Database */}
+              <div>
+                <input
+                  value={newInitialDatabase}
+                  onChange={(e) => setNewInitialDatabase(e.target.value)}
+                  placeholder="Database"
+                  className={
+                    fieldErrors.database ? inputErrorClasses : inputClasses
+                  }
+                />
+                {fieldErrors.database && (
+                  <p className="mt-1 flex items-center gap-1 text-caption text-danger">
+                    <AlertTriangle size={11} />
+                    {fieldErrors.database}
+                  </p>
+                )}
+              </div>
+
+              {/* Username & Password */}
+              <div className="flex gap-2">
+                <input
+                  value={newUser}
+                  onChange={(e) => setNewUser(e.target.value)}
+                  placeholder="Username"
+                  className={`${inputClasses} flex-1`}
+                />
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Password"
+                  className={`${inputClasses} flex-1`}
+                />
+              </div>
+
+              {/* Group & SSL */}
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1" ref={groupDropdownRef}>
+                  <input
+                    ref={groupInputRef}
+                    value={newGroup}
+                    onChange={(e) => {
+                      setNewGroup(e.target.value)
+                      setGroupDropdownOpen(true)
+                    }}
+                    onFocus={() => setGroupDropdownOpen(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        setGroupDropdownOpen(false)
+                      }
+                    }}
+                    placeholder="Group"
+                    className={`${inputClasses} pr-8`}
+                    autoComplete="off"
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => {
+                      setGroupDropdownOpen((prev) => !prev)
+                      if (!groupDropdownOpen) groupInputRef.current?.focus()
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary"
+                  >
+                    <ChevronDown
+                      size={14}
+                      className={`transition-transform ${groupDropdownOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                  {groupDropdownOpen &&
+                    (filteredGroups.length > 0 || isNewGroupValue) && (
+                      <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-40 overflow-auto rounded-lg border border-border-default bg-bg-base py-1 shadow-lg backdrop-blur-sm">
+                        {filteredGroups.map((group) => (
+                          <button
+                            key={group}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault()
+                              setNewGroup(group)
+                              setGroupDropdownOpen(false)
+                            }}
+                            className={`flex w-full items-center gap-2 px-3 py-2 text-left text-body transition hover:bg-primary/10 ${
+                              group === newGroup
+                                ? 'bg-primary/10 text-primary'
+                                : 'text-text-primary'
+                            }`}
+                          >
+                            <span className="truncate">{group}</span>
+                            {group === newGroup && (
+                              <Check
+                                size={12}
+                                className="ml-auto shrink-0 text-primary"
+                              />
+                            )}
+                          </button>
+                        ))}
+                        {isNewGroupValue && (
+                          <button
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault()
+                              setGroupDropdownOpen(false)
+                            }}
+                            className="flex w-full items-center gap-2 border-t border-border-default px-3 py-2 text-left text-body text-primary transition hover:bg-primary/10"
+                          >
+                            <Plus size={12} className="shrink-0" />
+                            <span className="truncate">
+                              Create "{newGroup.trim()}"
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                </div>
+                <label className="flex shrink-0 cursor-pointer items-center gap-2 text-body text-text-secondary">
+                  <span
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                      newSsl ? 'bg-primary' : 'bg-border-strong'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={newSsl}
+                      onChange={(e) => setNewSsl(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <span
+                      className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${
+                        newSsl ? 'translate-x-4.5' : 'translate-x-1'
+                      }`}
+                    />
+                  </span>
+                  SSL
+                </label>
+              </div>
+
+              {/* Test Connection */}
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={handleTestConnection}
+                  disabled={isTestingConnection}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border-default bg-primary px-4 py-2.5 text-subheading text-text-inverse transition hover:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isTestingConnection ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" />
+                      Testing connection…
+                    </>
+                  ) : (
+                    <>
+                      <Plug size={15} />
+                      Test Connection
+                    </>
                   )}
                 </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
 
-      {/* Step 2: Connection Details + Test */}
-      {step === 2 && (
-        <div className="px-6 py-5">
-          {/* Selected type badge */}
-          <div className="mb-5 flex items-center gap-2.5">
-            <span className="grid h-8 w-8 place-items-center rounded-lg border border-border-default bg-bg-subtle">
-              {selectedOption && (() => { const Icon = selectedOption.Icon; return <Icon size={18} />; })()}
-            </span>
-            <span className="text-subheading text-text-primary">{selectedOption?.label}</span>
-            <button
-              type="button"
-              onClick={() => setStep(1)}
-              className="ml-auto text-label text-primary hover:text-primary-hover cursor-pointer hover:underline"
-            >
-              Change
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {/* Name */}
-            <div>
-              <input
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="Connection name"
-                className={fieldErrors.name ? inputErrorClasses : inputClasses}
-              />
-              {fieldErrors.name && (
-                <p className="mt-1 flex items-center gap-1 text-caption text-danger">
-                  <AlertTriangle size={11} />
-                  {fieldErrors.name}
-                </p>
-              )}
-            </div>
-
-            {/* Host & Port */}
-            <div className="flex gap-2">
-              <div className="w-2/3">
-                <input
-                  value={newHost}
-                  onChange={(e) => setNewHost(e.target.value)}
-                  placeholder="Host"
-                  className={fieldErrors.host ? `${inputErrorClasses} w-full` : `${inputClasses} w-full`}
-                />
-                {fieldErrors.host && (
-                  <p className="mt-1 flex items-center gap-1 text-caption text-danger">
-                    <AlertTriangle size={11} />
-                    {fieldErrors.host}
-                  </p>
-                )}
-              </div>
-              <div className="w-1/3">
-                <input
-                  value={newPort}
-                  onChange={(e) => setNewPort(e.target.value)}
-                  placeholder="Port"
-                  className={fieldErrors.port ? `${inputErrorClasses} w-full` : `${inputClasses} w-full`}
-                />
-                {fieldErrors.port && (
-                  <p className="mt-1 flex items-center gap-1 text-caption text-danger">
-                    <AlertTriangle size={11} />
-                    {fieldErrors.port}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Database */}
-            <div>
-              <input
-                value={newInitialDatabase}
-                onChange={(e) => setNewInitialDatabase(e.target.value)}
-                placeholder="Database"
-                className={fieldErrors.database ? inputErrorClasses : inputClasses}
-              />
-              {fieldErrors.database && (
-                <p className="mt-1 flex items-center gap-1 text-caption text-danger">
-                  <AlertTriangle size={11} />
-                  {fieldErrors.database}
-                </p>
-              )}
-            </div>
-
-            {/* Username & Password */}
-            <div className="flex gap-2">
-              <input
-                value={newUser}
-                onChange={(e) => setNewUser(e.target.value)}
-                placeholder="Username"
-                className={`${inputClasses} flex-1`}
-              />
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Password"
-                className={`${inputClasses} flex-1`}
-              />
-            </div>
-
-            {/* Group & SSL */}
-            <div className="flex items-center gap-3">
-              <div className="relative flex-1" ref={groupDropdownRef}>
-                <input
-                  ref={groupInputRef}
-                  value={newGroup}
-                  onChange={(e) => {
-                    setNewGroup(e.target.value)
-                    setGroupDropdownOpen(true)
-                  }}
-                  onFocus={() => setGroupDropdownOpen(true)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') {
-                      setGroupDropdownOpen(false)
-                    }
-                  }}
-                  placeholder="Group"
-                  className={`${inputClasses} pr-8`}
-                  autoComplete="off"
-                />
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => {
-                    setGroupDropdownOpen((prev) => !prev)
-                    if (!groupDropdownOpen) groupInputRef.current?.focus()
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary"
-                >
-                  <ChevronDown size={14} className={`transition-transform ${groupDropdownOpen ? 'rotate-180' : ''}`} />
-                </button>
-                {groupDropdownOpen && (filteredGroups.length > 0 || isNewGroupValue) && (
-                  <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-40 overflow-auto rounded-lg border border-border-default bg-bg-base py-1 shadow-lg backdrop-blur-sm">
-                    {filteredGroups.map((group) => (
-                      <button
-                        key={group}
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault()
-                          setNewGroup(group)
-                          setGroupDropdownOpen(false)
-                        }}
-                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-body transition hover:bg-primary/10 ${group === newGroup ? 'bg-primary/10 text-primary' : 'text-text-primary'
-                          }`}
-                      >
-                        <span className="truncate">{group}</span>
-                        {group === newGroup && (
-                          <Check size={12} className="ml-auto shrink-0 text-primary" />
-                        )}
-                      </button>
-                    ))}
-                    {isNewGroupValue && (
-                      <button
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault()
-                          setGroupDropdownOpen(false)
-                        }}
-                        className="flex w-full items-center gap-2 border-t border-border-default px-3 py-2 text-left text-body text-primary transition hover:bg-primary/10"
-                      >
-                        <Plus size={12} className="shrink-0" />
-                        <span className="truncate">Create "{newGroup.trim()}"</span>
-                      </button>
+                {testConnectionResult && (
+                  <div
+                    className={`mt-2.5 flex items-start gap-2.5 rounded-lg border px-3.5 py-3 text-body ${
+                      testConnectionResult.kind === 'success'
+                        ? 'border-success/30 bg-success/10 text-success-text'
+                        : 'border-danger/30 bg-danger-subtle text-danger'
+                    }`}
+                  >
+                    {testConnectionResult.kind === 'success' ? (
+                      <Check size={15} className="mt-0.5 shrink-0" />
+                    ) : (
+                      <X size={15} className="mt-0.5 shrink-0" />
                     )}
+                    <span className="leading-snug">
+                      {testConnectionResult.message}
+                    </span>
                   </div>
                 )}
               </div>
-              <label className="flex shrink-0 cursor-pointer items-center gap-2 text-body text-text-secondary">
-                <span
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${newSsl ? 'bg-primary' : 'bg-border-strong'
-                    }`}
-                >
+
+              {/* Skip test override for new SQL/ES connections */}
+              {needsTestGate && !isTestPassed && (
+                <label className="flex items-center gap-2 text-label text-text-muted select-none cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={newSsl}
-                    onChange={(e) => setNewSsl(e.target.checked)}
-                    className="sr-only"
+                    checked={skipTest}
+                    onChange={(e) => setSkipTest(e.target.checked)}
+                    className="accent-primary"
                   />
-                  <span
-                    className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${newSsl ? 'translate-x-4.5' : 'translate-x-1'
-                      }`}
-                  />
-                </span>
-                SSL
-              </label>
-            </div>
-
-            {/* Test Connection */}
-            <div className="pt-1">
-              <button
-                type="button"
-                onClick={handleTestConnection}
-                disabled={isTestingConnection}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border-default bg-primary px-4 py-2.5 text-subheading text-text-inverse transition hover:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isTestingConnection ? (
-                  <>
-                    <Loader2 size={15} className="animate-spin" />
-                    Testing connection…
-                  </>
-                ) : (
-                  <>
-                    <Plug size={15} />
-                    Test Connection
-                  </>
-                )}
-              </button>
-
-              {testConnectionResult && (
-                <div
-                  className={`mt-2.5 flex items-start gap-2.5 rounded-lg border px-3.5 py-3 text-body ${testConnectionResult.kind === 'success'
-                    ? 'border-success/30 bg-success/10 text-success-text'
-                    : 'border-danger/30 bg-danger-subtle text-danger'
-                    }`}
-                >
-                  {testConnectionResult.kind === 'success' ? (
-                    <Check size={15} className="mt-0.5 shrink-0" />
-                  ) : (
-                    <X size={15} className="mt-0.5 shrink-0" />
-                  )}
-                  <span className="leading-snug">{testConnectionResult.message}</span>
-                </div>
+                  Skip test and save anyway (not recommended)
+                </label>
               )}
             </div>
-
-            {/* Skip test override for new SQL/ES connections */}
-            {needsTestGate && !isTestPassed && (
-              <label className="flex items-center gap-2 text-label text-text-muted select-none cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={skipTest}
-                  onChange={(e) => setSkipTest(e.target.checked)}
-                  className="accent-primary"
-                />
-                Skip test and save anyway (not recommended)
-              </label>
-            )}
           </div>
-        </div>
-      )}
-
+        )}
       </div>
 
       {/* Footer */}

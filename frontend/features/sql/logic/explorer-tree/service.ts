@@ -55,13 +55,28 @@ export function buildTreeNodes(
           label: schema.name,
           children: [
             ...(schema.tables.length > 0
-              ? [{ label: 'Tables', children: schema.tables.map((t) => ({ label: t })) }]
+              ? [
+                  {
+                    label: 'Tables',
+                    children: schema.tables.map((t) => ({ label: t })),
+                  },
+                ]
               : []),
             ...(schema.views.length > 0
-              ? [{ label: 'Views', children: schema.views.map((v) => ({ label: v })) }]
+              ? [
+                  {
+                    label: 'Views',
+                    children: schema.views.map((v) => ({ label: v })),
+                  },
+                ]
               : []),
             ...(schema.functions.length > 0
-              ? [{ label: 'Functions', children: schema.functions.map((f) => ({ label: f })) }]
+              ? [
+                  {
+                    label: 'Functions',
+                    children: schema.functions.map((f) => ({ label: f })),
+                  },
+                ]
               : []),
             { label: 'Queries', children: [] },
           ],
@@ -75,7 +90,12 @@ export function buildTreeNodes(
         label: db.name,
         children: [
           ...(allTables.length > 0
-            ? [{ label: 'Tables', children: allTables.map((t) => ({ label: t })) }]
+            ? [
+                {
+                  label: 'Tables',
+                  children: allTables.map((t) => ({ label: t })),
+                },
+              ]
             : []),
           { label: 'Views', children: [] },
           { label: 'Functions', children: [] },

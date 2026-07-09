@@ -3,7 +3,9 @@ import type { SqlConnectionType } from './types/shared'
 import type { ConnectionProfile } from './types/domain'
 
 // UTILS CONNECTION TYPE
-export function isSqlConnectionType(type: ConnectionType): type is SqlConnectionType {
+export function isSqlConnectionType(
+  type: ConnectionType,
+): type is SqlConnectionType {
   return type === 'postgresql' || type === 'mysql'
 }
 
@@ -15,7 +17,11 @@ export function isRedisConnectionType(type: ConnectionType): boolean {
   return type === 'redis'
 }
 
-export function downloadTextFile(name: string, content: string, mimeType: string) {
+export function downloadTextFile(
+  name: string,
+  content: string,
+  mimeType: string,
+) {
   const blob = new Blob([content], { type: mimeType })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -29,7 +35,9 @@ export function createCsv(columns: string[], rows: Record<string, string>[]) {
   const escaped = (value: string) => `"${value.replaceAll('"', '""')}"`
   const header = columns.map(escaped).join(',')
   const body = rows
-    .map((row) => columns.map((column) => escaped(String(row[column] ?? ''))).join(','))
+    .map((row) =>
+      columns.map((column) => escaped(String(row[column] ?? ''))).join(','),
+    )
     .join('\n')
   return `${header}\n${body}`
 }
@@ -51,11 +59,17 @@ export function getConnPayload(conn: ConnectionProfile, schema?: string) {
 
 // Get connection payload WITH password fetched from keyring
 // Use this when you need to actually execute queries against a connection
-export async function getConnPayloadWithPassword(conn: ConnectionProfile, schema?: string) {
+export async function getConnPayloadWithPassword(
+  conn: ConnectionProfile,
+  schema?: string,
+) {
   const { getConnectionPassword } = await import('./services/tauriClient')
   const password = conn.passwordRef
     ? await getConnectionPassword(conn.id).catch((err) => {
-        console.warn(`[keyring] Failed to retrieve password for connection ${conn.id}:`, err)
+        console.warn(
+          `[keyring] Failed to retrieve password for connection ${conn.id}:`,
+          err,
+        )
         return ''
       })
     : ''
@@ -115,6 +129,9 @@ export function getConnectionRoutePrefix(type: ConnectionType): string {
  *
  * @example getConnectionDefaultRoute('postgresql', 'abc-123') → '/sql/abc-123'
  */
-export function getConnectionDefaultRoute(type: ConnectionType, connectionId: string): string {
+export function getConnectionDefaultRoute(
+  type: ConnectionType,
+  connectionId: string,
+): string {
   return `${getConnectionRoutePrefix(type)}/${connectionId}`
 }

@@ -37,7 +37,6 @@ import {
   sqlExecuteDdl,
 } from '../clients/sql'
 
-
 import { validateSchemaModel } from '../logic/table-designer/validation'
 import { computeSchemaDiff } from '../logic/table-designer/diff'
 import type { ConnectionPayload } from '../../_shared/services/tauriClient'
@@ -70,9 +69,19 @@ interface DesignerState {
   onAfterSave: ((tableName: string) => void | Promise<void>) | null
 
   // Actions
-  openForCreate: (schema: string, database: string, connectionPayload?: ConnectionPayload, onAfterSave?: (tableName: string) => void | Promise<void>) => void
+  openForCreate: (
+    schema: string,
+    database: string,
+    connectionPayload?: ConnectionPayload,
+    onAfterSave?: (tableName: string) => void | Promise<void>,
+  ) => void
   openForEdit: (model: TableSchemaModel, database: string) => void
-  loadAndOpenForEdit: (payload: ConnectionPayload, tableName: string, database: string, schema: string) => Promise<void>
+  loadAndOpenForEdit: (
+    payload: ConnectionPayload,
+    tableName: string,
+    database: string,
+    schema: string,
+  ) => Promise<void>
   close: () => void
   setActiveTab: (tab: DesignerTab) => void
   updateTableName: (name: string) => void
@@ -94,10 +103,7 @@ interface DesignerState {
 
   // Foreign key operations
   addForeignKey: () => void
-  updateForeignKey: (
-    id: string,
-    changes: Partial<ForeignKeyDefinition>,
-  ) => void
+  updateForeignKey: (id: string, changes: Partial<ForeignKeyDefinition>) => void
   removeForeignKey: (id: string) => void
 
   // Index operations
@@ -141,7 +147,12 @@ export const useDesignerStore = create<DesignerState>()((set, get) => ({
 
   // ── Lifecycle ──────────────────────────────────────────────────
 
-  openForCreate: (schema: string, database: string, connectionPayload?: ConnectionPayload, onAfterSave?: (tableName: string) => void | Promise<void>) => {
+  openForCreate: (
+    schema: string,
+    database: string,
+    connectionPayload?: ConnectionPayload,
+    onAfterSave?: (tableName: string) => void | Promise<void>,
+  ) => {
     set({
       isOpen: true,
       isCreating: true,
@@ -237,7 +248,11 @@ export const useDesignerStore = create<DesignerState>()((set, get) => ({
   updateTableName: (name: string) => {
     const { pendingModel } = get()
     if (!pendingModel) return
-    set({ pendingModel: { ...pendingModel, tableName: name }, isDirty: true, errors: [] })
+    set({
+      pendingModel: { ...pendingModel, tableName: name },
+      isDirty: true,
+      errors: [],
+    })
   },
 
   // ── Columns ────────────────────────────────────────────────────
@@ -383,10 +398,7 @@ export const useDesignerStore = create<DesignerState>()((set, get) => ({
     })
   },
 
-  updateForeignKey: (
-    id: string,
-    changes: Partial<ForeignKeyDefinition>,
-  ) => {
+  updateForeignKey: (id: string, changes: Partial<ForeignKeyDefinition>) => {
     const { pendingModel } = get()
     if (!pendingModel) return
 
@@ -479,7 +491,11 @@ export const useDesignerStore = create<DesignerState>()((set, get) => ({
       const payload = state.connectionPayload
       if (payload) {
         const request = toDdlRequest(state.originalModel, state.pendingModel)
-        const result = await sqlGenerateDdl(payload, request.current, request.pending)
+        const result = await sqlGenerateDdl(
+          payload,
+          request.current,
+          request.pending,
+        )
         set({ ddlPlan: result })
       } else {
         // Fallback: generate diff-based preview when no connection payload is available
@@ -565,13 +581,15 @@ export const useDesignerStore = create<DesignerState>()((set, get) => ({
         executionResult: {
           success: false,
           executedCount: 0,
-          statements: [{
-            order: 0,
-            sql: '',
-            success: false,
-            error: message,
-            elapsedMs: 0,
-          }],
+          statements: [
+            {
+              order: 0,
+              sql: '',
+              success: false,
+              error: message,
+              elapsedMs: 0,
+            },
+          ],
         },
       })
     } finally {
@@ -606,9 +624,7 @@ export const useDesignerStore = create<DesignerState>()((set, get) => ({
  * When creating a new table (no original), every column and constraint
  * is an "add" change.
  */
-function computeNewTableDiff(
-  model: TableSchemaModel,
-): SchemaDiffSummary {
+function computeNewTableDiff(model: TableSchemaModel): SchemaDiffSummary {
   const changes = []
 
   for (const col of model.columns) {

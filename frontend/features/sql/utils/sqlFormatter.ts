@@ -1,17 +1,63 @@
 const MAJOR_KEYWORDS = [
-  'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'ORDER BY', 'GROUP BY',
-  'HAVING', 'LIMIT', 'OFFSET', 'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN',
-  'FULL JOIN', 'CROSS JOIN', 'LEFT OUTER JOIN', 'RIGHT OUTER JOIN',
-  'FULL OUTER JOIN', 'JOIN', 'ON', 'SET', 'VALUES', 'INTO',
-  'INSERT INTO', 'UPDATE', 'DELETE FROM', 'CREATE TABLE', 'ALTER TABLE',
-  'DROP TABLE', 'CREATE INDEX', 'DROP INDEX', 'UNION ALL', 'UNION',
-  'INTERSECT', 'EXCEPT', 'WITH', 'AS', 'CASE', 'WHEN', 'THEN', 'ELSE',
-  'END', 'RETURNING', 'WINDOW', 'PARTITION BY', 'OVER',
+  'SELECT',
+  'FROM',
+  'WHERE',
+  'AND',
+  'OR',
+  'ORDER BY',
+  'GROUP BY',
+  'HAVING',
+  'LIMIT',
+  'OFFSET',
+  'INNER JOIN',
+  'LEFT JOIN',
+  'RIGHT JOIN',
+  'FULL JOIN',
+  'CROSS JOIN',
+  'LEFT OUTER JOIN',
+  'RIGHT OUTER JOIN',
+  'FULL OUTER JOIN',
+  'JOIN',
+  'ON',
+  'SET',
+  'VALUES',
+  'INTO',
+  'INSERT INTO',
+  'UPDATE',
+  'DELETE FROM',
+  'CREATE TABLE',
+  'ALTER TABLE',
+  'DROP TABLE',
+  'CREATE INDEX',
+  'DROP INDEX',
+  'UNION ALL',
+  'UNION',
+  'INTERSECT',
+  'EXCEPT',
+  'WITH',
+  'AS',
+  'CASE',
+  'WHEN',
+  'THEN',
+  'ELSE',
+  'END',
+  'RETURNING',
+  'WINDOW',
+  'PARTITION BY',
+  'OVER',
 ]
 
 const INDENT_AFTER = new Set([
-  'SELECT', 'FROM', 'WHERE', 'SET', 'VALUES', 'INTO',
-  'ORDER BY', 'GROUP BY', 'HAVING', 'CASE',
+  'SELECT',
+  'FROM',
+  'WHERE',
+  'SET',
+  'VALUES',
+  'INTO',
+  'ORDER BY',
+  'GROUP BY',
+  'HAVING',
+  'CASE',
 ])
 
 const DEDENT_BEFORE = new Set(['END'])
@@ -47,10 +93,16 @@ function tokenize(sql: string): string[] {
       let j = i + 1
       while (j < sql.length) {
         if (sql[j] === quote) {
-          if (sql[j + 1] === quote) { j += 2; continue }
+          if (sql[j + 1] === quote) {
+            j += 2
+            continue
+          }
           break
         }
-        if (sql[j] === '\\') { j += 2; continue }
+        if (sql[j] === '\\') {
+          j += 2
+          continue
+        }
         j++
       }
       tokens.push(sql.slice(i, j + 1))
@@ -65,7 +117,12 @@ function tokenize(sql: string): string[] {
     }
 
     let j = i
-    while (j < sql.length && !/[\s(),;]/.test(sql[j]) && !(sql[j] === '-' && sql[j + 1] === '-') && !(sql[j] === '/' && sql[j + 1] === '*')) {
+    while (
+      j < sql.length &&
+      !/[\s(),;]/.test(sql[j]) &&
+      !(sql[j] === '-' && sql[j + 1] === '-') &&
+      !(sql[j] === '/' && sql[j + 1] === '*')
+    ) {
       j++
     }
     tokens.push(sql.slice(i, j))
@@ -82,7 +139,10 @@ function matchCompoundKeyword(tokens: string[], idx: number): string | null {
     if (parts.length === 1) continue
     let match = true
     for (let p = 1; p < parts.length; p++) {
-      if (idx + p >= tokens.length || tokens[idx + p].toUpperCase() !== parts[p]) {
+      if (
+        idx + p >= tokens.length ||
+        tokens[idx + p].toUpperCase() !== parts[p]
+      ) {
         match = false
         break
       }
@@ -164,9 +224,7 @@ export function beautifySql(sql: string): string {
       }
       push()
       if (compound) {
-        currentLine = compound.split(' ').length > 1
-          ? compound
-          : upper
+        currentLine = compound.split(' ').length > 1 ? compound : upper
         i += compound.split(' ').length
       } else {
         currentLine = upper
@@ -212,7 +270,13 @@ export function minifySql(sql: string): string {
 
     if (parts.length > 0) {
       const last = parts[parts.length - 1]
-      if (last !== '(' && token !== ')' && token !== ',' && token !== ';' && last !== ',') {
+      if (
+        last !== '(' &&
+        token !== ')' &&
+        token !== ',' &&
+        token !== ';' &&
+        last !== ','
+      ) {
         parts.push(' ')
       }
     }

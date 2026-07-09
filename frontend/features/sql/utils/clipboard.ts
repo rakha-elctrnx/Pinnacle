@@ -21,7 +21,12 @@ interface ColumnInfo {
 /** Escape a CSV field (quote if contains comma, quote, or newline) */
 function escapeCSV(value: unknown): string {
   const str = value === null || value === undefined ? '' : String(value)
-  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+  if (
+    str.includes(',') ||
+    str.includes('"') ||
+    str.includes('\n') ||
+    str.includes('\r')
+  ) {
     return `"${str.replace(/"/g, '""')}"`
   }
   return str
@@ -52,13 +57,17 @@ export function formatTSV(
   columns: string[],
 ): string {
   return rows
-    .map((row) => columns.map((col) => {
-      const val = row[col]
-      if (val === null || val === undefined) return ''
-      const str = String(val)
-      // Escape tabs and newlines inside values
-      return str.replace(/\t/g, ' ').replace(/\n/g, ' ').replace(/\r/g, '')
-    }).join('\t'))
+    .map((row) =>
+      columns
+        .map((col) => {
+          const val = row[col]
+          if (val === null || val === undefined) return ''
+          const str = String(val)
+          // Escape tabs and newlines inside values
+          return str.replace(/\t/g, ' ').replace(/\n/g, ' ').replace(/\r/g, '')
+        })
+        .join('\t'),
+    )
     .join('\n')
 }
 
@@ -141,7 +150,8 @@ export function generateUpdateSQL(
   columnInfo: ColumnInfo[],
 ): string {
   const pkColumn = findPrimaryKey(columnInfo)
-  if (!pkColumn) return '-- No primary key found — cannot generate UPDATE statements'
+  if (!pkColumn)
+    return '-- No primary key found — cannot generate UPDATE statements'
 
   return rows
     .map((row) => {
@@ -164,7 +174,8 @@ export function generateDeleteSQL(
   tableName: string,
 ): string {
   const pkColumn = findPrimaryKey(columns)
-  if (!pkColumn) return '-- No primary key found — cannot generate DELETE statements'
+  if (!pkColumn)
+    return '-- No primary key found — cannot generate DELETE statements'
 
   return rows
     .map((row) => {

@@ -53,11 +53,14 @@ export async function openNewConnectionWindow(
   }
 
   // Set up listeners before showing the window
-  const unlistenSave = await listen<NewConnectionSavePayload>('new-connection-save', (event) => {
-    const { profile, password } = event.payload
-    onSave(profile, password)
-    // Window hides itself after emitting new-connection-save
-  })
+  const unlistenSave = await listen<NewConnectionSavePayload>(
+    'new-connection-save',
+    (event) => {
+      const { profile, password } = event.payload
+      onSave(profile, password)
+      // Window hides itself after emitting new-connection-save
+    },
+  )
 
   const unlistenClose = await listen<unknown>('new-connection-close', () => {
     onClose?.()

@@ -27,7 +27,9 @@ export function CustomTitlebar({ title }: CustomTitlebarProps) {
     const win = getCurrentWindow()
     const onFocus = win.onFocusChanged((e) => setIsFocused(e.payload))
     win.isFocused().then(setIsFocused)
-    return () => { onFocus.then((u) => u()) }
+    return () => {
+      onFocus.then((u) => u())
+    }
   }, [])
 
   return (

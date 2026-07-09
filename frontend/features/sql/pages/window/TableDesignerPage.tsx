@@ -49,10 +49,13 @@ export function TableDesignerPage() {
   // ── Theme sync ──────────────────────────────────────────────
   useEffect(() => {
     let mounted = true
-    const unlistenPromise = listen<{ theme: 'light' | 'dark' }>('theme-changed', (event) => {
-      if (!mounted) return
-      document.documentElement.setAttribute('data-theme', event.payload.theme)
-    })
+    const unlistenPromise = listen<{ theme: 'light' | 'dark' }>(
+      'theme-changed',
+      (event) => {
+        if (!mounted) return
+        document.documentElement.setAttribute('data-theme', event.payload.theme)
+      },
+    )
     return () => {
       mounted = false
       unlistenPromise.then((fn) => fn())
@@ -67,24 +70,39 @@ export function TableDesignerPage() {
 
     const setup = async () => {
       const win = getCurrentWindow()
-      
+
       // Listen for open event from main window
-      const unlistenOpenFn = await listen<TableDesignerOpenPayload>('table-designer-open', (event) => {
-        if (!mounted) return
-        const { mode, schema, database, connectionPayload, tableName, theme } = event.payload
+      const unlistenOpenFn = await listen<TableDesignerOpenPayload>(
+        'table-designer-open',
+        (event) => {
+          if (!mounted) return
+          const {
+            mode,
+            schema,
+            database,
+            connectionPayload,
+            tableName,
+            theme,
+          } = event.payload
 
-        // Apply theme from main window
-        document.documentElement.setAttribute('data-theme', theme)
+          // Apply theme from main window
+          document.documentElement.setAttribute('data-theme', theme)
 
-        const store = useDesignerStore.getState()
-        if (mode === 'create') {
-          store.openForCreate(schema, database, connectionPayload)
-        } else if (mode === 'edit' && tableName) {
-          store.loadAndOpenForEdit(connectionPayload, tableName, database, schema)
-        }
+          const store = useDesignerStore.getState()
+          if (mode === 'create') {
+            store.openForCreate(schema, database, connectionPayload)
+          } else if (mode === 'edit' && tableName) {
+            store.loadAndOpenForEdit(
+              connectionPayload,
+              tableName,
+              database,
+              schema,
+            )
+          }
 
-        setIsReady(true)
-      })
+          setIsReady(true)
+        },
+      )
 
       // Emit ready signal when window gains focus (handles reopen after hide)
       const unlistenFocusFn = await win.onFocusChanged((event) => {
@@ -118,10 +136,16 @@ export function TableDesignerPage() {
         setShowCloseConfirm(true)
       } else {
         await emitTo('main', 'table-designer-close', {})
-        try { await win.hide() } catch { /* ok */ }
+        try {
+          await win.hide()
+        } catch {
+          /* ok */
+        }
       }
     })
-    return () => { unlistenPromise.then((u) => u()) }
+    return () => {
+      unlistenPromise.then((u) => u())
+    }
   }, [])
 
   const handleClose = useCallback(async () => {
@@ -130,7 +154,11 @@ export function TableDesignerPage() {
       setShowCloseConfirm(true)
     } else {
       await emitTo('main', 'table-designer-close', {})
-      try { await getCurrentWindow().hide() } catch { /* ok */ }
+      try {
+        await getCurrentWindow().hide()
+      } catch {
+        /* ok */
+      }
       setIsReady(false)
     }
   }, [])
@@ -138,7 +166,11 @@ export function TableDesignerPage() {
   const handleDiscard = useCallback(async () => {
     setShowCloseConfirm(false)
     await emitTo('main', 'table-designer-close', {})
-    try { await getCurrentWindow().hide() } catch { /* ok */ }
+    try {
+      await getCurrentWindow().hide()
+    } catch {
+      /* ok */
+    }
     setIsReady(false)
   }, [])
 
@@ -215,8 +247,12 @@ export function TableDesignerPage() {
               <AlertTriangle size={24} />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-text-primary">Failed to load table schema</h3>
-              <p className="mt-1 max-w-md text-sm text-text-muted">{loadError}</p>
+              <h3 className="text-base font-semibold text-text-primary">
+                Failed to load table schema
+              </h3>
+              <p className="mt-1 max-w-md text-sm text-text-muted">
+                {loadError}
+              </p>
             </div>
             <button
               type="button"
@@ -245,8 +281,9 @@ export function TableDesignerPage() {
   }
   return (
     <div className="h-screen w-screen flex flex-col bg-bg-base text-text-primary">
-      <CustomTitlebar title={isCreating ? 'New Table' : `Edit: ${pendingModel.tableName}`} />
-
+      <CustomTitlebar
+        title={isCreating ? 'New Table' : `Edit: ${pendingModel.tableName}`}
+      />
 
       {/* ── Tab Bar ─────────────────────────────────────────── */}
       <div className="flex items-center gap-1 border-b border-border-default bg-bg-subtle/50 px-5">
@@ -309,7 +346,8 @@ export function TableDesignerPage() {
           <div className="flex items-center gap-2">
             <AlertTriangle size={13} className="shrink-0 text-red-500" />
             <p className="text-xs text-red-700">
-              {errors.length} validation error{errors.length !== 1 ? 's' : ''} found. Fix them before previewing or saving.
+              {errors.length} validation error{errors.length !== 1 ? 's' : ''}{' '}
+              found. Fix them before previewing or saving.
             </p>
           </div>
         </div>
@@ -390,9 +428,18 @@ export function TableDesignerPage() {
 
 // ── Structure Panel ────────────────────────────────────────────────
 
-type StructureSection = 'columns' | 'primary-key' | 'unique' | 'foreign-key' | 'indexes'
+type StructureSection =
+  | 'columns'
+  | 'primary-key'
+  | 'unique'
+  | 'foreign-key'
+  | 'indexes'
 
-const STRUCTURE_SECTIONS: { id: StructureSection; label: string; icon: typeof Columns3 }[] = [
+const STRUCTURE_SECTIONS: {
+  id: StructureSection
+  label: string
+  icon: typeof Columns3
+}[] = [
   { id: 'columns', label: 'Columns', icon: Columns3 },
   { id: 'primary-key', label: 'Primary Key', icon: KeyRound },
   { id: 'unique', label: 'Unique', icon: Shield },
@@ -401,7 +448,8 @@ const STRUCTURE_SECTIONS: { id: StructureSection; label: string; icon: typeof Co
 ]
 
 function StructurePanel() {
-  const [activeSection, setActiveSection] = useState<StructureSection>('columns')
+  const [activeSection, setActiveSection] =
+    useState<StructureSection>('columns')
 
   return (
     <div className="flex h-full">

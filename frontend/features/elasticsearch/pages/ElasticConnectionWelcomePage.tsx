@@ -15,7 +15,10 @@ export function ElasticConnectionWelcomePage() {
       <div className="flex flex-col items-center gap-6 text-center max-w-md px-6">
         {/* Icon */}
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-bg-muted/40">
-          <Database className="h-10 w-10 text-text-secondary" strokeWidth={1.5} />
+          <Database
+            className="h-10 w-10 text-text-secondary"
+            strokeWidth={1.5}
+          />
         </div>
 
         {/* Heading */}
@@ -25,9 +28,9 @@ export function ElasticConnectionWelcomePage() {
 
         {/* Description */}
         <p className="text-body-secondary text-text-secondary leading-relaxed">
-          You're connected to the Elasticsearch cluster. Use the navigation
-          tabs above to explore cluster health, manage indices, browse
-          documents, run queries, or inspect mappings.
+          You're connected to the Elasticsearch cluster. Use the navigation tabs
+          above to explore cluster health, manage indices, browse documents, run
+          queries, or inspect mappings.
         </p>
 
         {/* Hint */}

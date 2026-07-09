@@ -66,7 +66,12 @@ interface TableEditState {
   redoStack: EditAction[]
 
   // ── Actions ────────────────────────────────────────────────────
-  stageEdit: (rowId: string, field: string, oldValue: unknown, newValue: unknown) => void
+  stageEdit: (
+    rowId: string,
+    field: string,
+    oldValue: unknown,
+    newValue: unknown,
+  ) => void
   unstageEdit: (rowId: string, field: string) => void
   stageInsert: (template: InsertDraft) => string
   stageDelete: (rowId: string) => void
@@ -106,7 +111,10 @@ export function hasPendingChanges(state: TableEditState): boolean {
 
 /** Returns total number of pending changes (edits + inserts + deletes) */
 export function pendingChangeCount(state: TableEditState): number {
-  const editCount = Object.values(state.pendingEdits).reduce((sum, edits) => sum + edits.length, 0)
+  const editCount = Object.values(state.pendingEdits).reduce(
+    (sum, edits) => sum + edits.length,
+    0,
+  )
   return editCount + state.pendingInserts.length + state.pendingDeletes.length
 }
 
@@ -150,7 +158,10 @@ export function validateCellValue(
   const strValue = value === null || value === undefined ? '' : String(value)
 
   // NOT NULL check
-  if (!meta.isNullable && (strValue === '' || value === null || value === undefined)) {
+  if (
+    !meta.isNullable &&
+    (strValue === '' || value === null || value === undefined)
+  ) {
     return 'Value cannot be empty (NOT NULL column)'
   }
 
@@ -171,20 +182,32 @@ export function validateCellValue(
     }
   }
 
-  if (dt === 'FLOAT' || dt === 'REAL' || dt === 'DOUBLE' || dt === 'NUMERIC' || dt === 'DECIMAL') {
+  if (
+    dt === 'FLOAT' ||
+    dt === 'REAL' ||
+    dt === 'DOUBLE' ||
+    dt === 'NUMERIC' ||
+    dt === 'DECIMAL'
+  ) {
     if (!/^-?\d+(\.\d+)?$/i.test(strValue)) {
       return 'Value must be a number'
     }
   }
 
   if (dt === 'BOOLEAN' || dt === 'BOOL') {
-    if (!['true', 'false', '1', '0', 'yes', 'no'].includes(strValue.toLowerCase())) {
+    if (
+      !['true', 'false', '1', '0', 'yes', 'no'].includes(strValue.toLowerCase())
+    ) {
       return 'Value must be a boolean (true/false)'
     }
   }
 
   if (dt === 'UUID') {
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(strValue)) {
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        strValue,
+      )
+    ) {
       return 'Value must be a valid UUID'
     }
   }
@@ -207,7 +230,8 @@ export const useTableEditStore = create<TableEditState>()((set) => ({
       const existingIndex = edits.findIndex((e) => e.field === field)
 
       // Record the staged value BEFORE this action so undo can restore it.
-      const prevNewValue = existingIndex !== -1 ? edits[existingIndex]!.newValue : undefined
+      const prevNewValue =
+        existingIndex !== -1 ? edits[existingIndex]!.newValue : undefined
 
       if (String(oldValue) === String(newValue)) {
         // No actual change → remove edit if it existed
@@ -262,9 +286,13 @@ export const useTableEditStore = create<TableEditState>()((set) => ({
 
   unstageEdit: (rowId, field) =>
     set((state) => {
-      const existing = (state.pendingEdits[rowId] ?? []).find((e) => e.field === field)
+      const existing = (state.pendingEdits[rowId] ?? []).find(
+        (e) => e.field === field,
+      )
       if (!existing) return state
-      const edits = (state.pendingEdits[rowId] ?? []).filter((e) => e.field !== field)
+      const edits = (state.pendingEdits[rowId] ?? []).filter(
+        (e) => e.field !== field,
+      )
       const newEdits = { ...state.pendingEdits }
       if (edits.length === 0) {
         delete newEdits[rowId]
@@ -348,7 +376,9 @@ export const useTableEditStore = create<TableEditState>()((set) => ({
 /** Push onto a bounded stack, dropping oldest beyond the cap. */
 function pushBounded(stack: EditAction[], action: EditAction): EditAction[] {
   const next = [...stack, action]
-  return next.length > MAX_UNDO_STACK ? next.slice(next.length - MAX_UNDO_STACK) : next
+  return next.length > MAX_UNDO_STACK
+    ? next.slice(next.length - MAX_UNDO_STACK)
+    : next
 }
 
 /**
@@ -370,9 +400,17 @@ function applyUndo(
     } else {
       // Restore the previously-staged value
       if (idx !== -1) {
-        edits[idx] = { field: field!, oldValue: action.oldValue!, newValue: prevNewValue }
+        edits[idx] = {
+          field: field!,
+          oldValue: action.oldValue!,
+          newValue: prevNewValue,
+        }
       } else {
-        edits.push({ field: field!, oldValue: action.oldValue!, newValue: prevNewValue })
+        edits.push({
+          field: field!,
+          oldValue: action.oldValue!,
+          newValue: prevNewValue,
+        })
       }
     }
 
@@ -382,14 +420,20 @@ function applyUndo(
     } else {
       pendingEdits[rowId!] = edits
     }
-    return { pendingEdits, pendingInserts: state.pendingInserts, pendingDeletes: state.pendingDeletes }
+    return {
+      pendingEdits,
+      pendingInserts: state.pendingInserts,
+      pendingDeletes: state.pendingDeletes,
+    }
   }
 
   if (action.type === 'insert') {
     const draft = action.draft!
     return {
       pendingEdits: state.pendingEdits,
-      pendingInserts: state.pendingInserts.filter((d) => d.__rowId !== draft.__rowId),
+      pendingInserts: state.pendingInserts.filter(
+        (d) => d.__rowId !== draft.__rowId,
+      ),
       pendingDeletes: state.pendingDeletes,
     }
   }
@@ -430,7 +474,11 @@ function applyRedo(
     } else {
       pendingEdits[rowId!] = edits
     }
-    return { pendingEdits, pendingInserts: state.pendingInserts, pendingDeletes: state.pendingDeletes }
+    return {
+      pendingEdits,
+      pendingInserts: state.pendingInserts,
+      pendingDeletes: state.pendingDeletes,
+    }
   }
 
   if (action.type === 'insert') {
@@ -450,4 +498,3 @@ function applyRedo(
       : [...state.pendingDeletes, action.rowId!],
   }
 }
-

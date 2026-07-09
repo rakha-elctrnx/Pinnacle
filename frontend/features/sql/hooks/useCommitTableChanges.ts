@@ -13,10 +13,13 @@ export function useCommitTableChanges(connectionId?: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (payload: CommitTableChangesPayload) => commitTableChanges(payload),
+    mutationFn: (payload: CommitTableChangesPayload) =>
+      commitTableChanges(payload),
     onSuccess: (_data, variables) => {
       // Invalidate table data queries so the UI refreshes after commit
-      queryClient.invalidateQueries({ queryKey: ['table-data', variables.tableName] })
+      queryClient.invalidateQueries({
+        queryKey: ['table-data', variables.tableName],
+      })
     },
     meta: { connectionId },
   })

@@ -18,13 +18,14 @@ export function WelcomePage() {
       <div className="flex flex-col items-center gap-6 text-center max-w-md px-6">
         {/* Icon */}
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-bg-muted/40">
-          <Database className="h-10 w-10 text-text-secondary" strokeWidth={1.5} />
+          <Database
+            className="h-10 w-10 text-text-secondary"
+            strokeWidth={1.5}
+          />
         </div>
 
         {/* Heading */}
-        <h1 className="text-display text-text-primary">
-          Welcome to Pinnacle
-        </h1>
+        <h1 className="text-display text-text-primary">Welcome to Pinnacle</h1>
 
         {/* Description */}
         <p className="text-body leading-relaxed text-text-secondary">
@@ -46,7 +47,8 @@ export function WelcomePage() {
 
         {/* Hint */}
         <p className="text-caption text-text-secondary/70 pt-2">
-          Tip: you can also use the sidebar on the left to manage your connections.
+          Tip: you can also use the sidebar on the left to manage your
+          connections.
         </p>
       </div>
     </div>

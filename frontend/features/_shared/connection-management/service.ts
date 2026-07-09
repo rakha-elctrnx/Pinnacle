@@ -53,9 +53,7 @@ export function getRecentConnections(
 /**
  * Create a duplicate of a connection profile.
  */
-export function duplicateProfile(
-  item: ConnectionProfile,
-): ConnectionProfile {
+export function duplicateProfile(item: ConnectionProfile): ConnectionProfile {
   const now = new Date().toISOString()
   return {
     ...item,

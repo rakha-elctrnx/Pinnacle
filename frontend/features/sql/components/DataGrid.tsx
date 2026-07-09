@@ -32,16 +32,18 @@ export function DataGrid({
     [columns, rows, columnsMetadata],
   )
 
-  const { widths, onMouseDown, syncWidths, handleDoubleClick } = useColumnResizer({
-    initialWidths: autoColumnWidths,
-  })
+  const { widths, onMouseDown, syncWidths, handleDoubleClick } =
+    useColumnResizer({
+      initialWidths: autoColumnWidths,
+    })
 
   useEffect(() => {
     syncWidths(autoColumnWidths)
   }, [autoColumnWidths, syncWidths])
 
   const boundedWidths = useMemo(
-    () => widths.map((w) => Math.min(MAX_COL_WIDTH, Math.max(MIN_COL_WIDTH, w))),
+    () =>
+      widths.map((w) => Math.min(MAX_COL_WIDTH, Math.max(MIN_COL_WIDTH, w))),
     [widths],
   )
 
@@ -74,16 +76,22 @@ export function DataGrid({
                   className="group relative border-b border-r border-border-default bg-bg-muted px-2 py-1 text-left whitespace-nowrap"
                 >
                   <div className="flex flex-col">
-                    <span className="truncate text-label text-text-secondary">{col}</span>
+                    <span className="truncate text-label text-text-secondary">
+                      {col}
+                    </span>
                     {meta?.dataType && (
-                      <span className="truncate text-micro text-text-muted">{meta.dataType}</span>
+                      <span className="truncate text-micro text-text-muted">
+                        {meta.dataType}
+                      </span>
                     )}
                   </div>
                   {/* Resize handle */}
                   <span
                     className="absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize opacity-0 transition-opacity hover:bg-primary/30 group-hover:opacity-100"
                     onMouseDown={(e) => onMouseDown(i, e)}
-                    onDoubleClick={() => handleDoubleClick(i, rows, col, meta?.dataType)}
+                    onDoubleClick={() =>
+                      handleDoubleClick(i, rows, col, meta?.dataType)
+                    }
                   />
                 </th>
               )
@@ -97,10 +105,15 @@ export function DataGrid({
               <td colSpan={columns.length + 1} className="px-2 py-0">
                 <div className="flex flex-col items-center justify-center gap-4 py-16">
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-bg-muted/50">
-                    <Inbox className="h-8 w-8 text-text-secondary" strokeWidth={1.5} />
+                    <Inbox
+                      className="h-8 w-8 text-text-secondary"
+                      strokeWidth={1.5}
+                    />
                   </div>
                   <div className="flex flex-col items-center gap-1.5">
-                    <h3 className="text-sm font-semibold text-text-primary">No data</h3>
+                    <h3 className="text-sm font-semibold text-text-primary">
+                      No data
+                    </h3>
                     <p className="text-xs text-text-muted">{emptyMessage}</p>
                   </div>
                 </div>
@@ -120,7 +133,9 @@ export function DataGrid({
                   key={`${rowIndex}-${col}`}
                   className="overflow-hidden border-b border-r border-border-default px-2 py-1 text-text-primary"
                 >
-                  <span className="block truncate">{String(row[col] ?? '')}</span>
+                  <span className="block truncate">
+                    {String(row[col] ?? '')}
+                  </span>
                 </td>
               ))}
             </tr>

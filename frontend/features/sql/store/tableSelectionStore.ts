@@ -50,12 +50,18 @@ export function rangeKeys(
 }
 
 /** Compute all cell keys for an entire row. */
-export function rowKeys(rowIndex: number, columnIds: readonly string[]): CellKey[] {
+export function rowKeys(
+  rowIndex: number,
+  columnIds: readonly string[],
+): CellKey[] {
   return columnIds.map((col) => cellKey(rowIndex, col))
 }
 
 /** Compute all cell keys for the entire table. */
-export function allKeys(rowCount: number, columnIds: readonly string[]): CellKey[] {
+export function allKeys(
+  rowCount: number,
+  columnIds: readonly string[],
+): CellKey[] {
   const keys: CellKey[] = []
   for (let r = 0; r < rowCount; r++) {
     for (const col of columnIds) {
@@ -76,7 +82,11 @@ interface SelectionState {
   setActiveCell: (pos: CellPosition | null) => void
   selectSingle: (pos: CellPosition) => void
   toggleCell: (pos: CellPosition) => void
-  selectRange: (anchor: CellPosition, target: CellPosition, columnIds: readonly string[]) => void
+  selectRange: (
+    anchor: CellPosition,
+    target: CellPosition,
+    columnIds: readonly string[],
+  ) => void
   selectRow: (rowIndex: number, columnIds: readonly string[]) => void
   toggleRow: (rowIndex: number, columnIds: readonly string[]) => void
   selectAll: (rowCount: number, columnIds: readonly string[]) => void
@@ -126,7 +136,10 @@ export const useTableSelectionStore = create<SelectionState>()((set, get) => ({
 
   selectRow: (rowIndex, columnIds) =>
     set((state) => ({
-      activeCell: { rowIndex, columnId: state.activeCell?.columnId ?? columnIds[0] ?? '' },
+      activeCell: {
+        rowIndex,
+        columnId: state.activeCell?.columnId ?? columnIds[0] ?? '',
+      },
       selectedCells: new Set(rowKeys(rowIndex, columnIds)),
       selectionAnchor: { rowIndex, columnId: columnIds[0] ?? '' },
     })),
@@ -142,7 +155,10 @@ export const useTableSelectionStore = create<SelectionState>()((set, get) => ({
         for (const k of keys) next.add(k)
       }
       return {
-        activeCell: { rowIndex, columnId: state.activeCell?.columnId ?? columnIds[0] ?? '' },
+        activeCell: {
+          rowIndex,
+          columnId: state.activeCell?.columnId ?? columnIds[0] ?? '',
+        },
         selectedCells: next,
         selectionAnchor: { rowIndex, columnId: columnIds[0] ?? '' },
       }

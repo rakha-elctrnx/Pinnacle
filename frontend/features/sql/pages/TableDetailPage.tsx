@@ -28,7 +28,10 @@ import { useTabStore } from '../../_shared/store/tabStore'
 import { useDataExplorerContext } from '../../_shared/context/DataExplorerContext'
 import { CenteredLoadingState } from '../../_shared/components/ui/CenteredLoadingState'
 import { ActionButton } from '../../_shared/components/ui/ActionButton'
-import { useColumnResizer, calculateAutoColumnWidths } from '../hooks/useColumnResizer'
+import {
+  useColumnResizer,
+  calculateAutoColumnWidths,
+} from '../hooks/useColumnResizer'
 import { useCommitTableChanges } from '../hooks/useCommitTableChanges'
 import { useTableKeyboard } from '../hooks/useTableKeyboard'
 import {
@@ -38,10 +41,7 @@ import {
   canUndo,
   canRedo,
 } from '../store/tableEditStore'
-import {
-  useTableSelectionStore,
-  cellKey,
-} from '../store/tableSelectionStore'
+import { useTableSelectionStore, cellKey } from '../store/tableSelectionStore'
 import type { EditableColumnMeta } from '../store/tableEditStore'
 import { EditableCell } from '../components/table-cells/EditableCell'
 import { ConfirmDialog } from '../components/table-cells/ConfirmDialog'
@@ -96,21 +96,20 @@ type ColumnMetadata = {
   columnKey?: string
 }
 
-
 // ── Filter Types ─────────────────────────────────────────────────────────────
 
-type FilterOperator = 
-  | '=' 
-  | '!=' 
-  | 'contains' 
-  | 'starts_with' 
-  | 'ends_with' 
-  | '>' 
-  | '>=' 
-  | '<' 
-  | '<=' 
-  | 'is_null' 
-  | 'is_not_null' 
+type FilterOperator =
+  | '='
+  | '!='
+  | 'contains'
+  | 'starts_with'
+  | 'ends_with'
+  | '>'
+  | '>='
+  | '<'
+  | '<='
+  | 'is_null'
+  | 'is_not_null'
   | 'in'
 
 type FilterCondition = {
@@ -129,73 +128,87 @@ function buildSqlForCondition(
   dbType: 'postgresql' | 'mysql',
   columnsMeta: ColumnMetadata[],
 ): string {
-  const { column, operator, value } = cond;
-  
+  const { column, operator, value } = cond
+
   // Find column metadata for type information
-  const columnMeta = columnsMeta.find((col) => col.columnName === column);
-  const columnType = columnMeta?.dataType?.toLowerCase() || '';
-  
+  const columnMeta = columnsMeta.find((col) => col.columnName === column)
+  const columnType = columnMeta?.dataType?.toLowerCase() || ''
+
   // Determine if this is a numeric column
-  const numericTypes = ['int', 'integer', 'bigint', 'smallint', 'serial', 'bigserial', 
-    'decimal', 'numeric', 'float', 'double', 'real'];
-  const isNumeric = numericTypes.some(type => columnType.includes(type));
-  
+  const numericTypes = [
+    'int',
+    'integer',
+    'bigint',
+    'smallint',
+    'serial',
+    'bigserial',
+    'decimal',
+    'numeric',
+    'float',
+    'double',
+    'real',
+  ]
+  const isNumeric = numericTypes.some((type) => columnType.includes(type))
+
   // Escape column identifier based on database type
   const escapeColumn = (col: string) => {
     if (dbType === 'postgresql') {
-      return `"${col.replace(/"/g, '""')}"`;
+      return `"${col.replace(/"/g, '""')}"`
     } else {
-      return `\`${col.replace(/`/g, '``')}\``;
+      return `\`${col.replace(/`/g, '``')}\``
     }
-  };
-  
+  }
+
   // Escape string values and handle special operators
   const escapeValue = (val: string) => {
     if (isNumeric && !isNaN(Number(val))) {
-      return val; // Return as-is for numeric values
+      return val // Return as-is for numeric values
     }
     // Escape single quotes by doubling them
-    return `'${val.replace(/'/g, "''")}'`;
-  };
-  
-  const escapedColumn = escapeColumn(column);
-  
+    return `'${val.replace(/'/g, "''")}'`
+  }
+
+  const escapedColumn = escapeColumn(column)
+
   switch (operator) {
     case '=':
-      return `${escapedColumn} = ${escapeValue(value)}`;
+      return `${escapedColumn} = ${escapeValue(value)}`
     case '!=':
-      return `${escapedColumn} != ${escapeValue(value)}`;
+      return `${escapedColumn} != ${escapeValue(value)}`
     case 'contains':
       return dbType === 'postgresql'
         ? `${escapedColumn} ILIKE ${escapeValue(`%${value}%`)}`
-        : `${escapedColumn} LIKE ${escapeValue(`%${value}%`)}`;
+        : `${escapedColumn} LIKE ${escapeValue(`%${value}%`)}`
     case 'starts_with':
       return dbType === 'postgresql'
         ? `${escapedColumn} ILIKE ${escapeValue(`${value}%`)}`
-        : `${escapedColumn} LIKE ${escapeValue(`${value}%`)}`;
+        : `${escapedColumn} LIKE ${escapeValue(`${value}%`)}`
     case 'ends_with':
       return dbType === 'postgresql'
         ? `${escapedColumn} ILIKE ${escapeValue(`%${value}`)}`
-        : `${escapedColumn} LIKE ${escapeValue(`%${value}`)}`;
+        : `${escapedColumn} LIKE ${escapeValue(`%${value}`)}`
     case '>':
-      return `${escapedColumn} > ${escapeValue(value)}`;
+      return `${escapedColumn} > ${escapeValue(value)}`
     case '>=':
-      return `${escapedColumn} >= ${escapeValue(value)}`;
+      return `${escapedColumn} >= ${escapeValue(value)}`
     case '<':
-      return `${escapedColumn} < ${escapeValue(value)}`;
+      return `${escapedColumn} < ${escapeValue(value)}`
     case '<=':
-      return `${escapedColumn} <= ${escapeValue(value)}`;
+      return `${escapedColumn} <= ${escapeValue(value)}`
     case 'is_null':
-      return `${escapedColumn} IS NULL`;
+      return `${escapedColumn} IS NULL`
     case 'is_not_null':
-      return `${escapedColumn} IS NOT NULL`;
+      return `${escapedColumn} IS NOT NULL`
     case 'in': {
       // Parse comma-separated values for IN clause
-      const values = value.split(',').map(v => escapeValue(v.trim())).join(', ');
-      return `${escapedColumn} IN (${values})`;
+      const values = value
+        .split(',')
+        .map((v) => escapeValue(v.trim()))
+        .join(', ')
+      return `${escapedColumn} IN (${values})`
     }
     default:
-      return `${escapedColumn} = ${escapeValue(value)}`;
+      return `${escapedColumn} = ${escapeValue(value)}`
   }
 }
 
@@ -208,12 +221,12 @@ function buildWhereClause(
   dbType: 'postgresql' | 'mysql',
   columnsMeta: ColumnMetadata[],
 ): string {
-  if (filters.length === 0) return '';
+  if (filters.length === 0) return ''
 
-  const conditions = filters.map(cond => 
-    buildSqlForCondition(cond, dbType, columnsMeta)
-  );
-  return conditions.join(' AND ');
+  const conditions = filters.map((cond) =>
+    buildSqlForCondition(cond, dbType, columnsMeta),
+  )
+  return conditions.join(' AND ')
 }
 /**
  * Build ORDER BY clause from sort state.
@@ -224,24 +237,24 @@ function buildOrderByClause(
   direction: 'asc' | 'desc',
   dbType: 'postgresql' | 'mysql',
 ): string {
-  if (!column) return '';
-  
+  if (!column) return ''
+
   const escapeColumn = (col: string) => {
     if (dbType === 'postgresql') {
-      return `"${col.replace(/"/g, '""')}"`;
+      return `"${col.replace(/"/g, '""')}"`
     } else {
-      return `\`${col.replace(/`/g, '``')}\``;
+      return `\`${col.replace(/`/g, '``')}\``
     }
-  };
-  
-  return `${escapeColumn(column)} ${direction.toUpperCase()}`;
+  }
+
+  return `${escapeColumn(column)} ${direction.toUpperCase()}`
 }
 
 function isPrimaryKeyColumn(metadata: ColumnMetadata | undefined): boolean {
   return Boolean(
     metadata?.isPrimaryKey === true ||
-      metadata?.primaryKey === true ||
-      metadata?.columnKey?.toUpperCase() === 'PRI',
+    metadata?.primaryKey === true ||
+    metadata?.columnKey?.toUpperCase() === 'PRI',
   )
 }
 
@@ -252,13 +265,17 @@ function getPinnedLeftOffset(
   metadata: ColumnMetadata[],
 ): number | null {
   const currentColumn = columns[columnIndex]
-  const currentMetadata = metadata.find((column) => column.columnName === currentColumn)
+  const currentMetadata = metadata.find(
+    (column) => column.columnName === currentColumn,
+  )
 
   if (!isPrimaryKeyColumn(currentMetadata)) return null
 
   return columns.slice(0, columnIndex).reduce((offset, column, index) => {
     const columnMetadata = metadata.find((item) => item.columnName === column)
-    return isPrimaryKeyColumn(columnMetadata) ? offset + (widths[index] ?? MIN_COLUMN_WIDTH) : offset
+    return isPrimaryKeyColumn(columnMetadata)
+      ? offset + (widths[index] ?? MIN_COLUMN_WIDTH)
+      : offset
   }, ROW_GUTTER_WIDTH)
 }
 
@@ -288,7 +305,10 @@ function buildRowId(
 // ── Page component ───────────────────────────────────────────────────────────
 
 export function TableDetailPage() {
-  const { connectionId, tableName } = useParams<{ connectionId: string; tableName: string }>()
+  const { connectionId, tableName } = useParams<{
+    connectionId: string
+    tableName: string
+  }>()
 
   // ── Context ──────────────────────────────────────────────────────────────
   const {
@@ -317,9 +337,7 @@ export function TableDetailPage() {
   const pendingEdits = useTableEditStore((s) => s.pendingEdits)
   const pendingInserts = useTableEditStore((s) => s.pendingInserts)
   const pendingDeletes = useTableEditStore((s) => s.pendingDeletes)
-  const totalPending = useTableEditStore((s) =>
-    pendingChangeCount(s),
-  )
+  const totalPending = useTableEditStore((s) => pendingChangeCount(s))
   const undoAvailable = useTableEditStore((s) => canUndo(s))
   const redoAvailable = useTableEditStore((s) => canRedo(s))
 
@@ -339,11 +357,16 @@ export function TableDetailPage() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   // Toast: { kind, message } or null. Announced via aria-live region.
-  const [toast, setToast] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
+  const [toast, setToast] = useState<{
+    kind: 'success' | 'error'
+    message: string
+  } | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   // Track drag state for range selection
   const isDraggingRef = useRef(false)
-  const dragAnchorRef = useRef<{ rowIndex: number; columnId: string } | null>(null)
+  const dragAnchorRef = useRef<{ rowIndex: number; columnId: string } | null>(
+    null,
+  )
   const valueInputRef = useRef<HTMLInputElement>(null)
 
   // ── Pagination state (server-side) ────────────────────────────────────────
@@ -351,21 +374,19 @@ export function TableDetailPage() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
   // ── Filter state ────────────────────────────────────────────────────────────
-  const [filters, setFilters] = useState<FilterCondition[]>([]);
-  const [appliedWhereClause, setAppliedWhereClause] = useState<string>('');
-  const [filterPanelOpen, setFilterPanelOpen] = useState<boolean>(false);
+  const [filters, setFilters] = useState<FilterCondition[]>([])
+  const [appliedWhereClause, setAppliedWhereClause] = useState<string>('')
+  const [filterPanelOpen, setFilterPanelOpen] = useState<boolean>(false)
   const [newFilter, setNewFilter] = useState<Partial<FilterCondition>>({
     column: '',
     operator: '=',
-    value: ''
-  });
+    value: '',
+  })
 
   // ── Sort state ─────────────────────────────────────────────────────────────
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [appliedOrderByClause, setAppliedOrderByClause] = useState<string>('');
-
-
+  const [sortColumn, setSortColumn] = useState<string | null>(null)
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [appliedOrderByClause, setAppliedOrderByClause] = useState<string>('')
 
   // ── Detect the first primary key column for row ID stability ────────────
   const tableColumnsMeta = useMemo<ColumnMetadata[]>(() => {
@@ -375,90 +396,102 @@ export function TableDetailPage() {
 
   // ── Filter handler functions (auto-apply) ─────────────────────────────────
   const handleAddFilter = useCallback(() => {
-    if (!newFilter.column || !newFilter.operator) return;
-    const isNullOp = ['is_null', 'is_not_null'].includes(newFilter.operator);
-    if (!isNullOp && !newFilter.value) return;
+    if (!newFilter.column || !newFilter.operator) return
+    const isNullOp = ['is_null', 'is_not_null'].includes(newFilter.operator)
+    if (!isNullOp && !newFilter.value) return
 
-    const next = [...filters, {
-      column: newFilter.column,
-      operator: newFilter.operator as FilterOperator,
-      value: (isNullOp ? '' : newFilter.value) ?? ''
-    }];
-    setFilters(next);
-    setNewFilter({ column: '', operator: '=', value: '' });
+    const next = [
+      ...filters,
+      {
+        column: newFilter.column,
+        operator: newFilter.operator as FilterOperator,
+        value: (isNullOp ? '' : newFilter.value) ?? '',
+      },
+    ]
+    setFilters(next)
+    setNewFilter({ column: '', operator: '=', value: '' })
 
-    const dbType = selectedConnection?.type as 'postgresql' | 'mysql';
+    const dbType = selectedConnection?.type as 'postgresql' | 'mysql'
     if (dbType && ['postgresql', 'mysql'].includes(dbType) && tableName) {
-      const whereClause = buildWhereClause(next, dbType, tableColumnsMeta);
-      setAppliedWhereClause(whereClause);
+      const whereClause = buildWhereClause(next, dbType, tableColumnsMeta)
+      setAppliedWhereClause(whereClause)
     }
-  }, [filters, newFilter, selectedConnection, tableColumnsMeta, tableName]);
+  }, [filters, newFilter, selectedConnection, tableColumnsMeta, tableName])
 
-  const handleUpdateFilter = useCallback((index: number, patch: Partial<FilterCondition>) => {
-    const next = filters.map((f, i) => i === index ? { ...f, ...patch } : f);
-    setFilters(next);
+  const handleUpdateFilter = useCallback(
+    (index: number, patch: Partial<FilterCondition>) => {
+      const next = filters.map((f, i) => (i === index ? { ...f, ...patch } : f))
+      setFilters(next)
 
-    const dbType = selectedConnection?.type as 'postgresql' | 'mysql';
-    if (dbType && ['postgresql', 'mysql'].includes(dbType) && tableName) {
-      const whereClause = buildWhereClause(next, dbType, tableColumnsMeta);
-      setAppliedWhereClause(whereClause);
-    }
-  }, [filters, selectedConnection, tableColumnsMeta, tableName]);
+      const dbType = selectedConnection?.type as 'postgresql' | 'mysql'
+      if (dbType && ['postgresql', 'mysql'].includes(dbType) && tableName) {
+        const whereClause = buildWhereClause(next, dbType, tableColumnsMeta)
+        setAppliedWhereClause(whereClause)
+      }
+    },
+    [filters, selectedConnection, tableColumnsMeta, tableName],
+  )
 
-  const handleRemoveFilter = useCallback((index: number) => {
-    const next = filters.filter((_, i) => i !== index);
-    setFilters(next);
-    
-    const dbType = selectedConnection?.type as 'postgresql' | 'mysql';
-    if (dbType && ['postgresql', 'mysql'].includes(dbType) && tableName) {
-      const whereClause = next.length > 0
-        ? buildWhereClause(next, dbType, tableColumnsMeta)
-        : '';
-      setAppliedWhereClause(whereClause);
-    }
-  }, [filters, selectedConnection, tableColumnsMeta, tableName]);
+  const handleRemoveFilter = useCallback(
+    (index: number) => {
+      const next = filters.filter((_, i) => i !== index)
+      setFilters(next)
+
+      const dbType = selectedConnection?.type as 'postgresql' | 'mysql'
+      if (dbType && ['postgresql', 'mysql'].includes(dbType) && tableName) {
+        const whereClause =
+          next.length > 0
+            ? buildWhereClause(next, dbType, tableColumnsMeta)
+            : ''
+        setAppliedWhereClause(whereClause)
+      }
+    },
+    [filters, selectedConnection, tableColumnsMeta, tableName],
+  )
 
   const handleClearAllFilters = useCallback(() => {
-    setFilters([]);
-    setNewFilter({ column: '', operator: '=', value: '' });
-    setAppliedWhereClause('');
-    setSortColumn(null);
-    setSortDirection('asc');
-    setAppliedOrderByClause('');
-  }, []);
+    setFilters([])
+    setNewFilter({ column: '', operator: '=', value: '' })
+    setAppliedWhereClause('')
+    setSortColumn(null)
+    setSortDirection('asc')
+    setAppliedOrderByClause('')
+  }, [])
 
-  const handleSortColumn = useCallback((column: string) => {
-    let nextDirection: 'asc' | 'desc' = 'asc';
-    
-    if (sortColumn === column) {
-      // Clicking the same column toggles direction: asc → desc → null
-      if (sortDirection === 'asc') {
-        nextDirection = 'desc';
-      } else {
-        // Third click clears sort
-        setSortColumn(null);
-        setSortDirection('asc');
-        setAppliedOrderByClause('');
-        return;
+  const handleSortColumn = useCallback(
+    (column: string) => {
+      let nextDirection: 'asc' | 'desc' = 'asc'
+
+      if (sortColumn === column) {
+        // Clicking the same column toggles direction: asc → desc → null
+        if (sortDirection === 'asc') {
+          nextDirection = 'desc'
+        } else {
+          // Third click clears sort
+          setSortColumn(null)
+          setSortDirection('asc')
+          setAppliedOrderByClause('')
+          return
+        }
       }
-    }
-    
-    setSortColumn(column);
-    setSortDirection(nextDirection);
-    
-    const dbType = selectedConnection?.type as 'postgresql' | 'mysql';
-    if (dbType && ['postgresql', 'mysql'].includes(dbType)) {
-      const orderByClause = buildOrderByClause(column, nextDirection, dbType);
-      setAppliedOrderByClause(orderByClause);
-    }
-  }, [sortColumn, sortDirection, selectedConnection]);
+
+      setSortColumn(column)
+      setSortDirection(nextDirection)
+
+      const dbType = selectedConnection?.type as 'postgresql' | 'mysql'
+      if (dbType && ['postgresql', 'mysql'].includes(dbType)) {
+        const orderByClause = buildOrderByClause(column, nextDirection, dbType)
+        setAppliedOrderByClause(orderByClause)
+      }
+    },
+    [sortColumn, sortDirection, selectedConnection],
+  )
 
   const handleColumnFilterClick = useCallback((column: string) => {
-    setFilterPanelOpen(true);
-    setNewFilter(nf => ({ ...nf, column }));
-    setTimeout(() => valueInputRef.current?.focus(), 50);
-  }, []);
-
+    setFilterPanelOpen(true)
+    setNewFilter((nf) => ({ ...nf, column }))
+    setTimeout(() => valueInputRef.current?.focus(), 50)
+  }, [])
 
   // Primary key is derived from `realTableIndexes` (already fetched per-table
   // in fetchTableData, populated for both PG and MySQL). `schemaColumnsByTable`
@@ -479,7 +512,9 @@ export function TableDetailPage() {
   const hasPrimaryKey = pkColumn !== undefined
 
   // ── Build column metadata map for validation ──────────────────────────
-  const editableColumnMetaMap = useMemo<Record<string, EditableColumnMeta>>(() => {
+  const editableColumnMetaMap = useMemo<
+    Record<string, EditableColumnMeta>
+  >(() => {
     const map: Record<string, EditableColumnMeta> = {}
     for (const col of tableColumnsMeta) {
       map[col.columnName] = {
@@ -491,65 +526,78 @@ export function TableDetailPage() {
     }
     return map
   }, [tableColumnsMeta])
-// ── Helper to generate type-aware default values for new rows ──────────────
+  // ── Helper to generate type-aware default values for new rows ──────────────
 
-/**
- * Generate appropriate default value for a column based on its SQL data type.
- * Matches the type handling in validateCellValue.
- */
-function getDefaultValueForType(dataType: string | undefined): unknown {
-  if (!dataType) return ''
+  /**
+   * Generate appropriate default value for a column based on its SQL data type.
+   * Matches the type handling in validateCellValue.
+   */
+  function getDefaultValueForType(dataType: string | undefined): unknown {
+    if (!dataType) return ''
 
-  const dt = dataType.toUpperCase()
+    const dt = dataType.toUpperCase()
 
-  // Boolean types
-  if (dt === 'BOOLEAN' || dt === 'BOOL') {
-    return false // Default to false for boolean columns
-  }
+    // Boolean types
+    if (dt === 'BOOLEAN' || dt === 'BOOL') {
+      return false // Default to false for boolean columns
+    }
 
-  // Numeric types
-  if (
-    dt.includes('INT') ||
-    dt === 'SERIAL' ||
-    dt === 'BIGSERIAL' ||
-    dt === 'SMALLINT' ||
-    dt === 'BIGINT'
-  ) {
-    return 0
-  }
+    // Numeric types
+    if (
+      dt.includes('INT') ||
+      dt === 'SERIAL' ||
+      dt === 'BIGSERIAL' ||
+      dt === 'SMALLINT' ||
+      dt === 'BIGINT'
+    ) {
+      return 0
+    }
 
-  if (dt === 'FLOAT' || dt === 'REAL' || dt === 'DOUBLE' || dt === 'NUMERIC' || dt === 'DECIMAL') {
-    return 0
-  }
+    if (
+      dt === 'FLOAT' ||
+      dt === 'REAL' ||
+      dt === 'DOUBLE' ||
+      dt === 'NUMERIC' ||
+      dt === 'DECIMAL'
+    ) {
+      return 0
+    }
 
-  // UUID - empty string is valid, will be generated by DB on insert if DEFAULT is set
-  if (dt === 'UUID') {
+    // UUID - empty string is valid, will be generated by DB on insert if DEFAULT is set
+    if (dt === 'UUID') {
+      return ''
+    }
+
+    // Date/Time types
+    if (
+      dt.includes('DATE') ||
+      dt.includes('TIME') ||
+      dt.includes('TIMESTAMP') ||
+      dt === 'DATETIME'
+    ) {
+      return null // Let DB handle with DEFAULT CURRENT_TIMESTAMP or similar
+    }
+
+    // JSON types
+    if (dt === 'JSON' || dt === 'JSONB') {
+      return null
+    }
+
+    // Default: empty string for text and other types
     return ''
   }
-
-  // Date/Time types
-  if (
-    dt.includes('DATE') ||
-    dt.includes('TIME') ||
-    dt.includes('TIMESTAMP') ||
-    dt === 'DATETIME'
-  ) {
-    return null // Let DB handle with DEFAULT CURRENT_TIMESTAMP or similar
-  }
-
-  // JSON types
-  if (dt === 'JSON' || dt === 'JSONB') {
-    return null
-  }
-
-  // Default: empty string for text and other types
-  return ''
-}
 
   // ── Trigger data load when URL param changes ─────────────────────────────
   useEffect(() => {
     if (tableName) {
-      handleTreeNodeClick(tableName, undefined, page, pageSize, appliedWhereClause, appliedOrderByClause)
+      handleTreeNodeClick(
+        tableName,
+        undefined,
+        page,
+        pageSize,
+        appliedWhereClause,
+        appliedOrderByClause,
+      )
     }
   }, [tableName, handleTreeNodeClick, appliedWhereClause, appliedOrderByClause])
 
@@ -558,9 +606,14 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
   // in the active tab when available, falls back to a partial path.
   useEffect(() => {
     if (!tableName || !selectedConnection) return
-    const activeTab = useTabStore.getState().tabs.find(
-      (t) => t.connectionId === selectedConnection.id && t.pageType === 'table' && t.label === tableName
-    )
+    const activeTab = useTabStore
+      .getState()
+      .tabs.find(
+        (t) =>
+          t.connectionId === selectedConnection.id &&
+          t.pageType === 'table' &&
+          t.label === tableName,
+      )
     if (activeTab?.treePath) {
       setSelectedTreeNode(activeTab.treePath)
       return
@@ -572,13 +625,19 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
         : db || ''
     const path = [db, schema, 'Tables', tableName].filter(Boolean).join('/')
     setSelectedTreeNode(path)
-  }, [tableName, selectedConnection, selectedDatabase, selectedSchema, setSelectedTreeNode])
+  }, [
+    tableName,
+    selectedConnection,
+    selectedDatabase,
+    selectedSchema,
+    setSelectedTreeNode,
+  ])
 
   // Reset active row and clear edit store when table changes.
   useEffect(() => {
     queueMicrotask(() => {
-      resetSelection();
-    });
+      resetSelection()
+    })
     clearAll()
     resetInsertCounter()
     setPage(1)
@@ -598,11 +657,26 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
   useEffect(() => {
     if (!tableName) return
     // Skip the initial mount — the first load is triggered by the tableName effect.
-    if (prevPageRef.current === page && prevPageSizeRef.current === pageSize) return
+    if (prevPageRef.current === page && prevPageSizeRef.current === pageSize)
+      return
     prevPageRef.current = page
     prevPageSizeRef.current = pageSize
-      handleTreeNodeClick(tableName, undefined, page, pageSize, appliedWhereClause, appliedOrderByClause)
-  }, [tableName, page, pageSize, handleTreeNodeClick, appliedWhereClause, appliedOrderByClause])
+    handleTreeNodeClick(
+      tableName,
+      undefined,
+      page,
+      pageSize,
+      appliedWhereClause,
+      appliedOrderByClause,
+    )
+  }, [
+    tableName,
+    page,
+    pageSize,
+    handleTreeNodeClick,
+    appliedWhereClause,
+    appliedOrderByClause,
+  ])
   // Track previous realTableRows to reset page when data is fully reloaded
   // (not just a page fetch). Compare reference — new fetch always creates a new array.
   const prevRealTableRowsRef = useRef(realTableRows)
@@ -661,12 +735,10 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
 
   // ── Build the data array: real rows (minus staged deletes) + staged inserts ──
   const displayRows = useMemo<TableRow[]>(() => {
-    const filtered = realTableRows.filter(
-      (_row, index) => {
-        const rowId = buildRowId(_row, index, tableName, pkColumn)
-        return !pendingDeletes.includes(rowId)
-      },
-    )
+    const filtered = realTableRows.filter((_row, index) => {
+      const rowId = buildRowId(_row, index, tableName, pkColumn)
+      return !pendingDeletes.includes(rowId)
+    })
     return [...filtered, ...pendingInserts]
   }, [realTableRows, pendingDeletes, pendingInserts, tableName, pkColumn])
 
@@ -684,17 +756,23 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
     [realTableColumns, displayRows, tableColumnsMeta],
   )
 
-  const { widths, onMouseDown, syncWidths, handleDoubleClick } = useColumnResizer({
-    initialWidths: autoColumnWidths,
-  })
+  const { widths, onMouseDown, syncWidths, handleDoubleClick } =
+    useColumnResizer({
+      initialWidths: autoColumnWidths,
+    })
 
   const boundedWidths = useMemo(
-    () => widths.map((width) => Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, width))),
+    () =>
+      widths.map((width) =>
+        Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, width)),
+      ),
     [widths],
   )
 
   const tableWidth = useMemo(
-    () => ROW_GUTTER_WIDTH + boundedWidths.reduce((total, width) => total + width, 0),
+    () =>
+      ROW_GUTTER_WIDTH +
+      boundedWidths.reduce((total, width) => total + width, 0),
     [boundedWidths],
   )
 
@@ -710,10 +788,12 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
         id: column,
         accessorKey: column,
         header: () => {
-          const columnMetadata = tableColumnsMeta.find((item) => item.columnName === column)
+          const columnMetadata = tableColumnsMeta.find(
+            (item) => item.columnName === column,
+          )
           const dataType = columnMetadata?.dataType
           const isPrimaryKey = isPrimaryKeyColumn(columnMetadata)
-          const hasActiveFilter = filters.some(f => f.column === column)
+          const hasActiveFilter = filters.some((f) => f.column === column)
           const isSorted = sortColumn === column
           return (
             <div className="group/hdr relative flex min-w-0 items-center overflow-hidden">
@@ -730,15 +810,24 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                 )}
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <div className="flex min-w-0 items-center gap-1">
-                    <span className={`truncate text-xs leading-tight ${isSorted ? 'font-semibold text-text-primary' : 'font-medium text-text-secondary'}`}>
+                    <span
+                      className={`truncate text-xs leading-tight ${isSorted ? 'font-semibold text-text-primary' : 'font-medium text-text-secondary'}`}
+                    >
                       {column}
                     </span>
                     {/* Sort arrow — always visible when sorted, sits next to name */}
-                    {isSorted && (
-                      sortDirection === 'asc'
-                        ? <ChevronUp size={12} className="shrink-0 text-primary" />
-                        : <ChevronDown size={12} className="shrink-0 text-primary" />
-                    )}
+                    {isSorted &&
+                      (sortDirection === 'asc' ? (
+                        <ChevronUp
+                          size={12}
+                          className="shrink-0 text-primary"
+                        />
+                      ) : (
+                        <ChevronDown
+                          size={12}
+                          className="shrink-0 text-primary"
+                        />
+                      ))}
                   </div>
                   {dataType && (
                     <span className="truncate text-[10px] leading-tight text-text-muted">
@@ -752,13 +841,22 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                 <button
                   type="button"
                   className="rounded p-1 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
-                  onClick={(e) => { e.stopPropagation(); handleSortColumn(column) }}
-                  aria-label={isSorted ? `Sort ${sortDirection === 'asc' ? 'descending' : 'clear'}` : `Sort by ${column}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleSortColumn(column)
+                  }}
+                  aria-label={
+                    isSorted
+                      ? `Sort ${sortDirection === 'asc' ? 'descending' : 'clear'}`
+                      : `Sort by ${column}`
+                  }
                 >
                   {isSorted ? (
-                    sortDirection === 'asc'
-                      ? <ChevronUp size={13} className="text-primary" />
-                      : <ChevronDown size={13} className="text-primary" />
+                    sortDirection === 'asc' ? (
+                      <ChevronUp size={13} className="text-primary" />
+                    ) : (
+                      <ChevronDown size={13} className="text-primary" />
+                    )
                   ) : (
                     <ArrowUpDown size={13} />
                   )}
@@ -766,10 +864,19 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                 <button
                   type="button"
                   className={`rounded p-1 transition-colors hover:bg-bg-hover ${
-                    hasActiveFilter ? 'text-primary' : 'text-text-muted hover:text-text-primary'
+                    hasActiveFilter
+                      ? 'text-primary'
+                      : 'text-text-muted hover:text-text-primary'
                   }`}
-                  onClick={(e) => { e.stopPropagation(); handleColumnFilterClick(column) }}
-                  aria-label={hasActiveFilter ? `Filter active on ${column}` : `Filter ${column}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleColumnFilterClick(column)
+                  }}
+                  aria-label={
+                    hasActiveFilter
+                      ? `Filter active on ${column}`
+                      : `Filter ${column}`
+                  }
                 >
                   <Filter size={13} />
                 </button>
@@ -797,11 +904,26 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
           <EditableCell
             context={context}
             columnMeta={editableColumnMetaMap[column]}
-            getRowId={(_row, index) => buildRowId(_row, index, tableName, pkColumn)}
+            getRowId={(_row, index) =>
+              buildRowId(_row, index, tableName, pkColumn)
+            }
           />
         ),
       })),
-    [handleDoubleClick, onMouseDown, handleSortColumn, handleColumnFilterClick, sortColumn, sortDirection, filters, realTableColumns, tableColumnsMeta, editableColumnMetaMap, tableName, pkColumn],
+    [
+      handleDoubleClick,
+      onMouseDown,
+      handleSortColumn,
+      handleColumnFilterClick,
+      sortColumn,
+      sortDirection,
+      filters,
+      realTableColumns,
+      tableColumnsMeta,
+      editableColumnMetaMap,
+      tableName,
+      pkColumn,
+    ],
   )
 
   const table = useReactTable({
@@ -828,7 +950,9 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
         `[data-cell-row="${pos.rowIndex}"][data-cell-col="${pos.columnId}"]`,
       )
       if (cell) {
-        cell.dispatchEvent(new CustomEvent('table:enter-edit', { bubbles: true }))
+        cell.dispatchEvent(
+          new CustomEvent('table:enter-edit', { bubbles: true }),
+        )
       }
     },
     onEscape: () => {
@@ -849,8 +973,12 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
       handleDeleteRow()
       restoreActiveCellFocus()
     },
-    onCopy: () => { handleCopyRef.current?.() },
-    onPaste: () => { handlePasteRef.current?.() },
+    onCopy: () => {
+      handleCopyRef.current?.()
+    },
+    onPaste: () => {
+      handlePasteRef.current?.()
+    },
   })
   const handleCellMouseDown = useCallback(
     (rowIndex: number, columnId: string, e: React.MouseEvent) => {
@@ -877,7 +1005,11 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
   const handleCellMouseEnter = useCallback(
     (rowIndex: number, columnId: string) => {
       if (!isDraggingRef.current || !dragAnchorRef.current) return
-      selectRange(dragAnchorRef.current, { rowIndex, columnId }, realTableColumns)
+      selectRange(
+        dragAnchorRef.current,
+        { rowIndex, columnId },
+        realTableColumns,
+      )
     },
     [selectRange, realTableColumns],
   )
@@ -921,7 +1053,10 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
   }, [])
 
   // ── Context menu state ──────────────────────────────────────────────────
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{
+    x: number
+    y: number
+  } | null>(null)
   const [sqlModalOpen, setSqlModalOpen] = useState(false)
   const [generatedSql, setGeneratedSql] = useState('')
   // Track the context-row index for single-cell/row operations
@@ -945,7 +1080,8 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
         .map((i) => displayRows[i])
     }
     // Fallback to context-menu target row
-    return contextRowIndexRef.current >= 0 && contextRowIndexRef.current < displayRows.length
+    return contextRowIndexRef.current >= 0 &&
+      contextRowIndexRef.current < displayRows.length
       ? [displayRows[contextRowIndexRef.current]]
       : []
   }, [selectedCells, activeCell, displayRows])
@@ -1024,7 +1160,14 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
         }
       }
     }
-  }, [displayRows, realTableColumns, tableName, pkColumn, stageInsert, stageEdit])
+  }, [
+    displayRows,
+    realTableColumns,
+    tableName,
+    pkColumn,
+    stageInsert,
+    stageEdit,
+  ])
 
   /** Stage NULL for all cells in the selected row(s) */
   const handleContextSetToNull = useCallback(() => {
@@ -1038,7 +1181,14 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
         stageEdit(rowId, col, rows[ri][col], null)
       }
     }
-  }, [getSelectedRows, displayRows, realTableColumns, tableName, pkColumn, stageEdit])
+  }, [
+    getSelectedRows,
+    displayRows,
+    realTableColumns,
+    tableName,
+    pkColumn,
+    stageEdit,
+  ])
 
   /** Stage delete for the selected row(s) */
   const handleContextDeleteRows = useCallback(() => {
@@ -1058,7 +1208,13 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
       dataType: c.dataType,
       isPrimaryKey: isPrimaryKeyColumn(c),
     }))
-    const sql = generateReviewSQL(rows, realTableColumns, tableName ?? 'table', columnInfo, 'all')
+    const sql = generateReviewSQL(
+      rows,
+      realTableColumns,
+      tableName ?? 'table',
+      columnInfo,
+      'all',
+    )
     setGeneratedSql(sql)
     setSqlModalOpen(true)
   }, [getSelectedRows, realTableColumns, tableName, tableColumnsMeta])
@@ -1101,7 +1257,12 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
       template[col] = getDefaultValueForType(meta?.dataType)
     }
     const newRowId = stageInsert(template)
-    console.log('[TableDetailPage] Added row with ID:', newRowId, 'Template:', template)
+    console.log(
+      '[TableDetailPage] Added row with ID:',
+      newRowId,
+      'Template:',
+      template,
+    )
     setToast({
       kind: 'success',
       message: `Added new row (ID: ${newRowId})`,
@@ -1109,7 +1270,8 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
     // Scroll to bottom to show the new row
     requestAnimationFrame(() => {
       if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight
+        scrollContainerRef.current.scrollTop =
+          scrollContainerRef.current.scrollHeight
       }
     })
   }, [realTableColumns, editableColumnMetaMap, stageInsert])
@@ -1137,24 +1299,60 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
     const rowId = buildRowId(row, activeCell.rowIndex, tableName, pkColumn)
     stageDelete(rowId)
     resetSelection()
-  }, [selectedCells, activeCell, displayRows, tableName, pkColumn, stageDelete, resetSelection])
+  }, [
+    selectedCells,
+    activeCell,
+    displayRows,
+    tableName,
+    pkColumn,
+    stageDelete,
+    resetSelection,
+  ])
 
   const handleRefresh = useCallback(() => {
     if (!tableName) return
     if (totalPending > 0) {
       setConfirmRefreshOpen(true)
     } else {
-      handleTreeNodeClick(tableName, undefined, 1, pageSize, appliedWhereClause, appliedOrderByClause)
+      handleTreeNodeClick(
+        tableName,
+        undefined,
+        1,
+        pageSize,
+        appliedWhereClause,
+        appliedOrderByClause,
+      )
     }
-  }, [tableName, handleTreeNodeClick, totalPending, pageSize, appliedWhereClause, appliedOrderByClause])
+  }, [
+    tableName,
+    handleTreeNodeClick,
+    totalPending,
+    pageSize,
+    appliedWhereClause,
+    appliedOrderByClause,
+  ])
   const handleConfirmRefresh = useCallback(() => {
     setConfirmRefreshOpen(false)
     clearAll()
     resetInsertCounter()
     if (tableName) {
-      handleTreeNodeClick(tableName, undefined, 1, pageSize, appliedWhereClause, appliedOrderByClause)
+      handleTreeNodeClick(
+        tableName,
+        undefined,
+        1,
+        pageSize,
+        appliedWhereClause,
+        appliedOrderByClause,
+      )
     }
-  }, [tableName, handleTreeNodeClick, clearAll, pageSize, appliedWhereClause, appliedOrderByClause])
+  }, [
+    tableName,
+    handleTreeNodeClick,
+    clearAll,
+    pageSize,
+    appliedWhereClause,
+    appliedOrderByClause,
+  ])
 
   const handleCancelRefresh = useCallback(() => {
     setConfirmRefreshOpen(false)
@@ -1174,7 +1372,8 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
       )
       // Override database with the one currently browsed (user may have
       // switched databases in the sidebar without updating the profile).
-      payload.database = selectedDatabase || selectedConnection.database || payload.database
+      payload.database =
+        selectedDatabase || selectedConnection.database || payload.database
       const pkMapped = pkColumn
 
       // Build inserts: strip __rowId from staged drafts
@@ -1192,13 +1391,17 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
         }
         // Extract the actual PK value from the rowId prefix
         // RowId format is `${tableName}-${pkValue}` or `${tableName}-${index}`
-        const pkValue = rowId.startsWith(`${tableName}-`) ? rowId.slice(`${tableName}-`.length) : rowId
+        const pkValue = rowId.startsWith(`${tableName}-`)
+          ? rowId.slice(`${tableName}-`.length)
+          : rowId
         return { rowId: pkValue, changes }
       })
 
       // Build deletes: same PK extraction
       const deletes = pendingDeletes.map((rowId) => {
-        return rowId.startsWith(`${tableName}-`) ? rowId.slice(`${tableName}-`.length) : rowId
+        return rowId.startsWith(`${tableName}-`)
+          ? rowId.slice(`${tableName}-`.length)
+          : rowId
       })
 
       await commitMutation.mutateAsync({
@@ -1214,7 +1417,14 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
       const committedCount = totalPending
       clearAll()
       resetInsertCounter()
-      handleTreeNodeClick(tableName, undefined, 1, pageSize, appliedWhereClause, appliedOrderByClause)
+      handleTreeNodeClick(
+        tableName,
+        undefined,
+        1,
+        pageSize,
+        appliedWhereClause,
+        appliedOrderByClause,
+      )
       setToast({
         kind: 'success',
         message: `Committed ${committedCount} change${committedCount !== 1 ? 's' : ''} successfully`,
@@ -1243,7 +1453,7 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
     restoreActiveCellFocus,
     appliedWhereClause,
     pageSize,
-    appliedOrderByClause
+    appliedOrderByClause,
   ])
 
   // Keep latest handleCommit referable from the keyboard callback closure.
@@ -1276,7 +1486,8 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
   }, [redo, restoreActiveCellFocus])
 
   // ── Common table header class ─────────────────────────────────────────────
-  const theadClass = 'sticky top-0 z-20 bg-bg-muted text-text-muted shadow-[0_1px_0_0_var(--color-border-default)]'
+  const theadClass =
+    'sticky top-0 z-20 bg-bg-muted text-text-muted shadow-[0_1px_0_0_var(--color-border-default)]'
 
   // ── Guard: no tableName ──────────────────────────────────────────────────
   if (!tableName) {
@@ -1298,7 +1509,13 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
         <ActionButton
           icon={<Filter size={14} />}
           aria-label="Toggle Filter"
-          variant={filters.length > 0 ? 'active' : (filterPanelOpen ? 'accent' : 'default')}
+          variant={
+            filters.length > 0
+              ? 'active'
+              : filterPanelOpen
+                ? 'accent'
+                : 'default'
+          }
           onClick={() => setFilterPanelOpen(!filterPanelOpen)}
         />
         {filters.length > 0 && !filterPanelOpen && (
@@ -1345,9 +1562,7 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
           aria-label="Commit changes"
           variant="success"
           disabled={
-            totalPending === 0 ||
-            commitMutation.isPending ||
-            !hasPrimaryKey
+            totalPending === 0 || commitMutation.isPending || !hasPrimaryKey
           }
           onClick={handleCommit}
         />
@@ -1379,12 +1594,20 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
             items={[
               {
                 label: 'Export as CSV',
-                icon: <span className="font-mono text-micro text-text-muted">CSV</span>,
+                icon: (
+                  <span className="font-mono text-micro text-text-muted">
+                    CSV
+                  </span>
+                ),
                 action: handleExportCSV,
               },
               {
                 label: 'Export as JSON',
-                icon: <span className="font-mono text-micro text-text-muted">JSON</span>,
+                icon: (
+                  <span className="font-mono text-micro text-text-muted">
+                    JSON
+                  </span>
+                ),
                 action: handleExportJSON,
               },
             ]}
@@ -1395,7 +1618,9 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
       {/* ── Filter Bar ───────────────────────────────────────────────────────── */}
       <div
         className={`grid transition-[grid-template-rows] duration-200 ease-in-out ${
-          filterPanelOpen || filters.length > 0 || sortColumn ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+          filterPanelOpen || filters.length > 0 || sortColumn
+            ? 'grid-rows-[1fr]'
+            : 'grid-rows-[0fr]'
         }`}
       >
         <div className="overflow-hidden">
@@ -1405,18 +1630,27 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
               <select
                 className="h-6 rounded border border-border-default bg-bg-base px-1 text-[11px] font-mono outline-none focus:border-primary disabled:opacity-40"
                 value={newFilter.column || ''}
-                onChange={(e) => setNewFilter({ ...newFilter, column: e.target.value })}
+                onChange={(e) =>
+                  setNewFilter({ ...newFilter, column: e.target.value })
+                }
                 disabled={realTableColumns.length === 0}
               >
                 <option value="">Column…</option>
                 {realTableColumns.map((col) => (
-                  <option key={col} value={col}>{col}</option>
+                  <option key={col} value={col}>
+                    {col}
+                  </option>
                 ))}
               </select>
               <select
                 className="h-6 rounded border border-border-default bg-bg-base px-1 text-[11px] outline-none focus:border-primary disabled:opacity-40"
                 value={newFilter.operator || '='}
-                onChange={(e) => setNewFilter({ ...newFilter, operator: e.target.value as FilterOperator })}
+                onChange={(e) =>
+                  setNewFilter({
+                    ...newFilter,
+                    operator: e.target.value as FilterOperator,
+                  })
+                }
                 disabled={!newFilter.column}
               >
                 <option value="=">=</option>
@@ -1432,15 +1666,21 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                 <option value="is_not_null">is not null</option>
                 <option value="in">in</option>
               </select>
-              {!['is_null', 'is_not_null'].includes(newFilter.operator || '=') && (
+              {!['is_null', 'is_not_null'].includes(
+                newFilter.operator || '=',
+              ) && (
                 <input
                   ref={valueInputRef}
                   type="text"
                   className="h-6 w-28 min-w-0 rounded border border-border-default bg-bg-base px-1.5 text-[11px] outline-none focus:border-primary disabled:opacity-40"
                   placeholder="Value…"
                   value={newFilter.value || ''}
-                  onChange={(e) => setNewFilter({ ...newFilter, value: e.target.value })}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddFilter() }}
+                  onChange={(e) =>
+                    setNewFilter({ ...newFilter, value: e.target.value })
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleAddFilter()
+                  }}
                   disabled={!newFilter.column || !newFilter.operator}
                 />
               )}
@@ -1448,7 +1688,14 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                 type="button"
                 className="flex h-6 items-center gap-0.5 rounded bg-primary/10 px-1.5 text-[11px] font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-40 disabled:hover:bg-transparent"
                 onClick={handleAddFilter}
-                disabled={!newFilter.column || !newFilter.operator || (!newFilter.value && !['is_null', 'is_not_null'].includes(newFilter.operator || ''))}
+                disabled={
+                  !newFilter.column ||
+                  !newFilter.operator ||
+                  (!newFilter.value &&
+                    !['is_null', 'is_not_null'].includes(
+                      newFilter.operator || '',
+                    ))
+                }
               >
                 <CirclePlus size={11} />
                 Add
@@ -1471,15 +1718,25 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
             {(filters.length > 0 || sortColumn) && (
               <div className="flex flex-wrap items-center gap-1 border-t border-border-default bg-bg-subtle px-2 py-1">
                 {filters.map((filter, index) => (
-                  <span key={index} className="group/chip inline-flex items-center gap-px rounded border border-primary/20 bg-primary/5 py-px pl-0.5 pr-0.5 text-[11px] leading-tight">
-                    <Filter size={9} className="mx-0.5 shrink-0 text-primary/50" />
+                  <span
+                    key={index}
+                    className="group/chip inline-flex items-center gap-px rounded border border-primary/20 bg-primary/5 py-px pl-0.5 pr-0.5 text-[11px] leading-tight"
+                  >
+                    <Filter
+                      size={9}
+                      className="mx-0.5 shrink-0 text-primary/50"
+                    />
                     <select
                       className="h-5 rounded border-none bg-transparent px-0 text-[11px] font-mono text-text-primary outline-none focus:ring-0"
                       value={filter.column}
-                      onChange={(e) => handleUpdateFilter(index, { column: e.target.value })}
+                      onChange={(e) =>
+                        handleUpdateFilter(index, { column: e.target.value })
+                      }
                     >
                       {realTableColumns.map((col) => (
-                        <option key={col} value={col}>{col}</option>
+                        <option key={col} value={col}>
+                          {col}
+                        </option>
                       ))}
                     </select>
                     <select
@@ -1488,7 +1745,10 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                       onChange={(e) => {
                         const op = e.target.value as FilterOperator
                         const isNullOp = ['is_null', 'is_not_null'].includes(op)
-                        handleUpdateFilter(index, { operator: op, ...(isNullOp ? { value: '' } : {}) })
+                        handleUpdateFilter(index, {
+                          operator: op,
+                          ...(isNullOp ? { value: '' } : {}),
+                        })
                       }}
                     >
                       <option value="=">=</option>
@@ -1509,8 +1769,13 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                         type="text"
                         className="h-5 w-16 min-w-0 rounded border-none bg-transparent px-0.5 text-[11px] font-medium text-primary outline-none focus:ring-0"
                         value={filter.value}
-                        onChange={(e) => handleUpdateFilter(index, { value: e.target.value })}
-                        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                        onChange={(e) =>
+                          handleUpdateFilter(index, { value: e.target.value })
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter')
+                            (e.target as HTMLInputElement).blur()
+                        }}
                       />
                     )}
                     <button
@@ -1525,23 +1790,34 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                 {/* ── Sort chip ── */}
                 {sortColumn && (
                   <span className="group/chip inline-flex items-center gap-px rounded border border-border-default bg-bg-muted py-px pl-0.5 pr-0.5 text-[11px] leading-tight">
-                    {sortDirection === 'asc'
-                      ? <ChevronUp size={10} className="mx-0.5 shrink-0 text-text-muted" />
-                      : <ChevronDown size={10} className="mx-0.5 shrink-0 text-text-muted" />
-                    }
+                    {sortDirection === 'asc' ? (
+                      <ChevronUp
+                        size={10}
+                        className="mx-0.5 shrink-0 text-text-muted"
+                      />
+                    ) : (
+                      <ChevronDown
+                        size={10}
+                        className="mx-0.5 shrink-0 text-text-muted"
+                      />
+                    )}
                     <select
                       className="h-5 rounded border-none bg-transparent px-0 text-[11px] font-mono text-text-primary outline-none focus:ring-0"
                       value={sortColumn}
                       onChange={(e) => {
                         if (!e.target.value) {
-                          setSortColumn(null); setSortDirection('asc'); setAppliedOrderByClause('')
+                          setSortColumn(null)
+                          setSortDirection('asc')
+                          setAppliedOrderByClause('')
                         } else {
                           handleSortColumn(e.target.value)
                         }
                       }}
                     >
                       {realTableColumns.map((col) => (
-                        <option key={col} value={col}>{col}</option>
+                        <option key={col} value={col}>
+                          {col}
+                        </option>
                       ))}
                     </select>
                     <button
@@ -1550,9 +1826,17 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                       onClick={() => {
                         const next = sortDirection === 'asc' ? 'desc' : 'asc'
                         setSortDirection(next)
-                        const dbType = selectedConnection?.type as 'postgresql' | 'mysql'
-                        if (dbType && ['postgresql', 'mysql'].includes(dbType) && sortColumn) {
-                          setAppliedOrderByClause(buildOrderByClause(sortColumn, next, dbType))
+                        const dbType = selectedConnection?.type as
+                          | 'postgresql'
+                          | 'mysql'
+                        if (
+                          dbType &&
+                          ['postgresql', 'mysql'].includes(dbType) &&
+                          sortColumn
+                        ) {
+                          setAppliedOrderByClause(
+                            buildOrderByClause(sortColumn, next, dbType),
+                          )
                         }
                       }}
                     >
@@ -1560,7 +1844,11 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                     </button>
                     <button
                       className="rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:text-danger group-hover/chip:opacity-100"
-                      onClick={() => { setSortColumn(null); setSortDirection('asc'); setAppliedOrderByClause('') }}
+                      onClick={() => {
+                        setSortColumn(null)
+                        setSortDirection('asc')
+                        setAppliedOrderByClause('')
+                      }}
                       aria-label="Clear sort"
                     >
                       <X size={9} />
@@ -1572,7 +1860,6 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
           </div>
         </div>
       </div>
-
 
       {/* ── No primary-key warning banner ─────────────────────────────── */}
       {/*
@@ -1595,7 +1882,9 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
         {totalPending > 0
           ? `${totalPending} pending change${totalPending !== 1 ? 's' : ''}`
           : 'No pending changes'}
-        {toast ? `. ${toast.kind === 'success' ? 'Success' : 'Error'}: ${toast.message}` : ''}
+        {toast
+          ? `. ${toast.kind === 'success' ? 'Success' : 'Error'}: ${toast.message}`
+          : ''}
       </div>
 
       {/* ── Toast (visual) ─────────────────────────────────────────── */}
@@ -1624,7 +1913,10 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
 
       {/* ── Loading overlay ──────────────────────────────────────────────── */}
       {tableDataLoading && (
-        <CenteredLoadingState loading={tableDataLoading} label="Loading table data..." />
+        <CenteredLoadingState
+          loading={tableDataLoading}
+          label="Loading table data..."
+        />
       )}
 
       {/* ── Data table ────────────────────────────────────────────────────── */}
@@ -1643,7 +1935,10 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
             <colgroup>
               <col style={{ width: ROW_GUTTER_WIDTH }} />
               {boundedWidths.map((width, index) => (
-                <col key={`col-${realTableColumns[index] ?? index}`} style={{ width }} />
+                <col
+                  key={`col-${realTableColumns[index] ?? index}`}
+                  style={{ width }}
+                />
               ))}
             </colgroup>
             <thead className={theadClass}>
@@ -1661,7 +1956,8 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                       boundedWidths,
                       tableColumnsMeta,
                     )
-                    const style: CSSProperties = stickyLeft == null ? {} : { left: stickyLeft }
+                    const style: CSSProperties =
+                      stickyLeft == null ? {} : { left: stickyLeft }
 
                     return (
                       <th
@@ -1669,13 +1965,18 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                         role="columnheader"
                         className={[
                           'group relative border-b border-r border-border-default px-0 py-0 text-left whitespace-nowrap',
-                          stickyLeft == null ? 'bg-bg-muted' : 'sticky z-20 bg-bg-muted shadow-[1px_0_0_0_var(--color-border-default)]',
+                          stickyLeft == null
+                            ? 'bg-bg-muted'
+                            : 'sticky z-20 bg-bg-muted shadow-[1px_0_0_0_var(--color-border-default)]',
                         ].join(' ')}
                         style={style}
                       >
                         {header.isPlaceholder
                           ? null
-                          : flexRender(header.column.columnDef.header, header.getContext())}
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext(),
+                            )}
                         <span className="sr-only">{columnId}</span>
                       </th>
                     )
@@ -1694,12 +1995,17 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                     <div className="flex flex-col items-center justify-center gap-4 py-16">
                       {/* Illustration */}
                       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-bg-muted/50">
-                        <Inbox className="h-8 w-8 text-text-secondary" strokeWidth={1.5} />
+                        <Inbox
+                          className="h-8 w-8 text-text-secondary"
+                          strokeWidth={1.5}
+                        />
                       </div>
 
                       {/* Text */}
                       <div className="flex flex-col items-center gap-1.5">
-                        <h3 className="text-sm font-semibold text-text-primary">No data</h3>
+                        <h3 className="text-sm font-semibold text-text-primary">
+                          No data
+                        </h3>
                         <p className="text-xs text-text-muted">
                           {appliedWhereClause
                             ? 'No rows match the current filter.'
@@ -1734,7 +2040,12 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
               {table.getRowModel().rows.map((row) => {
                 const rowIndex = row.index
                 const rowHasActiveCell = activeCell?.rowIndex === rowIndex
-                const rowId = buildRowId(row.original, row.index, tableName, pkColumn)
+                const rowId = buildRowId(
+                  row.original,
+                  row.index,
+                  tableName,
+                  pkColumn,
+                )
                 const isDeletedRow = pendingDeletes.includes(rowId)
                 const hasRowEdits = rowId in pendingEdits
                 const isInsertedRow = rowId.startsWith('__insert__')
@@ -1742,7 +2053,9 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                   (k) => Number(k.split(':')[0]) === rowIndex,
                 )
                 // Get edited fields for this row to highlight individual cells
-                const editedFields = new Set(pendingEdits[rowId]?.map((e) => e.field) || [])
+                const editedFields = new Set(
+                  pendingEdits[rowId]?.map((e) => e.field) || [],
+                )
 
                 return (
                   <tr
@@ -1751,9 +2064,15 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                     className={[
                       'text-text-primary transition-colors',
                       rowHasActiveCell ? 'bg-primary-subtle' : '',
-                      hasSelectedCell && !rowHasActiveCell ? 'bg-selection-bg' : '',
-                      !rowHasActiveCell && !hasSelectedCell ? 'hover:bg-bg-muted/70' : '',
-                      isDeletedRow ? 'line-through bg-red-100 dark:bg-red-900/25' : '',
+                      hasSelectedCell && !rowHasActiveCell
+                        ? 'bg-selection-bg'
+                        : '',
+                      !rowHasActiveCell && !hasSelectedCell
+                        ? 'hover:bg-bg-muted/70'
+                        : '',
+                      isDeletedRow
+                        ? 'line-through bg-red-100 dark:bg-red-900/25'
+                        : '',
                       isInsertedRow ? 'bg-green-100 dark:bg-green-900/25' : '',
                     ]
                       .filter(Boolean)
@@ -1800,11 +2119,15 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                         boundedWidths,
                         tableColumnsMeta,
                       )
-                      const style: CSSProperties = stickyLeft == null ? {} : { left: stickyLeft }
+                      const style: CSSProperties =
+                        stickyLeft == null ? {} : { left: stickyLeft }
                       const columnId = cell.column.id
                       const isActiveCellHere =
-                        activeCell?.rowIndex === rowIndex && activeCell?.columnId === columnId
-                      const isSelectedCell = selectedCells.has(cellKey(rowIndex, columnId))
+                        activeCell?.rowIndex === rowIndex &&
+                        activeCell?.columnId === columnId
+                      const isSelectedCell = selectedCells.has(
+                        cellKey(rowIndex, columnId),
+                      )
                       const isDeletedHere = isDeletedRow
                       // Check if this specific cell has an edit
                       const isCellDirty = editedFields.has(columnId)
@@ -1813,10 +2136,14 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                       let selectionBoxShadow = ''
                       if (isSelectedCell && selectedCells.size > 1) {
                         // Determine selection bounds
-                        let minRow = Infinity, maxRow = -Infinity
-                        let minColIdx = Infinity, maxColIdx = -Infinity
+                        let minRow = Infinity,
+                          maxRow = -Infinity
+                        let minColIdx = Infinity,
+                          maxColIdx = -Infinity
                         const colIndexMap = new Map<string, number>()
-                        realTableColumns.forEach((c, i) => colIndexMap.set(c, i))
+                        realTableColumns.forEach((c, i) =>
+                          colIndexMap.set(c, i),
+                        )
                         for (const key of selectedCells) {
                           const [r, c] = key.split(':')
                           const ri = Number(r)
@@ -1833,10 +2160,14 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                         const isRight = colIdx === maxColIdx
                         const shadows = []
                         // Inset shadow on outer edges only
-                        if (isTop) shadows.push('inset 0 2px 0 0 var(--color-primary)')
-                        if (isBottom) shadows.push('inset 0 -2px 0 0 var(--color-primary)')
-                        if (isLeft) shadows.push('inset 2px 0 0 0 var(--color-primary)')
-                        if (isRight) shadows.push('inset -2px 0 0 0 var(--color-primary)')
+                        if (isTop)
+                          shadows.push('inset 0 2px 0 0 var(--color-primary)')
+                        if (isBottom)
+                          shadows.push('inset 0 -2px 0 0 var(--color-primary)')
+                        if (isLeft)
+                          shadows.push('inset 2px 0 0 0 var(--color-primary)')
+                        if (isRight)
+                          shadows.push('inset -2px 0 0 0 var(--color-primary)')
                         selectionBoxShadow = shadows.join(', ')
                       }
                       return (
@@ -1847,9 +2178,7 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                           data-cell-col={columnId}
                           className={[
                             'overflow-hidden border-b border-r border-border-default p-0 select-none',
-                            stickyLeft == null
-                              ? ''
-                              : 'sticky z-10 bg-bg-base',
+                            stickyLeft == null ? '' : 'sticky z-10 bg-bg-base',
                             // Selection takes priority over dirty state
                             isActiveCellHere
                               ? 'ring-2 ring-inset ring-primary z-5'
@@ -1858,7 +2187,9 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                                 : isCellDirty && !isInsertedRow
                                   ? 'bg-yellow-100 dark:bg-yellow-900/25'
                                   : '',
-                            rowHasActiveCell && !isDeletedHere ? 'text-primary' : '',
+                            rowHasActiveCell && !isDeletedHere
+                              ? 'text-primary'
+                              : '',
                           ]
                             .filter(Boolean)
                             .join(' ')}
@@ -1866,8 +2197,12 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                             ...style,
                             boxShadow: selectionBoxShadow || undefined,
                           }}
-                          onMouseDown={(e) => handleCellMouseDown(rowIndex, columnId, e)}
-                          onMouseEnter={() => handleCellMouseEnter(rowIndex, columnId)}
+                          onMouseDown={(e) =>
+                            handleCellMouseDown(rowIndex, columnId, e)
+                          }
+                          onMouseEnter={() =>
+                            handleCellMouseEnter(rowIndex, columnId)
+                          }
                           onMouseUp={handleCellMouseUp}
                           onContextMenu={(e) => {
                             e.preventDefault()
@@ -1876,7 +2211,10 @@ function getDefaultValueForType(dataType: string | undefined): unknown {
                             setContextMenu({ x: e.clientX, y: e.clientY })
                           }}
                         >
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
                         </td>
                       )
                     })}

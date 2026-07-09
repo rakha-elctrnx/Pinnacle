@@ -294,22 +294,19 @@ export function fromBackendSchemaInfo(info: TableSchemaInfo): TableSchemaModel {
     primaryKey: info.primaryKey
       ? toPrimaryKeyDefinition(info.primaryKey)
       : null,
-    uniqueConstraints: info.uniqueConstraints.map(
-      (uc: UniqueConstraint) => toUniqueConstraintDefinition(uc),
+    uniqueConstraints: info.uniqueConstraints.map((uc: UniqueConstraint) =>
+      toUniqueConstraintDefinition(uc),
     ),
-    foreignKeys: info.foreignKeys.map(
-      (fk: ForeignKeyConstraint) => toForeignKeyDefinition(fk),
+    foreignKeys: info.foreignKeys.map((fk: ForeignKeyConstraint) =>
+      toForeignKeyDefinition(fk),
     ),
-    indexes: info.indexes.map(
-      (idx: BackendIndexDefinition) => toFrontendIndexDefinition(idx),
+    indexes: info.indexes.map((idx: BackendIndexDefinition) =>
+      toFrontendIndexDefinition(idx),
     ),
   }
 }
 
-function toColumnDefinition(
-  col: TableColumn,
-  index: number,
-): ColumnDefinition {
+function toColumnDefinition(col: TableColumn, index: number): ColumnDefinition {
   return {
     id: generateId('col'),
     name: col.name,

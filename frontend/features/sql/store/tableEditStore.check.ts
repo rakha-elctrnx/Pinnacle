@@ -47,7 +47,10 @@ assert(s().pendingInserts.length === 1, 'insert staged')
 assert(canUndo(s()), 'undo available after insert')
 s().undo()
 assert(s().pendingInserts.length === 0, 'undo removes staged insert')
-assert(s().pendingInserts.every((d) => d.__rowId !== id), 'undo removes the right draft')
+assert(
+  s().pendingInserts.every((d) => d.__rowId !== id),
+  'undo removes the right draft',
+)
 s().redo()
 assert(s().pendingInserts.length === 1, 'redo re-adds insert')
 
@@ -65,7 +68,10 @@ s().clearAll()
 for (let i = 0; i < 25; i++) {
   s().stageEdit(`tbl-${i}`, 'c', i, i + 100)
 }
-assert(s().undoStack.length === 20, `undo stack capped at 20 (got ${s().undoStack.length})`)
+assert(
+  s().undoStack.length === 20,
+  `undo stack capped at 20 (got ${s().undoStack.length})`,
+)
 
 if (failures > 0) {
   console.error(`\n${failures} check(s) failed`)

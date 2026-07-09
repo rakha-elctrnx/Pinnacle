@@ -22,11 +22,8 @@ export function ElasticLayout() {
   const { connectionId } = useParams<{ connectionId: string }>()
   const location = useLocation()
 
-  const {
-    items,
-    selectedConnection,
-    handleConnectionSelectionChange,
-  } = useDataExplorerContext()
+  const { items, selectedConnection, handleConnectionSelectionChange } =
+    useDataExplorerContext()
 
   // Find the connection by ID from the URL.
   const connection = useMemo(
@@ -39,7 +36,12 @@ export function ElasticLayout() {
     if (connection && selectedConnection?.id !== connectionId) {
       handleConnectionSelectionChange(connectionId!)
     }
-  }, [connectionId, connection, selectedConnection, handleConnectionSelectionChange])
+  }, [
+    connectionId,
+    connection,
+    selectedConnection,
+    handleConnectionSelectionChange,
+  ])
 
   // ── Sync tab store with URL ──
   // Activate the tab whose route matches the current URL.
@@ -73,7 +75,9 @@ export function ElasticLayout() {
       if (mounted) setPayload(p)
     }
     loadPayload()
-    return () => { mounted = false }
+    return () => {
+      mounted = false
+    }
   }, [connection])
 
   // Fetch cluster health + indices list.
@@ -88,7 +92,9 @@ export function ElasticLayout() {
   if (!connectionId) {
     return (
       <div className="flex h-full w-full items-center justify-center text-text-secondary">
-        <p className="text-body-secondary text-text-secondary">Select a connection from the sidebar to get started.</p>
+        <p className="text-body-secondary text-text-secondary">
+          Select a connection from the sidebar to get started.
+        </p>
       </div>
     )
   }
@@ -100,38 +106,11 @@ export function ElasticLayout() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-
-      {/* ── Cluster health indicator ── */}
-      {health && (
-        <div className="flex items-center gap-2 border-b border-border-default/50 bg-bg-subtle px-3 py-1.5 text-caption text-text-secondary">
-          <span className="flex items-center gap-1.5">
-            <span
-              className={`inline-block h-2 w-2 rounded-full ${
-                health.status === 'green'
-                  ? 'bg-success'
-                  : health.status === 'yellow'
-                    ? 'bg-warning'
-                    : 'bg-danger'
-              }`}
-            />
-            <span className="text-body capitalize">{health.status}</span>
-          </span>
-          <span className="text-text-secondary/60">·</span>
-          <span>{health.number_of_nodes} nodes</span>
-          <span className="text-text-secondary/60">·</span>
-          <span>{health.active_shards} shards</span>
-          {error && (
-            <>
-              <span className="text-text-secondary/60">·</span>
-              <span className="text-danger">{error}</span>
-            </>
-          )}
-        </div>
-      )}
-
       {/* ── Page content ── */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        <Outlet context={{ payload, health, indices, loading, error, refresh }} />
+        <Outlet
+          context={{ payload, health, indices, loading, error, refresh }}
+        />
       </div>
     </div>
   )

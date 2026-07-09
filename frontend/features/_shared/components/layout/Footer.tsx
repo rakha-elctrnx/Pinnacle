@@ -50,21 +50,33 @@ export function Footer() {
 
   return (
     <footer className="flex h-8 shrink-0 items-center justify-between pt-2 px-4 text-caption text-text-secondary">
-      <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1 truncate">
+      <nav
+        aria-label="Breadcrumb"
+        className="flex min-w-0 items-center gap-1 truncate"
+      >
         {segments.length === 0 ? (
           <span className="italic text-text-muted">No connection selected</span>
         ) : (
           segments.map((segment, index) => (
-            <span key={`${segment}-${index}`} className="flex min-w-0 items-center gap-1">
+            <span
+              key={`${segment}-${index}`}
+              className="flex min-w-0 items-center gap-1"
+            >
               {index > 0 && (
-                <ChevronRight size={11} className="shrink-0 text-text-muted/70" aria-hidden="true" />
+                <ChevronRight
+                  size={11}
+                  className="shrink-0 text-text-muted/70"
+                  aria-hidden="true"
+                />
               )}
               <span className="truncate">{segment}</span>
             </span>
           ))
         )}
       </nav>
-      <span className="shrink-0 pl-3 text-mono text-micro text-text-muted">v0.0.0</span>
+      <span className="shrink-0 pl-3 text-mono text-micro text-text-muted">
+        v0.0.0
+      </span>
     </footer>
   )
 }

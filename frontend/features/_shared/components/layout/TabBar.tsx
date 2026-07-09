@@ -16,7 +16,10 @@ function TabIcon({ tab }: { tab: Tab }) {
     case 'elastic-index':
       return <Database size={12} className="shrink-0" />
     default:
-      return createElement(getDatabaseIcon(tab.type), { size: 12, className: 'shrink-0' })
+      return createElement(getDatabaseIcon(tab.type), {
+        size: 12,
+        className: 'shrink-0',
+      })
   }
 }
 

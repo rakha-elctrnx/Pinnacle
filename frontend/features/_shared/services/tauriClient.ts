@@ -1,6 +1,10 @@
 import { save } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
-import type { ConnectionProfile, ConnectionResponse, ConnectionListResponse } from '../types/domain'
+import type {
+  ConnectionProfile,
+  ConnectionResponse,
+  ConnectionListResponse,
+} from '../types/domain'
 export interface ConnectionPayload {
   type: string
   host: string
@@ -67,12 +71,21 @@ export async function listConnections(
   })
 }
 
-export async function getConnection(connectionId: string): Promise<ConnectionResponse | null> {
-  return invoke<ConnectionResponse | null>('get_connection', { connection_id: connectionId })
+export async function getConnection(
+  connectionId: string,
+): Promise<ConnectionResponse | null> {
+  return invoke<ConnectionResponse | null>('get_connection', {
+    connection_id: connectionId,
+  })
 }
 
-export async function getConnectionPassword(connectionId: string): Promise<string> {
-  const response = await invoke<{ connectionId: string; password: string }>('get_connection_password', { request: { connectionId } })
+export async function getConnectionPassword(
+  connectionId: string,
+): Promise<string> {
+  const response = await invoke<{ connectionId: string; password: string }>(
+    'get_connection_password',
+    { request: { connectionId } },
+  )
   return response.password
 }
 
@@ -80,12 +93,18 @@ export async function deleteConnection(connectionId: string): Promise<void> {
   return invoke<void>('delete_connection', { request: { connectionId } })
 }
 
-export async function updateConnection(profile: ConnectionProfile): Promise<ConnectionResponse> {
+export async function updateConnection(
+  profile: ConnectionProfile,
+): Promise<ConnectionResponse> {
   return invoke<ConnectionResponse>('update_connection', { metadata: profile })
 }
 
-export async function hasConnectionPassword(connectionId: string): Promise<boolean> {
-  return invoke<boolean>('has_connection_password', { connection_id: connectionId })
+export async function hasConnectionPassword(
+  connectionId: string,
+): Promise<boolean> {
+  return invoke<boolean>('has_connection_password', {
+    connection_id: connectionId,
+  })
 }
 
 /**
@@ -97,12 +116,10 @@ export async function showExportSaveDialog(
   // Extract the extension from the suggested filename for the file filter.
   // Using extensions: ['*'] causes macOS to append a literal ".*" to the name.
   const ext = suggestedFilename.includes('.')
-    ? suggestedFilename.split('.').pop() ?? '*'
+    ? (suggestedFilename.split('.').pop() ?? '*')
     : '*'
   return save({
     defaultPath: suggestedFilename,
-    filters: [
-      { name: 'All Files', extensions: [ext] },
-    ],
+    filters: [{ name: 'All Files', extensions: [ext] }],
   })
 }

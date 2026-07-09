@@ -10,9 +10,9 @@ import { ElasticLayout } from '../features/elasticsearch/layouts/ElasticLayout'
 import { ElasticConnectionWelcomePage } from '../features/elasticsearch/pages/ElasticConnectionWelcomePage'
 import { ClusterPage } from '../features/elasticsearch/pages/ClusterPage'
 import { IndicesPage } from '../features/elasticsearch/pages/IndicesPage'
-import { DocumentsPage } from '../features/elasticsearch/pages/DocumentsPage'
+import { IndexDocumentsPage } from '../features/elasticsearch/pages/IndexDocumentsPage'
 import { QueryConsolePage } from '../features/elasticsearch/pages/QueryConsolePage'
-import { MappingsPage } from '../features/elasticsearch/pages/MappingsPage'
+import { IndexMappingsPage } from '../features/elasticsearch/pages/IndexMappingsPage'
 import { NewConnectionPage } from '../features/_shared/pages/window'
 import { TableDesignerPage } from '../features/sql/pages/window/TableDesignerPage'
 
@@ -47,8 +47,8 @@ export const router = createBrowserRouter([
   {
     path: '/table-designer',
     element: <TableDesignerPage />,
-   },
-   {
+  },
+  {
     path: '/',
     element: <DataExplorerLayout />,
     children: [
@@ -90,9 +90,12 @@ export const router = createBrowserRouter([
               { index: true, element: <ElasticConnectionWelcomePage /> },
               { path: 'cluster', element: <ClusterPage /> },
               { path: 'indices', element: <IndicesPage /> },
-              { path: 'documents', element: <DocumentsPage /> },
+              { path: 'indices/:indexName', element: <IndexDocumentsPage /> },
+              {
+                path: 'indices/:indexName/mappings',
+                element: <IndexMappingsPage />,
+              },
               { path: 'query', element: <QueryConsolePage /> },
-              { path: 'mappings', element: <MappingsPage /> },
             ],
           },
         ],

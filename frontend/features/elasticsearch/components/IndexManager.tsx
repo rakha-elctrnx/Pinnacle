@@ -8,7 +8,15 @@ import {
   elasticCloseIndex,
   elasticCreateIndex,
 } from '../clients/elasticsearch'
-import { Plus, Trash2, RefreshCw, FolderOpen, FolderClosed, Search, SlidersHorizontal } from 'lucide-react'
+import {
+  Plus,
+  Trash2,
+  RefreshCw,
+  FolderOpen,
+  FolderClosed,
+  Search,
+  SlidersHorizontal,
+} from 'lucide-react'
 import { CenteredLoadingState } from '../../_shared/components/ui/CenteredLoadingState'
 
 interface Props {
@@ -18,7 +26,12 @@ interface Props {
   onSelectIndex: (name: string) => void
 }
 
-export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: Props) {
+export function IndexManager({
+  connection,
+  indices,
+  onRefresh,
+  onSelectIndex,
+}: Props) {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
@@ -29,7 +42,9 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
   const [showHidden, setShowHidden] = useState(false)
   const [showFilterDropdown, setShowFilterDropdown] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [confirmDelete, setConfirmDelete] = useState<{ names: string[] } | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<{
+    names: string[]
+  } | null>(null)
 
   function sortVal(idx: ElasticIndex, field: string): string {
     const r = idx as unknown as Record<string, unknown>
@@ -42,7 +57,9 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
     .sort((a, b) => {
       const aVal = sortVal(a, sortField)
       const bVal = sortVal(b, sortField)
-      return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+      return sortDir === 'asc'
+        ? aVal.localeCompare(bVal)
+        : bVal.localeCompare(aVal)
     })
 
   const toggleSelect = useCallback((name: string) => {
@@ -62,29 +79,35 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
     }
   }, [selected.size, filtered])
 
-  const doAction = useCallback(async (action: 'delete' | 'refresh' | 'open' | 'close', names: string[]) => {
-    if (names.length === 0) return
-    if (action === 'delete') {
-      setConfirmDelete({ names })
-      return
-    }
-    setActionError(null)
-    setLoading(true)
-    try {
-      for (const name of names) {
-        const payload = { connection, indexName: name }
-        if (action === 'refresh') await elasticRefreshIndex(payload)
-        else if (action === 'open') await elasticOpenIndex(payload)
-        else if (action === 'close') await elasticCloseIndex(payload)
+  const doAction = useCallback(
+    async (
+      action: 'delete' | 'refresh' | 'open' | 'close',
+      names: string[],
+    ) => {
+      if (names.length === 0) return
+      if (action === 'delete') {
+        setConfirmDelete({ names })
+        return
       }
-      setSelected(new Set())
-      onRefresh()
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setLoading(false)
-    }
-  }, [connection, onRefresh])
+      setActionError(null)
+      setLoading(true)
+      try {
+        for (const name of names) {
+          const payload = { connection, indexName: name }
+          if (action === 'refresh') await elasticRefreshIndex(payload)
+          else if (action === 'open') await elasticOpenIndex(payload)
+          else if (action === 'close') await elasticCloseIndex(payload)
+        }
+        setSelected(new Set())
+        onRefresh()
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : String(err))
+      } finally {
+        setLoading(false)
+      }
+    },
+    [connection, onRefresh],
+  )
 
   const confirmDeleteAction = useCallback(async () => {
     if (!confirmDelete) return
@@ -131,7 +154,11 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
 
   function sortIndicator(field: string) {
     if (sortField !== field) return null
-    return <span className="ml-1 text-slate-400">{sortDir === 'asc' ? '▲' : '▼'}</span>
+    return (
+      <span className="ml-1 text-slate-400">
+        {sortDir === 'asc' ? '▲' : '▼'}
+      </span>
+    )
   }
 
   return (
@@ -152,9 +179,7 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
       {/* Delete confirmation dialog */}
       {confirmDelete && (
         <div className="flex items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-caption text-amber-700">
-          <span>
-            Delete {confirmDelete.names.length} index(es)?
-          </span>
+          <span>Delete {confirmDelete.names.length} index(es)?</span>
           <div className="flex items-center gap-1">
             <button
               onClick={confirmDeleteAction}
@@ -180,10 +205,11 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
             <button
               onClick={() => setShowFilterDropdown(!showFilterDropdown)}
               title="Filter options"
-              className={`rounded-md p-1.5 transition-all ${showHidden
-                ? 'bg-blue-50 text-blue-600 shadow-[inset_0_0_0_1px_theme(colors.blue.300)]'
-                : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700 hover:shadow-[inset_0_0_0_1px_theme(colors.slate.200)]'
-                }`}
+              className={`rounded-md p-1.5 transition-all ${
+                showHidden
+                  ? 'bg-blue-50 text-blue-600 shadow-[inset_0_0_0_1px_theme(colors.blue.300)]'
+                  : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700 hover:shadow-[inset_0_0_0_1px_theme(colors.slate.200)]'
+              }`}
             >
               <SlidersHorizontal size={13} />
             </button>
@@ -208,7 +234,7 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
               placeholder="Search indices..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-                className="w-56 rounded-md border border-slate-200 bg-white pl-7 pr-2.5 py-1 text-caption text-slate-700 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none"
+              className="w-56 rounded-md border border-slate-200 bg-white pl-7 pr-2.5 py-1 text-caption text-slate-700 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none"
             />
           </div>
         </div>
@@ -279,7 +305,10 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
             Create
           </button>
           <button
-            onClick={() => { setShowCreate(false); setNewIndexName('') }}
+            onClick={() => {
+              setShowCreate(false)
+              setNewIndexName('')
+            }}
             className="rounded-md px-2.5 py-1 text-caption text-slate-400 hover:text-slate-600 transition-colors"
           >
             Cancel
@@ -302,7 +331,9 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
                 >
                   <input
                     type="checkbox"
-                    checked={selected.size === filtered.length && filtered.length > 0}
+                    checked={
+                      selected.size === filtered.length && filtered.length > 0
+                    }
                     onChange={toggleAll}
                     className="accent-blue-500"
                   />
@@ -389,12 +420,13 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
                   </td>
                   <td className="border-b border-r border-slate-100 px-2 py-1.5">
                     <span
-                      className={`inline-block h-2.5 w-2.5 rounded-full ${idx.health === 'green'
-                        ? 'bg-emerald-500'
-                        : idx.health === 'yellow'
-                          ? 'bg-amber-400'
-                          : 'bg-red-500'
-                        }`}
+                      className={`inline-block h-2.5 w-2.5 rounded-full ${
+                        idx.health === 'green'
+                          ? 'bg-emerald-500'
+                          : idx.health === 'yellow'
+                            ? 'bg-amber-400'
+                            : 'bg-red-500'
+                      }`}
                     />
                   </td>
                   <td className="border-b border-r border-slate-100 px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
@@ -406,7 +438,9 @@ export function IndexManager({ connection, indices, onRefresh, onSelectIndex }: 
                     </button>
                   </td>
                   <td className="border-b border-r border-slate-100 px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
-                    <span className="text-body text-slate-600">{idx.status}</span>
+                    <span className="text-body text-slate-600">
+                      {idx.status}
+                    </span>
                   </td>
                   <td className="border-b border-r border-slate-100 px-2 py-1.5 text-right text-mono text-caption text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
                     {idx['docs.count'] ?? '—'}

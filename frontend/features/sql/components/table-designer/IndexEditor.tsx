@@ -1,7 +1,14 @@
 import { Plus, X, ListTree } from 'lucide-react'
 import { useDesignerStore } from '../../store/designerStore'
 
-const INDEX_TYPES = ['btree', 'hash', 'gin', 'gist', 'fulltext', 'spatial'] as const
+const INDEX_TYPES = [
+  'btree',
+  'hash',
+  'gin',
+  'gist',
+  'fulltext',
+  'spatial',
+] as const
 
 /**
  * Index Editor — add/remove indexes, select columns, set unique
@@ -15,7 +22,9 @@ export function IndexEditor() {
 
   if (!pendingModel) return null
 
-  const availableColumns = pendingModel.columns.filter((c) => c.name.trim() !== '')
+  const availableColumns = pendingModel.columns.filter(
+    (c) => c.name.trim() !== '',
+  )
 
   return (
     <section className="flex flex-col gap-3">
@@ -39,7 +48,9 @@ export function IndexEditor() {
         <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
           <ListTree size={28} className="mx-auto text-slate-300" />
           <p className="mt-2 text-sm text-slate-500">No indexes defined.</p>
-          <p className="text-xs text-slate-400">Click "Add Index" to create one.</p>
+          <p className="text-xs text-slate-400">
+            Click "Add Index" to create one.
+          </p>
         </div>
       ) : (
         pendingModel.indexes.map((idx) => (

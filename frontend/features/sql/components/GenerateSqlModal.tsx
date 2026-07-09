@@ -14,7 +14,11 @@ interface GenerateSqlModalProps {
   onClose: () => void
 }
 
-export function GenerateSqlModal({ open, sql, onClose }: GenerateSqlModalProps) {
+export function GenerateSqlModal({
+  open,
+  sql,
+  onClose,
+}: GenerateSqlModalProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [copied, setCopied] = useState(false)
 
@@ -88,8 +92,9 @@ export function GenerateSqlModal({ open, sql, onClose }: GenerateSqlModalProps) 
           <div className="mx-4 mt-3 flex items-start gap-2 rounded-lg bg-warning-subtle px-3 py-2 text-caption text-text-primary">
             <TriangleAlert size={14} className="mt-0.5 shrink-0 text-warning" />
             <span>
-              Some statements could not be generated because no primary key was detected.
-              UPDATE and DELETE statements require a primary key column.
+              Some statements could not be generated because no primary key was
+              detected. UPDATE and DELETE statements require a primary key
+              column.
             </span>
           </div>
         )}

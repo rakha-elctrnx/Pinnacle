@@ -1,6 +1,5 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
-
 
 :root {
   color-scheme: light;
@@ -50,24 +49,45 @@
 
   /* Type scale */
   /* Display: page/modal titles (rare) */
-  --text-display: 20px; --lh-display: 28px; --fw-display: 600; --ls-display: -0.01em;
+  --text-display: 20px;
+  --lh-display: 28px;
+  --fw-display: 600;
+  --ls-display: -0.01em;
   /* Heading: section/panel titles */
-  --text-heading: 16px; --lh-heading: 24px; --fw-heading: 600; --ls-heading: -0.01em;
+  --text-heading: 16px;
+  --lh-heading: 24px;
+  --fw-heading: 600;
+  --ls-heading: -0.01em;
   /* Subheading: sub-section titles, table titles */
-  --text-subheading: 14px; --lh-subheading: 20px; --fw-subheading: 600; --ls-subheading: 0;
+  --text-subheading: 14px;
+  --lh-subheading: 20px;
+  --fw-subheading: 600;
+  --ls-subheading: 0;
   /* Body: primary text, table cells, paragraphs */
-  --text-body: 13px; --lh-body: 18px; --fw-body: 400; --ls-body: 0;
+  --text-body: 13px;
+  --lh-body: 18px;
+  --fw-body: 400;
+  --ls-body: 0;
   /* Body strong: emphasis, active field names */
   --fw-body-strong: 500;
   /* Label: form labels, table column headers, tabs */
-  --text-label: 12px; --lh-label: 16px; --fw-label: 500; --ls-label: 0.01em;
+  --text-label: 12px;
+  --lh-label: 16px;
+  --fw-label: 500;
+  --ls-label: 0.01em;
   /* Caption: metadata, timestamps, helper text */
-  --text-caption: 11px; --lh-caption: 14px; --fw-caption: 400; --ls-caption: 0.01em;
+  --text-caption: 11px;
+  --lh-caption: 14px;
+  --fw-caption: 400;
+  --ls-caption: 0.01em;
   /* Micro: badges, count pills, superscript */
-  --text-micro: 10px; --lh-micro: 12px; --fw-micro: 500; --ls-micro: 0.02em;
+  --text-micro: 10px;
+  --lh-micro: 12px;
+  --fw-micro: 500;
+  --ls-micro: 0.02em;
 }
 
-[data-theme="dark"] {
+[data-theme='dark'] {
   color-scheme: dark;
   --color-bg-base: #1c1d1d;
   --color-bg-subtle: #232423;
@@ -111,11 +131,12 @@
   letter-spacing: var(--ls-heading);
 }
 .text-subheading {
-  font: var(--fw-subheading) var(--text-subheading)/var(--lh-subheading) var(--font-ui);
+  font: var(--fw-subheading) var(--text-subheading)/var(--lh-subheading)
+    var(--font-ui);
 }
 .text-body {
   font: var(--fw-body) var(--text-body)/var(--lh-body) var(--font-ui);
-  font-feature-settings: "tnum" 1;
+  font-feature-settings: 'tnum' 1;
 }
 .text-body-secondary {
   font: var(--fw-body) var(--text-body)/var(--lh-body) var(--font-ui);
@@ -134,12 +155,13 @@
 .text-mono {
   font-family: var(--font-mono);
   font-size: var(--text-body);
-  font-feature-settings: "tnum" 1;
+  font-feature-settings: 'tnum' 1;
 }
 
 @theme inline {
-  --font-sans: var(--font-ui), "Apple Color Emoji", "Segoe UI Emoji",
-    "Segoe UI Symbol", "Noto Color Emoji";
+  --font-sans:
+    var(--font-ui), 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+    'Noto Color Emoji';
   --font-mono: var(--font-mono);
 
   /* Backgrounds */
@@ -183,7 +205,6 @@
   --color-disabled-text: var(--color-disabled-text);
 }
 
-
 * {
   box-sizing: border-box;
 }
@@ -195,7 +216,11 @@ body {
   user-select: none;
 }
 
-input, textarea, [contenteditable], .monaco-editor, .monaco-editor * {
+input,
+textarea,
+[contenteditable],
+.monaco-editor,
+.monaco-editor * {
   -webkit-user-select: text;
   user-select: text;
 }
@@ -225,12 +250,12 @@ input, textarea, [contenteditable], .monaco-editor, .monaco-editor * {
   background: #94a3b8;
 }
 
-[data-theme="dark"] .scrollbar-thin {
+[data-theme='dark'] .scrollbar-thin {
   scrollbar-color: #475569 transparent;
 }
-[data-theme="dark"] .scrollbar-thin::-webkit-scrollbar-thumb {
+[data-theme='dark'] .scrollbar-thin::-webkit-scrollbar-thumb {
   background: #475569;
 }
-[data-theme="dark"] .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+[data-theme='dark'] .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: #64748b;
 }

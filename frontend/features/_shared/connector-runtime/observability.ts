@@ -105,14 +105,16 @@ class TelemetryStore {
     const errorBreakdown: Partial<Record<ErrorCategory, number>> = {}
     for (const op of ops) {
       if (!op.success && op.errorCategory) {
-        errorBreakdown[op.errorCategory] = (errorBreakdown[op.errorCategory] ?? 0) + 1
+        errorBreakdown[op.errorCategory] =
+          (errorBreakdown[op.errorCategory] ?? 0) + 1
       }
     }
 
     // Operation breakdown
     const operationBreakdown: Partial<Record<ConnectorOperation, number>> = {}
     for (const op of ops) {
-      operationBreakdown[op.operation] = (operationBreakdown[op.operation] ?? 0) + 1
+      operationBreakdown[op.operation] =
+        (operationBreakdown[op.operation] ?? 0) + 1
     }
 
     return {
@@ -183,7 +185,9 @@ export async function trackOperation<T>(
 /**
  * Get metrics summary for a connector type (convenience).
  */
-export function getConnectorMetrics(connectorType: string): ConnectorMetricsSummary {
+export function getConnectorMetrics(
+  connectorType: string,
+): ConnectorMetricsSummary {
   return telemetryStore.getSummary(connectorType)
 }
 

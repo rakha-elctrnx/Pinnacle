@@ -10,14 +10,20 @@ import { readdirSync, readFileSync } from 'fs'
 import { join } from 'path'
 
 const ES_DIR = join(__dirname, '..')
-const AD_HOC_PATTERN = /\b(text-xs|text-sm|text-\[\d+px\]|font-medium|font-semibold|font-bold|font-mono|text-2xl|text-xl|text-lg)\b/
-const SEMANTIC_PATTERN = /\b(text-display|text-heading|text-subheading|text-body|text-body-secondary|text-label|text-caption|text-micro|text-mono)\b/
+const AD_HOC_PATTERN =
+  /\b(text-xs|text-sm|text-\[\d+px\]|font-medium|font-semibold|font-bold|font-mono|text-2xl|text-xl|text-lg)\b/
+const SEMANTIC_PATTERN =
+  /\b(text-display|text-heading|text-subheading|text-body|text-body-secondary|text-label|text-caption|text-micro|text-mono)\b/
 
 function walkTsx(dir: string): string[] {
   const results: string[] = []
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name)
-    if (entry.isDirectory() && entry.name !== '__tests__' && entry.name !== 'node_modules') {
+    if (
+      entry.isDirectory() &&
+      entry.name !== '__tests__' &&
+      entry.name !== 'node_modules'
+    ) {
       results.push(...walkTsx(full))
     } else if (entry.name.endsWith('.tsx') || entry.name.endsWith('.ts')) {
       results.push(full)
@@ -27,7 +33,7 @@ function walkTsx(dir: string): string[] {
 }
 
 describe('ES feature type scale migration', () => {
-  const files = walkTsx(ES_DIR).filter(f => !f.includes('__tests__'))
+  const files = walkTsx(ES_DIR).filter((f) => !f.includes('__tests__'))
 
   it('no ad-hoc typography classes remain', () => {
     const violations: string[] = []
@@ -40,7 +46,10 @@ describe('ES feature type scale migration', () => {
         }
       }
     }
-    expect(violations, `Found ad-hoc typography:\n${violations.join('\n')}`).toEqual([])
+    expect(
+      violations,
+      `Found ad-hoc typography:\n${violations.join('\n')}`,
+    ).toEqual([])
   })
 
   it('semantic type classes are used in components', () => {

@@ -110,5 +110,7 @@ export function hasCapability(
   type: string,
   capability: import('./types').ConnectorCapability,
 ): boolean {
-  return getConnectorCapabilities(registry, type).capabilities.includes(capability)
+  return getConnectorCapabilities(registry, type).capabilities.includes(
+    capability,
+  )
 }

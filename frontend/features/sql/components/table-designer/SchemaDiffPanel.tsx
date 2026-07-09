@@ -1,5 +1,8 @@
 import { AlertTriangle, Plus, Pencil, Trash2 } from 'lucide-react'
-import type { SchemaChangeItem, SchemaDiffSummary } from '../../logic/table-designer'
+import type {
+  SchemaChangeItem,
+  SchemaDiffSummary,
+} from '../../logic/table-designer'
 
 interface SchemaDiffPanelProps {
   diff: SchemaDiffSummary | null
@@ -15,7 +18,9 @@ export function SchemaDiffPanel({ diff }: SchemaDiffPanelProps) {
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-sm text-slate-500">No changes detected.</p>
-          <p className="text-xs text-slate-400">Edit the table structure to see a diff here.</p>
+          <p className="text-xs text-slate-400">
+            Edit the table structure to see a diff here.
+          </p>
         </div>
       </div>
     )
@@ -93,7 +98,9 @@ function ChangeItem({ item }: { item: SchemaChangeItem }) {
           <Icon size={11} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-slate-800">{item.description}</p>
+          <p className="text-xs font-medium text-slate-800">
+            {item.description}
+          </p>
           {item.details.length > 0 && (
             <ul className="mt-1 space-y-0.5">
               {item.details.map((d, i) => (

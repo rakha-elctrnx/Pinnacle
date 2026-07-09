@@ -1,7 +1,12 @@
 import type { ConnectionType } from './domain'
 
 export type SqlConnectionType = 'postgresql' | 'mysql'
-export type ConnectionStatus = 'connected' | 'connecting' | 'disconnected' | 'error' | 'idle'
+export type ConnectionStatus =
+  | 'connected'
+  | 'connecting'
+  | 'disconnected'
+  | 'error'
+  | 'idle'
 export type ConnectionStep = 1 | 2
 export type TableInfoTab = 'data' | 'structure' | 'indexes' | 'relationships'
 export type QueryResultTab = 'results' | 'messages' | 'statistics'
@@ -44,7 +49,12 @@ export interface DetailStat {
   value: string
 }
 
-export type TreeNodeType = 'group' | 'connection' | 'database' | 'category' | 'item'
+export type TreeNodeType =
+  | 'group'
+  | 'connection'
+  | 'database'
+  | 'category'
+  | 'item'
 
 export interface TreeNode {
   label: string
@@ -54,10 +64,10 @@ export interface TreeNode {
 }
 
 export interface DatabaseTypeOption {
-  label: string;
-  value: ConnectionType;
-  Icon: React.ComponentType<{ className?: string; size?: number }>;
-  hint: string;
+  label: string
+  value: ConnectionType
+  Icon: React.ComponentType<{ className?: string; size?: number }>
+  hint: string
 }
 
 export interface QueryResult {
@@ -77,6 +87,7 @@ export interface ContextMenuState {
   y: number
   itemId: string
   tableName?: string
+  indexName?: string
 }
 
 export interface DeleteTableTarget {
@@ -130,7 +141,12 @@ export interface TableExportEstimate {
   error: string | null
 }
 
-export type TableExportJobStatus = 'idle' | 'preparing' | 'exporting' | 'success' | 'error'
+export type TableExportJobStatus =
+  | 'idle'
+  | 'preparing'
+  | 'exporting'
+  | 'success'
+  | 'error'
 
 export interface TableExportJob {
   status: TableExportJobStatus

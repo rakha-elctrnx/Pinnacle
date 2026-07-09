@@ -66,11 +66,22 @@ export interface ConnectorAdapter {
   loadNavigationTree(payload: ConnectionPayload): Promise<NavigationTreeResult>
 
   /** Open a specific entity (table/index) and return its detail. */
-  openEntity(payload: ConnectionPayload, entityName: string): Promise<EntityDetailResult>
+  openEntity(
+    payload: ConnectionPayload,
+    entityName: string,
+  ): Promise<EntityDetailResult>
 
   /** Run an ad-hoc query/command. */
-  runQuery(payload: ConnectionPayload, query: string, database?: string, schema?: string): Promise<QueryExecutionResult>
+  runQuery(
+    payload: ConnectionPayload,
+    query: string,
+    database?: string,
+    schema?: string,
+  ): Promise<QueryExecutionResult>
 
   /** Get default context (database, schema) for UX defaults. */
-  getDefaultContext(payload: ConnectionPayload): { database: string; schema: string }
+  getDefaultContext(payload: ConnectionPayload): {
+    database: string
+    schema: string
+  }
 }

@@ -17,12 +17,20 @@ import {
 
 import type { ConnectionPayload } from '../../services/tauriClient'
 import { normalizeError } from '../error-norm'
-import type { ConnectorAdapter, TestConnectionResult, NavigationTreeResult, EntityDetailResult, QueryExecutionResult } from './adapter-types'
+import type {
+  ConnectorAdapter,
+  TestConnectionResult,
+  NavigationTreeResult,
+  EntityDetailResult,
+  QueryExecutionResult,
+} from './adapter-types'
 
 export const elasticAdapter: ConnectorAdapter = {
   label: 'Elasticsearch',
 
-  async testConnection(payload: ConnectionPayload): Promise<TestConnectionResult> {
+  async testConnection(
+    payload: ConnectionPayload,
+  ): Promise<TestConnectionResult> {
     try {
       await elasticTestConnection(payload)
       return { kind: 'success', message: 'Connection successful' }
@@ -35,7 +43,9 @@ export const elasticAdapter: ConnectorAdapter = {
     }
   },
 
-  async loadNavigationTree(payload: ConnectionPayload): Promise<NavigationTreeResult> {
+  async loadNavigationTree(
+    payload: ConnectionPayload,
+  ): Promise<NavigationTreeResult> {
     try {
       const indices = await elasticListIndices(payload)
       const databaseName = `elastic_${payload.host}_${payload.port}`
@@ -66,7 +76,10 @@ export const elasticAdapter: ConnectorAdapter = {
     }
   },
 
-  async openEntity(payload: ConnectionPayload, entityName: string): Promise<EntityDetailResult> {
+  async openEntity(
+    payload: ConnectionPayload,
+    entityName: string,
+  ): Promise<EntityDetailResult> {
     try {
       // Get mapping for the index
       const mapping = await elasticGetMapping({
@@ -141,7 +154,6 @@ export const elasticAdapter: ConnectorAdapter = {
       parsedBody = { query: { query_string: { query } } }
     }
 
-
     const result = await elasticExecuteQuery({
       connection: payload,
       method: 'POST',
@@ -150,12 +162,16 @@ export const elasticAdapter: ConnectorAdapter = {
     })
 
     const data = result.data as Record<string, unknown> | undefined
-    const hits = (data?.hits as Record<string, unknown> | undefined)?.hits as Array<Record<string, unknown>> | undefined ?? []
+    const hits =
+      ((data?.hits as Record<string, unknown> | undefined)?.hits as
+        | Array<Record<string, unknown>>
+        | undefined) ?? []
 
     // Extract columns from first hit
-    const columns = hits.length > 0
-      ? Object.keys(hits[0]._source as Record<string, unknown> ?? {})
-      : ['_id', '_index', '_score']
+    const columns =
+      hits.length > 0
+        ? Object.keys((hits[0]._source as Record<string, unknown>) ?? {})
+        : ['_id', '_index', '_score']
 
     const rows = hits.map((hit) => {
       const row: Record<string, string> = {
@@ -180,7 +196,10 @@ export const elasticAdapter: ConnectorAdapter = {
     }
   },
 
-  getDefaultContext(_payload: ConnectionPayload): { database: string; schema: string } {
+  getDefaultContext(_payload: ConnectionPayload): {
+    database: string
+    schema: string
+  } {
     // _payload intentionally unused — elasticsearch has no single "database" concept
     void _payload
     return {
@@ -202,16 +221,22 @@ function extractFieldsFromMapping(
   try {
     const raw = mapping as Record<string, unknown>
     // Elasticsearch returns { indexName: { mappings: { properties: {...} } } }
-    const indexMapping = (raw[indexName] as Record<string, unknown> ?? raw) as Record<string, unknown>
-    const mappings = (indexMapping.mappings as Record<string, unknown> ?? indexMapping) as Record<string, unknown>
-    const properties = mappings.properties as Record<string, unknown> ?? {}
+    const indexMapping = ((raw[indexName] as Record<string, unknown>) ??
+      raw) as Record<string, unknown>
+    const mappings = ((indexMapping.mappings as Record<string, unknown>) ??
+      indexMapping) as Record<string, unknown>
+    const properties = (mappings.properties as Record<string, unknown>) ?? {}
 
     for (const [fieldName, fieldDef] of Object.entries(properties)) {
       const def = fieldDef as Record<string, unknown>
       if (def.properties) {
         // Nested object — add as object type and recurse
         fields.push({ name: fieldName, type: 'object' })
-        extractNestedFields(fields, fieldName, def.properties as Record<string, unknown>)
+        extractNestedFields(
+          fields,
+          fieldName,
+          def.properties as Record<string, unknown>,
+        )
       } else {
         fields.push({
           name: fieldName,
@@ -236,7 +261,11 @@ function extractNestedFields(
     const fullName = `${prefix}.${fieldName}`
     if (def.properties) {
       fields.push({ name: fullName, type: 'object' })
-      extractNestedFields(fields, fullName, def.properties as Record<string, unknown>)
+      extractNestedFields(
+        fields,
+        fullName,
+        def.properties as Record<string, unknown>,
+      )
     } else {
       fields.push({ name: fullName, type: String(def.type ?? 'keyword') })
     }
