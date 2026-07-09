@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import type { ConnectionPayload } from '../../_shared/services/tauriClient'
-import type { ElasticIndex, ElasticDocumentHit } from '../types/elasticsearch'
+import type { ElasticDocumentHit } from '../types/elasticsearch'
 import {
   elasticSearchDocuments,
   elasticIndexDocument,
@@ -144,7 +144,6 @@ export interface DocumentExplorerState {
 interface Props {
   connection: ConnectionPayload
   indexName: string | null
-  indices: ElasticIndex[]
   onStateChange?: (state: DocumentExplorerState) => void
 }
 
@@ -153,14 +152,13 @@ interface Props {
 export function DocumentExplorer({
   connection,
   indexName,
-  indices,
   onStateChange,
 }: Props) {
-  const [internalIndex, setInternalIndex] = useState<string | null>(null)
-  const currentIndex = indexName ?? internalIndex
+  const currentIndex = indexName
 
   // ── Document state ─────────────────────────────────────────────────────
   const [documents, setDocuments] = useState<ElasticDocumentHit[]>([])
+
   const [totalHits, setTotalHits] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -458,19 +456,6 @@ export function DocumentExplorer({
     return () => clearTimeout(t)
   }, [toast])
 
-  // ── Index selection (when no indexName prop) ───────────────────────────
-  const handleSelectIndex = useCallback(
-    (name: string) => {
-      setInternalIndex(name)
-      setPage(1)
-      setSearchQuery('')
-      setFilters([])
-      setSortColumn(null)
-      setSortDirection('asc')
-      fetchDocs(name, '', 0, pageSize)
-    },
-    [fetchDocs, pageSize],
-  )
 
   // ── Search handler ─────────────────────────────────────────────────────
   const handleSearch = useCallback(() => {
@@ -810,22 +795,7 @@ export function DocumentExplorer({
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden">
       {/* ── Toolbar ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 border-b border-border-default px-1.5 py-1.5">
-        {/* Index selector */}
-        <select
-          value={currentIndex}
-          onChange={(e) => handleSelectIndex(e.target.value)}
-          className="h-7 rounded border border-border-default bg-bg-base px-1.5 text-[11px] font-mono outline-none focus:border-primary"
-        >
-          {indices.map((idx) => (
-            <option key={idx.index} value={idx.index}>
-              {idx.index}
-            </option>
-          ))}
-        </select>
-
-        <span className="mx-0.5 h-5 w-px bg-border-default" />
-
+      <div className="flex items-center gap-1 border-b border-border-default px-1.5 py-1">
         <ActionButton
           icon={<Filter size={14} />}
           aria-label="Toggle Filter"
@@ -850,8 +820,6 @@ export function DocumentExplorer({
           variant={searchBarVisible ? 'accent' : 'default'}
           onClick={() => setSearchBarVisible(!searchBarVisible)}
         />
-
-        <span className="mx-0.5 h-5 w-px bg-border-default" />
 
         <ActionButton
           icon={<CirclePlus size={14} />}

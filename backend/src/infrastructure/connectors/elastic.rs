@@ -71,6 +71,26 @@ async fn post_json(
         .map_err(|e| AppError::Http(e.to_string()))
 }
 
+async fn post_no_body(
+    client: &Client,
+    payload: &ConnectionPayload,
+    path: &str,
+) -> AppResult<serde_json::Value> {
+    let url = format!("{}{}", build_base_url(payload), path);
+    let mut req = client.post(&url);
+    if let Some(auth) = auth_header_value(payload) {
+        req = req.header("Authorization", auth);
+    }
+    let resp = req.send().await.map_err(|e| AppError::Http(e.to_string()))?;
+    if !resp.status().is_success() {
+        let status = resp.status().as_u16();
+        let body_text = resp.text().await.unwrap_or_default();
+        return Err(AppError::Http(format!("HTTP {}: {}", status, body_text)));
+    }
+    resp.json::<serde_json::Value>()
+        .await
+        .map_err(|e| AppError::Http(e.to_string()))
+ }
 async fn put_json(
     client: &Client,
     payload: &ConnectionPayload,
@@ -301,14 +321,13 @@ pub async fn delete_index(payload: &IndexActionPayload) -> AppResult<serde_json:
         .map_err(|e| AppError::Http(e.to_string()))?;
     delete_req(&client, &payload.connection, &format!("/{}", payload.index_name)).await
 }
-
 /// Open an index (POST /<index>/_open).
 pub async fn open_index(payload: &IndexActionPayload) -> AppResult<serde_json::Value> {
     let client = Client::builder()
         .danger_accept_invalid_certs(payload.connection.ssl)
         .build()
         .map_err(|e| AppError::Http(e.to_string()))?;
-    post_json(&client, &payload.connection, &format!("/{}/_open", payload.index_name), serde_json::json!({})).await
+    post_no_body(&client, &payload.connection, &format!("/{}/_open", payload.index_name)).await
 }
 
 /// Close an index (POST /<index>/_close).
@@ -317,7 +336,7 @@ pub async fn close_index(payload: &IndexActionPayload) -> AppResult<serde_json::
         .danger_accept_invalid_certs(payload.connection.ssl)
         .build()
         .map_err(|e| AppError::Http(e.to_string()))?;
-    post_json(&client, &payload.connection, &format!("/{}/_close", payload.index_name), serde_json::json!({})).await
+    post_no_body(&client, &payload.connection, &format!("/{}/_close", payload.index_name)).await
 }
 
 /// Refresh an index (POST /<index>/_refresh).
@@ -326,7 +345,7 @@ pub async fn refresh_index(payload: &IndexActionPayload) -> AppResult<serde_json
         .danger_accept_invalid_certs(payload.connection.ssl)
         .build()
         .map_err(|e| AppError::Http(e.to_string()))?;
-    post_json(&client, &payload.connection, &format!("/{}/_refresh", payload.index_name), serde_json::json!({})).await
+    post_no_body(&client, &payload.connection, &format!("/{}/_refresh", payload.index_name)).await
 }
 
 /// Get index mapping (GET /<index>/_mapping).

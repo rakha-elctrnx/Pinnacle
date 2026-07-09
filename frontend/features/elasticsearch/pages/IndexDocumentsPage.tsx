@@ -13,7 +13,7 @@ import type { ElasticLayoutOutletContext } from '../types/pages'
  */
 export function IndexDocumentsPage() {
   const { indexName } = useParams<{ indexName: string }>()
-  const { payload, indices } = useOutletContext<ElasticLayoutOutletContext>()
+  const { payload } = useOutletContext<ElasticLayoutOutletContext>()
 
   if (!payload || !indexName) return null
 
@@ -21,7 +21,6 @@ export function IndexDocumentsPage() {
     <DocumentExplorer
       connection={payload}
       indexName={indexName}
-      indices={indices}
     />
   )
 }
