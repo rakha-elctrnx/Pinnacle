@@ -4,6 +4,7 @@ import { SqlLayout } from '../features/sql/layouts/SqlLayout'
 import { TablesPage } from '../features/sql/pages/TablesPage'
 import { TableDetailPage } from '../features/sql/pages/TableDetailPage'
 import { QueryPage } from '../features/sql/pages/QueryPage'
+import { ViewEditorPage } from '../features/sql/pages/ViewEditorPage'
 import { WelcomePage } from '../features/_shared/pages/WelcomePage'
 import { ConnectionWelcomePage } from '../features/sql/pages/ConnectionWelcomePage'
 import { ElasticLayout } from '../features/elasticsearch/layouts/ElasticLayout'
@@ -68,6 +69,7 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <ConnectionWelcomePage /> },
               { path: 'tables', element: <TablesPage /> },
+              { path: 'views/:viewName', element: <ViewEditorPage /> },
               { path: 'tables/:tableName', element: <TableDetailPage /> },
               { path: 'query/:queryId', element: <QueryPage /> },
             ],

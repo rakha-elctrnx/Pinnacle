@@ -10,6 +10,7 @@ export type TabPageType =
   | 'table'
   | 'query'
   | 'elastic-index'
+  | 'view'
   | 'elastic-cluster'
   | 'elastic-indices'
   | 'elastic-query'

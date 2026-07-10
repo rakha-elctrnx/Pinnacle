@@ -385,16 +385,23 @@ export function useExplorerData({
         } else if (conn.type === 'mysql') {
           const tableRes = await executeSql({
             connection: payload,
-            sql: `SHOW TABLES`,
+            sql: `SHOW FULL TABLES WHERE table_type = 'BASE TABLE'`,
           })
           const tableNameKey = tableRes.columns[0] || 'Tables_in_' + dbName
           const tables = tableRes.rows.map((r) => String(r[tableNameKey] || ''))
+
+          const viewRes = await executeSql({
+            connection: payload,
+            sql: `SHOW FULL TABLES WHERE table_type = 'VIEW'`,
+          })
+          const viewNameKey = viewRes.columns[0] || 'Tables_in_' + dbName
+          const views = viewRes.rows.map((r) => String(r[viewNameKey] || ''))
 
           const schemas: TreeSchema[] = [
             {
               name: dbName,
               tables,
-              views: [],
+              views,
               functions: [],
             },
           ]
@@ -667,6 +674,7 @@ export function useExplorerData({
 
         if (conn.type === 'mysql') {
           const allTables = db.schemas[0]?.tables ?? []
+          const allViews = db.schemas[0]?.views ?? []
           return {
             label: db.name,
             children: [
@@ -678,7 +686,14 @@ export function useExplorerData({
                     },
                   ]
                 : []),
-              { label: 'Views', children: [] },
+              ...(allViews.length > 0
+                ? [
+                    {
+                      label: 'Views',
+                      children: allViews.map((v) => ({ label: v })),
+                    },
+                  ]
+                : []),
               { label: 'Functions', children: [] },
             ],
           }
@@ -735,7 +750,10 @@ export function useExplorerData({
         if (selectedConnection.type === 'postgresql') {
           for (const db of treeData.databases) {
             for (const schema of db.schemas) {
-              if (schema.tables.includes(nodeLabel)) {
+              if (
+                schema.tables.includes(nodeLabel) ||
+                schema.views.includes(nodeLabel)
+              ) {
                 isTable = true
                 schemaName = schema.name
                 targetDbName = targetDbName || db.name
@@ -747,7 +765,8 @@ export function useExplorerData({
         } else if (selectedConnection.type === 'mysql') {
           for (const db of treeData.databases) {
             const allTables = db.schemas[0]?.tables ?? []
-            if (allTables.includes(nodeLabel)) {
+            const allViews = db.schemas[0]?.views ?? []
+            if (allTables.includes(nodeLabel) || allViews.includes(nodeLabel)) {
               isTable = true
               schemaName = db.name
               targetDbName = db.name

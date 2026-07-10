@@ -85,8 +85,14 @@ export interface SchemaColumn {
   dataTypeName: string
 }
 
-// ── Drop Table Types ─────────────────────────────────────────────
+// ── View Types ──────────────────────────────────────────────────
 
+export interface ViewDefinition {
+  viewName: string
+  schema: string
+  definition: string
+  database: string
+}
 export interface DropTablePayload {
   connection: {
     type: string

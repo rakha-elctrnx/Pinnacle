@@ -87,6 +87,7 @@ export interface ContextMenuState {
   y: number
   itemId: string
   tableName?: string
+  viewName?: string
   indexName?: string
 }
 

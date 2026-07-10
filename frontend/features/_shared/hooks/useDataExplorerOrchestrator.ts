@@ -734,12 +734,14 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     nodePath?: string,
   ) => {
     // Use capability check instead of raw `type === 'postgresql' || type === 'mysql'`
+    const isTablesNode = nodePath?.endsWith('/Tables')
+    const isViewsNode = nodePath?.endsWith('/Views')
     if (
-      nodePath?.endsWith('/Tables') &&
+      (isTablesNode || isViewsNode) &&
       selectedConnection &&
       hasCapabilityWithAdapter(selectedConnection.type, 'load-navigation-tree')
     ) {
-      const pathParts = nodePath.split('/').filter(Boolean)
+      const pathParts = nodePath!.split('/').filter(Boolean)
       const targetDatabase =
         databaseName || pathParts[0] || selectedConnection.database
       const targetSchema =
@@ -747,7 +749,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
           ? pathParts[pathParts.length - 2]
           : undefined
 
-      setSelectedTreeNode(nodePath)
+      setSelectedTreeNode(nodePath ?? null)
       setActiveTableTabId(null)
 
       if (targetDatabase) {
@@ -813,12 +815,60 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
         return
       }
     }
-    setSelectedTreeNode(nodePath || nodeLabel)
-    const isTable = await explorerData.handleTreeNodeClick(
-      nodeLabel,
-      databaseName,
-    )
-    if (isTable) {
+    // Set context without fetching — TableDetailPage will fetch via useEffect.
+    // This avoids double-fetch: once here and once in TableDetailPage.
+    const treeData = explorerData.treeDataMap[selectedConnection?.id ?? '']
+    if (treeData && selectedConnection) {
+      if (selectedConnection.type === 'postgresql') {
+        for (const db of treeData.databases) {
+          for (const schema of db.schemas) {
+            if (schema.views.includes(nodeLabel)) {
+              explorerData.setSelectedTable(nodeLabel)
+              explorerData.setSelectedSchema(schema.name)
+              explorerData.setSelectedDatabase(db.name)
+              queryExecution.onQueryDatabaseChange(db.name)
+              queryExecution.onQuerySchemaChange(schema.name)
+              break
+            }
+            if (schema.tables.includes(nodeLabel)) {
+              explorerData.setSelectedTable(nodeLabel)
+              explorerData.setSelectedSchema(schema.name)
+              explorerData.setSelectedDatabase(db.name)
+              queryExecution.onQueryDatabaseChange(db.name)
+              queryExecution.onQuerySchemaChange(schema.name)
+              break
+            }
+          }
+        }
+      } else if (selectedConnection.type === 'mysql') {
+        for (const db of treeData.databases) {
+          const views = db.schemas[0]?.views ?? []
+          const tables = db.schemas[0]?.tables ?? []
+          if (views.includes(nodeLabel)) {
+            explorerData.setSelectedTable(nodeLabel)
+            explorerData.setSelectedSchema(db.name)
+            explorerData.setSelectedDatabase(db.name)
+            queryExecution.onQueryDatabaseChange(db.name)
+            queryExecution.onQuerySchemaChange('')
+            break
+          }
+          if (tables.includes(nodeLabel)) {
+            explorerData.setSelectedTable(nodeLabel)
+            explorerData.setSelectedSchema(db.name)
+            explorerData.setSelectedDatabase(db.name)
+            queryExecution.onQueryDatabaseChange(db.name)
+            queryExecution.onQuerySchemaChange('')
+            break
+          }
+        }
+      }
+    }
+    // Open global tab and navigate
+    if (selectedConnection) {
+      const globalTabId = `${selectedConnection.id}:table:${nodeLabel}`
+      const navigateRoute = `/sql/${selectedConnection.id}/tables/${encodeURIComponent(nodeLabel)}`
+
+      // Check if we already have an internal tab for this table
       const existingTab = openedTableTabs.find((tab) => tab.label === nodeLabel)
       if (existingTab) {
         setActiveTableTabId(existingTab.id)
@@ -831,44 +881,17 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
         setActiveTableTabId(tabId)
       }
       setTableInfoTab('data')
-      // Create global tab for the table
-      if (selectedConnection) {
-        const globalTabId = `${selectedConnection.id}:table:${nodeLabel}`
-        useTabStore.getState().openTab({
-          id: globalTabId,
-          label: nodeLabel,
-          type: selectedConnection.type,
-          pageType: 'table',
-          route: `/sql/${selectedConnection.id}/tables/${encodeURIComponent(nodeLabel)}`,
-          connectionId: selectedConnection.id,
-          treePath: nodePath,
-        })
-      }
 
-      // Auto-fill database and schema selectors in query editor
-      const treeData = explorerData.treeDataMap[selectedConnection?.id ?? '']
-      if (treeData) {
-        if (selectedConnection?.type === 'postgresql') {
-          for (const db of treeData.databases) {
-            for (const schema of db.schemas) {
-              if (schema.tables.includes(nodeLabel)) {
-                queryExecution.onQueryDatabaseChange(db.name)
-                queryExecution.onQuerySchemaChange(schema.name)
-                break
-              }
-            }
-          }
-        } else if (selectedConnection?.type === 'mysql') {
-          for (const db of treeData.databases) {
-            const allTables = db.schemas[0]?.tables ?? []
-            if (allTables.includes(nodeLabel)) {
-              queryExecution.onQueryDatabaseChange(db.name)
-              queryExecution.onQuerySchemaChange('')
-              break
-            }
-          }
-        }
-      }
+      useTabStore.getState().openTab({
+        id: globalTabId,
+        label: nodeLabel,
+        type: selectedConnection.type,
+        pageType: 'table',
+        route: navigateRoute,
+        connectionId: selectedConnection.id,
+        treePath: nodePath,
+      })
+      navigate(navigateRoute)
     }
   }
 

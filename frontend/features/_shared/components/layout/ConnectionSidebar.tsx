@@ -419,6 +419,18 @@ export function ConnectionSidebar() {
       tableName,
     })
   }
+  const handleViewNodeContextMenu = (
+    event: React.MouseEvent,
+    connectionId: string,
+    viewName: string,
+  ) => {
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      itemId: connectionId,
+      viewName,
+    })
+  }
 
   const handleIndexNodeContextMenu = (
     event: React.MouseEvent,
@@ -554,10 +566,11 @@ export function ConnectionSidebar() {
               onTableNavigate={handleTableNavigate}
               onQueryNavigate={handleQueryNavigate}
               onTablesCategoryClick={handleTablesCategoryClick}
-              onConnectionSelect={handleConnectionNodeSelect}
+              onTableNodeContextMenu={handleTableNodeContextMenu}
               onGroupToggle={handleGroupToggle}
               onConnectionToggle={handleConnectionToggle}
-              onTableNodeContextMenu={handleTableNodeContextMenu}
+              onConnectionSelect={handleConnectionNodeSelect}
+              onViewNodeContextMenu={handleViewNodeContextMenu}
               onIndexNodeContextMenu={handleIndexNodeContextMenu}
               onConnectionContextMenu={handleContextMenu}
               groupedConnections={groupedConnections}

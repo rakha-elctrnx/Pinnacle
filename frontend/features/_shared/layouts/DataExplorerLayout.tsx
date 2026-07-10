@@ -5,10 +5,11 @@ import {
   Copy,
   Download,
   Eraser,
-  FileDown,
+  Layers,
   Pencil,
   RefreshCw,
   Scissors,
+  FileDown,
   SquareTerminal,
   TableProperties,
   Trash2,
@@ -551,7 +552,63 @@ function DataExplorerLayoutChrome({
                           } as ContextMenuItem,
                         ]
                       : []),
+                    {
+                      label: 'Create View',
+                      icon: <Layers size={14} />,
+                      action: () => {
+                        const connId = contextMenu.itemId
+                        if (!connId) return
+                        const route = `/sql/${connId}/views/new`
+                        navigate(route)
+                      },
+                    } as ContextMenuItem,
                   ]),
+              // ── View-specific actions ──────────────────────────
+              ...(contextMenu.viewName
+                ? [
+                    {
+                      label: 'New Query',
+                      icon: <SquareTerminal size={14} />,
+                      action: () => {
+                        const connId = contextMenu.itemId
+                        if (!connId || !selectedConnection) return
+                        const qId = queryExecution.createQueryId()
+                        const route = `/sql/${connId}/query/${qId}`
+                        const openTab = useTabStore.getState().openTab
+                        openTab({
+                          id: `${connId}:query:${qId}`,
+                          label: `Query_${qId}`,
+                          type: selectedConnection.type,
+                          pageType: 'query',
+                          route,
+                          connectionId: connId,
+                        })
+                        const view = contextMenu.viewName
+                        if (view) {
+                          const hasUpperCase = /[A-Z]/.test(view)
+                          const quoted = hasUpperCase ? `"${view}"` : view
+                          queryExecution.setActiveQueryId(qId)
+                          queryExecution.updateActiveQuery(
+                            `SELECT * FROM ${quoted};`,
+                          )
+                        }
+                        navigate(route)
+                      },
+                    } as ContextMenuItem,
+                    {
+                      label: 'Edit View',
+                      icon: <TableProperties size={14} />,
+                      action: () => {
+                        const connId = contextMenu.itemId
+                        if (!connId || !selectedConnection) return
+                        const view = contextMenu.viewName!
+                        const route = `/sql/${connId}/views/${encodeURIComponent(view)}`
+                        navigate(route)
+                      },
+                    } as ContextMenuItem,
+                    { divider: true } as ContextMenuItem,
+                  ]
+                : []),
               // ── Elastic index actions ──────────────────────────
               ...(contextMenu.indexName
                 ? [
@@ -587,7 +644,7 @@ function DataExplorerLayoutChrome({
                 },
               },
               // ── Connection-only extra actions ─────────────────
-              ...(!contextMenu.tableName && !contextMenu.indexName
+              ...(!contextMenu.tableName && !contextMenu.indexName && !contextMenu.viewName
                 ? [
                     {
                       label: 'Duplicate',

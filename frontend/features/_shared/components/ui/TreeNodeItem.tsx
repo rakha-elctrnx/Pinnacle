@@ -101,6 +101,7 @@ export function TreeNodeItem({
   onTableNodeContextMenu,
   onIndexNodeContextMenu,
   onConnectionContextMenu,
+  onViewNodeContextMenu,
   groupedConnections,
   explorerData,
   elasticIndicesError,
@@ -139,6 +140,11 @@ export function TreeNodeItem({
     indexName: string,
   ) => void
   onConnectionContextMenu?: (event: React.MouseEvent, itemId: string) => void
+  onViewNodeContextMenu?: (
+    event: React.MouseEvent,
+    connectionId: string,
+    viewName: string,
+  ) => void
   groupedConnections?: Record<string, ConnectionProfile[]> | null
   explorerData?: ExplorerDataContext
   elasticIndicesError?: Record<string, string>
@@ -152,13 +158,14 @@ export function TreeNodeItem({
   const isExpanded = expandedTreePaths.includes(nodePath)
   const isGroupNode = node.nodeType === 'group'
   const isConnectionNode = node.nodeType === 'connection'
-  // In the unified tree: depth 0 = groups, depth 1 = connections, depth 2 = databases/categories
   const isDatabaseNode = depth === 2 && !isGroupNode && !isConnectionNode
   const isLeaf =
     !hasChildren ||
     (node.children && node.children.length === 0 && isCategoryNode(node.label))
   const isTableItem =
     isLeaf && !isCategoryNode(node.label) && parentPath.endsWith('/Tables')
+  const isViewItem =
+    isLeaf && !isCategoryNode(node.label) && parentPath.endsWith('/Views')
   const isIndexItem =
     isLeaf && !isCategoryNode(node.label) && parentPath.endsWith('/Indices')
   const parentCategory = parentPath.split('/').pop() ?? ''
@@ -269,7 +276,6 @@ export function TreeNodeItem({
       // Leaf nodes (including leaf category nodes like "Indexes" with no children)
       onSelectedTreeNode(nodePath)
       if (!isCategoryNode(node.label)) {
-        // In unified tree: path is groupName/connName/dbName/..., so [2] is the database name
         const pathParts = parentPath.split('/')
         const databaseName = pathParts.length >= 3 ? pathParts[2] : pathParts[0]
         onTreeNodeClick(node.label, databaseName, nodePath)
@@ -277,7 +283,7 @@ export function TreeNodeItem({
           onTableNavigate?.(node.label, nodePath)
         }
       }
-    } else {
+    } else if (isCategoryNode(node.label)) {
       // Parent category nodes ("Tables", "Views", "Functions", "Keys", etc.)
       // Expand the node AND open the corresponding page simultaneously
       onSelectedTreeNode(nodePath)
@@ -290,6 +296,16 @@ export function TreeNodeItem({
       onTreeNodeClick(node.label, databaseName, nodePath)
       if (node.label === 'Tables') {
         onTablesCategoryClick?.()
+      }
+    } else {
+      // Non-category container nodes (schemas, databases, etc.)
+      // Just select and expand — no tab to open
+      onSelectedTreeNode(nodePath)
+      if (!isExpanded) {
+        onToggleTreeNode(nodePath)
+      }
+      if (isDatabaseNode || (depth >= 2 && !isGroupNode && !isConnectionNode)) {
+        onFetchDatabaseDetails?.(node.label)
       }
     }
   }
@@ -313,13 +329,23 @@ export function TreeNodeItem({
           handleLabelClick(e)
         }}
         onContextMenu={(e) => {
-          if (isTableItem && onTableNodeContextMenu) {
+          if (isViewItem && onViewNodeContextMenu) {
             e.preventDefault()
             e.stopPropagation()
-            // In unified tree: path is groupName/connName/dbName/..., so [1] is the connection name
             const pathParts = parentPath.split('/')
             const connName = pathParts.length >= 3 ? pathParts[1] : pathParts[0]
-            // Resolve connection name to ID via groupedConnections
+            const conn = groupedConnections
+              ? Object.values(groupedConnections)
+                  .flat()
+                  .find((p) => p.name === connName || p.id === connName)
+              : null
+            const connectionId = conn?.id ?? connName
+            onViewNodeContextMenu(e, connectionId, node.label)
+          } else if (isTableItem && onTableNodeContextMenu) {
+            e.preventDefault()
+            e.stopPropagation()
+            const pathParts = parentPath.split('/')
+            const connName = pathParts.length >= 3 ? pathParts[1] : pathParts[0]
             const conn = groupedConnections
               ? Object.values(groupedConnections)
                   .flat()
@@ -500,6 +526,7 @@ export function TreeNodeItem({
               onConnectionSelect={onConnectionSelect}
               onGroupToggle={onGroupToggle}
               onConnectionToggle={onConnectionToggle}
+              onViewNodeContextMenu={onViewNodeContextMenu}
               onTableNodeContextMenu={onTableNodeContextMenu}
               onIndexNodeContextMenu={onIndexNodeContextMenu}
               onConnectionContextMenu={onConnectionContextMenu}

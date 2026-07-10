@@ -47,6 +47,7 @@ import { ConfirmDialog } from '../components/table-cells/ConfirmDialog'
 import { ShortcutCheatsheet } from '../components/table-cells/ShortcutCheatsheet'
 import { getConnPayloadWithPassword } from '../../_shared/utils'
 import { GridContextMenu } from '../components/GridContextMenu'
+import { RowDetailDrawer } from '../components/table-cells/RowDetailDrawer'
 import { Dropdown } from '../../_shared/components/ui/Dropdown'
 import { GenerateSqlModal } from '../components/GenerateSqlModal'
 import {
@@ -355,6 +356,10 @@ export function TableDetailPage() {
   const [confirmRevertOpen, setConfirmRevertOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const [detailDrawerRow, setDetailDrawerRow] = useState<{
+    row: Record<string, unknown>
+    rowIndex: number
+  } | null>(null)
   // Toast: { kind, message } or null. Announced via aria-live region.
   const [toast, setToast] = useState<{
     kind: 'success' | 'error'
@@ -1222,6 +1227,16 @@ export function TableDetailPage() {
   handleCopyRef.current = handleContextCopy
   handlePasteRef.current = handleContextPaste
 
+  /** Open the row detail drawer for the first selected row */
+  const handleViewDetails = useCallback(() => {
+    // Use the first selected / context row as the detail target
+    const rows = getSelectedRows()
+    if (rows.length === 0) return
+    const idx = displayRows.indexOf(rows[0])
+    if (idx < 0) return
+    setDetailDrawerRow({ row: rows[0] as Record<string, unknown>, rowIndex: idx })
+  }, [getSelectedRows, displayRows])
+
   // ── Export handlers ─────────────────────────────────────────────────────
   const handleExportCSV = useCallback(async () => {
     if (realTableRows.length === 0) {
@@ -1499,7 +1514,7 @@ export function TableDetailPage() {
 
   return (
     <section
-      className="flex h-full min-h-0 flex-col overflow-hidden"
+      className="relative flex h-full min-h-0 flex-col overflow-hidden"
       data-connection-id={connectionId ?? ''}
       data-table-name={tableName}
     >
@@ -2283,6 +2298,7 @@ export function TableDetailPage() {
           onSetToNull={handleContextSetToNull}
           onDeleteRows={handleContextDeleteRows}
           onGenerateSQL={handleContextGenerateSQL}
+          onViewDetails={handleViewDetails}
         />
       )}
 
@@ -2292,6 +2308,17 @@ export function TableDetailPage() {
         sql={generatedSql}
         onClose={() => setSqlModalOpen(false)}
       />
+
+      {/* ── Row detail drawer ────────────────────────────────────────── */}
+      <RowDetailDrawer
+        open={detailDrawerRow !== null}
+        row={detailDrawerRow?.row ?? null}
+        columns={realTableColumns}
+        columnsMeta={tableColumnsMeta}
+        rowIndex={detailDrawerRow?.rowIndex ?? 0}
+        onClose={() => setDetailDrawerRow(null)}
+      />
+
     </section>
   )
 }

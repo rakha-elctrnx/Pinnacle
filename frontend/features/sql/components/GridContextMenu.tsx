@@ -8,6 +8,7 @@
  * - Paste (TSV from clipboard, replaces full row)
  * - Set to NULL, Delete row(s)
  * - Generate SQL (opens modal)
+ * - View row details (opens detail drawer)
  * - Keyboard navigation (arrow keys, Enter, Escape)
  * - Viewport boundary detection (flip on overflow)
  * - Pinnacle token theme (dark/light mode)
@@ -26,6 +27,7 @@ import {
   Table2,
   ClipboardList,
   FileSpreadsheet,
+  Eye,
 } from 'lucide-react'
 import {
   GenericContextMenu,
@@ -46,6 +48,7 @@ export interface GridContextMenuProps {
   onSetToNull: () => void
   onDeleteRows: () => void
   onGenerateSQL: () => void
+  onViewDetails: () => void
 }
 
 // ── Component ──────────────────────────────────────────────────────
@@ -62,9 +65,17 @@ export function GridContextMenu({
   onSetToNull,
   onDeleteRows,
   onGenerateSQL,
+  onViewDetails,
 }: GridContextMenuProps) {
   const items = useMemo<ContextMenuItem[]>(
     () => [
+      {
+        label: 'View Details',
+        shortcut: '⏎',
+        icon: <Eye size={14} />,
+        action: onViewDetails,
+        dividerAfter: true,
+      },
       {
         label: 'Copy Row',
         shortcut: 'Ctrl+C',
@@ -116,6 +127,7 @@ export function GridContextMenu({
       },
     ],
     [
+      onViewDetails,
       onCopyRow,
       onCopyWithHeaders,
       onCopyAsSQL,
