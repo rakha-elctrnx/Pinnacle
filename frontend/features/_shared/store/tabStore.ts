@@ -47,8 +47,9 @@ interface TabState {
 
   // Actions
   openTab: (tab: Tab) => void
-  closeTab: (tabId: string) => void
   activateTab: (tabId: string) => void
+  closeTab: (tabId: string) => void
+  reorderTabs: (fromIndex: number, toIndex: number) => void
   updateTabRoute: (tabId: string, route: string) => void
   /** Set the pending change count for a tab (shown as badge). */
   setTabPendingCount: (tabId: string, count: number) => void
@@ -114,6 +115,15 @@ export const useTabStore = create<TabState>((set) => ({
     set((state) => {
       if (!state.tabs.some((t) => t.id === tabId)) return state
       return { activeTabId: tabId }
+    }),
+
+  reorderTabs: (fromIndex, toIndex) =>
+    set((state) => {
+      if (fromIndex < 0 || toIndex < 0 || fromIndex >= state.tabs.length || toIndex >= state.tabs.length) return state
+      const tabs = [...state.tabs]
+      const [moved] = tabs.splice(fromIndex, 1)
+      tabs.splice(toIndex, 0, moved)
+      return { tabs }
     }),
 
   updateTabRoute: (tabId, route) =>
