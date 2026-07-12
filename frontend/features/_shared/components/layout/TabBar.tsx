@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Code, Database, Table2, X } from 'lucide-react'
 import { useTabStore } from '../../store/tabStore'
 import { useDataExplorerContext } from '../../context/DataExplorerContext'
+import { useTableDetailCacheStore } from '../../../sql/store/tableDetailCacheStore'
 import type { Tab } from '../../store/tabStore'
 import { getDatabaseIcon } from '../branding/DatasourceLogo'
 
@@ -56,6 +57,7 @@ export function TabBar() {
 
   function handleClose(e: React.MouseEvent, tab: Tab) {
     e.stopPropagation()
+    useTableDetailCacheStore.getState().clear(tab.id)
     closeTab(tab.id)
 
     const state = useTabStore.getState()

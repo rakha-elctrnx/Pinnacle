@@ -41,6 +41,7 @@ import {
   canRedo,
 } from '../store/tableEditStore'
 import { useTableSelectionStore, cellKey } from '../store/tableSelectionStore'
+import { useTableDetailCacheStore, type CacheFilterCondition } from '../store/tableDetailCacheStore'
 import type { EditableColumnMeta } from '../store/tableEditStore'
 import { EditableCell } from '../components/table-cells/EditableCell'
 import { ConfirmDialog } from '../components/table-cells/ConfirmDialog'
@@ -310,6 +311,12 @@ export function TableDetailPage() {
     tableName: string
   }>()
 
+  const tabId = `${connectionId}:table:${tableName}`
+  const cacheEntry = useMemo(
+    () => useTableDetailCacheStore.getState().get(tabId),
+    [tabId],
+  )
+
   // ── Context ──────────────────────────────────────────────────────────────
   const {
     explorerData: {
@@ -374,23 +381,64 @@ export function TableDetailPage() {
   const valueInputRef = useRef<HTMLInputElement>(null)
 
   // ── Pagination state (server-side) ────────────────────────────────────────
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
+  const [page, setPage] = useState(cacheEntry?.page ?? 1)
+  const [pageSize, setPageSize] = useState(cacheEntry?.pageSize ?? DEFAULT_PAGE_SIZE)
 
   // ── Filter state ────────────────────────────────────────────────────────────
-  const [filters, setFilters] = useState<FilterCondition[]>([])
-  const [appliedWhereClause, setAppliedWhereClause] = useState<string>('')
-  const [filterPanelOpen, setFilterPanelOpen] = useState<boolean>(false)
-  const [newFilter, setNewFilter] = useState<Partial<FilterCondition>>({
-    column: '',
-    operator: '=',
-    value: '',
-  })
+  const [filters, setFilters] = useState<FilterCondition[]>(
+    (cacheEntry?.filters as FilterCondition[]) ?? [],
+  )
+  const [appliedWhereClause, setAppliedWhereClause] = useState<string>(
+    cacheEntry?.appliedWhereClause ?? '',
+  )
+  const [filterPanelOpen, setFilterPanelOpen] = useState<boolean>(
+    cacheEntry?.filterPanelOpen ?? false,
+  )
+  const [newFilter, setNewFilter] = useState<Partial<FilterCondition>>(
+    (cacheEntry?.newFilter as Partial<FilterCondition>) ?? {
+      column: '',
+      operator: '=',
+      value: '',
+    },
+  )
 
   // ── Sort state ─────────────────────────────────────────────────────────────
-  const [sortColumn, setSortColumn] = useState<string | null>(null)
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
-  const [appliedOrderByClause, setAppliedOrderByClause] = useState<string>('')
+  const [sortColumn, setSortColumn] = useState<string | null>(
+    cacheEntry?.sortColumn ?? null,
+  )
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(
+    cacheEntry?.sortDirection ?? 'asc',
+  )
+  const [appliedOrderByClause, setAppliedOrderByClause] = useState<string>(
+    cacheEntry?.appliedOrderByClause ?? '',
+  )
+
+  // ── Sync UI state to cache whenever it changes ──────────────────────────
+  useEffect(() => {
+    if (!tabId) return
+    useTableDetailCacheStore.getState().set(tabId, {
+      page,
+      pageSize,
+      filters: filters as CacheFilterCondition[],
+      appliedWhereClause,
+      appliedOrderByClause,
+      sortColumn,
+      sortDirection,
+      filterPanelOpen,
+      newFilter: newFilter as Partial<CacheFilterCondition>,
+    })
+  }, [
+    tabId,
+    page,
+    pageSize,
+    filters,
+    appliedWhereClause,
+    appliedOrderByClause,
+    sortColumn,
+    sortDirection,
+    filterPanelOpen,
+    newFilter,
+  ])
 
   // ── Detect the first primary key column for row ID stability ────────────
   const tableColumnsMeta = useMemo<ColumnMetadata[]>(() => {
@@ -637,23 +685,33 @@ export function TableDetailPage() {
     setSelectedTreeNode,
   ])
 
-  // Reset active row and clear edit store when table changes.
+  // Reset active row, clear edit store, and restore filter/sort/page state.
   useEffect(() => {
     queueMicrotask(() => {
       resetSelection()
     })
     clearAll()
     resetInsertCounter()
-    setPage(1)
-    setPageSize(DEFAULT_PAGE_SIZE)
-    setFilters([])
-    setNewFilter({ column: '', operator: '=', value: '' })
-    setAppliedWhereClause('')
-    setFilterPanelOpen(false)
-    setSortColumn(null)
-    setSortDirection('asc')
-    setAppliedOrderByClause('')
-  }, [tableName, clearAll, resetSelection])
+
+    const cached = useTableDetailCacheStore.getState().get(
+      `${connectionId}:table:${tableName}`,
+    )
+    setPage(cached?.page ?? 1)
+    setPageSize(cached?.pageSize ?? DEFAULT_PAGE_SIZE)
+    setFilters((cached?.filters as FilterCondition[]) ?? [])
+    setNewFilter(
+      (cached?.newFilter as Partial<FilterCondition>) ?? {
+        column: '',
+        operator: '=',
+        value: '',
+      },
+    )
+    setAppliedWhereClause(cached?.appliedWhereClause ?? '')
+    setFilterPanelOpen(cached?.filterPanelOpen ?? false)
+    setSortColumn(cached?.sortColumn ?? null)
+    setSortDirection(cached?.sortDirection ?? 'asc')
+    setAppliedOrderByClause(cached?.appliedOrderByClause ?? '')
+  }, [tableName, clearAll, resetSelection, connectionId])
 
   // Refetch data when page or pageSize changes (skip on mount — handled above).
   const prevPageRef = useRef(page)
@@ -691,7 +749,6 @@ export function TableDetailPage() {
   }, [realTableRows])
 
   // Sync pending change count to the tab badge in TabBar.
-  const tabId = `${connectionId}:table:${tableName}`
   useEffect(() => {
     useTabStore.getState().setTabPendingCount(tabId, totalPending)
   }, [tabId, totalPending])
