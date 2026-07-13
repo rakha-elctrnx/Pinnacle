@@ -48,7 +48,7 @@ import { ConfirmDialog } from '../components/table-cells/ConfirmDialog'
 import { ShortcutCheatsheet } from '../components/table-cells/ShortcutCheatsheet'
 import { getConnPayloadWithPassword } from '../../_shared/utils'
 import { GridContextMenu } from '../components/GridContextMenu'
-import { RowDetailDrawer } from '../components/table-cells/RowDetailDrawer'
+import { RowDetailDrawer, type DrawerAnimState } from '../components/table-cells/RowDetailDrawer'
 import { Dropdown } from '../../_shared/components/ui/Dropdown'
 import { GenerateSqlModal } from '../components/GenerateSqlModal'
 import {
@@ -367,6 +367,9 @@ export function TableDetailPage() {
     row: Record<string, unknown>
     rowIndex: number
   } | null>(null)
+  const [drawerWidth, setDrawerWidth] = useState(340)
+  const [isResizingDetailDrawer, setIsResizingDetailDrawer] = useState(false)
+  const [drawerAnimState, setDrawerAnimState] = useState<DrawerAnimState>('closed')
   // Toast: { kind, message } or null. Announced via aria-live region.
   const [toast, setToast] = useState<{
     kind: 'success' | 'error'
@@ -800,8 +803,17 @@ export function TableDetailPage() {
       const rowId = buildRowId(_row, index, tableName, pkColumn)
       return !pendingDeletes.includes(rowId)
     })
-    return [...filtered, ...pendingInserts]
-  }, [realTableRows, pendingDeletes, pendingInserts, tableName, pkColumn])
+    // Only show pending inserts that have at least one edit (dirty) or
+    // are currently being edited in the drawer (open drawer on new row).
+    const activeInserts = pendingInserts.filter((draft) => {
+      const rowId = draft.__rowId as string | undefined
+      if (!rowId) return false
+      const hasEdits = pendingEdits[rowId] && pendingEdits[rowId].length > 0
+      const isBeingEdited = detailDrawerRow?.row?.__rowId === rowId
+      return hasEdits || isBeingEdited
+    })
+    return [...filtered, ...activeInserts]
+  }, [realTableRows, pendingDeletes, pendingInserts, pendingEdits, tableName, pkColumn, detailDrawerRow])
 
   // ── Column widths ─────────────────────────────────────────────────────────
   const autoColumnWidths = useMemo(
@@ -1328,24 +1340,48 @@ export function TableDetailPage() {
       template[col] = getDefaultValueForType(meta?.dataType)
     }
     const newRowId = stageInsert(template)
-    console.log(
-      '[TableDetailPage] Added row with ID:',
-      newRowId,
-      'Template:',
-      template,
-    )
+    const draft = { ...template, __rowId: newRowId }
+    // Open drawer for the new row — it won't render in the table until
+    // at least one field is edited (see displayRows filter).
+    setDetailDrawerRow({ row: draft as Record<string, unknown>, rowIndex: displayRows.length })
     setToast({
       kind: 'success',
-      message: `Added new row (ID: ${newRowId})`,
+      message: `New row ready — fill fields below to display it in the table`,
     })
-    // Scroll to bottom to show the new row
-    requestAnimationFrame(() => {
-      if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTop =
-          scrollContainerRef.current.scrollHeight
-      }
+  }, [realTableColumns, editableColumnMetaMap, stageInsert, displayRows.length])
+
+  // Drawer sync: if drawer is open and active cell changes to a different row,
+  // switch the drawer to show that row's details
+  useEffect(() => {
+    if (!detailDrawerRow) return
+    if (!activeCell) return
+    // Only respond when drawer is fully open (or currently animating in)
+    if (drawerAnimState !== 'open' && drawerAnimState !== 'entering') return
+    if (activeCell.rowIndex === detailDrawerRow.rowIndex) return
+    // Don't switch if we're editing an insert draft (keep the drawer on it)
+    const activeRow = displayRows[activeCell.rowIndex]
+    if (!activeRow) return
+    const activeRowId = (activeRow as Record<string, unknown>).__rowId
+    if (typeof activeRowId === 'string' && activeRowId.startsWith('__insert__')) {
+      return
+    }
+    setDetailDrawerRow({
+      row: activeRow,
+      rowIndex: activeCell.rowIndex,
     })
-  }, [realTableColumns, editableColumnMetaMap, stageInsert])
+  }, [activeCell, detailDrawerRow, displayRows, drawerAnimState])
+
+  // Drawer close on insert removal: if drawer is showing an insert that has
+  // been removed (undo/clear/revert), close the drawer
+  useEffect(() => {
+    if (!detailDrawerRow) return
+    const rowId = detailDrawerRow.row.__rowId as string | undefined
+    if (!rowId || !rowId.startsWith('__insert__')) return
+    const insertExists = pendingInserts.some((d) => d.__rowId === rowId)
+    if (!insertExists) {
+      setDetailDrawerRow(null)
+    }
+  }, [detailDrawerRow, pendingInserts])
 
   const handleDeleteRow = useCallback(() => {
     // Prefer deleting all rows that have any selected cell; fall back to the
@@ -1447,26 +1483,37 @@ export function TableDetailPage() {
         selectedDatabase || selectedConnection.database || payload.database
       const pkMapped = pkColumn
 
-      // Build inserts: strip __rowId from staged drafts
+      // Build inserts: merge edits from pendingEdits into each insert draft,
+      // then strip __rowId from the payload sent to the backend.
       const inserts = pendingInserts.map((draft) => {
+        const rowId = draft.__rowId as string | undefined
+        const merged = { ...draft } as Record<string, unknown>
+        if (rowId && pendingEdits[rowId]) {
+          for (const edit of pendingEdits[rowId]) {
+            merged[edit.field] = edit.newValue
+          }
+        }
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { __rowId, ...data } = draft as Record<string, unknown>
+        const { __rowId, ...data } = merged
         return data
       })
 
-      // Build updates: map rowId (which is prefixed with tableName-) to actual PK values
-      const updates = Object.entries(pendingEdits).map(([rowId, edits]) => {
-        const changes: Record<string, unknown> = {}
-        for (const edit of edits) {
-          changes[edit.field] = edit.newValue
-        }
-        // Extract the actual PK value from the rowId prefix
-        // RowId format is `${tableName}-${pkValue}` or `${tableName}-${index}`
-        const pkValue = rowId.startsWith(`${tableName}-`)
-          ? rowId.slice(`${tableName}-`.length)
-          : rowId
-        return { rowId: pkValue, changes }
-      })
+      // Build updates: filter out __insert__ rowIds (their edits are
+      // already merged into the inserts payload above).
+      const updates = Object.entries(pendingEdits)
+        .filter(([rowId]) => !rowId.startsWith('__insert__'))
+        .map(([rowId, edits]) => {
+          const changes: Record<string, unknown> = {}
+          for (const edit of edits) {
+            changes[edit.field] = edit.newValue
+          }
+          // Extract the actual PK value from the rowId prefix
+          // RowId format is `${tableName}-${pkValue}` or `${tableName}-${index}`
+          const pkValue = rowId.startsWith(`${tableName}-`)
+            ? rowId.slice(`${tableName}-`.length)
+            : rowId
+          return { rowId: pkValue, changes }
+        })
 
       // Build deletes: same PK extraction
       const deletes = pendingDeletes.map((rowId) => {
@@ -1996,6 +2043,10 @@ export function TableDetailPage() {
           ref={scrollContainerRef}
           tabIndex={0}
           className="scrollbar-thin min-h-0 flex-1 overflow-auto border border-border-default outline-none focus:ring-1 focus:ring-primary [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-text-muted [&::-webkit-scrollbar-track]:bg-bg-muted"
+          style={{
+            marginRight: drawerAnimState !== 'closed' && drawerAnimState !== 'exiting' ? drawerWidth : 0,
+            transition: isResizingDetailDrawer ? 'none' : 'margin-right 150ms ease-out',
+          }}
         >
           <table
             role="grid"
@@ -2373,6 +2424,13 @@ export function TableDetailPage() {
         columns={realTableColumns}
         columnsMeta={tableColumnsMeta}
         rowIndex={detailDrawerRow?.rowIndex ?? 0}
+        tableName={tableName}
+        pkColumn={pkColumn}
+        drawerWidth={drawerWidth}
+        setDrawerWidth={setDrawerWidth}
+        isResizing={isResizingDetailDrawer}
+        setIsResizing={setIsResizingDetailDrawer}
+        onAnimationStateChange={setDrawerAnimState}
         onClose={() => setDetailDrawerRow(null)}
       />
 
