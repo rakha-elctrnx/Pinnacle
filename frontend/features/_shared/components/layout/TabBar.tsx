@@ -53,6 +53,18 @@ export function TabBar() {
     }
   }, [tabs.length])
 
+  const reorderTabsRef = useRef(useTabStore.getState().reorderTabs)
+  useEffect(() => {
+    const unsub = useTabStore.subscribe((s) => {
+      reorderTabsRef.current = s.reorderTabs
+    })
+    return unsub
+  }, [])
+
+  const suppressClickRef = useRef(false)
+  const ghostRef = useRef<HTMLElement | null>(null)
+
+
   if (tabs.length === 0) return null
 
   function handleClose(e: React.MouseEvent, tab: Tab) {
@@ -80,17 +92,6 @@ export function TabBar() {
    *  pointer, giving the feel of "grabbing" the tab. The original stays
    *  in the tab bar as a dim placeholder.
    */
-
-  const reorderTabsRef = useRef(useTabStore.getState().reorderTabs)
-  useEffect(() => {
-    const unsub = useTabStore.subscribe((s) => {
-      reorderTabsRef.current = s.reorderTabs
-    })
-    return unsub
-  }, [])
-
-  const suppressClickRef = useRef(false)
-  const ghostRef = useRef<HTMLElement | null>(null)
 
   function hitTest(x: number): number {
     const parent = scrollRef.current
