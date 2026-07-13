@@ -19,6 +19,8 @@ import {
   type EditableColumnMeta,
 } from '../../store/tableEditStore'
 import { useTableSelectionStore } from '../../store/tableSelectionStore'
+import { ActionButton } from '../../../_shared/components/ui/ActionButton'
+import { useTheme } from '../../../../app/theme'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -93,6 +95,7 @@ export function RowDetailDrawer({
   onAnimationStateChange,
   onClose,
 }: RowDetailDrawerProps) {
+  const { theme } = useTheme()
   // ── Animation state ──────────────────────────────────────────────────
   const [animState, setAnimState] = useState<DrawerAnimState>(
     open ? 'open' : 'closed',
@@ -355,8 +358,21 @@ export function RowDetailDrawer({
     if (!focusedField) return ''
     const val = getEffectiveValue(focusedField)
     if (val === null || val === undefined) return ''
+    // Pretty-print JSON/JSONB values
+    const meta = metaMap(focusedField)
+    const dt = meta?.dataType?.toUpperCase() ?? ''
+    if (dt.includes('JSON') && val !== null && val !== undefined) {
+      if (typeof val === 'string') {
+        try {
+          return JSON.stringify(JSON.parse(val), null, 2)
+        } catch {
+          return val
+        }
+      }
+      return JSON.stringify(val, null, 2)
+    }
     return String(val)
-  }, [focusedField, getEffectiveValue])
+  }, [focusedField, getEffectiveValue, metaMap])
 
   // ── Escape key closes the drawer ────────────────────────────────────
   useEffect(() => {
@@ -430,52 +446,41 @@ export function RowDetailDrawer({
         ].join(' ')}
         style={{ width: drawerWidth }}
       >
-        {/* ── Header with tabs ────────────────────────────────────────── */}
-        <div className="flex shrink-0 items-center justify-between border-b border-border-default bg-bg-subtle/50 px-3 py-2">
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <h3 className="truncate text-sm font-semibold text-text-primary leading-tight">
-              Row {rowIndex + 1}
-            </h3>
-            <p className="truncate text-[11px] text-text-muted leading-tight">
-              {Object.keys(row ?? {}).length} columns
-            </p>
+        {/* ── Merged header with tabs and close ──────────────────────── */}
+        <div className="flex shrink-0 items-center justify-between border-b border-border-default bg-bg-subtle/50 pl-1 pr-2">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab('record')}
+              className={[
+                'px-3 py-2.5 text-xs font-medium border-b-2 transition-colors',
+                activeTab === 'record'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-text-secondary hover:text-text-primary',
+              ].join(' ')}
+            >
+              Record
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('value')}
+              className={[
+                'px-3 py-2.5 text-xs font-medium border-b-2 transition-colors',
+                activeTab === 'value'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-text-secondary hover:text-text-primary',
+              ].join(' ')}
+            >
+              Value
+            </button>
           </div>
-          <button
-            onClick={handleClose}
-            type="button"
-            className="ml-2 rounded-md p-1 text-text-secondary transition-colors hover:bg-bg-hover hover:text-primary active:scale-95"
+          <ActionButton
+            icon={<X size={15} />}
             aria-label="Close detail drawer"
-          >
-            <X size={15} />
-          </button>
-        </div>
-
-        {/* ── Tab bar ─────────────────────────────────────────────────── */}
-        <div className="flex shrink-0 border-b border-border-default bg-bg-subtle/30 px-3">
-          <button
-            type="button"
-            onClick={() => setActiveTab('record')}
-            className={[
-              'px-3 py-2 text-xs font-medium border-b-2 transition-colors',
-              activeTab === 'record'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-text-secondary hover:text-text-primary',
-            ].join(' ')}
-          >
-            Record
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('value')}
-            className={[
-              'px-3 py-2 text-xs font-medium border-b-2 transition-colors',
-              activeTab === 'value'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-text-secondary hover:text-text-primary',
-            ].join(' ')}
-          >
-            Value
-          </button>
+            variant="default"
+            onClick={handleClose}
+            className="rounded-md p-1"
+          />
         </div>
 
         {/* ── Record tab: scrollable field list ───────────────────────── */}
@@ -602,7 +607,7 @@ export function RowDetailDrawer({
               <Editor
                 height="100%"
                 language={getEditorLanguage(metaMap(focusedField)?.dataType)}
-                theme="vs-dark"
+                theme={theme === 'dark' ? 'vs-dark' : 'light'}
                 value={monacoValue}
                 onChange={handleMonacoChange}
                 onMount={handleEditorMount}

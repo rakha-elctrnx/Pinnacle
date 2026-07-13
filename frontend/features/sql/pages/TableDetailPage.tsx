@@ -1382,6 +1382,16 @@ export function TableDetailPage() {
       setDetailDrawerRow(null)
     }
   }, [detailDrawerRow, pendingInserts])
+  // Scroll active cell into view when drawer changes focus
+  useEffect(() => {
+    if (!activeCell) return
+    requestAnimationFrame(() => {
+      const cell = document.querySelector(
+        `[data-cell-row="${activeCell.rowIndex}"][data-cell-col="${activeCell.columnId}"]`,
+      )
+      cell?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    })
+  }, [activeCell])
 
   const handleDeleteRow = useCallback(() => {
     // Prefer deleting all rows that have any selected cell; fall back to the
