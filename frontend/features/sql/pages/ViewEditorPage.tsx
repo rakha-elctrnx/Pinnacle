@@ -1,20 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Editor, { type BeforeMount, type OnMount } from '@monaco-editor/react'
-import { Play, Database, Save, RotateCcw } from 'lucide-react'
+import { RotateCcw } from 'lucide-react'
 import * as monacoEditor from 'monaco-editor'
 import { useDataExplorerContext } from '../../_shared/context/DataExplorerContext'
 import { useTheme } from '../../../app/theme'
-import { ActionButton } from '../../_shared/components/ui/ActionButton'
 import { executeSql } from '../clients/sql'
 import { getConnPayloadWithPassword } from '../../_shared/utils'
 import { registerSqlProviders } from '../components/query/SqlCompletionProvider'
-import { DataGrid } from '../components/DataGrid'
 import { useTabStore } from '../../_shared/store/tabStore'
 import { beautifySql } from '../utils/sqlFormatter'
 import type { SchemaColumn } from '../types/sql'
 import type { QueryResult } from '../clients/sql'
 import { validateSql } from '../components/query/SqlValidator'
+
+// Import subcomponents
+import { ViewEditorToolbar } from '../components/view-editor/ViewEditorToolbar'
+import { ViewEditorResultPanel } from '../components/view-editor/ViewEditorResultPanel'
 
 const EMPTY_SCHEMA: Record<string, SchemaColumn[]> = {}
 
@@ -73,6 +75,7 @@ export function ViewEditorPage() {
 
   useEffect(() => {
     if (schemas.length > 0 && !schemas.includes(selectedSchema)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedSchema(schemas[0])
     }
   }, [schemas, selectedSchema])
@@ -82,6 +85,7 @@ export function ViewEditorPage() {
     if (isNewView || !viewName || !selectedConnection) return
 
     let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoadingDefinition(true)
     setError(null)
 
@@ -170,7 +174,7 @@ export function ViewEditorPage() {
       route: `/sql/${connectionId}/views/${viewName}`,
       connectionId,
     })
-  }, [connectionId, viewName, pageTitle, selectedConnection])
+  }, [connectionId, viewName, pageTitle, selectedConnection, isNewView])
 
   const handleRun = useCallback(async () => {
     if (!selectedConnection || !editorValue.trim()) return
@@ -322,56 +326,21 @@ export function ViewEditorPage() {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <div className="flex h-full min-h-0 flex-col bg-bg-base">
-        <div className="flex items-center gap-1 border-b border-border-default px-1.5 py-1.5">
-          <ActionButton
-            icon={<Play size={14} />}
-            aria-label="Run (Ctrl+Enter)"
-            variant="accent"
-            disabled={isExecuting || isSaving || !editorValue.trim()}
-            onClick={handleRun}
-          />
-          <ActionButton
-            icon={<Save size={14} />}
-            aria-label={isNewView ? 'Create View' : 'Save View'}
-            variant="success"
-            disabled={isExecuting || isSaving || !editorValue.trim()}
-            onClick={handleSave}
-          />
-          <span className="mx-0.5 h-5 w-px bg-border-default" />
-          <div className="flex items-center gap-1.5">
-            <select
-              value={selectedDb}
-              onChange={(e) => setSelectedDb(e.target.value)}
-              className="h-6 rounded border border-border-default bg-bg-base px-1 text-[11px] font-mono outline-none focus:border-primary"
-            >
-              {!databases.includes(selectedDb) && selectedDb && (
-                <option value={selectedDb}>{selectedDb}</option>
-              )}
-              {databases.map((db) => (
-                <option key={db} value={db}>
-                  {db}
-                </option>
-              ))}
-            </select>
-            {selectedConnection?.type === 'postgresql' && (
-              <select
-                value={selectedSchema}
-                onChange={(e) => setSelectedSchema(e.target.value)}
-                className="h-6 rounded border border-border-default bg-bg-base px-1 text-[11px] font-mono outline-none focus:border-primary"
-              >
-                {schemas.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-          <span className="ml-auto flex items-center gap-1 text-[11px] text-text-muted">
-            <Database size={12} />
-            {isNewView ? 'Create View' : `Edit: ${viewName}`}
-          </span>
-        </div>
+        {/* Toolbar */}
+        <ViewEditorToolbar
+          isNewView={isNewView}
+          viewName={viewName}
+          selectedDb={selectedDb}
+          selectedSchema={selectedSchema}
+          databases={databases}
+          schemas={schemas}
+          connectionType={selectedConnection?.type}
+          disabled={isExecuting || isSaving || !editorValue.trim()}
+          onRun={handleRun}
+          onSave={handleSave}
+          onDbChange={setSelectedDb}
+          onSchemaChange={setSelectedSchema}
+        />
 
         {isLoadingDefinition && (
           <div className="flex items-center justify-center py-8 text-text-muted">
@@ -414,32 +383,9 @@ export function ViewEditorPage() {
           </div>
         )}
 
-        {(result || isExecuting) && !isLoadingDefinition && (
-          <>
-            <div className="flex items-center gap-2 border-t border-border-default px-2 py-1 text-[11px] text-text-muted">
-              {isExecuting ? (
-                <span className="flex items-center gap-1">
-                  <RotateCcw size={12} className="animate-spin" />
-                  Running...
-                </span>
-              ) : result ? (
-                <span className="text-green-500">
-                  {result.rowsAffected > 0
-                    ? `${result.rowsAffected} row(s) affected`
-                    : result.rows.length > 0
-                      ? `${result.rows.length} row(s) returned`
-                      : 'Executed successfully'}
-                  {' \u00b7 '}
-                  {result.elapsedMs}ms
-                </span>
-              ) : null}
-            </div>
-            {result && result.columns.length > 0 && (
-              <div className="min-h-40 flex-1 overflow-auto border-t border-border-default">
-                <DataGrid columns={result.columns} rows={result.rows} />
-              </div>
-            )}
-          </>
+        {/* Results Panel */}
+        {!isLoadingDefinition && (
+          <ViewEditorResultPanel isExecuting={isExecuting} result={result} />
         )}
       </div>
     </div>

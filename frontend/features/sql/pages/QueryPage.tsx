@@ -1,31 +1,22 @@
-import Editor, { type BeforeMount, type OnMount } from '@monaco-editor/react'
-import {
-  Play,
-  Download,
-  History,
-  ListEnd,
-  Sparkles,
-  WrapText,
-  Minimize2,
-  GitBranch,
-  Check,
-  Undo2,
-} from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Editor from '@monaco-editor/react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import * as monacoEditor from 'monaco-editor'
 import { useDataExplorerContext } from '../../_shared/context/DataExplorerContext'
 import { useTheme } from '../../../app/theme'
-import { ActionButton } from '../../_shared/components/ui/ActionButton'
-import { downloadTextFile, createCsv } from '../../_shared/utils'
-import { DataGrid } from '../components/DataGrid'
-import { registerSqlProviders } from '../components/query/SqlCompletionProvider'
-import { validateSql } from '../components/query/SqlValidator'
-import type { SchemaColumn } from '../types/sql'
-import type { QueryResultTab } from '../../_shared/types/shared'
 import { beautifySql, minifySql } from '../utils/sqlFormatter'
+import type { SchemaColumn } from '../types/sql'
 
-const RESULT_TABS: QueryResultTab[] = ['results', 'messages', 'statistics']
+// Import hooks
+import { useQueryLayout } from '../hooks/useQueryLayout'
+import { useQueryMonaco } from '../hooks/useQueryMonaco'
+
+// Import subcomponents
+import { QueryToolbar } from '../components/query/QueryToolbar'
+import { TransactionStatusBar } from '../components/query/TransactionStatusBar'
+import { QueryResultPanel } from '../components/query/QueryResultPanel'
+import { QueryHistoryPanel } from '../components/query/QueryHistoryPanel'
+import { ConfirmTransactionModal } from '../components/query/ConfirmTransactionModal'
+
 const EMPTY_SCHEMA: Record<string, SchemaColumn[]> = {}
 
 export function QueryPage() {
@@ -69,11 +60,6 @@ export function QueryPage() {
     if (queryId) setActiveQueryId(queryId)
   }, [queryId, setActiveQueryId])
 
-  const handleRunQueryRef = useRef(handleRunQuery)
-  useEffect(() => {
-    handleRunQueryRef.current = handleRunQuery
-  }, [handleRunQuery])
-
   const schemaColumnsByTable = explorerData.schemaColumnsByTable ?? EMPTY_SCHEMA
   const connectionType = selectedConnection?.type ?? ''
   const history = connectionId
@@ -94,245 +80,61 @@ export function QueryPage() {
   }, [treeData, queryDatabase, connectionType])
 
   const [historyOpen, setHistoryOpen] = useState(false)
-  const [exportOpen, setExportOpen] = useState(false)
-  const exportRef = useRef<HTMLDivElement>(null)
-  const [resultHeight, setResultHeight] = useState(240)
-  const dragRef = useRef<{ startY: number; startH: number } | null>(null)
   const [confirmTxExit, setConfirmTxExit] = useState(false)
 
-  const handleResizeMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault()
-      dragRef.current = { startY: e.clientY, startH: resultHeight }
-      const onMove = (ev: MouseEvent) => {
-        if (!dragRef.current) return
-        const delta = dragRef.current.startY - ev.clientY
-        setResultHeight(
-          Math.max(80, Math.min(600, dragRef.current.startH + delta)),
-        )
-      }
-      const onUp = () => {
-        dragRef.current = null
-        window.removeEventListener('mousemove', onMove)
-        window.removeEventListener('mouseup', onUp)
-      }
-      window.addEventListener('mousemove', onMove)
-      window.addEventListener('mouseup', onUp)
-    },
-    [resultHeight],
-  )
+  // Use layout hook
+  const { resultHeight, handleResizeMouseDown } = useQueryLayout(240)
 
-  useEffect(() => {
-    if (!exportOpen) return
-    const handleClick = (e: MouseEvent) => {
-      if (exportRef.current && !exportRef.current.contains(e.target as Node))
-        setExportOpen(false)
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [exportOpen])
-
-  const tablesRef = useRef(schemaColumnsByTable)
-  useEffect(() => {
-    tablesRef.current = schemaColumnsByTable
-  }, [schemaColumnsByTable])
-
-  const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(
-    null,
-  )
-  const monacoRef = useRef<typeof monacoEditor | null>(null)
-
-  useEffect(() => {
-    const editor = editorRef.current,
-      mono = monacoRef.current
-    if (!editor || !mono) return
-    const model = editor.getModel()
-    if (!model) return
-    mono.editor.setModelMarkers(
-      model,
-      'sql-validator',
-      validateSql(querySql, mono),
-    )
-  }, [querySql])
-
-  const handleBeforeMount: BeforeMount = (monacoInstance) => {
-    registerSqlProviders(monacoInstance, tablesRef)
-  }
-  const handleMount: OnMount = (editor, monacoInstance) => {
-    registerEditor(editor)
-    monacoRef.current = monacoInstance as unknown as typeof monacoEditor
-    const model = editor.getModel()
-    if (model) {
-      const mono = monacoInstance as unknown as typeof monacoEditor
-      mono.editor.setModelMarkers(
-        model,
-        'sql-validator',
-        validateSql(querySql, mono),
-      )
-    }
-    editor.addAction({
-      id: 'run-query',
-      label: 'Run Query',
-      keybindings: [
-        monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter,
-      ],
-      run: () => {
-        void handleRunQueryRef.current('run')
-      },
-    })
-    editor.addAction({
-      id: 'run-selected-query',
-      label: 'Run Selected Query',
-      keybindings: [
-        monacoInstance.KeyMod.CtrlCmd |
-          monacoInstance.KeyMod.Shift |
-          monacoInstance.KeyCode.Enter,
-      ],
-      run: () => {
-        void handleRunQueryRef.current('run-selected')
-      },
-    })
-  }
+  // Use Monaco hook
+  const { handleBeforeMount, handleMount } = useQueryMonaco({
+    querySql,
+    schemaColumnsByTable,
+    handleRunQuery,
+    registerEditor,
+  })
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <section className="flex h-full min-h-0 flex-col bg-bg-base">
-        {/* ── Toolbar ────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-1 border-b border-border-default px-1.5 py-1.5">
-          <ActionButton
-            icon={<Play size={14} />}
-            aria-label="Run (Ctrl+Enter)"
-            variant="accent"
-            disabled={isRunningQuery}
-            onClick={() => void handleRunQuery('run')}
-          />
-          <ActionButton
-            icon={<ListEnd size={14} />}
-            aria-label="Run Selected"
-            variant="accent"
-            disabled={isRunningQuery}
-            onClick={() => void handleRunQuery('run-selected')}
-          />
-          <ActionButton
-            icon={<Sparkles size={14} />}
-            aria-label="Explain"
-            disabled={isRunningQuery}
-            onClick={() => void handleRunQuery('explain')}
-          />
-          <span className="mx-0.5 h-5 w-px bg-border-default" />
-          <ActionButton
-            icon={<GitBranch size={14} />}
-            aria-label="Transaction Mode"
-            variant={transactionMode ? 'accent' : 'default'}
-            disabled={isRunningQuery}
-            onClick={() => {
-              if (transactionMode && activeTransactionId) {
-                setConfirmTxExit(true)
-              } else {
-                void toggleTransactionMode()
-              }
-            }}
-          />
-          <span className="mx-0.5 h-5 w-px bg-border-default" />
-          <ActionButton
-            icon={<WrapText size={14} />}
-            aria-label="Beautify SQL"
-            disabled={isRunningQuery || !querySql.trim()}
-            onClick={() => updateActiveQuery(beautifySql(querySql))}
-          />
-          <ActionButton
-            icon={<Minimize2 size={14} />}
-            aria-label="Minify SQL"
-            disabled={isRunningQuery || !querySql.trim()}
-            onClick={() => updateActiveQuery(minifySql(querySql))}
-          />
-          <span className="mx-0.5 h-5 w-px bg-border-default" />
-          <ActionButton
-            icon={<History size={14} />}
-            aria-label="Query History"
-            variant={historyOpen ? 'accent' : 'default'}
-            onClick={() => setHistoryOpen((v) => !v)}
-          />
-          <span className="ml-auto" />
-          <div className="flex items-center gap-1.5">
-            <span className="rounded border border-border-default bg-bg-subtle px-1.5 py-0.5 text-[10px] text-text-muted">
-              {connectionType || 'sql'}
-            </span>
-            <select
-              value={queryDatabase}
-              onChange={(e) => onQueryDatabaseChange(e.target.value)}
-              className="h-6 rounded border border-border-default bg-bg-base px-1 text-[11px] font-mono outline-none focus:border-primary"
-            >
-              {!databases.includes(queryDatabase) && queryDatabase && (
-                <option value={queryDatabase}>{queryDatabase}</option>
-              )}
-              {databases.map((db) => (
-                <option key={db} value={db}>
-                  {db}
-                </option>
-              ))}
-            </select>
-            {connectionType === 'postgresql' && (
-              <select
-                value={querySchema}
-                onChange={(e) => onQuerySchemaChange(e.target.value)}
-                className="h-6 rounded border border-border-default bg-bg-base px-1 text-[11px] font-mono outline-none focus:border-primary"
-              >
-                {!schemas.includes(querySchema) && querySchema && (
-                  <option value={querySchema}>{querySchema}</option>
-                )}
-                {schemas.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-        </div>
+        {/* Toolbar */}
+        <QueryToolbar
+          connectionType={connectionType}
+          queryDatabase={queryDatabase}
+          querySchema={querySchema}
+          databases={databases}
+          schemas={schemas}
+          querySql={querySql}
+          isRunningQuery={isRunningQuery}
+          transactionMode={transactionMode}
+          historyOpen={historyOpen}
+          onRunQuery={(mode) => void handleRunQuery(mode)}
+          onToggleTransactionMode={() => {
+            if (transactionMode && activeTransactionId) {
+              setConfirmTxExit(true)
+            } else {
+              void toggleTransactionMode()
+            }
+          }}
+          onBeautify={() => updateActiveQuery(beautifySql(querySql))}
+          onMinify={() => updateActiveQuery(minifySql(querySql))}
+          onToggleHistory={() => setHistoryOpen((v) => !v)}
+          onDatabaseChange={onQueryDatabaseChange}
+          onSchemaChange={onQuerySchemaChange}
+        />
 
-        {/* ── Transaction Status Bar ─────────────────────────────────── */}
+        {/* Transaction Status Bar */}
         {transactionMode && activeTransactionId && (
-          <div className="flex items-center gap-2 border-b border-border-default bg-blue-500/5 px-3 py-1.5 text-[11px]">
-            <span className="font-medium text-text-primary">
-              Transaction:{' '}
-              <span className="font-mono text-primary">
-                {activeTransactionId.slice(0, 8)}
-              </span>
-            </span>
-            <span className="text-text-muted">·</span>
-            <span className="text-text-muted">
-              {transactionSteps.length} step
-              {transactionSteps.length !== 1 ? 's' : ''}
-            </span>
-            {selectedConnection?.type === 'mysql' && (
-              <span
-                className="rounded bg-yellow-500/10 px-1.5 py-0.5 text-[10px] text-yellow-600"
-                title="MySQL DDL auto-commits"
-              >
-                MySQL DDL auto-commits
-              </span>
-            )}
-            <span className="ml-auto flex items-center gap-1">
-              <ActionButton
-                icon={<Check size={13} />}
-                aria-label="Commit"
-                variant="success"
-                disabled={isRunningQuery}
-                onClick={() => void handleCommitTransaction()}
-              />
-              <ActionButton
-                icon={<Undo2 size={13} />}
-                aria-label="Rollback"
-                variant="danger"
-                disabled={isRunningQuery}
-                onClick={() => void handleRollbackTransaction()}
-              />
-            </span>
-          </div>
+          <TransactionStatusBar
+            activeTransactionId={activeTransactionId}
+            stepCount={transactionSteps.length}
+            connectionType={connectionType}
+            isRunningQuery={isRunningQuery}
+            onCommit={() => void handleCommitTransaction()}
+            onRollback={() => void handleRollbackTransaction()}
+          />
         )}
 
-        {/* ── Editor ──────────────────────────────────────────────────── */}
+        {/* Editor */}
         <div className="relative min-h-45 flex-1">
           <Editor
             height="100%"
@@ -381,226 +183,33 @@ export function QueryPage() {
           )}
         </div>
 
-        {/* ── Results / Messages / Statistics ─────────────────────────── */}
-        {queryResult && (
-          <>
-            {/* Resize handle */}
-            <div
-              className="flex h-1.5 shrink-0 cursor-row-resize items-center justify-center border-t border-border-default bg-bg-subtle/50 hover:bg-primary/10 active:bg-primary/15 transition-colors"
-              onMouseDown={handleResizeMouseDown}
-            >
-              <span className="h-px w-8 rounded-full bg-text-muted/40" />
-            </div>
-            <div
-              className="flex min-h-0 flex-col"
-              style={{ height: resultHeight }}
-            >
-              <div className="flex items-center gap-1 px-1.5 py-1">
-                {RESULT_TABS.map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setQueryResultTab(tab)}
-                    className={`rounded-md px-2 py-0.5 text-caption capitalize transition-colors ${
-                      queryResultTab === tab
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-text-muted hover:bg-bg-hover hover:text-text-primary'
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-                {queryResultTab === 'results' && (
-                  <span className="text-[10px] text-text-muted tabular-nums">
-                    {queryResult.rows.length} rows · {queryResult.elapsedMs}ms
-                  </span>
-                )}
-                <span className="ml-auto" />
-                <div ref={exportRef} className="relative">
-                  <ActionButton
-                    icon={<Download size={13} />}
-                    aria-label="Export"
-                    onClick={() => setExportOpen((v) => !v)}
-                  />
-                  {exportOpen && (
-                    <div className="absolute right-0 top-full z-30 mt-1 min-w-28 rounded-md border border-border-default bg-bg-base py-0.5 shadow-lg">
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-hover"
-                        onClick={() => {
-                          downloadTextFile(
-                            'query-result.json',
-                            JSON.stringify(queryResult.rows, null, 2),
-                            'application/json',
-                          )
-                          setExportOpen(false)
-                        }}
-                      >
-                        JSON
-                      </button>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-hover"
-                        onClick={() => {
-                          downloadTextFile(
-                            'query-result.csv',
-                            createCsv(queryResult.columns, queryResult.rows),
-                            'text/csv',
-                          )
-                          setExportOpen(false)
-                        }}
-                      >
-                        CSV
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
+        {/* Results Panel */}
+        <QueryResultPanel
+          queryResult={queryResult}
+          queryMessages={queryMessages}
+          queryResultTab={queryResultTab}
+          setQueryResultTab={setQueryResultTab}
+          transactionMode={transactionMode}
+          transactionSteps={transactionSteps}
+          resultHeight={resultHeight}
+          handleResizeMouseDown={handleResizeMouseDown}
+        />
 
-              {queryResultTab === 'results' && (
-                <DataGrid
-                  columns={queryResult.columns}
-                  rows={queryResult.rows}
-                  emptyMessage="No results"
-                />
-              )}
-
-              {queryResultTab === 'messages' && (
-                <ul className="flex-1 min-h-0 space-y-0.5 overflow-auto bg-bg-base p-1.5 text-xs text-text-primary font-mono">
-                  {transactionMode &&
-                    transactionSteps.map((step, i) => (
-                      <li
-                        key={`tx-${i}`}
-                        className="rounded px-1.5 py-0.5 hover:bg-bg-subtle text-[11px]"
-                      >
-                        <span
-                          className={
-                            step.success ? 'text-green-500' : 'text-red-500'
-                          }
-                        >
-                          {step.success ? '✓' : '✗'}
-                        </span>{' '}
-                        [step {step.statementIndex}]{' '}
-                        {step.success
-                          ? `Completed in ${step.elapsedMs} ms`
-                          : `Error: ${step.error ?? 'Unknown error'}`}
-                        {step.rowsAffected > 0 && (
-                          <> · {step.rowsAffected} rows</>
-                        )}
-                      </li>
-                    ))}
-                  {queryMessages.map((m, i) => (
-                    <li
-                      key={`msg-${i}`}
-                      className="rounded px-1.5 py-0.5 hover:bg-bg-subtle text-[11px]"
-                    >
-                      {m}
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {queryResultTab === 'statistics' && (
-                <div className="flex items-center gap-4 bg-bg-base px-3 py-2 text-xs">
-                  <div>
-                    <span className="text-text-muted">Rows </span>
-                    <span className="font-semibold text-text-primary tabular-nums">
-                      {queryResult.rows.length}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-text-muted">Time </span>
-                    <span className="font-semibold text-text-primary tabular-nums">
-                      {queryResult.elapsedMs}ms
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-text-muted">Affected </span>
-                    <span className="font-semibold text-text-primary tabular-nums">
-                      {queryResult.rowsAffected}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </>
-        )}
-
-        {/* ── Query History (collapsible) ────────────────────────────── */}
+        {/* Query History */}
         {historyOpen && (
-          <div className="border-t border-border-default bg-bg-subtle/50 px-1.5 py-1.5">
-            <div className="max-h-28 space-y-0.5 overflow-auto">
-              {history.length === 0 && (
-                <p className="px-2 py-1 text-caption text-text-muted">
-                  No history yet.
-                </p>
-              )}
-              {history.map((q, i) => (
-                <button
-                  key={`${i}-${q}`}
-                  type="button"
-                  onClick={() => updateActiveQuery(q)}
-                  className="block w-full truncate rounded px-2 py-0.5 text-left text-[11px] font-mono text-text-primary transition-colors hover:bg-bg-hover"
-                  title={q}
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-          </div>
+          <QueryHistoryPanel
+            history={history}
+            onSelectQuery={updateActiveQuery}
+          />
         )}
 
-        {/* ── Confirm Transaction Exit Popover ────────────────────────── */}
-        {confirmTxExit && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-            onClick={() => setConfirmTxExit(false)}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Transaction exit"
-          >
-            <div
-              className="min-w-[300px] max-w-sm rounded-xl bg-bg-base p-5 shadow-xl outline-none"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 className="mb-2 text-sm font-semibold text-text-primary">
-                Transaction in progress
-              </h3>
-              <p className="mb-5 text-xs text-text-muted">
-                You have an open transaction. What would you like to do?
-              </p>
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  className="w-full rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover"
-                  onClick={() => {
-                    setConfirmTxExit(false)
-                    void handleCommitTransaction()
-                  }}
-                >
-                  Commit &amp; exit
-                </button>
-                <button
-                  type="button"
-                  className="w-full rounded-lg border border-border-default px-3 py-1.5 text-xs text-text-primary transition-colors hover:bg-bg-muted"
-                  onClick={() => {
-                    setConfirmTxExit(false)
-                    void handleRollbackTransaction()
-                  }}
-                >
-                  Rollback &amp; exit
-                </button>
-                <button
-                  type="button"
-                  className="w-full rounded-lg border border-border-default px-3 py-1.5 text-xs text-text-muted transition-colors hover:bg-bg-hover"
-                  onClick={() => setConfirmTxExit(false)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Confirm Transaction Exit Modal */}
+        <ConfirmTransactionModal
+          isOpen={confirmTxExit}
+          onClose={() => setConfirmTxExit(false)}
+          onCommit={() => void handleCommitTransaction()}
+          onRollback={() => void handleRollbackTransaction()}
+        />
       </section>
     </div>
   )

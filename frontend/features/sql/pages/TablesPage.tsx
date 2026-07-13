@@ -1,17 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import {
-  Trash2,
-  Search,
-  List,
-  Network,
-  Columns3Cog,
-  CirclePlus,
-} from 'lucide-react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { useDataExplorerContext } from '../../_shared/context/DataExplorerContext'
 import { CenteredLoadingState } from '../../_shared/components/ui/CenteredLoadingState'
-import { ActionButton } from '../../_shared/components/ui/ActionButton'
 import { ERDiagramViewer } from '../components/shared/ERDiagramViewer'
 import { openDesignerWindow } from '../services/designerWindowService'
 import { executeSql } from '../clients/sql'
@@ -23,22 +14,17 @@ import {
 import type { SqlTableListItem } from '../../_shared/types/shared'
 import type { SchemaColumn, SchemaForeignKey } from '../types/sql'
 
-type ViewMode = 'detail' | 'er-diagram'
-type SortField = 'tableName' | 'oid' | 'owner' | 'tableType' | 'rowCount'
-type SortDirection = 'asc' | 'desc'
+// Import subcomponents
+import { TablesToolbar } from '../components/tables-list/TablesToolbar'
+import { TableRenameForm } from '../components/tables-list/TableRenameForm'
+import {
+  TablesListView,
+  type SortField,
+  type SortDirection,
+} from '../components/tables-list/TablesListView'
 
-/**
- * TablesPage — lists tables in the active database.
- *
- * Route: `/sql/:connectionId/tables`
- *
- * Responsibilities:
- * - Show searchable, sortable table list
- * - Inline edit (rename) / delete selected table
- * - Open designer for create / edit
- * - Toggle between detail grid and ER diagram views
- * - Navigate to table detail on row click
- */
+type ViewMode = 'detail' | 'er-diagram'
+
 export function TablesPage() {
   const { connectionId } = useParams<{ connectionId: string }>()
   const navigate = useNavigate()
@@ -129,22 +115,13 @@ export function TablesPage() {
   }
 
   // ── Sort helpers ──
-  const toggleSort = (field: SortField) => {
+  const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))
       return
     }
     setSortField(field)
     setSortDirection('asc')
-  }
-
-  const sortIndicator = (field: SortField) => {
-    if (sortField !== field) return null
-    return (
-      <span className="ml-1 text-text-muted">
-        {sortDirection === 'asc' ? '▲' : '▼'}
-      </span>
-    )
   }
 
   // ── Selection ──
@@ -267,7 +244,6 @@ export function TablesPage() {
     wrappedHandleTreeNodeClick(tableName, db, tablePath)
   }
 
-  // ── Render ──
   return (
     <section
       className="flex h-full min-h-0 flex-col overflow-hidden bg-bg-base"
@@ -279,130 +255,43 @@ export function TablesPage() {
         }
       }}
     >
-      {/* ── Toolbar ── */}
-      <div className="flex items-center justify-between gap-3 border-b border-border-default px-1.5 py-1.5">
-        <div className="inline-flex items-center gap-1">
-          <ActionButton
-            icon={<CirclePlus size={14} />}
-            aria-label="New Table"
-            variant="accent"
-            onClick={() => handleCreateInDesigner()}
-          />
-          <ActionButton
-            icon={<Columns3Cog size={14} />}
-            aria-label="Design Table"
-            variant="secondary"
-            disabled={!selectedTableName}
-            onClick={() => {
-              if (selectedTableName)
-                void handleOpenDesignerForEdit(selectedTableName)
-            }}
-          />
-          <ActionButton
-            icon={<Trash2 size={14} />}
-            aria-label="Delete"
-            variant="danger"
-            disabled={!selectedTableName}
-            onClick={() => {
-              handleRequestDelete()
-              setShowEditForm(false)
-              setActionError(null)
-            }}
-          />
-        </div>
+      {/* Toolbar */}
+      <TablesToolbar
+        selectedTableName={selectedTableName}
+        viewMode={viewMode}
+        search={search}
+        onNewTable={handleCreateInDesigner}
+        onDesignTable={() => {
+          if (selectedTableName) {
+            void handleOpenDesignerForEdit(selectedTableName)
+          }
+        }}
+        onDeleteTable={() => {
+          handleRequestDelete()
+          setShowEditForm(false)
+          setActionError(null)
+        }}
+        onViewModeChange={setViewMode}
+        onSearchChange={setSearch}
+      />
 
-        <div className="ml-auto flex items-center gap-2">
-          {/* View mode toggle */}
-          <div className="inline-flex h-7 items-center rounded-md border border-border-default bg-bg-subtle p-0.5">
-            <button
-              type="button"
-              onClick={() => setViewMode('detail')}
-              className={[
-                'inline-flex items-center gap-1 rounded px-2 py-1 text-label transition-colors',
-                viewMode === 'detail'
-                  ? 'bg-bg-base text-text-primary shadow-sm'
-                  : 'text-text-secondary hover:text-text-primary',
-              ].join(' ')}
-              title="Detail view"
-            >
-              <List className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="hidden sm:inline">Detail</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('er-diagram')}
-              className={[
-                'inline-flex items-center gap-1 rounded px-2 py-1 text-label transition-colors',
-                viewMode === 'er-diagram'
-                  ? 'bg-bg-base text-text-primary shadow-sm'
-                  : 'text-text-secondary hover:text-text-primary',
-              ].join(' ')}
-              title="ER Diagram view"
-            >
-              <Network className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="hidden sm:inline">ER Diagram</span>
-            </button>
-          </div>
-
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
-            <input
-              type="text"
-              placeholder="Search tables..."
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              className="h-7 w-64 rounded-md border border-border-default bg-bg-base pl-7 pr-2.5 text-label text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* ── Inline edit form ── */}
+      {/* Inline edit form */}
       {showEditForm && selectedTableName && (
-        <div
-          className="flex items-center gap-2 border-b border-border-default bg-bg-subtle px-3 py-1.5"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <span className="shrink-0 text-label text-text-secondary">
-            Rename:
-          </span>
-          <span className="shrink-0 rounded bg-bg-muted px-1.5 py-0.5 text-mono text-text-primary">
-            {selectedTableName}
-          </span>
-          <span className="shrink-0 text-caption text-text-muted">to</span>
-          <input
-            type="text"
-            placeholder="New table name"
-            value={nextTableName}
-            onChange={(event) => setNextTableName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') void handleEditTable()
-            }}
-            className="w-56 rounded-md border border-border-default bg-bg-base px-2.5 py-1 text-label text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none"
-          />
-          <button
-            type="button"
-            onClick={() => void handleEditTable()}
-            disabled={actionLoading}
-            className="rounded bg-primary px-2.5 py-1 text-label text-text-inverse transition-colors hover:bg-primary-hover disabled:opacity-50"
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setShowEditForm(false)
-              setNextTableName('')
-              setActionError(null)
-            }}
-            className="rounded px-2 py-1 text-label text-text-secondary transition-colors hover:bg-bg-subtle"
-          >
-            Cancel
-          </button>
-        </div>
+        <TableRenameForm
+          tableName={selectedTableName}
+          value={nextTableName}
+          onChange={setNextTableName}
+          onSave={() => void handleEditTable()}
+          onCancel={() => {
+            setShowEditForm(false)
+            setNextTableName('')
+            setActionError(null)
+          }}
+          disabled={actionLoading}
+        />
       )}
 
-      {/* ── Error banner ── */}
+      {/* Error banner */}
       {actionError && (
         <div
           className="flex items-center justify-between gap-2 border-b border-border-danger bg-danger-subtle px-3 py-1.5 text-body text-danger"
@@ -419,7 +308,7 @@ export function TablesPage() {
         </div>
       )}
 
-      {/* ── Content ── */}
+      {/* Content */}
       {sqlTableListLoading && (
         <CenteredLoadingState
           loading={sqlTableListLoading}
@@ -435,114 +324,22 @@ export function TablesPage() {
               searchQuery={search}
               foreignKeys={(schemaForeignKeys ?? []) as SchemaForeignKey[]}
               columns={(schemaColumns ?? []) as SchemaColumn[]}
-              onSelectTable={(tableName) => handleRowSelection(tableName)}
+              onSelectTable={handleRowSelection}
             />
           </ReactFlowProvider>
         </div>
       )}
 
       {!sqlTableListLoading && viewMode === 'detail' && (
-        <div
-          className="scrollbar-thin flex-1 min-h-0 overflow-auto border border-border-default [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-bg-muted [&::-webkit-scrollbar-track]:bg-bg-subtle"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <table
-            className="w-full border-collapse text-xs"
-            style={{ tableLayout: 'fixed' }}
-          >
-            <thead className="sticky top-0 z-10 bg-bg-subtle shadow-[0_1px_0_0_var(--color-border-default)]">
-              <tr className="text-left text-text-secondary">
-                <th
-                  className="cursor-pointer whitespace-nowrap border-b border-r border-border-default px-2 py-1.5 text-label text-text-primary"
-                  onClick={() => toggleSort('tableName')}
-                >
-                  Table Name {sortIndicator('tableName')}
-                </th>
-                <th
-                  className="cursor-pointer whitespace-nowrap border-b border-r border-border-default px-2 py-1.5 text-label text-text-primary"
-                  style={{ width: 90 }}
-                  onClick={() => toggleSort('oid')}
-                >
-                  OID {sortIndicator('oid')}
-                </th>
-                <th
-                  className="cursor-pointer whitespace-nowrap border-b border-r border-border-default px-2 py-1.5 text-label text-text-primary"
-                  style={{ width: 150 }}
-                  onClick={() => toggleSort('owner')}
-                >
-                  Owner {sortIndicator('owner')}
-                </th>
-                <th
-                  className="cursor-pointer whitespace-nowrap border-b border-r border-border-default px-2 py-1.5 text-label text-text-primary"
-                  style={{ width: 150 }}
-                  onClick={() => toggleSort('tableType')}
-                >
-                  Table Type {sortIndicator('tableType')}
-                </th>
-                <th
-                  className="cursor-pointer whitespace-nowrap border-b border-border-default px-2 py-1.5 text-right text-label text-text-primary"
-                  style={{ width: 120 }}
-                  onClick={() => toggleSort('rowCount')}
-                >
-                  Rows {sortIndicator('rowCount')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRows.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-2 py-8 text-center text-text-muted"
-                  >
-                    No tables found
-                  </td>
-                </tr>
-              )}
-              {filteredRows.map((row) => {
-                const isSelected = selectedTableName === row.tableName
-                return (
-                  <tr
-                    key={row.tableName}
-                    className={[
-                      'cursor-pointer text-text-primary even:bg-bg-subtle/50 hover:bg-primary-subtle/40',
-                      isSelected
-                        ? 'bg-primary-subtle/70! even:bg-primary-subtle/70!'
-                        : '',
-                    ].join(' ')}
-                    onClick={() => handleRowSelection(row.tableName)}
-                    onDoubleClick={() => handleRowDoubleClick(row.tableName)}
-                  >
-                    <td className="overflow-hidden text-ellipsis whitespace-nowrap border-b border-r border-border-default px-2 py-1.5">
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          handleRowDoubleClick(row.tableName)
-                        }}
-                        className="text-mono text-primary hover:text-primary-hover hover:underline"
-                      >
-                        {row.tableName}
-                      </button>
-                    </td>
-                    <td className="overflow-hidden text-ellipsis whitespace-nowrap border-b border-r border-border-default px-2 py-1.5 text-mono">
-                      {row.oid}
-                    </td>
-                    <td className="overflow-hidden text-ellipsis whitespace-nowrap border-b border-r border-border-default px-2 py-1.5">
-                      {row.owner}
-                    </td>
-                    <td className="overflow-hidden text-ellipsis whitespace-nowrap border-b border-r border-border-default px-2 py-1.5">
-                      {row.tableType}
-                    </td>
-                    <td className="overflow-hidden text-ellipsis whitespace-nowrap border-b border-border-default px-2 py-1.5 text-right text-mono">
-                      {row.rowCount}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <TablesListView
+          rows={filteredRows}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          selectedTableName={selectedTableName}
+          onSort={handleSort}
+          onRowSelect={handleRowSelection}
+          onRowDoubleClick={handleRowDoubleClick}
+        />
       )}
     </section>
   )
