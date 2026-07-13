@@ -119,7 +119,13 @@ export const useTabStore = create<TabState>((set) => ({
 
   reorderTabs: (fromIndex, toIndex) =>
     set((state) => {
-      if (fromIndex < 0 || toIndex < 0 || fromIndex >= state.tabs.length || toIndex >= state.tabs.length) return state
+      if (
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= state.tabs.length ||
+        toIndex >= state.tabs.length
+      )
+        return state
       const tabs = [...state.tabs]
       const [moved] = tabs.splice(fromIndex, 1)
       tabs.splice(toIndex, 0, moved)

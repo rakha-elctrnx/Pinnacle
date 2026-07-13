@@ -644,7 +644,9 @@ function DataExplorerLayoutChrome({
                 },
               },
               // ── Connection-only extra actions ─────────────────
-              ...(!contextMenu.tableName && !contextMenu.indexName && !contextMenu.viewName
+              ...(!contextMenu.tableName &&
+              !contextMenu.indexName &&
+              !contextMenu.viewName
                 ? [
                     {
                       label: 'Duplicate',

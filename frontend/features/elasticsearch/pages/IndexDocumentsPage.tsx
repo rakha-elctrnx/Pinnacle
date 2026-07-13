@@ -17,10 +17,5 @@ export function IndexDocumentsPage() {
 
   if (!payload || !indexName) return null
 
-  return (
-    <DocumentExplorer
-      connection={payload}
-      indexName={indexName}
-    />
-  )
+  return <DocumentExplorer connection={payload} indexName={indexName} />
 }

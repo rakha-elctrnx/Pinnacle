@@ -46,6 +46,7 @@ export interface UseQueryExecutionReturn {
   createQueryId: () => string
   handleRunQuery: (mode: 'run' | 'run-selected' | 'explain') => Promise<void>
   registerEditor: (editor: monacoEditor.editor.IStandaloneCodeEditor) => void
+  resetQueryData: () => void
   // Transaction mode
   transactionMode: boolean
   activeTransactionId: string | null

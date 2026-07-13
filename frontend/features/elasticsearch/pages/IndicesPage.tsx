@@ -1,12 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom'
-import {
-  Trash2,
-  Search,
-  CirclePlus,
-  RefreshCw,
-  FolderOpen,
-} from 'lucide-react'
+import { Trash2, Search, CirclePlus, RefreshCw, FolderOpen } from 'lucide-react'
 import { CenteredLoadingState } from '../../_shared/components/ui/CenteredLoadingState'
 import { ActionButton } from '../../_shared/components/ui/ActionButton'
 import { useDataExplorerContext } from '../../_shared/context/DataExplorerContext'
@@ -41,11 +35,8 @@ type SortDirection = 'asc' | 'desc'
 export function IndicesPage() {
   const { connectionId } = useParams<{ connectionId: string }>()
   const navigate = useNavigate()
-  const {
-    groupedConnections,
-    selectedConnection,
-    wrappedHandleTreeNodeClick,
-  } = useDataExplorerContext()
+  const { groupedConnections, selectedConnection, wrappedHandleTreeNodeClick } =
+    useDataExplorerContext()
   const { payload, indices, loading, refresh } =
     useOutletContext<ElasticLayoutOutletContext>()
 
@@ -111,9 +102,7 @@ export function IndicesPage() {
 
   // ── Selection ──
   const handleRowSelection = (indexName: string) => {
-    setSelectedIndexName((prev) =>
-      prev === indexName ? null : indexName,
-    )
+    setSelectedIndexName((prev) => (prev === indexName ? null : indexName))
     setActionError(null)
   }
 
@@ -137,9 +126,7 @@ export function IndicesPage() {
       }
       refresh()
     } catch (error) {
-      setActionError(
-        error instanceof Error ? error.message : String(error),
-      )
+      setActionError(error instanceof Error ? error.message : String(error))
     } finally {
       setActionLoading(false)
     }
@@ -159,13 +146,11 @@ export function IndicesPage() {
       setNewIndexName('')
       refresh()
     } catch (error) {
-      setActionError(
-        error instanceof Error ? error.message : String(error),
-      )
+      setActionError(error instanceof Error ? error.message : String(error))
     } finally {
       setActionLoading(false)
     }
-}
+  }
   // ── Navigate to index detail ──
   const handleRowDoubleClick = (indexName: string) => {
     navigate(
@@ -227,8 +212,7 @@ export function IndicesPage() {
             variant="secondary"
             disabled={!selectedIndexName || actionLoading}
             onClick={() => {
-              if (selectedIndexName)
-                handleRowDoubleClick(selectedIndexName)
+              if (selectedIndexName) handleRowDoubleClick(selectedIndexName)
             }}
           />
           <ActionButton
@@ -315,10 +299,7 @@ export function IndicesPage() {
 
       {/* ── Content ── */}
       {loading && (
-        <CenteredLoadingState
-          loading={loading}
-          label="Loading indices..."
-        />
+        <CenteredLoadingState loading={loading} label="Loading indices..." />
       )}
 
       {!loading && (
@@ -394,8 +375,7 @@ export function IndicesPage() {
                 </tr>
               )}
               {filteredRows.map((row) => {
-                const isSelected =
-                  selectedIndexName === row.index
+                const isSelected = selectedIndexName === row.index
                 return (
                   <tr
                     key={row.index}
@@ -405,12 +385,8 @@ export function IndicesPage() {
                         ? 'bg-primary-subtle/70! even:bg-primary-subtle/70!'
                         : '',
                     ].join(' ')}
-                    onClick={() =>
-                      handleRowSelection(row.index)
-                    }
-                    onDoubleClick={() =>
-                      handleRowDoubleClick(row.index)
-                    }
+                    onClick={() => handleRowSelection(row.index)}
+                    onDoubleClick={() => handleRowDoubleClick(row.index)}
                   >
                     <td className="overflow-hidden text-ellipsis whitespace-nowrap border-b border-r border-border-default px-2 py-1.5">
                       <span

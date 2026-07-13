@@ -3,9 +3,17 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { elasticExecuteQuery } from '../clients/elasticsearch'
 import type { ElasticQueryResult } from '../types/elasticsearch'
 import type { ConnectionPayload } from '../../_shared/services/tauriClient'
-import { Play, History, Download, Copy, WrapText, Minimize2, ChevronDown, Plus } from 'lucide-react'
+import {
+  Play,
+  History,
+  Download,
+  Copy,
+  WrapText,
+  Minimize2,
+  ChevronDown,
+  Plus,
+} from 'lucide-react'
 import Editor from '@monaco-editor/react'
-import { CenteredLoadingState } from '../../_shared/components/ui/CenteredLoadingState'
 import { ActionButton } from '../../_shared/components/ui/ActionButton'
 import { downloadTextFile } from '../../_shared/utils'
 import { useTheme } from '../../../app/theme'
@@ -29,7 +37,12 @@ interface Props {
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'HEAD']
 
 const QUICK_TEMPLATES = [
-  { label: 'Cluster Health', method: 'GET', path: '/_cluster/health', body: '' },
+  {
+    label: 'Cluster Health',
+    method: 'GET',
+    path: '/_cluster/health',
+    body: '',
+  },
   { label: 'Cat Indices', method: 'GET', path: '/_cat/indices?v', body: '' },
   { label: 'Cat Nodes', method: 'GET', path: '/_cat/nodes?v', body: '' },
   {
@@ -51,7 +64,9 @@ export function QueryConsole({ connection }: Props) {
 
   // ── Per-tab state via Zustand ───────────────────────────────────────
   const activeTabId = useTabStore((s) => s.activeTabId)
-  const tabState = useEsQueryStore((s) => (activeTabId ? s.tabs[activeTabId] : undefined))
+  const tabState = useEsQueryStore((s) =>
+    activeTabId ? s.tabs[activeTabId] : undefined,
+  )
   const setTab = useEsQueryStore((s) => s.setTab)
 
   const [method, setMethod] = useState(tabState?.method ?? 'GET')
@@ -188,15 +203,12 @@ export function QueryConsole({ connection }: Props) {
     setBody(entry.body)
   }, [])
 
-  const loadTemplate = useCallback(
-    (tpl: (typeof QUICK_TEMPLATES)[number]) => {
-      setMethod(tpl.method)
-      setPath(tpl.path)
-      setBody(tpl.body)
-      setShowTemplates(false)
-    },
-    [],
-  )
+  const loadTemplate = useCallback((tpl: (typeof QUICK_TEMPLATES)[number]) => {
+    setMethod(tpl.method)
+    setPath(tpl.path)
+    setBody(tpl.body)
+    setShowTemplates(false)
+  }, [])
 
   const copyResult = useCallback(() => {
     if (result) {
@@ -240,7 +252,10 @@ export function QueryConsole({ connection }: Props) {
   useEffect(() => {
     if (!showTemplates) return
     const handleClick = (e: MouseEvent) => {
-      if (templatesRef.current && !templatesRef.current.contains(e.target as Node)) {
+      if (
+        templatesRef.current &&
+        !templatesRef.current.contains(e.target as Node)
+      ) {
         setShowTemplates(false)
       }
     }
@@ -503,7 +518,9 @@ export function QueryConsole({ connection }: Props) {
                         domReadOnly: true,
                       }}
                       loading={
-                        <div className="p-3 text-xs text-text-muted">Loading editor…</div>
+                        <div className="p-3 text-xs text-text-muted">
+                          Loading editor…
+                        </div>
                       }
                     />
                   )}

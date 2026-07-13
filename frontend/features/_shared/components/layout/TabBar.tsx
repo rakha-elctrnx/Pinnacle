@@ -64,7 +64,6 @@ export function TabBar() {
   const suppressClickRef = useRef(false)
   const ghostRef = useRef<HTMLElement | null>(null)
 
-
   if (tabs.length === 0) return null
 
   function handleClose(e: React.MouseEvent, tab: Tab) {

@@ -456,7 +456,6 @@ export function DocumentExplorer({
     return () => clearTimeout(t)
   }, [toast])
 
-
   // ── Search handler ─────────────────────────────────────────────────────
   const handleSearch = useCallback(() => {
     if (!currentIndex) return

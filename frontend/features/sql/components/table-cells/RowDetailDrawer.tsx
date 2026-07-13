@@ -10,7 +10,14 @@
  * - Smooth slide-in/out transitions
  */
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { Key, X } from 'lucide-react'
 import Editor from '@monaco-editor/react'
 import {
@@ -23,7 +30,6 @@ import { ActionButton } from '../../../_shared/components/ui/ActionButton'
 import { useTheme } from '../../../../app/theme'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-
 
 export type DrawerAnimState = 'entering' | 'open' | 'exiting' | 'closed'
 
@@ -50,7 +56,6 @@ export interface RowDetailDrawerProps {
   onAnimationStateChange?: (state: DrawerAnimState) => void
   onClose: () => void
 }
-
 
 const buildRowId = (
   row: Record<string, unknown>,
@@ -205,9 +210,7 @@ export function RowDetailDrawer({
   const [focusedField, setFocusedField] = useState<string | null>(null)
 
   // ── Edit store ──────────────────────────────────────────────────────
-  const rowId = row
-    ? buildRowId(row, rowIndex, tableName, pkColumn)
-    : ''
+  const rowId = row ? buildRowId(row, rowIndex, tableName, pkColumn) : ''
   const pendingEdits = useTableEditStore((s) => s.pendingEdits)
   const stageEdit = useTableEditStore((s) => s.stageEdit)
   const rowEdits = rowId ? pendingEdits[rowId] : undefined
@@ -278,12 +281,15 @@ export function RowDetailDrawer({
   useEffect(() => {
     if (!open) return
     requestAnimationFrame(() => {
-      const targetCol = activeCell?.rowIndex === rowIndex
-        ? activeCell.columnId
-        : columns[0]
+      const targetCol =
+        activeCell?.rowIndex === rowIndex ? activeCell.columnId : columns[0]
       if (!targetCol) return
       setFocusedField(targetCol)
-      if (!activeCell || activeCell.rowIndex !== rowIndex || activeCell.columnId !== targetCol) {
+      if (
+        !activeCell ||
+        activeCell.rowIndex !== rowIndex ||
+        activeCell.columnId !== targetCol
+      ) {
         selectSingle({ rowIndex, columnId: targetCol })
       }
       if (activeTab === 'record') {
@@ -301,7 +307,10 @@ export function RowDetailDrawer({
   const handleInputFocus = useCallback(
     (colName: string) => {
       setFocusedField(colName)
-      if (activeCell?.rowIndex !== rowIndex || activeCell?.columnId !== colName) {
+      if (
+        activeCell?.rowIndex !== rowIndex ||
+        activeCell?.columnId !== colName
+      ) {
         selectSingle({ rowIndex, columnId: colName })
       }
     },
@@ -317,7 +326,10 @@ export function RowDetailDrawer({
       let newValue: unknown = rawValue
       if (rawValue === '' && meta?.isNullable) {
         newValue = null
-      } else if (meta?.dataType && ['BOOLEAN', 'BOOL'].includes(meta.dataType.toUpperCase())) {
+      } else if (
+        meta?.dataType &&
+        ['BOOLEAN', 'BOOL'].includes(meta.dataType.toUpperCase())
+      ) {
         if (rawValue === 'true') newValue = true
         else if (rawValue === 'false') newValue = false
         else if (rawValue === '') newValue = null
@@ -409,7 +421,8 @@ export function RowDetailDrawer({
     }
     // Use capture to intercept before React handlers
     document.addEventListener('click', handleDocumentClick, true)
-    return () => document.removeEventListener('click', handleDocumentClick, true)
+    return () =>
+      document.removeEventListener('click', handleDocumentClick, true)
   }, [open, handleClose])
 
   if (animState === 'closed') return null
@@ -419,7 +432,6 @@ export function RowDetailDrawer({
       {/* ── Resize handle — left edge of drawer panel ─────────────────── */}
       <div
         onMouseDown={handleDrawerResizeStart}
-
         role="separator"
         className={[
           'group/handle pointer-events-auto flex shrink-0 cursor-col-resize items-center justify-center -ml-1.5 transition-opacity duration-150 ease-out',
@@ -442,7 +454,9 @@ export function RowDetailDrawer({
         className={[
           'pointer-events-auto flex min-w-0 flex-col overflow-hidden border-l border-border-default bg-bg-base shadow-xl outline-none',
           'transition-[transform,opacity] duration-150 ease-out',
-          animState === 'exiting' ? 'translate-x-full opacity-0' : 'translate-x-0 opacity-100',
+          animState === 'exiting'
+            ? 'translate-x-full opacity-0'
+            : 'translate-x-0 opacity-100',
         ].join(' ')}
         style={{ width: drawerWidth }}
       >
@@ -486,106 +500,111 @@ export function RowDetailDrawer({
         {/* ── Record tab: scrollable field list ───────────────────────── */}
         {activeTab === 'record' && (
           <div className="scrollbar-thin flex-1 overflow-y-auto overscroll-contain [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-text-muted [&::-webkit-scrollbar-track]:bg-transparent">
-            {row && columns.map((col) => {
-              const meta = metaMap(col)
-              const isPK = meta?.isPrimaryKey === true
-              const effectiveValue = getEffectiveValue(col)
-              const existingEdit = rowEdits?.find((e) => e.field === col)
-              const isDirty = existingEdit !== undefined
-              const isFocused = focusedField === col
-              const valStr =
-                effectiveValue === null || effectiveValue === undefined
-                  ? ''
-                  : String(effectiveValue)
-              const metaDt = meta?.dataType?.toUpperCase()
-              const isBoolean = metaDt === 'BOOLEAN' || metaDt === 'BOOL'
-              const isNullable = editableMetaMap[col]?.isNullable ?? true
+            {row &&
+              columns.map((col) => {
+                const meta = metaMap(col)
+                const isPK = meta?.isPrimaryKey === true
+                const effectiveValue = getEffectiveValue(col)
+                const existingEdit = rowEdits?.find((e) => e.field === col)
+                const isDirty = existingEdit !== undefined
+                const isFocused = focusedField === col
+                const valStr =
+                  effectiveValue === null || effectiveValue === undefined
+                    ? ''
+                    : String(effectiveValue)
+                const metaDt = meta?.dataType?.toUpperCase()
+                const isBoolean = metaDt === 'BOOLEAN' || metaDt === 'BOOL'
+                const isNullable = editableMetaMap[col]?.isNullable ?? true
 
-              return (
-                <div
-                  key={col}
-                  className={[
-                    'border-b border-border-default/40 px-3 py-2 flex flex-col gap-1 transition-colors',
-                    isFocused ? 'bg-primary/5' : '',
-                    isDirty ? 'bg-yellow-500/[0.07]' : '',
-                  ].join(' ')}
-                >
-                  {/* Label row */}
-                  <div className="flex items-center justify-between">
-                    <label
-                      htmlFor={`drawer-field-${col}`}
-                      className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary select-none"
-                    >
-                      {isPK && (
-                        <span className="text-primary/70" aria-label="Primary key">
-                          <Key size={10} />
+                return (
+                  <div
+                    key={col}
+                    className={[
+                      'border-b border-border-default/40 px-3 py-2 flex flex-col gap-1 transition-colors',
+                      isFocused ? 'bg-primary/5' : '',
+                      isDirty ? 'bg-yellow-500/[0.07]' : '',
+                    ].join(' ')}
+                  >
+                    {/* Label row */}
+                    <div className="flex items-center justify-between">
+                      <label
+                        htmlFor={`drawer-field-${col}`}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary select-none"
+                      >
+                        {isPK && (
+                          <span
+                            className="text-primary/70"
+                            aria-label="Primary key"
+                          >
+                            <Key size={10} />
+                          </span>
+                        )}
+                        <span className={isPK ? 'text-primary' : ''}>
+                          {col}
+                        </span>
+                      </label>
+                      {meta?.dataType && (
+                        <span className="text-[10px] text-text-muted/70 font-mono">
+                          {meta.dataType.toLowerCase()}
                         </span>
                       )}
-                      <span className={isPK ? 'text-primary' : ''}>
-                        {col}
-                      </span>
-                    </label>
-                    {meta?.dataType && (
-                      <span className="text-[10px] text-text-muted/70 font-mono">
-                        {meta.dataType.toLowerCase()}
-                      </span>
+                    </div>
+
+                    {/* Validation error */}
+                    {isDirty &&
+                      (() => {
+                        const err = validateCellValue(
+                          existingEdit.newValue,
+                          editableMetaMap[col],
+                        )
+                        return err ? (
+                          <p className="text-[10px] text-error leading-tight">
+                            {err}
+                          </p>
+                        ) : null
+                      })()}
+
+                    {/* Input */}
+                    {isBoolean ? (
+                      <select
+                        id={`drawer-field-${col}`}
+                        value={valStr}
+                        onFocus={() => handleInputFocus(col)}
+                        onChange={(e) => handleInputChange(col, e.target.value)}
+                        className={[
+                          'w-full rounded border px-2 py-1.5 text-xs outline-none transition-all',
+                          'bg-bg-base border-border-default focus:border-primary focus:ring-1 focus:ring-primary',
+                          isDirty
+                            ? 'bg-yellow-50 dark:bg-yellow-950/25 border-yellow-500/40 focus:border-yellow-500 focus:ring-yellow-500'
+                            : '',
+                        ].join(' ')}
+                      >
+                        <option value="">
+                          {isNullable ? 'NULL' : 'Select…'}
+                        </option>
+                        <option value="true">true</option>
+                        <option value="false">false</option>
+                      </select>
+                    ) : (
+                      <input
+                        id={`drawer-field-${col}`}
+                        type="text"
+                        value={valStr}
+                        onFocus={() => handleInputFocus(col)}
+                        onChange={(e) => handleInputChange(col, e.target.value)}
+                        className={[
+                          'w-full rounded border px-2 py-1.5 text-xs outline-none transition-all',
+                          'bg-bg-base border-border-default focus:border-primary focus:ring-1 focus:ring-primary',
+                          isDirty
+                            ? 'bg-yellow-50 dark:bg-yellow-950/25 border-yellow-500/40 focus:border-yellow-500 focus:ring-yellow-500'
+                            : '',
+                        ].join(' ')}
+                        placeholder={isNullable ? 'NULL' : ''}
+                      />
                     )}
                   </div>
-
-                  {/* Validation error */}
-                  {isDirty && (() => {
-                    const err = validateCellValue(
-                      existingEdit.newValue,
-                      editableMetaMap[col],
-                    )
-                    return err ? (
-                      <p className="text-[10px] text-error leading-tight">
-                        {err}
-                      </p>
-                    ) : null
-                  })()}
-
-                  {/* Input */}
-                  {isBoolean ? (
-                    <select
-                      id={`drawer-field-${col}`}
-                      value={valStr}
-                      onFocus={() => handleInputFocus(col)}
-                      onChange={(e) => handleInputChange(col, e.target.value)}
-                      className={[
-                        'w-full rounded border px-2 py-1.5 text-xs outline-none transition-all',
-                        'bg-bg-base border-border-default focus:border-primary focus:ring-1 focus:ring-primary',
-                        isDirty
-                          ? 'bg-yellow-50 dark:bg-yellow-950/25 border-yellow-500/40 focus:border-yellow-500 focus:ring-yellow-500'
-                          : '',
-                      ].join(' ')}
-                    >
-                      <option value="">
-                        {isNullable ? 'NULL' : 'Select…'}
-                      </option>
-                      <option value="true">true</option>
-                      <option value="false">false</option>
-                    </select>
-                  ) : (
-                    <input
-                      id={`drawer-field-${col}`}
-                      type="text"
-                      value={valStr}
-                      onFocus={() => handleInputFocus(col)}
-                      onChange={(e) => handleInputChange(col, e.target.value)}
-                      className={[
-                        'w-full rounded border px-2 py-1.5 text-xs outline-none transition-all',
-                        'bg-bg-base border-border-default focus:border-primary focus:ring-1 focus:ring-primary',
-                        isDirty
-                          ? 'bg-yellow-50 dark:bg-yellow-950/25 border-yellow-500/40 focus:border-yellow-500 focus:ring-yellow-500'
-                          : '',
-                      ].join(' ')}
-                      placeholder={isNullable ? 'NULL' : ''}
-                    />
-                  )}
-                </div>
-              )
-            })}
+                )
+              })}
           </div>
         )}
 

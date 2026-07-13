@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Editor, { type BeforeMount, type OnMount } from '@monaco-editor/react'
-import {
-  Play,
-  Database,
-  Save,
-  RotateCcw,
-} from 'lucide-react'
+import { Play, Database, Save, RotateCcw } from 'lucide-react'
 import * as monacoEditor from 'monaco-editor'
 import { useDataExplorerContext } from '../../_shared/context/DataExplorerContext'
 import { useTheme } from '../../../app/theme'
@@ -39,19 +34,14 @@ export function ViewEditorPage() {
   }>()
   const navigate = useNavigate()
 
-  const {
-    selectedConnection,
-    explorerData,
-  } = useDataExplorerContext()
+  const { selectedConnection, explorerData } = useDataExplorerContext()
 
   const { theme } = useTheme()
 
   const isNewView = viewName === 'new'
   const pageTitle = isNewView ? 'Create View' : `Edit View: ${viewName}`
 
-  const [editorValue, setEditorValue] = useState(
-    isNewView ? VIEW_TEMPLATE : '',
-  )
+  const [editorValue, setEditorValue] = useState(isNewView ? VIEW_TEMPLATE : '')
   const [isLoadingDefinition, setIsLoadingDefinition] = useState(
     !isNewView && !!viewName,
   )
@@ -102,7 +92,8 @@ export function ViewEditorPage() {
 
         let query: string
         if (selectedConnection.type === 'postgresql') {
-          const schema = selectedSchema || explorerData.selectedSchema || 'public'
+          const schema =
+            selectedSchema || explorerData.selectedSchema || 'public'
           query = `SELECT pg_get_viewdef('${schema.replace(/'/g, "''")}.${viewName.replace(/'/g, "''")}', true) AS definition`
         } else {
           query = `SHOW CREATE VIEW \`${viewName}\``
@@ -121,14 +112,15 @@ export function ViewEditorPage() {
         } else {
           // MySQL: column name is "Create View"
           const cols = Object.keys(res.rows[0] || {})
-          definition = String(res.rows[0]?.['Create View'] ||
-            res.rows[0]?.[cols[0]] || '')
+          definition = String(
+            res.rows[0]?.['Create View'] || res.rows[0]?.[cols[0]] || '',
+          )
         }
 
         let fullDefinition = definition
         if (!fullDefinition.toUpperCase().trimStart().startsWith('CREATE')) {
           if (selectedConnection.type === 'postgresql') {
-            fullDefinition = `CREATE OR REPLACE VIEW ${q( selectedSchema || explorerData.selectedSchema || 'public' )}.${q( viewName )} AS\n${definition}`
+            fullDefinition = `CREATE OR REPLACE VIEW ${q(selectedSchema || explorerData.selectedSchema || 'public')}.${q(viewName)} AS\n${definition}`
           } else {
             fullDefinition = `CREATE OR REPLACE VIEW \`${viewName}\` AS\n${definition}`
           }
@@ -152,10 +144,16 @@ export function ViewEditorPage() {
     }
 
     void fetchDefinition()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [
-    viewName, selectedConnection, selectedDb, selectedSchema,
-    isNewView, explorerData.selectedSchema,
+    viewName,
+    selectedConnection,
+    selectedDb,
+    selectedSchema,
+    isNewView,
+    explorerData.selectedSchema,
   ])
 
   // Update tab in registry
@@ -209,10 +207,11 @@ export function ViewEditorPage() {
       const upper = sql.toUpperCase().trimStart()
       if (!upper.startsWith('CREATE') && !upper.startsWith('ALTER')) {
         const targetName = viewName && !isNewView ? viewName : 'new_view'
-        const schemaPrefix = selectedConnection.type === 'postgresql'
-          ? `${q( selectedSchema )}.`
-          : ''
-        sql = `CREATE OR REPLACE VIEW ${schemaPrefix}${q( targetName )} AS ${sql}`
+        const schemaPrefix =
+          selectedConnection.type === 'postgresql'
+            ? `${q(selectedSchema)}.`
+            : ''
+        sql = `CREATE OR REPLACE VIEW ${schemaPrefix}${q(targetName)} AS ${sql}`
       }
 
       await executeSql({
@@ -223,7 +222,11 @@ export function ViewEditorPage() {
       setError(null)
       if (connectionId && selectedConnection) {
         const dbName = selectedDb || selectedConnection.database
-        void explorerData.fetchDatabaseDetails(connectionId, selectedConnection, dbName)
+        void explorerData.fetchDatabaseDetails(
+          connectionId,
+          selectedConnection,
+          dbName,
+        )
       }
 
       setResult({
@@ -234,26 +237,43 @@ export function ViewEditorPage() {
       })
 
       if (isNewView && connectionId) {
-        navigate(`/sql/${connectionId}/views/${viewName || 'new_view'}`, { replace: true })
+        navigate(`/sql/${connectionId}/views/${viewName || 'new_view'}`, {
+          replace: true,
+        })
       }
     } catch (err) {
-      setError(`Failed to save view: ${err instanceof Error ? err.message : String(err)}`)
+      setError(
+        `Failed to save view: ${err instanceof Error ? err.message : String(err)}`,
+      )
     } finally {
       setIsSaving(false)
     }
   }, [
-    selectedConnection, editorValue, selectedDb, selectedSchema,
-    viewName, isNewView, connectionId, explorerData, navigate,
+    selectedConnection,
+    editorValue,
+    selectedDb,
+    selectedSchema,
+    viewName,
+    isNewView,
+    connectionId,
+    explorerData,
+    navigate,
   ])
 
-  const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null)
+  const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(
+    null,
+  )
   const monacoRef = useRef<typeof monacoEditor | null>(null)
   const handleRunRef = useRef(handleRun)
-  useEffect(() => { handleRunRef.current = handleRun }, [handleRun])
+  useEffect(() => {
+    handleRunRef.current = handleRun
+  }, [handleRun])
 
   const schemaColumnsByTable = explorerData.schemaColumnsByTable ?? EMPTY_SCHEMA
   const tablesRef = useRef(schemaColumnsByTable)
-  useEffect(() => { tablesRef.current = schemaColumnsByTable }, [schemaColumnsByTable])
+  useEffect(() => {
+    tablesRef.current = schemaColumnsByTable
+  }, [schemaColumnsByTable])
 
   const handleBeforeMount: BeforeMount = (monacoInstance) => {
     registerSqlProviders(monacoInstance, tablesRef)
@@ -266,14 +286,20 @@ export function ViewEditorPage() {
     if (model) {
       const mono = monacoInstance as unknown as typeof monacoEditor
       mono.editor.setModelMarkers(
-        model, 'sql-validator', validateSql(editorValue, mono),
+        model,
+        'sql-validator',
+        validateSql(editorValue, mono),
       )
     }
     editor.addAction({
       id: 'run-query',
       label: 'Run Query',
-      keybindings: [monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter],
-      run: () => { void handleRunRef.current() },
+      keybindings: [
+        monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter,
+      ],
+      run: () => {
+        void handleRunRef.current()
+      },
     })
   }
 
@@ -285,7 +311,9 @@ export function ViewEditorPage() {
       const model = editor.getModel()
       if (model) {
         mono.editor.setModelMarkers(
-          model, 'sql-validator', validateSql(value ?? '', mono),
+          model,
+          'sql-validator',
+          validateSql(value ?? '', mono),
         )
       }
     }
@@ -320,7 +348,9 @@ export function ViewEditorPage() {
                 <option value={selectedDb}>{selectedDb}</option>
               )}
               {databases.map((db) => (
-                <option key={db} value={db}>{db}</option>
+                <option key={db} value={db}>
+                  {db}
+                </option>
               ))}
             </select>
             {selectedConnection?.type === 'postgresql' && (
@@ -330,7 +360,9 @@ export function ViewEditorPage() {
                 className="h-6 rounded border border-border-default bg-bg-base px-1 text-[11px] font-mono outline-none focus:border-primary"
               >
                 {schemas.map((s) => (
-                  <option key={s} value={s}>{s}</option>
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
                 ))}
               </select>
             )}
@@ -366,7 +398,8 @@ export function ViewEditorPage() {
               onMount={handleMount}
               options={{
                 fontSize: 13,
-                fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
+                fontFamily:
+                  "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
                 lineNumbers: 'on',
                 minimap: { enabled: false },
                 scrollBeyondLastLine: false,
