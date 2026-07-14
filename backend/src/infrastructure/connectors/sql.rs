@@ -1,21 +1,17 @@
 use std::time::Instant;
 
 use sqlx::{
-    Column, Connection, Executor, Row, Statement, mysql::MySqlConnectOptions, postgres::PgConnectOptions
+    Column, Connection, Executor, Row, Statement, mysql::MySqlConnectOptions, postgres::PgConnectOptions, sqlite::SqliteConnectOptions
 };
 
-use crate::{
-    core::{error::AppError, result::AppResult},
-    domain::query::{
-        CommitTableChangesPayload, CommitTableChangesResult, ConnectionPayload, DdlExecutionResult,
-        DdlPlan, DdlStatementResult, DropTablePayload, DropTableResult, ForeignKeyConstraint,
-        IndexDefinition, PrimaryKeyConstraint, QueryResult, SchemaColumn, SchemaForeignKey,
-        TableColumn, TableSchemaInfo, UniqueConstraint,
-    },
+use crate::domain::query::{
+    CommitTableChangesPayload, CommitTableChangesResult, ConnectionPayload, DdlExecutionResult,
+    DdlPlan, DdlStatementResult, DropTablePayload, DropTableResult, ForeignKeyConstraint,
+    IndexDefinition, PrimaryKeyConstraint, QueryResult, SchemaColumn, SchemaForeignKey,
+    TableColumn, TableSchemaInfo, UniqueConstraint,
 };
-
-
-use super::postgresql::{execute_sql as execute_sql_pg, test_connection as test_connection_pg, quote_identifier_pg};
+use crate::core::{error::AppError, result::AppResult};
+use super::postgresql::quote_identifier_pg;
 
 /// Wrap an identifier in backticks, escaping any internal backticks.
 fn quote_identifier_mysql(id: &str) -> String {
@@ -24,11 +20,10 @@ fn quote_identifier_mysql(id: &str) -> String {
 
 fn ensure_supported_driver(driver: &str) -> AppResult<()> {
     match driver {
-        "postgresql" | "mysql" => Ok(()),
+        "postgresql" | "mysql" | "sqlite" => Ok(()),
         _ => Err(AppError::UnsupportedDriver(driver.to_string())),
     }
 }
-
 fn is_read_query(sql: &str) -> bool {
     let upper = sql.trim().to_uppercase();
     upper.starts_with("SELECT")
@@ -70,6 +65,25 @@ pub(crate) fn extract_mysql_value(row: &sqlx::mysql::MySqlRow, column_name: &str
     serde_json::Value::Null
 }
 
+
+pub(crate) fn extract_sqlite_value(row: &sqlx::sqlite::SqliteRow, column_name: &str) -> serde_json::Value {
+    if let Ok(Some(v)) = row.try_get::<Option<i32>, _>(column_name) {
+        return serde_json::json!(v);
+    }
+    if let Ok(Some(v)) = row.try_get::<Option<i64>, _>(column_name) {
+        return serde_json::json!(v);
+    }
+    if let Ok(Some(v)) = row.try_get::<Option<f64>, _>(column_name) {
+        return serde_json::json!(v);
+    }
+    if let Ok(Some(v)) = row.try_get::<Option<String>, _>(column_name) {
+        return serde_json::Value::String(v);
+    }
+    if let Ok(Some(v)) = row.try_get::<Option<bool>, _>(column_name) {
+        return serde_json::json!(v);
+    }
+    serde_json::Value::Null
+}
 pub async fn test_connection(payload: &ConnectionPayload) -> AppResult<()> {
     ensure_supported_driver(payload.r#type.as_str())?;
 
@@ -85,6 +99,13 @@ pub async fn test_connection(payload: &ConnectionPayload) -> AppResult<()> {
                 .password(payload.password.as_str())
                 .database(payload.database.as_str());
             let conn = sqlx::MySqlConnection::connect_with(&options).await?;
+            conn.close().await?;
+        }
+        "sqlite" => {
+            let options = SqliteConnectOptions::new()
+                .filename(&payload.database)
+                .create_if_missing(true);
+            let conn = sqlx::SqliteConnection::connect_with(&options).await?;
             conn.close().await?;
         }
         _ => return Err(AppError::UnsupportedDriver(payload.r#type.clone())),
@@ -163,6 +184,56 @@ pub async fn execute_sql(payload: &ConnectionPayload, sql: &str) -> AppResult<Qu
                 })
             }
         }
+        "sqlite" => {
+            let options = SqliteConnectOptions::new()
+                .filename(&payload.database)
+                .create_if_missing(true);
+            let mut conn = sqlx::SqliteConnection::connect_with(&options).await?;
+
+            if read {
+                let rows = conn.fetch_all(sqlx::query(sql)).await?;
+                let columns: Vec<String> = if let Some(first) = rows.first() {
+                    first
+                        .columns()
+                        .iter()
+                        .map(|c| c.name().to_string())
+                        .collect()
+                } else {
+                    let statement = conn.prepare(sql).await?;
+                    statement
+                        .columns()
+                        .iter()
+                        .map(|c| c.name().to_string())
+                        .collect()
+                };
+                let json_rows: Vec<serde_json::Map<String, serde_json::Value>> = rows
+                    .iter()
+                    .map(|row| {
+                        let mut map = serde_json::Map::new();
+                        for col_name in &columns {
+                            map.insert(col_name.clone(), extract_sqlite_value(row, col_name));
+                        }
+                        map
+                    })
+                    .collect();
+                conn.close().await?;
+                Ok(QueryResult {
+                    rows_affected: json_rows.len() as u64,
+                    elapsed_ms: start.elapsed().as_millis(),
+                    columns,
+                    rows: json_rows,
+                })
+            } else {
+                let result = conn.execute(sqlx::query(sql)).await?;
+                conn.close().await?;
+                Ok(QueryResult {
+                    rows_affected: result.rows_affected(),
+                    elapsed_ms: start.elapsed().as_millis(),
+                    columns: vec![],
+                    rows: vec![],
+                })
+            }
+        }
         _ => Err(AppError::UnsupportedDriver(payload.r#type.clone())),
     }
 }
@@ -184,6 +255,7 @@ pub async fn get_table_schema(
     match payload.r#type.as_str() {
         "postgresql" => get_pg_table_schema(payload, table_name).await,
         "mysql" => get_mysql_table_schema(payload, table_name).await,
+        "sqlite" => get_sqlite_table_schema(payload, table_name).await,
         _ => Err(AppError::UnsupportedDriver(payload.r#type.clone())),
     }
 }
@@ -746,6 +818,7 @@ pub async fn get_all_foreign_keys(
     match payload.r#type.as_str() {
         "postgresql" => get_all_foreign_keys_pg(payload).await,
         "mysql" => get_all_foreign_keys_mysql(payload).await,
+        "sqlite" => get_all_foreign_keys_sqlite(payload).await,
         _ => Err(AppError::UnsupportedDriver(payload.r#type.clone())),
     }
 }
@@ -902,11 +975,10 @@ fn build_schema_foreign_keys_mysql(
 pub async fn get_all_columns(
     payload: &ConnectionPayload,
 ) -> AppResult<Vec<SchemaColumn>> {
-    ensure_supported_driver(payload.r#type.as_str())?;
-
     match payload.r#type.as_str() {
         "postgresql" => get_all_columns_pg(payload).await,
         "mysql" => get_all_columns_mysql(payload).await,
+        "sqlite" => get_all_columns_sqlite(payload).await,
         _ => Err(AppError::UnsupportedDriver(payload.r#type.clone())),
     }
 }
@@ -1026,6 +1098,7 @@ pub async fn execute_ddl_statements(
     match payload.r#type.as_str() {
         "postgresql" => execute_ddl_pg(payload, plan).await,
         "mysql" => execute_ddl_mysql(payload, plan).await,
+        "sqlite" => execute_ddl_sqlite(payload, plan).await,
         _ => Err(AppError::UnsupportedDriver(payload.r#type.clone())),
     }
 }
@@ -1172,6 +1245,14 @@ pub fn generate_drop_table_sql(driver: &str, schema: &str, table_name: &str, cas
                 )
             }
         }
+        "sqlite" => {
+            let qt = super::sqlite::quote_identifier;
+            if schema.is_empty() {
+                qt(table_name)
+            } else {
+                format!("{}.{}", qt(schema), qt(table_name))
+            }
+        }
         _ => {
             // PostgreSQL: double-quote identifiers
             if schema.is_empty() {
@@ -1254,6 +1335,7 @@ pub async fn commit_table_changes(
     match payload.connection.r#type.as_str() {
         "postgresql" => commit_table_changes_pg(payload).await,
         "mysql" => commit_table_changes_mysql(payload).await,
+        "sqlite" => commit_table_changes_sqlite(payload).await,
         _ => Err(AppError::UnsupportedDriver(payload.connection.r#type.clone())),
     }
 }
@@ -1596,12 +1678,55 @@ fn bind_json_value_mysql<'q>(
     }
 }
 
+// ── SQLite-specific functions ─────────────────────────────────────
+
+async fn get_sqlite_table_schema(
+    payload: &ConnectionPayload,
+    table_name: &str,
+) -> AppResult<TableSchemaInfo> {
+    super::sqlite::get_table_schema(payload, table_name).await
+}
+
+async fn execute_ddl_sqlite(
+    payload: &ConnectionPayload,
+    plan: &DdlPlan,
+) -> AppResult<DdlExecutionResult> {
+    super::sqlite::execute_ddl(payload, plan).await
+}
+
+async fn commit_table_changes_sqlite(
+    payload: &CommitTableChangesPayload,
+) -> AppResult<CommitTableChangesResult> {
+    super::sqlite::commit_table_changes(payload).await
+}
+
+async fn get_all_columns_sqlite(
+    payload: &ConnectionPayload,
+) -> AppResult<Vec<SchemaColumn>> {
+    super::sqlite::get_all_columns(payload).await
+}
+
+async fn get_all_foreign_keys_sqlite(
+    payload: &ConnectionPayload,
+) -> AppResult<Vec<SchemaForeignKey>> {
+    super::sqlite::get_all_foreign_keys(payload).await
+}
+
+// ── PostgreSQL dispatch helpers (delegating to postgresql.rs) ─────
+
+async fn test_connection_pg(payload: &ConnectionPayload) -> AppResult<()> {
+    super::postgresql::test_connection(payload).await
+}
+
+async fn execute_sql_pg(payload: &ConnectionPayload, sql: &str) -> AppResult<QueryResult> {
+    super::postgresql::execute_sql(payload, sql).await
+}
+
 // ── Tests ────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
     fn drop_table_pg_quoting() {
         let sql = generate_drop_table_sql("postgresql", "public", "users", false);

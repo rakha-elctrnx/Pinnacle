@@ -1,6 +1,8 @@
+// Shared types used across the application
 import type { ConnectionType } from './domain'
 
-export type SqlConnectionType = 'postgresql' | 'mysql'
+
+export type SqlConnectionType = 'postgresql' | 'mysql' | 'sqlite'
 export type ConnectionStatus =
   | 'connected'
   | 'connecting'

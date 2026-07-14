@@ -260,21 +260,32 @@ function ConnectionFormEmbedded({
   const validateFields = useMemo(() => {
     const errors: FieldError = {}
     if (step === 2) {
-      if (newHost.trim() === '') {
-        errors.host = 'Host is required'
+      const isSqlite = newType === 'sqlite'
+      if (!isSqlite) {
+        if (newHost.trim() === '') {
+          errors.host = 'Host is required'
+        }
+        const portNum = Number(newPort)
+        if (newPort.trim() === '') {
+          errors.port = 'Port is required'
+        } else if (
+          !Number.isFinite(portNum) ||
+          portNum < 1 ||
+          portNum > 65535
+        ) {
+          errors.port = 'Port must be 1–65535'
+        }
       }
-      const portNum = Number(newPort)
-      if (newPort.trim() === '') {
-        errors.port = 'Port is required'
-      } else if (!Number.isFinite(portNum) || portNum < 1 || portNum > 65535) {
-        errors.port = 'Port must be 1–65535'
-      }
-      if (newInitialDatabase.trim() === '') {
+      if (isSqlite) {
+        if (newInitialDatabase.trim() === '') {
+          errors.database = 'File path is required'
+        }
+      } else if (newInitialDatabase.trim() === '') {
         errors.database = 'Database is required'
       }
     }
     return errors
-  }, [step, newHost, newPort, newInitialDatabase])
+  }, [step, newType, newHost, newPort, newInitialDatabase])
 
   const isTestPassed = testConnectionResult?.kind === 'success'
   const isSqlType = isSqlConnectionType(newType)
@@ -568,53 +579,54 @@ function ConnectionFormEmbedded({
                   </p>
                 )}
               </div>
-
-              {/* Host & Port */}
-              <div className="flex gap-2">
-                <div className="w-2/3">
-                  <input
-                    value={newHost}
-                    onChange={(e) => setNewHost(e.target.value)}
-                    placeholder="Host"
-                    className={
-                      fieldErrors.host
-                        ? `${inputErrorClasses} w-full`
-                        : `${inputClasses} w-full`
-                    }
-                  />
-                  {fieldErrors.host && (
-                    <p className="mt-1 flex items-center gap-1 text-caption text-danger">
-                      <AlertTriangle size={11} />
-                      {fieldErrors.host}
-                    </p>
-                  )}
+              {/* Host & Port — skipped for SQLite */}
+              {newType !== 'sqlite' && (
+                <div className="flex gap-2">
+                  <div className="w-2/3">
+                    <input
+                      value={newHost}
+                      onChange={(e) => setNewHost(e.target.value)}
+                      placeholder="Host"
+                      className={
+                        fieldErrors.host
+                          ? `${inputErrorClasses} w-full`
+                          : `${inputClasses} w-full`
+                      }
+                    />
+                    {fieldErrors.host && (
+                      <p className="mt-1 flex items-center gap-1 text-caption text-danger">
+                        <AlertTriangle size={11} />
+                        {fieldErrors.host}
+                      </p>
+                    )}
+                  </div>
+                  <div className="w-1/3">
+                    <input
+                      value={newPort}
+                      onChange={(e) => setNewPort(e.target.value)}
+                      placeholder="Port"
+                      className={
+                        fieldErrors.port
+                          ? `${inputErrorClasses} w-full`
+                          : `${inputClasses} w-full`
+                      }
+                    />
+                    {fieldErrors.port && (
+                      <p className="mt-1 flex items-center gap-1 text-caption text-danger">
+                        <AlertTriangle size={11} />
+                        {fieldErrors.port}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="w-1/3">
-                  <input
-                    value={newPort}
-                    onChange={(e) => setNewPort(e.target.value)}
-                    placeholder="Port"
-                    className={
-                      fieldErrors.port
-                        ? `${inputErrorClasses} w-full`
-                        : `${inputClasses} w-full`
-                    }
-                  />
-                  {fieldErrors.port && (
-                    <p className="mt-1 flex items-center gap-1 text-caption text-danger">
-                      <AlertTriangle size={11} />
-                      {fieldErrors.port}
-                    </p>
-                  )}
-                </div>
-              </div>
+              )}
 
-              {/* Database */}
+              {/* Database — "File path" for SQLite */}
               <div>
                 <input
                   value={newInitialDatabase}
                   onChange={(e) => setNewInitialDatabase(e.target.value)}
-                  placeholder="Database"
+                  placeholder={newType === 'sqlite' ? 'File path' : 'Database'}
                   className={
                     fieldErrors.database ? inputErrorClasses : inputClasses
                   }
@@ -627,22 +639,24 @@ function ConnectionFormEmbedded({
                 )}
               </div>
 
-              {/* Username & Password */}
-              <div className="flex gap-2">
-                <input
-                  value={newUser}
-                  onChange={(e) => setNewUser(e.target.value)}
-                  placeholder="Username"
-                  className={`${inputClasses} flex-1`}
-                />
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Password"
-                  className={`${inputClasses} flex-1`}
-                />
-              </div>
+              {/* Username & Password — skipped for SQLite */}
+              {newType !== 'sqlite' && (
+                <div className="flex gap-2">
+                  <input
+                    value={newUser}
+                    onChange={(e) => setNewUser(e.target.value)}
+                    placeholder="Username"
+                    className={`${inputClasses} flex-1`}
+                  />
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Password"
+                    className={`${inputClasses} flex-1`}
+                  />
+                </div>
+              )}
 
               {/* Group & SSL */}
               <div className="flex items-center gap-3">

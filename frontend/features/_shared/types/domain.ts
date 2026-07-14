@@ -6,6 +6,7 @@ export type ConnectionType =
   | 'redis'
   | 'rabbitmq'
   | 'elasticsearch'
+  | 'sqlite'
 
 // Connection profile stored in frontend (NO password - that's in OS keyring)
 export interface ConnectionProfile {

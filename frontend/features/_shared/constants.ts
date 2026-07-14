@@ -7,6 +7,7 @@ import {
   RabbitMqIcon,
   ElasticSearchIcon,
   MongoDbIcon,
+  SqliteIcon,
 } from './components/branding/DatasourceLogo'
 
 export const databaseTypeOptions: DatabaseTypeOption[] = [
@@ -21,6 +22,12 @@ export const databaseTypeOptions: DatabaseTypeOption[] = [
     value: 'mysql',
     Icon: MySqlIcon,
     hint: 'Relational database',
+  },
+  {
+    label: 'SQLite',
+    value: 'sqlite',
+    Icon: SqliteIcon,
+    hint: 'Lightweight embedded database',
   },
   {
     label: 'Redis',
@@ -51,6 +58,7 @@ export const databaseTypeOptions: DatabaseTypeOption[] = [
 export const defaultPortByType: Record<ConnectionType, number> = {
   postgresql: 5432,
   mysql: 3306,
+  sqlite: 0,
   mongodb: 27017,
   elasticsearch: 9200,
   redis: 6379,
@@ -60,6 +68,7 @@ export const defaultPortByType: Record<ConnectionType, number> = {
 export const defaultInitialDatabaseByType: Record<ConnectionType, string> = {
   postgresql: 'postgres',
   mysql: 'mysql',
+  sqlite: '',
   mongodb: 'admin',
   elasticsearch: 'default',
   redis: '0',

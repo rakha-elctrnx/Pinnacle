@@ -11,8 +11,8 @@ pub enum ConnectionType {
     Redis,
     Rabbitmq,
     Elasticsearch,
+    Sqlite,
 }
-
 impl std::str::FromStr for ConnectionType {
     type Err = String;
 
@@ -24,6 +24,7 @@ impl std::str::FromStr for ConnectionType {
             "redis" => Ok(ConnectionType::Redis),
             "rabbitmq" | "rabbit_mq" => Ok(ConnectionType::Rabbitmq),
             "elasticsearch" | "es" => Ok(ConnectionType::Elasticsearch),
+            "sqlite" => Ok(ConnectionType::Sqlite),
             _ => Err(format!("Unknown connection type: {}", s)),
         }
     }
@@ -38,6 +39,7 @@ impl std::fmt::Display for ConnectionType {
             ConnectionType::Redis => write!(f, "redis"),
             ConnectionType::Rabbitmq => write!(f, "rabbitmq"),
             ConnectionType::Elasticsearch => write!(f, "elasticsearch"),
+            ConnectionType::Sqlite => write!(f, "sqlite"),
         }
     }
 }

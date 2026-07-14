@@ -6,7 +6,7 @@ import type { ConnectionProfile } from './types/domain'
 export function isSqlConnectionType(
   type: ConnectionType,
 ): type is SqlConnectionType {
-  return type === 'postgresql' || type === 'mysql'
+  return type === 'postgresql' || type === 'mysql' || type === 'sqlite'
 }
 
 export function isElasticsearchType(type: ConnectionType): boolean {
@@ -112,6 +112,7 @@ const ROUTE_PREFIX_MAP: Record<ConnectionType, string> = {
   redis: '/redis',
   rabbitmq: '/rabbitmq',
   mongodb: '/mongodb',
+  sqlite: '/sql',
 }
 
 /**

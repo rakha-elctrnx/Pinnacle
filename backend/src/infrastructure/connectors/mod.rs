@@ -8,3 +8,4 @@ pub mod transaction;
 pub mod sql;
 
 mod postgresql;
+mod sqlite;
