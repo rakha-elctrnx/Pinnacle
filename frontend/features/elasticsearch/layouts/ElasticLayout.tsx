@@ -22,7 +22,7 @@ export function ElasticLayout() {
   const { connectionId } = useParams<{ connectionId: string }>()
   const location = useLocation()
 
-  const { items, selectedConnection, handleConnectionSelectionChange } =
+  const { items, selectedConnection, handleConnectionSelectionChange, openConnectionFromUrl } =
     useDataExplorerContext()
 
   // Find the connection by ID from the URL.
@@ -31,16 +31,20 @@ export function ElasticLayout() {
     [items, connectionId],
   )
 
-  // Sync the orchestrator's selected connection with the URL param.
+  // Sync the orchestrator's selected connection with the URL param, then
+  // expand its tree node (search/URL entry path; sidebar clicks expand via
+  // handleConnectionToggle and skip this effect — selectedConnection set).
   useEffect(() => {
     if (connection && selectedConnection?.id !== connectionId) {
       handleConnectionSelectionChange(connectionId!)
+      openConnectionFromUrl(connectionId!)
     }
   }, [
     connectionId,
     connection,
     selectedConnection,
     handleConnectionSelectionChange,
+    openConnectionFromUrl,
   ])
 
   // ── Sync tab store with URL ──

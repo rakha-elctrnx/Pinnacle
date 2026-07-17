@@ -129,6 +129,7 @@ export interface DataExplorerOrchestratorResult {
   detailsStats: DetailStat[]
   openCreateConnection: () => void
   handleConnectionSelectionChange: (id: string | null) => void
+  openConnectionFromUrl: (id: string) => void
   handleOpenEditModal: (itemId: string) => void
   handleDuplicateConnection: (itemId: string) => void
   handleExportConnection: (itemId: string) => void
@@ -555,39 +556,35 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     setActiveTableTabId(null)
     setSelectedTreeNode(null)
     explorerData.setSelectedTable(null)
+  }
 
-    // Auto-expand the connection's tree node + fetch its data when opened
-    // via search/URL (sidebar clicks expand via onConnectionToggle). No-op
-    // if already expanded — mirrors handleConnectionToggle's expand path.
-    if (!id) return
+  // Open a connection reached via URL/search (not a sidebar tree click):
+  // expand its tree node + fetch data. Sidebar clicks expand via
+  // handleConnectionToggle, so this stays out of that path to avoid a
+  // double-toggle (expand then collapse) regression.
+  const openConnectionFromUrl = (id: string) => {
     const profile = items.find((item) => item.id === id)
     if (!profile) return
-
     const group = profile.tags[0] || 'Ungrouped'
     const connectionPath = `${group}/${profile.name}`
 
     setExpandedTreePaths((prev) => {
+      if (prev.includes(connectionPath)) return prev
       const next = prev.slice()
       if (!next.includes(group)) next.push(group)
-      if (!next.includes(connectionPath)) next.push(connectionPath)
+      next.push(connectionPath)
       return next
     })
 
-    if (!expandedTreePaths.includes(connectionPath)) {
-      if (hasCapabilityWithAdapter(profile.type, 'connect')) {
-        const treeData = explorerData.treeDataMap[id]
-        if (!treeData) {
-          explorerData.refreshConnectionData(id, profile)
-        } else if (treeData.databases?.[0]) {
-          explorerData.fetchDatabaseDetails(
-            id,
-            profile,
-            treeData.databases[0].name,
-          )
-        }
-      } else if (isElasticsearchLike(profile.type)) {
-        setExpandedConnectionId(id)
+    if (hasCapabilityWithAdapter(profile.type, 'connect')) {
+      const treeData = explorerData.treeDataMap[id]
+      if (!treeData) {
+        explorerData.refreshConnectionData(id, profile)
+      } else if (treeData.databases?.[0]) {
+        explorerData.fetchDatabaseDetails(id, profile, treeData.databases[0].name)
       }
+    } else if (isElasticsearchLike(profile.type)) {
+      setExpandedConnectionId(id)
     }
   }
 
@@ -1000,6 +997,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     openCreateConnection,
     connectionModalNonce,
     handleConnectionSelectionChange,
+    openConnectionFromUrl,
     handleOpenEditModal,
     handleDuplicateConnection,
     handleExportConnection,
