@@ -539,7 +539,7 @@ pub async fn commit_table_changes(
             .collect();
 
         let sql = format!(
-            "UPDATE {} SET {} WHERE {} = ?",
+            "UPDATE {} SET {} WHERE CAST({} AS TEXT) = ?",
             fq_table,
             set_clauses.join(", "),
             pk_quoted,
@@ -581,7 +581,7 @@ pub async fn commit_table_changes(
 
     for delete in &payload.deletes {
         let sql = format!(
-            "DELETE FROM {} WHERE {} = ?",
+            "DELETE FROM {} WHERE CAST({} AS TEXT) = ?",
             fq_table,
             pk_quoted,
         );

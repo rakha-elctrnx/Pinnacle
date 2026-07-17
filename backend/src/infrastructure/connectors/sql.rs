@@ -1449,7 +1449,7 @@ async fn commit_table_changes_pg(
         let pk_placeholder = format!("${}", cols.len() + 1);
 
         let sql = format!(
-            "UPDATE {} SET {} WHERE {} = {}",
+            "UPDATE {} SET {} WHERE {}::text = {}",
             fq_table,
             set_clauses.join(", "),
             pk_quoted,
@@ -1478,7 +1478,7 @@ async fn commit_table_changes_pg(
             continue;
         }
         let sql = format!(
-            "DELETE FROM {} WHERE {} = $1",
+            "DELETE FROM {} WHERE {}::text = $1",
             fq_table, pk_quoted,
         );
         sqlx::query(&sql)
@@ -1599,7 +1599,7 @@ async fn commit_table_changes_mysql(
             .collect();
 
         let sql = format!(
-            "UPDATE {} SET {} WHERE {} = ?",
+            "UPDATE {} SET {} WHERE CAST({} AS CHAR) = ?",
             fq_table,
             set_clauses.join(", "),
             pk_quoted,
@@ -1626,7 +1626,7 @@ async fn commit_table_changes_mysql(
         if row_id.trim().is_empty() {
             continue;
         }
-        let sql = format!("DELETE FROM {} WHERE {} = ?", fq_table, pk_quoted);
+        let sql = format!("DELETE FROM {} WHERE CAST({} AS CHAR) = ?", fq_table, pk_quoted);
         sqlx::query(&sql)
             .bind(row_id)
             .execute(&mut *tx)
