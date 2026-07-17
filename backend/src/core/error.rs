@@ -15,6 +15,8 @@ pub enum AppError {
     Export(String),
     #[error("io error: {0}")]
     Io(String),
+    #[error("ssh error: {0}")]
+    Ssh(String),
 }
 
 impl From<sqlx::Error> for AppError {
@@ -32,5 +34,17 @@ impl From<std::io::Error> for AppError {
 impl From<serde_json::Error> for AppError {
     fn from(value: serde_json::Error) -> Self {
         Self::Io(value.to_string())
+    }
+}
+
+impl From<russh::Error> for AppError {
+    fn from(value: russh::Error) -> Self {
+        Self::Ssh(value.to_string())
+    }
+}
+
+impl From<russh::keys::Error> for AppError {
+    fn from(value: russh::keys::Error) -> Self {
+        Self::Ssh(value.to_string())
     }
 }

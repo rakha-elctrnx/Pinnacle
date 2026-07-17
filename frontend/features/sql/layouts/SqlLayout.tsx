@@ -5,6 +5,7 @@ import { useDataExplorerContext } from '../../_shared/context/DataExplorerContex
 import { DeleteTableModal } from '../components/shared/DeleteTableModal'
 import { ExportDataModal } from '../components/export/ExportDataModal'
 import { DataOperationModal } from '../components/export/DataOperationModal'
+import { ConnectionStatusBadge } from '../components/shared/ConnectionStatusBadge'
 import {
   isSqlConnectionType,
   getConnPayloadWithPassword,
@@ -114,6 +115,10 @@ export function SqlLayout() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      {/* ── Connection health badge ── */}
+      <div className="flex items-center justify-end border-b border-border-default px-4 py-1.5">
+        <ConnectionStatusBadge connectionId={connectionId} />
+      </div>
       {/* ── Page content ── */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <Outlet />

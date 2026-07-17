@@ -43,7 +43,11 @@ export function DetailsPanel({
               </p>
               <p>
                 <span className="text-subheading text-slate-800">SSL:</span>{' '}
-                {selectedConnection.ssl ? 'Enabled' : 'Disabled'}
+                {selectedConnection.sslConfig
+                  ? selectedConnection.sslConfig.mode
+                  : selectedConnection.ssl
+                    ? 'Enabled'
+                    : 'Disabled'}
               </p>
             </div>
 

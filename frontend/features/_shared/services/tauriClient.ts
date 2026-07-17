@@ -4,6 +4,8 @@ import type {
   ConnectionProfile,
   ConnectionResponse,
   ConnectionListResponse,
+  SshConfig,
+  SslConfig,
 } from '../types/domain'
 export interface ConnectionPayload {
   type: string
@@ -13,7 +15,11 @@ export interface ConnectionPayload {
   password?: string
   database: string
   ssl: boolean
+  sslConfig?: SslConfig
   schema?: string
+  ssh?: SshConfig
+  poolSize?: number
+  idleTimeoutSecs?: number
 }
 
 /**
@@ -30,10 +36,14 @@ export async function saveConnection(request: {
   username: string
   database: string
   ssl: boolean
+  sslConfig?: SslConfig
   schema?: string
   tags?: string[]
   favorite?: boolean
   password?: string
+  ssh?: SshConfig
+  sshPassword?: string
+  keyPassphrase?: string
 }): Promise<ConnectionResponse> {
   return invoke<ConnectionResponse>('save_connection', {
     request: {
@@ -46,13 +56,17 @@ export async function saveConnection(request: {
         username: request.username,
         database: request.database,
         ssl: request.ssl,
+        sslConfig: request.sslConfig,
         schema: request.schema || '',
         tags: request.tags || [],
         favorite: request.favorite || false,
+        ssh: request.ssh,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
       password: request.password,
+      sshPassword: request.sshPassword,
+      keyPassphrase: request.keyPassphrase,
     },
   })
 }
@@ -84,6 +98,22 @@ export async function getConnectionPassword(
 ): Promise<string> {
   const response = await invoke<{ connectionId: string; password: string }>(
     'get_connection_password',
+    { request: { connectionId } },
+  )
+  return response.password
+}
+
+export async function getSshPassword(connectionId: string): Promise<string> {
+  const response = await invoke<{ connectionId: string; password: string }>(
+    'get_ssh_password',
+    { request: { connectionId } },
+  )
+  return response.password
+}
+
+export async function getKeyPassphrase(connectionId: string): Promise<string> {
+  const response = await invoke<{ connectionId: string; password: string }>(
+    'get_key_passphrase',
     { request: { connectionId } },
   )
   return response.password
@@ -122,4 +152,22 @@ export async function showExportSaveDialog(
     defaultPath: suggestedFilename,
     filters: [{ name: 'All Files', extensions: [ext] }],
   })
+}
+
+export async function disconnectConnection(
+  connectionId: string,
+): Promise<void> {
+  return invoke<void>('disconnect_connection', { connectionId })
+}
+
+export interface ConnectionHealth {
+  state: string
+  lastError: string | null
+  lastCheckedAt: string
+}
+
+export async function getConnectionHealth(
+  connectionId: string,
+): Promise<ConnectionHealth> {
+  return invoke<ConnectionHealth>('get_connection_health', { connectionId })
 }

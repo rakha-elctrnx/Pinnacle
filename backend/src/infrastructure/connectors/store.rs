@@ -20,6 +20,10 @@ struct StoredConnection {
     metadata: ConnectionMetadata,
     #[serde(default)]
     password: Option<String>,
+    #[serde(default)]
+    ssh_password: Option<String>,
+    #[serde(default)]
+    key_passphrase: Option<String>,
 }
 
 fn store_path(app_data: &PathBuf) -> PathBuf {
@@ -45,6 +49,8 @@ fn load_all_stored(app_data: &PathBuf) -> AppResult<Vec<StoredConnection>> {
         .map(|metadata| StoredConnection {
             metadata,
             password: None,
+            ssh_password: None,
+            key_passphrase: None,
         })
         .collect())
 }
@@ -66,13 +72,28 @@ fn load_all(app_data: &PathBuf) -> AppResult<Vec<ConnectionMetadata>> {
         .collect())
 }
 
-/// Save connection metadata and an optional password to the store file.
+/// Save connection metadata and an optional DB password to the store file.
 ///
 /// When `password` is `None`, the existing stored password is preserved.
+/// SSH secrets (`ssh_password`, `key_passphrase`) are left untouched.
 pub async fn save_connection(
     app_data: &PathBuf,
     metadata: &ConnectionMetadata,
     password: Option<&str>,
+) -> AppResult<()> {
+    save_connection_with_secrets(app_data, metadata, password, None, None).await
+}
+
+/// Save connection metadata with DB password and SSH-layer secrets.
+///
+/// Each secret is optional. When `None`, the existing stored value is
+/// preserved (so updating metadata alone doesn't wipe secrets).
+pub async fn save_connection_with_secrets(
+    app_data: &PathBuf,
+    metadata: &ConnectionMetadata,
+    password: Option<&str>,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
 ) -> AppResult<()> {
     let mut all = load_all_stored(app_data)?;
     match all.iter_mut().find(|c| c.metadata.id == metadata.id) {
@@ -81,11 +102,19 @@ pub async fn save_connection(
             if let Some(p) = password {
                 existing.password = Some(p.to_string());
             }
+            if let Some(p) = ssh_password {
+                existing.ssh_password = Some(p.to_string());
+            }
+            if let Some(p) = key_passphrase {
+                existing.key_passphrase = Some(p.to_string());
+            }
         }
         None => {
             all.push(StoredConnection {
                 metadata: metadata.clone(),
                 password: password.map(|p| p.to_string()),
+                ssh_password: ssh_password.map(|p| p.to_string()),
+                key_passphrase: key_passphrase.map(|p| p.to_string()),
             });
         }
     }
@@ -119,6 +148,30 @@ pub async fn get_password(app_data: &PathBuf, connection_id: &str) -> AppResult<
         .into_iter()
         .find(|c| c.metadata.id == connection_id)
         .and_then(|c| c.password))
+}
+
+/// Get the stored SSH password for a connection, if present.
+pub async fn get_ssh_password(
+    app_data: &PathBuf,
+    connection_id: &str,
+) -> AppResult<Option<String>> {
+    let all = load_all_stored(app_data)?;
+    Ok(all
+        .into_iter()
+        .find(|c| c.metadata.id == connection_id)
+        .and_then(|c| c.ssh_password))
+}
+
+/// Get the stored private-key passphrase for a connection, if present.
+pub async fn get_key_passphrase(
+    app_data: &PathBuf,
+    connection_id: &str,
+) -> AppResult<Option<String>> {
+    let all = load_all_stored(app_data)?;
+    Ok(all
+        .into_iter()
+        .find(|c| c.metadata.id == connection_id)
+        .and_then(|c| c.key_passphrase))
 }
 
 /// Delete a connection metadata by ID.

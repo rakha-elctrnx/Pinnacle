@@ -28,6 +28,27 @@ fn auth_header_value(payload: &ConnectionPayload) -> Option<String> {
     Some(format!("Basic {}", encoded))
 }
 
+/// Elasticsearch SSL semantics (kept local — ES has no SQL-style mode ladder):
+///   - `ssl == false`                         => plain HTTP
+///   - `ssl == true`, no `ssl_config` (or mode != "disable") => HTTPS WITH cert validation (the fix)
+///   - `ssl == true`, `ssl_config.mode == "disable"`        => HTTPS, skip cert verify (opt-in self-signed)
+/// The `ssl_config` field is reused only as the opt-in skip-verify signal; selecting SSL Mode
+/// "disable" in the UI for an ES connection means "I have a self-signed cert, don't verify".
+/// ponytail: ceiling = no per-host CA pinning / no mTLS client cert for ES; add when an ES deploy needs client-cert auth.
+fn should_skip_cert_verify(payload: &ConnectionPayload) -> bool {
+    payload
+        .ssl_config
+        .as_ref()
+        .map_or(false, |s| s.mode == "disable")
+}
+
+fn build_http_client(payload: &ConnectionPayload) -> AppResult<Client> {
+    reqwest::Client::builder()
+        .danger_accept_invalid_certs(should_skip_cert_verify(payload))
+        .build()
+        .map_err(|e| AppError::Http(e.to_string()))
+}
+
 async fn get_json(
     client: &Client,
     payload: &ConnectionPayload,
@@ -213,10 +234,7 @@ pub struct DocumentSearchResult {
 // ── Public API ──────────────────────────────────────────────────────
 
 pub async fn test_connection(payload: &ConnectionPayload) -> AppResult<()> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(payload)?;
 
     let url = format!("{}/", build_base_url(payload));
     let mut req = client.get(&url);
@@ -234,10 +252,7 @@ pub async fn test_connection(payload: &ConnectionPayload) -> AppResult<()> {
 
 /// Execute an arbitrary Elasticsearch REST API call.
 pub async fn execute_query(payload: &ElasticQueryPayload) -> AppResult<ElasticQueryResult> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.connection.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(&payload.connection)?;
 
     let start = std::time::Instant::now();
     let method = payload.method.to_uppercase();
@@ -259,55 +274,37 @@ pub async fn execute_query(payload: &ElasticQueryPayload) -> AppResult<ElasticQu
 
 /// Get cluster info (GET /).
 pub async fn get_cluster_info(payload: &ConnectionPayload) -> AppResult<serde_json::Value> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(payload)?;
     get_json(&client, payload, "/").await
 }
 
 /// Get cluster health (GET /_cluster/health).
 pub async fn get_cluster_health(payload: &ConnectionPayload) -> AppResult<serde_json::Value> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(payload)?;
     get_json(&client, payload, "/_cluster/health").await
 }
 
 /// Get cluster stats (GET /_cluster/stats).
 pub async fn get_cluster_stats(payload: &ConnectionPayload) -> AppResult<serde_json::Value> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(payload)?;
     get_json(&client, payload, "/_cluster/stats").await
 }
 
 /// Get node stats (GET /_nodes/stats).
 pub async fn get_node_stats(payload: &ConnectionPayload) -> AppResult<serde_json::Value> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(payload)?;
     get_json(&client, payload, "/_nodes/stats").await
 }
 
 /// List all indices (GET /_cat/indices?format=json).
 pub async fn list_indices(payload: &ConnectionPayload) -> AppResult<serde_json::Value> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(payload)?;
     get_json(&client, payload, "/_cat/indices?format=json&s=index").await
 }
 
 /// Create an index (PUT /<index>).
 pub async fn create_index(payload: &IndexCreatePayload) -> AppResult<serde_json::Value> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.connection.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(&payload.connection)?;
 
     let body = payload.settings.clone().unwrap_or(serde_json::json!({}));
     put_json(&client, &payload.connection, &format!("/{}", payload.index_name), body).await
@@ -315,63 +312,42 @@ pub async fn create_index(payload: &IndexCreatePayload) -> AppResult<serde_json:
 
 /// Delete an index (DELETE /<index>).
 pub async fn delete_index(payload: &IndexActionPayload) -> AppResult<serde_json::Value> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.connection.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(&payload.connection)?;
     delete_req(&client, &payload.connection, &format!("/{}", payload.index_name)).await
 }
 /// Open an index (POST /<index>/_open).
 pub async fn open_index(payload: &IndexActionPayload) -> AppResult<serde_json::Value> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.connection.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(&payload.connection)?;
     post_no_body(&client, &payload.connection, &format!("/{}/_open", payload.index_name)).await
 }
 
 /// Close an index (POST /<index>/_close).
 pub async fn close_index(payload: &IndexActionPayload) -> AppResult<serde_json::Value> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.connection.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(&payload.connection)?;
     post_no_body(&client, &payload.connection, &format!("/{}/_close", payload.index_name)).await
 }
 
 /// Refresh an index (POST /<index>/_refresh).
 pub async fn refresh_index(payload: &IndexActionPayload) -> AppResult<serde_json::Value> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.connection.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(&payload.connection)?;
     post_no_body(&client, &payload.connection, &format!("/{}/_refresh", payload.index_name)).await
 }
 
 /// Get index mapping (GET /<index>/_mapping).
 pub async fn get_index_mapping(payload: &IndexActionPayload) -> AppResult<serde_json::Value> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.connection.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(&payload.connection)?;
     get_json(&client, &payload.connection, &format!("/{}/_mapping", payload.index_name)).await
 }
 
 /// Get index settings (GET /<index>/_settings).
 pub async fn get_index_settings(payload: &IndexActionPayload) -> AppResult<serde_json::Value> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.connection.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(&payload.connection)?;
     get_json(&client, &payload.connection, &format!("/{}/_settings", payload.index_name)).await
 }
 
 /// Search documents in an index.
 pub async fn search_documents(payload: &DocumentSearchPayload) -> AppResult<DocumentSearchResult> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.connection.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(&payload.connection)?;
 
     let start = std::time::Instant::now();
 
@@ -430,10 +406,7 @@ pub async fn search_documents(payload: &DocumentSearchPayload) -> AppResult<Docu
 
 /// Index (create/update) a document.
 pub async fn index_document(payload: &DocumentPayload) -> AppResult<serde_json::Value> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.connection.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(&payload.connection)?;
 
     let path = if let Some(id) = &payload.doc_id {
         format!("/{}/_doc/{}", payload.index_name, id)
@@ -446,55 +419,37 @@ pub async fn index_document(payload: &DocumentPayload) -> AppResult<serde_json::
 
 /// Delete a document.
 pub async fn delete_document(payload: &DocumentDeletePayload) -> AppResult<serde_json::Value> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.connection.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(&payload.connection)?;
     let path = format!("/{}/_doc/{}", payload.index_name, payload.doc_id);
     delete_req(&client, &payload.connection, &path).await
 }
 
 /// List templates (GET /_cat/templates?format=json).
 pub async fn list_templates(payload: &ConnectionPayload) -> AppResult<serde_json::Value> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(payload)?;
     get_json(&client, payload, "/_cat/templates?format=json").await
 }
 
 /// List pipelines (GET /_ingest/pipeline).
 pub async fn list_pipelines(payload: &ConnectionPayload) -> AppResult<serde_json::Value> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(payload)?;
     get_json(&client, payload, "/_ingest/pipeline").await
 }
 
 /// List aliases (GET /_aliases).
 pub async fn list_aliases(payload: &ConnectionPayload) -> AppResult<serde_json::Value> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(payload)?;
     get_json(&client, payload, "/_aliases").await
 }
 
 /// Get shard info (GET /_cat/shards?format=json).
 pub async fn list_shards(payload: &ConnectionPayload) -> AppResult<serde_json::Value> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(payload)?;
     get_json(&client, payload, "/_cat/shards?format=json").await
 }
 
 /// Get nodes info (GET /_nodes).
 pub async fn get_nodes_info(payload: &ConnectionPayload) -> AppResult<serde_json::Value> {
-    let client = Client::builder()
-        .danger_accept_invalid_certs(payload.ssl)
-        .build()
-        .map_err(|e| AppError::Http(e.to_string()))?;
+    let client = build_http_client(payload)?;
     get_json(&client, payload, "/_nodes").await
 }

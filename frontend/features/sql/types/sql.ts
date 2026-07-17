@@ -1,4 +1,5 @@
 import type { ConnectionPayload } from '../../_shared/services/tauriClient'
+import type { SslConfig } from '../../_shared/types/domain'
 
 // ── Commit Table Changes (task-011c) ─────────────────────────────
 
@@ -102,6 +103,7 @@ export interface DropTablePayload {
     password: string
     database: string
     ssl: boolean
+    sslConfig?: SslConfig
     schema?: string
   }
   schema: string

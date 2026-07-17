@@ -43,6 +43,52 @@ pub struct ConnectionPayload {
     pub ssl: bool,
     #[serde(default)]
     pub schema: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssh: Option<SshConfig>,
+    /// ID of the saved connection this payload originates from, used to look up
+    /// SSH-layer secrets (ssh password / key passphrase) from the credential store.
+    /// Absent for the test-connection-before-save flow, where secrets are passed inline.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connection_id: Option<String>,
+    /// Optional SSL/TLS config for SQL connections (PostgreSQL, MySQL).
+    /// When absent, connectors fall back to the legacy `ssl: bool` field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssl_config: Option<SslConfig>,
+    /// Max connections in the pool. `None` => backend default (10).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pool_size: Option<u32>,
+    /// Idle connection reaper timeout (seconds). `None` => 300s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub idle_timeout_secs: Option<u64>,
+}
+
+/// SSL/TLS configuration for SQL connections (mirrors
+/// domain::connection::SslConfig). Stores file PATHS only, never cert content.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SslConfig {
+    /// "disable" | "prefer" | "require" | "verify-ca" | "verify-full"
+    pub mode: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ca_cert_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_cert_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_key_path: Option<String>,
+}
+
+/// SSH tunnel configuration (mirrors domain::connection::SshConfig but lives
+/// in the query payload so connectors can branch on it without a circular import).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SshConfig {
+    pub host: String,
+    pub port: u16,
+    pub username: String,
+    /// "password" | "privateKey" | "agent"
+    pub auth_method: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub private_key_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

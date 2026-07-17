@@ -18,10 +18,11 @@ use application::commands::elastic_commands::{
 };
 // SQL COMMANDS
 use application::commands::query_commands::{
-    commit_table_changes, execute_sql, sql_begin_transaction, sql_commit_transaction,
-    sql_drop_table, sql_execute_ddl, sql_execute_in_transaction, sql_generate_ddl,
-    sql_get_all_columns, sql_get_all_foreign_keys, sql_get_table_schema,
-    sql_rollback_transaction, test_connection,
+    commit_table_changes, disconnect_connection, execute_sql, get_connection_health,
+    sql_begin_transaction, sql_commit_transaction, sql_drop_table, sql_execute_ddl,
+    sql_execute_in_transaction, sql_generate_ddl, sql_get_all_columns,
+    sql_get_all_foreign_keys, sql_get_table_schema, sql_rollback_transaction,
+    test_connection,
 };
 // EXPORT COMMANDS
 use application::commands::export_commands::{estimate_table_export, execute_table_export};
@@ -33,8 +34,9 @@ use application::commands::redis_commands::{
 
 // CONNECTION COMMANDS
 use application::commands::connection_commands::{
-    delete_connection, get_connection, get_connection_password, has_connection_password,
-    list_connections, save_connection, update_connection,
+    delete_connection, get_connection, get_connection_password, get_key_passphrase,
+    get_ssh_password, has_connection_password, list_connections, save_connection,
+    update_connection,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -68,6 +70,14 @@ pub fn run() {
                         }
                     }
                 }
+                // Drop all SQL connection pools when the main window is destroyed
+                // (app quit). Pools are also dropped via `disconnect_connection`
+                // when the user explicitly disconnects a single connection.
+                if let tauri::WindowEvent::Destroyed = event {
+                    tauri::async_runtime::block_on(async {
+                        crate::infrastructure::connectors::pool::disconnect_all().await;
+                    });
+                }
             }
         })
         .plugin(tauri_plugin_dialog::init())
@@ -77,6 +87,8 @@ pub fn run() {
             list_connections,
             get_connection,
             get_connection_password,
+            get_ssh_password,
+            get_key_passphrase,
             has_connection_password,
             delete_connection,
             update_connection,
@@ -92,6 +104,8 @@ pub fn run() {
             sql_execute_in_transaction,
             sql_commit_transaction,
             sql_rollback_transaction,
+            disconnect_connection,
+            get_connection_health,
             sql_get_all_foreign_keys,
             sql_get_all_columns,
             // ELASTICSEARCH COMMANDS

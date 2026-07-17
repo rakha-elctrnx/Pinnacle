@@ -13,7 +13,12 @@ interface ConnectionState {
   isLoading: boolean
   error: string | null
   setSearch: (value: string) => void
-  upsert: (profile: ConnectionProfile, password?: string) => Promise<void>
+  upsert: (
+    profile: ConnectionProfile,
+    password?: string,
+    sshPassword?: string,
+    keyPassphrase?: string,
+  ) => Promise<void>
   remove: (id: string) => Promise<void>
   toggleFavorite: (id: string) => Promise<void>
   refresh: () => Promise<void>
@@ -47,7 +52,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
     }
   },
 
-  upsert: async (profile, password) => {
+  upsert: async (profile, password, sshPassword, keyPassphrase) => {
     try {
       set({ isLoading: true, error: null })
       const response = await saveConnection({
@@ -59,10 +64,14 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
         username: profile.username,
         database: profile.database,
         ssl: profile.ssl,
+        sslConfig: profile.sslConfig,
         schema: profile.schema,
         tags: profile.tags,
         favorite: profile.favorite,
         password,
+        ssh: profile.ssh,
+        sshPassword,
+        keyPassphrase,
       })
 
       // Update local state

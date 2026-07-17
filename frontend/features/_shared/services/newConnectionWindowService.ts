@@ -30,6 +30,8 @@ interface NewConnectionOpenPayload {
 interface NewConnectionSavePayload {
   profile: ConnectionProfile
   password?: string
+  sshPassword?: string
+  keyPassphrase?: string
 }
 
 /**
@@ -42,7 +44,12 @@ interface NewConnectionSavePayload {
  */
 export async function openNewConnectionWindow(
   payload: NewConnectionOpenPayload,
-  onSave: (profile: ConnectionProfile, password?: string) => void,
+  onSave: (
+    profile: ConnectionProfile,
+    password?: string,
+    sshPassword?: string,
+    keyPassphrase?: string,
+  ) => void,
   onClose?: () => void,
 ): Promise<() => void> {
   const connWindow = await WebviewWindow.getByLabel('new-connection')
@@ -56,8 +63,8 @@ export async function openNewConnectionWindow(
   const unlistenSave = await listen<NewConnectionSavePayload>(
     'new-connection-save',
     (event) => {
-      const { profile, password } = event.payload
-      onSave(profile, password)
+      const { profile, password, sshPassword, keyPassphrase } = event.payload
+      onSave(profile, password, sshPassword, keyPassphrase)
       // Window hides itself after emitting new-connection-save
     },
   )

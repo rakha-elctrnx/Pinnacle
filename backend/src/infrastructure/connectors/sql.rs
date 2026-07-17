@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use sqlx::{
-    Column, Connection, Executor, Row, Statement, mysql::MySqlConnectOptions, postgres::PgConnectOptions, sqlite::SqliteConnectOptions
+    Column, Connection, Executor, Row, Statement, sqlite::SqliteConnectOptions
 };
 
 use crate::domain::query::{
@@ -11,7 +11,98 @@ use crate::domain::query::{
     TableColumn, TableSchemaInfo, UniqueConstraint,
 };
 use crate::core::{error::AppError, result::AppResult};
-use super::postgresql::quote_identifier_pg;
+use super::postgresql::{build_connection_options as pg_connection_options, quote_identifier_pg};
+use super::{pool, ssl::build_mysql_options};
+
+/// Resolve the (host, port) sqlx should connect to, opening an SSH tunnel when
+/// `payload.ssh` is configured. The returned `TunnelHandle` (when present) MUST
+/// be held alive for the duration of the DB connection — dropping it closes the tunnel.
+pub(crate) async fn resolve_connect_addr(
+    payload: &ConnectionPayload,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
+) -> AppResult<(String, u16, Option<super::ssh::TunnelHandle>)> {
+    match &payload.ssh {
+        Some(ssh) => {
+            let tunnel = super::ssh::open_tunnel(
+                ssh,
+                &payload.host,
+                payload.port,
+                ssh_password,
+                key_passphrase,
+            )
+            .await?;
+            let host = tunnel.local_host().to_string();
+            let port = tunnel.local_port();
+            Ok((host, port, Some(tunnel)))
+        }
+        None => Ok((payload.host.clone(), payload.port, None)),
+    }
+}
+
+// ── Connection acquisition (pooled when saved, ad-hoc 1-conn pool otherwise) ──
+
+/// Acquire a pooled Postgres connection when `connection_id` is set (saved
+/// connection), else build a 1-connection pool on the fly (test-before-save).
+/// Both paths yield `PoolConnection<Postgres>`, which derefs to `&mut PgConnection`
+/// and auto-returns to its pool on drop — callers MUST NOT call `.close()`.
+pub(crate) async fn acquire_pg_conn(
+    payload: &ConnectionPayload,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
+) -> AppResult<sqlx::pool::PoolConnection<sqlx::Postgres>> {
+    if let Some(pool::PooledDb::Pg(p)) = pool::get_or_create(payload, ssh_password, key_passphrase).await? {
+        Ok(p.acquire().await?)
+    } else {
+        let (host, port, _tunnel) = resolve_connect_addr(payload, ssh_password, key_passphrase).await?;
+        let options = pg_connection_options(payload, Some((&host, port)));
+        let pool = sqlx::pool::PoolOptions::<sqlx::Postgres>::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await?;
+        Ok(pool.acquire().await?)
+    }
+}
+
+/// Acquire a pooled MySQL connection when `connection_id` is set (saved
+/// connection), else build a 1-connection pool on the fly (test-before-save).
+/// Both paths yield `PoolConnection<MySql>`, which derefs to `&mut MySqlConnection`
+/// and auto-returns to its pool on drop — callers MUST NOT call `.close()`.
+pub(crate) async fn acquire_mysql_conn(
+    payload: &ConnectionPayload,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
+) -> AppResult<sqlx::pool::PoolConnection<sqlx::MySql>> {
+    if let Some(pool::PooledDb::MySql(p)) = pool::get_or_create(payload, ssh_password, key_passphrase).await? {
+        Ok(p.acquire().await?)
+    } else {
+        let (host, port, _tunnel) = resolve_connect_addr(payload, ssh_password, key_passphrase).await?;
+        let options = build_mysql_options(payload, Some((&host, port)));
+        let pool = sqlx::pool::PoolOptions::<sqlx::MySql>::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await?;
+        Ok(pool.acquire().await?)
+    }
+}
+
+/// Mark a pooled op's outcome on the connection's health state.
+/// `connection_id` is None for test-before-save — nothing to mark in that case.
+pub(crate) async fn mark_result<T>(connection_id: Option<&str>, result: AppResult<T>) -> AppResult<T> {
+    match &result {
+        Ok(_) => {
+            if let Some(id) = connection_id {
+                pool::mark_healthy(id).await;
+            }
+        }
+        Err(e) => {
+            if let Some(id) = connection_id {
+                pool::mark_unhealthy(id, &e.to_string()).await;
+            }
+        }
+    }
+    result
+}
 
 /// Wrap an identifier in backticks, escaping any internal backticks.
 fn quote_identifier_mysql(id: &str) -> String {
@@ -84,22 +175,26 @@ pub(crate) fn extract_sqlite_value(row: &sqlx::sqlite::SqliteRow, column_name: &
     }
     serde_json::Value::Null
 }
-pub async fn test_connection(payload: &ConnectionPayload) -> AppResult<()> {
+pub async fn test_connection(
+    payload: &ConnectionPayload,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
+) -> AppResult<()> {
     ensure_supported_driver(payload.r#type.as_str())?;
 
     match payload.r#type.as_str() {
         "postgresql" => {
-            return test_connection_pg(payload).await;
+            return test_connection_pg(payload, ssh_password, key_passphrase).await;
         }
         "mysql" => {
-            let options = MySqlConnectOptions::new()
-                .host(payload.host.as_str())
-                .port(payload.port)
-                .username(payload.username.as_str())
-                .password(payload.password.as_str())
-                .database(payload.database.as_str());
-            let conn = sqlx::MySqlConnection::connect_with(&options).await?;
-            conn.close().await?;
+            let conn_id = payload.connection_id.clone();
+            let res = pool::with_retry(|| async {
+                let mut _conn = acquire_mysql_conn(payload, ssh_password, key_passphrase).await?;
+                // Acquire pings the connection (test_before_acquire); drop returns it to the pool.
+                AppResult::Ok(())
+            })
+            .await;
+            mark_result(conn_id.as_deref(), res).await?;
         }
         "sqlite" => {
             let options = SqliteConnectOptions::new()
@@ -114,7 +209,12 @@ pub async fn test_connection(payload: &ConnectionPayload) -> AppResult<()> {
     Ok(())
 }
 
-pub async fn execute_sql(payload: &ConnectionPayload, sql: &str) -> AppResult<QueryResult> {
+pub async fn execute_sql(
+    payload: &ConnectionPayload,
+    sql: &str,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
+) -> AppResult<QueryResult> {
     ensure_supported_driver(payload.r#type.as_str())?;
 
     let sql = sql.trim();
@@ -126,63 +226,60 @@ pub async fn execute_sql(payload: &ConnectionPayload, sql: &str) -> AppResult<Qu
     let read = is_read_query(sql);
 
     match payload.r#type.as_str() {
-        "postgresql" => {
-            return execute_sql_pg(payload, sql).await;
-        }
         "mysql" => {
-            let options = MySqlConnectOptions::new()
-                .host(payload.host.as_str())
-                .port(payload.port)
-                .username(payload.username.as_str())
-                .password(payload.password.as_str())
-                .database(payload.database.as_str());
-            let mut conn = sqlx::MySqlConnection::connect_with(&options).await?;
-
-            if read {
-                let rows = conn.fetch_all(sqlx::query(sql)).await?;
-                let columns: Vec<String> = if let Some(first) = rows.first() {
-                    first
-                        .columns()
+            let conn_id = payload.connection_id.clone();
+            let res = pool::with_retry(|| async {
+                let mut pooled = acquire_mysql_conn(payload, ssh_password, key_passphrase).await?;
+                // `&mut *pooled` derefs PoolConnection -> &mut MySqlConnection (Executor).
+                if read {
+                    let rows = (&mut *pooled).fetch_all(sqlx::query(sql)).await?;
+                    let columns: Vec<String> = if let Some(first) = rows.first() {
+                        first
+                            .columns()
+                            .iter()
+                            .map(|c| c.name().to_string())
+                            .collect()
+                    } else {
+                        // When 0 rows, prepare the statement to extract column metadata
+                        // so the frontend can show column headers even with no data.
+                        let statement = (&mut *pooled).prepare(sql).await?;
+                        statement
+                            .columns()
+                            .iter()
+                            .map(|c| c.name().to_string())
+                            .collect()
+                    };
+                    let json_rows: Vec<serde_json::Map<String, serde_json::Value>> = rows
                         .iter()
-                        .map(|c| c.name().to_string())
-                        .collect()
-                } else {
-                    // When 0 rows, prepare the statement to extract column metadata
-                    // so the frontend can show column headers even with no data.
-                    let statement = conn.prepare(sql).await?;
-                    statement
-                        .columns()
-                        .iter()
-                        .map(|c| c.name().to_string())
-                        .collect()
-                };
-                let json_rows: Vec<serde_json::Map<String, serde_json::Value>> = rows
-                    .iter()
-                    .map(|row| {
-                        let mut map = serde_json::Map::new();
-                        for col_name in &columns {
-                            map.insert(col_name.clone(), extract_mysql_value(row, col_name));
-                        }
-                        map
+                        .map(|row| {
+                            let mut map = serde_json::Map::new();
+                            for col_name in &columns {
+                                map.insert(col_name.clone(), extract_mysql_value(row, col_name));
+                            }
+                            map
+                        })
+                        .collect();
+                    Ok(QueryResult {
+                        rows_affected: json_rows.len() as u64,
+                        elapsed_ms: start.elapsed().as_millis(),
+                        columns,
+                        rows: json_rows,
                     })
-                    .collect();
-                conn.close().await?;
-                Ok(QueryResult {
-                    rows_affected: json_rows.len() as u64,
-                    elapsed_ms: start.elapsed().as_millis(),
-                    columns,
-                    rows: json_rows,
-                })
-            } else {
-                let result = conn.execute(sqlx::query(sql)).await?;
-                conn.close().await?;
-                Ok(QueryResult {
-                    rows_affected: result.rows_affected(),
-                    elapsed_ms: start.elapsed().as_millis(),
-                    columns: vec![],
-                    rows: vec![],
-                })
-            }
+                } else {
+                    let result = (&mut *pooled).execute(sqlx::query(sql)).await?;
+                    Ok(QueryResult {
+                        rows_affected: result.rows_affected(),
+                        elapsed_ms: start.elapsed().as_millis(),
+                        columns: vec![],
+                        rows: vec![],
+                    })
+                }
+            })
+            .await;
+            return mark_result(conn_id.as_deref(), res).await;
+        }
+        "postgresql" => {
+            return execute_sql_pg(payload, sql, ssh_password, key_passphrase).await;
         }
         "sqlite" => {
             let options = SqliteConnectOptions::new()
@@ -243,6 +340,8 @@ pub async fn execute_sql(payload: &ConnectionPayload, sql: &str) -> AppResult<Qu
 pub async fn get_table_schema(
     payload: &ConnectionPayload,
     table_name: &str,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
 ) -> AppResult<TableSchemaInfo> {
     ensure_supported_driver(payload.r#type.as_str())?;
 
@@ -253,8 +352,8 @@ pub async fn get_table_schema(
     }
 
     match payload.r#type.as_str() {
-        "postgresql" => get_pg_table_schema(payload, table_name).await,
-        "mysql" => get_mysql_table_schema(payload, table_name).await,
+        "postgresql" => get_pg_table_schema(payload, table_name, ssh_password, key_passphrase).await,
+        "mysql" => get_mysql_table_schema(payload, table_name, ssh_password, key_passphrase).await,
         "sqlite" => get_sqlite_table_schema(payload, table_name).await,
         _ => Err(AppError::UnsupportedDriver(payload.r#type.clone())),
     }
@@ -265,14 +364,10 @@ pub async fn get_table_schema(
 async fn get_pg_table_schema(
     payload: &ConnectionPayload,
     table_name: &str,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
 ) -> AppResult<TableSchemaInfo> {
-    let options = PgConnectOptions::new()
-        .host(payload.host.as_str())
-        .port(payload.port)
-        .username(payload.username.as_str())
-        .password(payload.password.as_str())
-        .database(payload.database.as_str());
-    let mut conn = sqlx::PgConnection::connect_with(&options).await?;
+    let mut conn = acquire_pg_conn(payload, ssh_password, key_passphrase).await?;
 
     let schema = if payload.schema.is_empty() {
         "public".to_string()
@@ -295,7 +390,7 @@ async fn get_pg_table_schema(
     )
     .bind(&schema)
     .bind(table_name)
-    .fetch_optional(&mut conn)
+    .fetch_optional(&mut *conn)
     .await?;
 
     let (found_schema, canonical_name) = match resolved {
@@ -308,13 +403,12 @@ async fn get_pg_table_schema(
                  AND LOWER(table_name) = LOWER($1) LIMIT 1",
             )
             .bind(table_name)
-            .fetch_optional(&mut conn)
+            .fetch_optional(&mut *conn)
             .await?;
 
             match broad {
                 Some((s, n)) => (s, n),
                 None => {
-                    conn.close().await?;
                     return Err(AppError::InvalidInput(format!(
                         "table '{}.{}' does not exist",
                         schema, table_name
@@ -349,7 +443,7 @@ async fn get_pg_table_schema(
     )
     .bind(&schema)
     .bind(&canonical_name)
-    .fetch_all(&mut conn)
+    .fetch_all(&mut *conn)
     .await?;
 
     let columns: Vec<TableColumn> = column_rows
@@ -396,7 +490,7 @@ async fn get_pg_table_schema(
     )
     .bind(&schema)
     .bind(&canonical_name)
-    .fetch_all(&mut conn)
+    .fetch_all(&mut *conn)
     .await?;
 
     let primary_key = if pk_rows.is_empty() {
@@ -428,7 +522,7 @@ async fn get_pg_table_schema(
     )
     .bind(&schema)
     .bind(&canonical_name)
-    .fetch_all(&mut conn)
+    .fetch_all(&mut *conn)
     .await?;
 
     let unique_constraints = group_constraint_columns(unique_rows);
@@ -462,7 +556,7 @@ async fn get_pg_table_schema(
     )
     .bind(&schema)
     .bind(&canonical_name)
-    .fetch_all(&mut conn)
+    .fetch_all(&mut *conn)
     .await?;
 
     let foreign_keys = build_foreign_keys(fk_rows);
@@ -489,7 +583,7 @@ async fn get_pg_table_schema(
     )
     .bind(&schema)
     .bind(&canonical_name)
-    .fetch_all(&mut conn)
+    .fetch_all(&mut *conn)
     .await?;
 
     let indexes: Vec<IndexDefinition> = index_rows
@@ -504,8 +598,6 @@ async fn get_pg_table_schema(
             }
         })
         .collect();
-
-    conn.close().await?;
 
     Ok(TableSchemaInfo {
         table_name: canonical_name,
@@ -523,14 +615,10 @@ async fn get_pg_table_schema(
 async fn get_mysql_table_schema(
     payload: &ConnectionPayload,
     table_name: &str,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
 ) -> AppResult<TableSchemaInfo> {
-    let options = MySqlConnectOptions::new()
-        .host(payload.host.as_str())
-        .port(payload.port)
-        .username(payload.username.as_str())
-        .password(payload.password.as_str())
-        .database(payload.database.as_str());
-    let mut conn = sqlx::MySqlConnection::connect_with(&options).await?;
+    let mut conn = acquire_mysql_conn(payload, ssh_password, key_passphrase).await?;
 
     let db = &payload.database;
 
@@ -540,7 +628,7 @@ async fn get_mysql_table_schema(
     )
     .bind(db)
     .bind(table_name)
-    .fetch_optional(&mut conn)
+    .fetch_optional(&mut *conn)
     .await?
     .ok_or_else(|| {
         AppError::InvalidInput(format!("table '{}.{}' does not exist", db, table_name))
@@ -566,7 +654,7 @@ async fn get_mysql_table_schema(
     )
     .bind(db)
     .bind(table_name)
-    .fetch_all(&mut conn)
+    .fetch_all(&mut *conn)
     .await?;
 
     let columns: Vec<TableColumn> = column_rows
@@ -598,7 +686,7 @@ async fn get_mysql_table_schema(
     )
     .bind(db)
     .bind(table_name)
-    .fetch_all(&mut conn)
+    .fetch_all(&mut *conn)
     .await?;
 
     let primary_key = if pk_rows.is_empty() {
@@ -628,7 +716,7 @@ async fn get_mysql_table_schema(
     )
     .bind(db)
     .bind(table_name)
-    .fetch_all(&mut conn)
+    .fetch_all(&mut *conn)
     .await?;
 
     let unique_constraints = group_constraint_columns_mysql(unique_rows);
@@ -656,7 +744,7 @@ async fn get_mysql_table_schema(
     )
     .bind(db)
     .bind(table_name)
-    .fetch_all(&mut conn)
+    .fetch_all(&mut *conn)
     .await?;
 
     let foreign_keys = build_foreign_keys_mysql(fk_rows);
@@ -678,7 +766,7 @@ async fn get_mysql_table_schema(
     )
     .bind(db)
     .bind(table_name)
-    .fetch_all(&mut conn)
+    .fetch_all(&mut *conn)
     .await?;
 
     let indexes: Vec<IndexDefinition> = index_rows
@@ -693,8 +781,6 @@ async fn get_mysql_table_schema(
             }
         })
         .collect();
-
-    conn.close().await?;
 
     Ok(TableSchemaInfo {
         table_name: table_name.to_string(),
@@ -812,12 +898,14 @@ fn build_foreign_keys_mysql(rows: Vec<sqlx::mysql::MySqlRow>) -> Vec<ForeignKeyC
 /// Used by the ER Diagram to render edges without N+1 per-table queries.
 pub async fn get_all_foreign_keys(
     payload: &ConnectionPayload,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
 ) -> AppResult<Vec<SchemaForeignKey>> {
     ensure_supported_driver(payload.r#type.as_str())?;
 
     match payload.r#type.as_str() {
-        "postgresql" => get_all_foreign_keys_pg(payload).await,
-        "mysql" => get_all_foreign_keys_mysql(payload).await,
+        "postgresql" => get_all_foreign_keys_pg(payload, ssh_password, key_passphrase).await,
+        "mysql" => get_all_foreign_keys_mysql(payload, ssh_password, key_passphrase).await,
         "sqlite" => get_all_foreign_keys_sqlite(payload).await,
         _ => Err(AppError::UnsupportedDriver(payload.r#type.clone())),
     }
@@ -825,14 +913,10 @@ pub async fn get_all_foreign_keys(
 
 async fn get_all_foreign_keys_pg(
     payload: &ConnectionPayload,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
 ) -> AppResult<Vec<SchemaForeignKey>> {
-    let options = PgConnectOptions::new()
-        .host(payload.host.as_str())
-        .port(payload.port)
-        .username(payload.username.as_str())
-        .password(payload.password.as_str())
-        .database(payload.database.as_str());
-    let mut conn = sqlx::PgConnection::connect_with(&options).await?;
+    let mut conn = acquire_pg_conn(payload, ssh_password, key_passphrase).await?;
 
     let schema = if payload.schema.is_empty() {
         "public".to_string()
@@ -861,11 +945,10 @@ async fn get_all_foreign_keys_pg(
         "#,
     )
     .bind(&schema)
-    .fetch_all(&mut conn)
+    .fetch_all(&mut *conn)
     .await?;
 
     let result = build_schema_foreign_keys_pg(rows);
-    conn.close().await?;
     Ok(result)
 }
 
@@ -903,14 +986,10 @@ fn build_schema_foreign_keys_pg(
 
 async fn get_all_foreign_keys_mysql(
     payload: &ConnectionPayload,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
 ) -> AppResult<Vec<SchemaForeignKey>> {
-    let options = MySqlConnectOptions::new()
-        .host(payload.host.as_str())
-        .port(payload.port)
-        .username(payload.username.as_str())
-        .password(payload.password.as_str())
-        .database(payload.database.as_str());
-    let mut conn = sqlx::MySqlConnection::connect_with(&options).await?;
+    let mut conn = acquire_mysql_conn(payload, ssh_password, key_passphrase).await?;
 
     let db = &payload.database;
 
@@ -929,11 +1008,10 @@ async fn get_all_foreign_keys_mysql(
         "#,
     )
     .bind(db)
-    .fetch_all(&mut conn)
+    .fetch_all(&mut *conn)
     .await?;
 
     let result = build_schema_foreign_keys_mysql(rows);
-    conn.close().await?;
     Ok(result)
 }
 
@@ -974,10 +1052,12 @@ fn build_schema_foreign_keys_mysql(
 /// Used by the ER Diagram to show table columns in nodes.
 pub async fn get_all_columns(
     payload: &ConnectionPayload,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
 ) -> AppResult<Vec<SchemaColumn>> {
     match payload.r#type.as_str() {
-        "postgresql" => get_all_columns_pg(payload).await,
-        "mysql" => get_all_columns_mysql(payload).await,
+        "postgresql" => get_all_columns_pg(payload, ssh_password, key_passphrase).await,
+        "mysql" => get_all_columns_mysql(payload, ssh_password, key_passphrase).await,
         "sqlite" => get_all_columns_sqlite(payload).await,
         _ => Err(AppError::UnsupportedDriver(payload.r#type.clone())),
     }
@@ -985,14 +1065,10 @@ pub async fn get_all_columns(
 
 async fn get_all_columns_pg(
     payload: &ConnectionPayload,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
 ) -> AppResult<Vec<SchemaColumn>> {
-    let options = PgConnectOptions::new()
-        .host(payload.host.as_str())
-        .port(payload.port)
-        .username(payload.username.as_str())
-        .password(payload.password.as_str())
-        .database(payload.database.as_str());
-    let mut conn = sqlx::PgConnection::connect_with(&options).await?;
+    let mut conn = acquire_pg_conn(payload, ssh_password, key_passphrase).await?;
 
     let schema = if payload.schema.is_empty() {
         "public".to_string()
@@ -1023,7 +1099,7 @@ async fn get_all_columns_pg(
         "#,
     )
     .bind(&schema)
-    .fetch_all(&mut conn)
+    .fetch_all(&mut *conn)
     .await?;
 
     let result: Vec<SchemaColumn> = rows
@@ -1037,22 +1113,15 @@ async fn get_all_columns_pg(
             data_type_name: row.get("data_type_name"),
         })
         .collect();
-
-    conn.close().await?;
     Ok(result)
 }
 
 async fn get_all_columns_mysql(
     payload: &ConnectionPayload,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
 ) -> AppResult<Vec<SchemaColumn>> {
-    let options = MySqlConnectOptions::new()
-        .host(payload.host.as_str())
-        .port(payload.port)
-        .username(payload.username.as_str())
-        .password(payload.password.as_str())
-        .database(payload.database.as_str());
-    let mut conn = sqlx::MySqlConnection::connect_with(&options).await?;
-
+    let mut conn = acquire_mysql_conn(payload, ssh_password, key_passphrase).await?;
     let db = &payload.database;
 
     let rows = sqlx::query(
@@ -1064,7 +1133,7 @@ async fn get_all_columns_mysql(
         "#,
     )
     .bind(db)
-    .fetch_all(&mut conn)
+    .fetch_all(&mut *conn)
     .await?;
 
     let result: Vec<SchemaColumn> = rows
@@ -1078,8 +1147,6 @@ async fn get_all_columns_mysql(
             data_type_name: row.get("data_type_name"),
         })
         .collect();
-
-    conn.close().await?;
     Ok(result)
 }
 
@@ -1092,12 +1159,14 @@ async fn get_all_columns_mysql(
 pub async fn execute_ddl_statements(
     payload: &ConnectionPayload,
     plan: &DdlPlan,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
 ) -> AppResult<DdlExecutionResult> {
     ensure_supported_driver(payload.r#type.as_str())?;
 
     match payload.r#type.as_str() {
-        "postgresql" => execute_ddl_pg(payload, plan).await,
-        "mysql" => execute_ddl_mysql(payload, plan).await,
+        "postgresql" => execute_ddl_pg(payload, plan, ssh_password, key_passphrase).await,
+        "mysql" => execute_ddl_mysql(payload, plan, ssh_password, key_passphrase).await,
         "sqlite" => execute_ddl_sqlite(payload, plan).await,
         _ => Err(AppError::UnsupportedDriver(payload.r#type.clone())),
     }
@@ -1106,14 +1175,10 @@ pub async fn execute_ddl_statements(
 async fn execute_ddl_pg(
     payload: &ConnectionPayload,
     plan: &DdlPlan,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
 ) -> AppResult<DdlExecutionResult> {
-    let options = PgConnectOptions::new()
-        .host(payload.host.as_str())
-        .port(payload.port)
-        .username(payload.username.as_str())
-        .password(payload.password.as_str())
-        .database(payload.database.as_str());
-    let mut conn = sqlx::PgConnection::connect_with(&options).await?;
+    let mut conn = acquire_pg_conn(payload, ssh_password, key_passphrase).await?;
 
     // Set search_path if schema is specified
     if !payload.schema.is_empty() {
@@ -1121,19 +1186,19 @@ async fn execute_ddl_pg(
             "SET search_path TO {}",
             quote_identifier_pg(&payload.schema)
         ))
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await?;
     }
 
     // Wrap in transaction for atomic DDL
-    sqlx::query("BEGIN").execute(&mut conn).await?;
+    sqlx::query("BEGIN").execute(&mut *conn).await?;
 
     let mut results: Vec<DdlStatementResult> = Vec::new();
     let mut all_ok = true;
 
     for stmt in &plan.statements {
         let start = Instant::now();
-        let res = sqlx::query(&stmt.sql).execute(&mut conn).await;
+        let res = sqlx::query(&stmt.sql).execute(&mut *conn).await;
         let elapsed = start.elapsed().as_millis();
 
         match res {
@@ -1156,17 +1221,15 @@ async fn execute_ddl_pg(
                     elapsed_ms: elapsed,
                 });
                 // Rollback on first error
-                let _ = sqlx::query("ROLLBACK").execute(&mut conn).await;
+                let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
                 break;
             }
         }
     }
 
     if all_ok {
-        sqlx::query("COMMIT").execute(&mut conn).await?;
+        sqlx::query("COMMIT").execute(&mut *conn).await?;
     }
-
-    conn.close().await?;
 
     Ok(DdlExecutionResult {
         success: all_ok,
@@ -1178,21 +1241,17 @@ async fn execute_ddl_pg(
 async fn execute_ddl_mysql(
     payload: &ConnectionPayload,
     plan: &DdlPlan,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
 ) -> AppResult<DdlExecutionResult> {
-    let options = MySqlConnectOptions::new()
-        .host(payload.host.as_str())
-        .port(payload.port)
-        .username(payload.username.as_str())
-        .password(payload.password.as_str())
-        .database(payload.database.as_str());
-    let mut conn = sqlx::MySqlConnection::connect_with(&options).await?;
+    let mut conn = acquire_mysql_conn(payload, ssh_password, key_passphrase).await?;
 
     let mut results: Vec<DdlStatementResult> = Vec::new();
     let mut all_ok = true;
 
     for stmt in &plan.statements {
         let start = Instant::now();
-        let res = sqlx::query(&stmt.sql).execute(&mut conn).await;
+        let res = sqlx::query(&stmt.sql).execute(&mut *conn).await;
         let elapsed = start.elapsed().as_millis();
 
         match res {
@@ -1219,8 +1278,6 @@ async fn execute_ddl_mysql(
             }
         }
     }
-
-    conn.close().await?;
 
     Ok(DdlExecutionResult {
         success: all_ok,
@@ -1272,7 +1329,11 @@ pub fn generate_drop_table_sql(driver: &str, schema: &str, table_name: &str, cas
 }
 
 /// Validate drop-table request inputs and execute the drop.
-pub async fn drop_table(payload: &DropTablePayload) -> AppResult<DropTableResult> {
+pub async fn drop_table(
+    payload: &DropTablePayload,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
+) -> AppResult<DropTableResult> {
     ensure_supported_driver(payload.connection.r#type.as_str())?;
 
     if payload.table_name.trim().is_empty() {
@@ -1296,7 +1357,7 @@ pub async fn drop_table(payload: &DropTablePayload) -> AppResult<DropTableResult
     );
 
     let start = Instant::now();
-    let result = execute_sql(&payload.connection, &sql).await;
+    let result = execute_sql(&payload.connection, &sql, ssh_password, key_passphrase).await;
     let elapsed = start.elapsed().as_millis();
 
     match result {
@@ -1329,12 +1390,14 @@ pub async fn drop_table(payload: &DropTablePayload) -> AppResult<DropTableResult
 /// 7. Commit on success, rollback on any failure
 pub async fn commit_table_changes(
     payload: &CommitTableChangesPayload,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
 ) -> AppResult<CommitTableChangesResult> {
     ensure_supported_driver(payload.connection.r#type.as_str())?;
 
     match payload.connection.r#type.as_str() {
-        "postgresql" => commit_table_changes_pg(payload).await,
-        "mysql" => commit_table_changes_mysql(payload).await,
+        "postgresql" => commit_table_changes_pg(payload, ssh_password, key_passphrase).await,
+        "mysql" => commit_table_changes_mysql(payload, ssh_password, key_passphrase).await,
         "sqlite" => commit_table_changes_sqlite(payload).await,
         _ => Err(AppError::UnsupportedDriver(payload.connection.r#type.clone())),
     }
@@ -1343,16 +1406,11 @@ pub async fn commit_table_changes(
 /// PostgreSQL implementation of commit_table_changes.
 async fn commit_table_changes_pg(
     payload: &CommitTableChangesPayload,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
 ) -> AppResult<CommitTableChangesResult> {
-    use sqlx::postgres::PgConnection;
 
-    let options = PgConnectOptions::new()
-        .host(payload.connection.host.as_str())
-        .port(payload.connection.port)
-        .username(payload.connection.username.as_str())
-        .password(payload.connection.password.as_str())
-        .database(payload.connection.database.as_str());
-    let mut conn = sqlx::PgConnection::connect_with(&options).await?;
+    let mut conn = acquire_pg_conn(&payload.connection, ssh_password, key_passphrase).await?;
 
     // Set search_path if schema is specified
     if !payload.connection.schema.is_empty() {
@@ -1360,7 +1418,7 @@ async fn commit_table_changes_pg(
             "SET search_path TO {}",
             quote_identifier_pg(&payload.connection.schema)
         ))
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await?;
     }
 
@@ -1368,12 +1426,11 @@ async fn commit_table_changes_pg(
     // Re-fetch columns for the table and verify they match expectations.
     // get_pg_table_schema resolves the canonical name AND the correct schema,
     // so we use schema_info.schema for the fully-qualified table name below.
-    let schema_info = get_pg_table_schema(&payload.connection, &payload.table_name).await?;
+    let schema_info = get_pg_table_schema(&payload.connection, &payload.table_name, ssh_password, key_passphrase).await?;
     let column_names: Vec<String> = schema_info.columns.iter().map(|c| c.name.clone()).collect();
 
     // Verify primary key column exists
     if !column_names.contains(&payload.primary_key_column) {
-        conn.close().await?;
         return Err(AppError::InvalidInput(format!(
             "Primary key column '{}' not found in table schema. The table structure may have changed. Please refresh.",
             payload.primary_key_column
@@ -1496,7 +1553,6 @@ async fn commit_table_changes_pg(
 
     // ── Commit transaction ───────────────────────────────────────
     tx.commit().await?;
-    conn.close().await?;
 
     Ok(CommitTableChangesResult {
         inserted_rows,
@@ -1536,16 +1592,11 @@ fn bind_json_value_pg<'q>(
 /// MySQL implementation of commit_table_changes.
 async fn commit_table_changes_mysql(
     payload: &CommitTableChangesPayload,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
 ) -> AppResult<CommitTableChangesResult> {
-    use sqlx::mysql::MySqlConnection;
 
-    let options = MySqlConnectOptions::new()
-        .host(payload.connection.host.as_str())
-        .port(payload.connection.port)
-        .username(payload.connection.username.as_str())
-        .password(payload.connection.password.as_str())
-        .database(payload.connection.database.as_str());
-    let mut conn = sqlx::MySqlConnection::connect_with(&options).await?;
+    let mut conn = acquire_mysql_conn(&payload.connection, ssh_password, key_passphrase).await?;
 
     let fq_table = quote_identifier_mysql(&payload.table_name);
     let pk_quoted = quote_identifier_mysql(&payload.primary_key_column);
@@ -1594,8 +1645,7 @@ async fn commit_table_changes_mysql(
         }
         let set_clauses: Vec<String> = cols
             .iter()
-            .enumerate()
-            .map(|(i, c)| format!("{} = ?", quote_identifier_mysql(c)))
+            .map(|c| format!("{} = ?", quote_identifier_mysql(c)))
             .collect();
 
         let sql = format!(
@@ -1642,7 +1692,6 @@ async fn commit_table_changes_mysql(
 
     // ── Commit transaction ───────────────────────────────────────
     tx.commit().await?;
-    conn.close().await?;
 
     Ok(CommitTableChangesResult {
         inserted_rows,
@@ -1714,17 +1763,22 @@ async fn get_all_foreign_keys_sqlite(
 
 // ── PostgreSQL dispatch helpers (delegating to postgresql.rs) ─────
 
-async fn test_connection_pg(payload: &ConnectionPayload) -> AppResult<()> {
-    super::postgresql::test_connection(payload).await
+async fn test_connection_pg(
+    payload: &ConnectionPayload,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
+) -> AppResult<()> {
+    super::postgresql::test_connection(payload, None, ssh_password, key_passphrase).await
 }
 
-async fn execute_sql_pg(payload: &ConnectionPayload, sql: &str) -> AppResult<QueryResult> {
-    super::postgresql::execute_sql(payload, sql).await
+async fn execute_sql_pg(
+    payload: &ConnectionPayload,
+    sql: &str,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
+) -> AppResult<QueryResult> {
+    super::postgresql::execute_sql(payload, sql, None, ssh_password, key_passphrase).await
 }
-
-// ── Tests ────────────────────────────────────────────────────────
-
-#[cfg(test)]
 mod tests {
     use super::*;
     #[test]

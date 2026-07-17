@@ -315,9 +315,9 @@ function DataExplorerLayoutChrome({
             | 'light'
             | 'dark') || 'light',
       },
-      (profile, password) => {
+      (profile, password, sshPassword, keyPassphrase) => {
         resetWindow()
-        handleSaveRef.current(profile, password)
+        handleSaveRef.current(profile, password, sshPassword, keyPassphrase)
         handleCloseRef.current()
       },
       () => {

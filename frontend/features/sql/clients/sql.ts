@@ -22,9 +22,15 @@ export interface QueryResult {
 
 // ── SQL ─────────────────────────────────────────────────────────
 
-export async function testConnection(payload: ConnectionPayload) {
+export async function testConnection(
+  payload: ConnectionPayload,
+  sshPassword?: string,
+  keyPassphrase?: string,
+) {
   return invoke<{ ok: boolean; message: string }>('test_connection', {
     payload,
+    sshPassword,
+    keyPassphrase,
   })
 }
 

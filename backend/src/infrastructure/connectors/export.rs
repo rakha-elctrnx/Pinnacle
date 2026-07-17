@@ -14,7 +14,7 @@ use std::io::Write;
 use std::path::Path;
 use std::time::Instant;
 
-use sqlx::{mysql::MySqlConnectOptions, postgres::PgConnectOptions, Column, Connection, Row};
+use sqlx::{Column, Connection, Row};
 
 use crate::{
     core::{error::AppError, result::AppResult},
@@ -146,12 +146,7 @@ pub async fn estimate_export(payload: &ConnectionPayload, table_name: &str) -> A
 
     let row_count: u64 = match payload.r#type.as_str() {
         "postgresql" => {
-            let options = PgConnectOptions::new()
-                .host(&payload.host)
-                .port(payload.port)
-                .username(&payload.username)
-                .password(&payload.password)
-                .database(&payload.database);
+            let options = super::postgresql::build_connection_options(payload, None);
             let mut conn = sqlx::PgConnection::connect_with(&options).await?;
 
             if !payload.schema.is_empty() {
@@ -168,12 +163,7 @@ pub async fn estimate_export(payload: &ConnectionPayload, table_name: &str) -> A
             val.0 as u64
         }
         "mysql" => {
-            let options = MySqlConnectOptions::new()
-                .host(&payload.host)
-                .port(payload.port)
-                .username(&payload.username)
-                .password(&payload.password)
-                .database(&payload.database);
+            let options = super::ssl::build_mysql_options(payload, None);
             let mut conn = sqlx::MySqlConnection::connect_with(&options).await?;
 
             let val: (i64,) = sqlx::query_as(&count_sql).fetch_one(&mut conn).await?;
@@ -260,12 +250,7 @@ async fn fetch_all_json_rows(
 ) -> AppResult<(Vec<String>, Vec<Vec<serde_json::Value>>)> {
     match conn_type {
         "postgresql" => {
-            let options = PgConnectOptions::new()
-                .host(&payload.host)
-                .port(payload.port)
-                .username(&payload.username)
-                .password(&payload.password)
-                .database(&payload.database);
+            let options = super::postgresql::build_connection_options(payload, None);
             let mut conn = sqlx::PgConnection::connect_with(&options).await?;
 
             if !payload.schema.is_empty() {
@@ -302,12 +287,7 @@ async fn fetch_all_json_rows(
             Ok((columns, json_rows))
         }
         "mysql" => {
-            let options = MySqlConnectOptions::new()
-                .host(&payload.host)
-                .port(payload.port)
-                .username(&payload.username)
-                .password(&payload.password)
-                .database(&payload.database);
+            let options = super::ssl::build_mysql_options(payload, None);
             let mut conn = sqlx::MySqlConnection::connect_with(&options).await?;
 
             let rows = sqlx::query(sql).fetch_all(&mut conn).await?;

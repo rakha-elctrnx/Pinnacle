@@ -135,7 +135,12 @@ export interface DataExplorerOrchestratorResult {
   handleExportConnection: (itemId: string) => void
   handleRefreshConnection: (itemId: string) => Promise<void>
   handleCloseConnection: (itemId: string) => void
-  handleSaveConnection: (profile: ConnectionProfile, password?: string) => void
+  handleSaveConnection: (
+    profile: ConnectionProfile,
+    password?: string,
+    sshPassword?: string,
+    keyPassphrase?: string,
+  ) => void
   handleToggleTreeNode: (path: string) => void
   handleFetchDatabaseDetails: (dbName: string) => void
   wrappedHandleTreeNodeClick: (
@@ -661,6 +666,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
             username: conn.username,
             password,
             ssl: conn.ssl ?? false,
+            sslConfig: conn.sslConfig,
           }
           sqlRollbackTransaction(
             payload,
@@ -709,8 +715,10 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   const handleSaveConnection = (
     profile: ConnectionProfile,
     password?: string,
+    sshPassword?: string,
+    keyPassphrase?: string,
   ) => {
-    upsert(profile, password)
+    upsert(profile, password, sshPassword, keyPassphrase)
     setConnectionStatuses((prev) => ({
       ...prev,
       [profile.id]: 'idle',

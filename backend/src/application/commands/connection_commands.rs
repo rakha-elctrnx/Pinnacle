@@ -38,16 +38,24 @@ pub async fn save_connection(
     request: SaveConnectionRequest,
 ) -> AppResult<ConnectionResponse> {
     let data = app_data(&app)?;
-    store::save_connection(
+    store::save_connection_with_secrets(
         &data,
         &request.metadata,
         request.password.as_deref(),
+        request.ssh_password.as_deref(),
+        request.key_passphrase.as_deref(),
     )
     .await?;
 
     // Keep keyring as secondary store for migrated entries; ignore errors.
     if let Some(password) = &request.password {
         let _ = keyring::save_password(&request.metadata.id, password).await;
+    }
+    if let Some(ssh_password) = &request.ssh_password {
+        let _ = keyring::save_ssh_password(&request.metadata.id, ssh_password).await;
+    }
+    if let Some(key_passphrase) = &request.key_passphrase {
+        let _ = keyring::save_key_passphrase(&request.metadata.id, key_passphrase).await;
     }
 
     Ok(request.metadata.into())
@@ -119,6 +127,44 @@ pub async fn get_connection_password(
     })
 }
 
+/// Get the SSH password for a connection from the store or keyring.
+#[tauri::command]
+pub async fn get_ssh_password(
+    app: tauri::AppHandle,
+    request: GetPasswordRequest,
+) -> AppResult<GetPasswordResponse> {
+    let data = app_data(&app)?;
+    let password = match store::get_ssh_password(&data, &request.connection_id).await? {
+        Some(p) => p,
+        None => keyring::get_ssh_password(&request.connection_id)
+            .await?
+            .unwrap_or_default(),
+    };
+    Ok(GetPasswordResponse {
+        connection_id: request.connection_id,
+        password,
+    })
+}
+
+/// Get the private-key passphrase for a connection from the store or keyring.
+#[tauri::command]
+pub async fn get_key_passphrase(
+    app: tauri::AppHandle,
+    request: GetPasswordRequest,
+) -> AppResult<GetPasswordResponse> {
+    let data = app_data(&app)?;
+    let password = match store::get_key_passphrase(&data, &request.connection_id).await? {
+        Some(p) => p,
+        None => keyring::get_key_passphrase(&request.connection_id)
+            .await?
+            .unwrap_or_default(),
+    };
+    Ok(GetPasswordResponse {
+        connection_id: request.connection_id,
+        password,
+    })
+}
+
 /// Delete a connection (metadata + password).
 #[tauri::command]
 pub async fn delete_connection(
@@ -127,6 +173,8 @@ pub async fn delete_connection(
 ) -> AppResult<()> {
     let data = app_data(&app)?;
     let _ = keyring::delete_password(&request.connection_id).await;
+    let _ = keyring::delete_ssh_password(&request.connection_id).await;
+    let _ = keyring::delete_key_passphrase(&request.connection_id).await;
     store::delete_metadata(&data, &request.connection_id).await?;
     Ok(())
 }

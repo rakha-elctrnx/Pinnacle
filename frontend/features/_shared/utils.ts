@@ -53,7 +53,10 @@ export function getConnPayload(conn: ConnectionProfile, schema?: string) {
     // Password removed - must be fetched from keyring using conn.passwordRef
     database: conn.database,
     ssl: conn.ssl,
+    sslConfig: isSqlConnectionType(conn.type) ? conn.sslConfig : undefined,
     schema: schema ?? '',
+    poolSize: conn.poolSize,
+    idleTimeoutSecs: conn.idleTimeoutSecs,
   }
 }
 

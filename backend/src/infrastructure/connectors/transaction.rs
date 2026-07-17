@@ -2,12 +2,10 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 use std::time::Instant;
 
-use sqlx::{
-    Column, Connection, Executor, Row,
-    mysql::MySqlConnectOptions,
-    postgres::PgConnectOptions,
-};
+use sqlx::{pool::PoolConnection, Column, Executor, Row};
 use tokio::sync::Mutex;
+
+use super::pool;
 
 use crate::{
     core::{error::AppError, result::AppResult},
@@ -46,11 +44,13 @@ struct TransactionRegistry {
 }
 
 /// Stores an open connection in transaction mode.
-/// Uses manual `BEGIN` / `COMMIT` / `ROLLBACK` SQL (same pattern as `execute_ddl_pg`)
-/// to avoid sqlx `Transaction` lifetime complexity.
-enum TransactionState {
-    Pg { conn: sqlx::PgConnection },
-    MySql { conn: sqlx::MySqlConnection },
+pub enum TransactionState {
+    Pg {
+        conn: PoolConnection<sqlx::Postgres>,
+    },
+    MySql {
+        conn: PoolConnection<sqlx::MySql>,
+    },
 }
 
 static REGISTRY: LazyLock<TransactionRegistry> = LazyLock::new(TransactionRegistry::default);
@@ -62,15 +62,23 @@ pub async fn begin(payload: &ConnectionPayload) -> AppResult<String> {
 
     let id = uuid::Uuid::new_v4().to_string();
 
+    // Try pool first (saved connections); fall back to ad-hoc for test-before-save
+    let pooled = pool::get_or_create(payload, None, None).await?;
+
     match payload.r#type.as_str() {
         "postgresql" => {
-            let opts = PgConnectOptions::new()
-                .host(payload.host.as_str())
-                .port(payload.port)
-                .username(payload.username.as_str())
-                .password(payload.password.as_str())
-                .database(payload.database.as_str());
-            let mut conn = sqlx::PgConnection::connect_with(&opts).await?;
+            let mut conn = match &pooled {
+                Some(pool::PooledDb::Pg(p)) => p.acquire().await?,
+                _ => {
+                    // Ad-hoc fallback (no connection_id — test-before-save flow).
+                    // We don't have a saved pool; create a single-shot lazy pool
+                    // so the connection can live as a PoolConnection in the registry
+                    // (drop returns it to the pool — never crashed mid-transaction).
+                    let opts = super::postgresql::build_connection_options(payload, None);
+                    let tmp = sqlx::Pool::<sqlx::Postgres>::connect_lazy_with(opts);
+                    tmp.acquire().await?
+                }
+            };
 
             // Set search_path so unqualified table names resolve
             if !payload.schema.is_empty() {
@@ -78,11 +86,11 @@ pub async fn begin(payload: &ConnectionPayload) -> AppResult<String> {
                     "SET search_path TO {}",
                     quote_identifier_pg(&payload.schema)
                 ))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await?;
             }
 
-            sqlx::query("BEGIN").execute(&mut conn).await?;
+            sqlx::query("BEGIN").execute(&mut *conn).await?;
 
             REGISTRY
                 .inner
@@ -92,14 +100,16 @@ pub async fn begin(payload: &ConnectionPayload) -> AppResult<String> {
             Ok(id)
         }
         "mysql" => {
-            let opts = MySqlConnectOptions::new()
-                .host(payload.host.as_str())
-                .port(payload.port)
-                .username(payload.username.as_str())
-                .password(payload.password.as_str())
-                .database(payload.database.as_str());
-            let mut conn = sqlx::MySqlConnection::connect_with(&opts).await?;
-            sqlx::query("BEGIN").execute(&mut conn).await?;
+            let mut conn = match &pooled {
+                Some(pool::PooledDb::MySql(p)) => p.acquire().await?,
+                _ => {
+                    // Ad-hoc fallback (no connection_id — test-before-save flow)
+                    let opts = super::ssl::build_mysql_options(payload, None);
+                    let tmp = sqlx::Pool::<sqlx::MySql>::connect_lazy_with(opts);
+                    tmp.acquire().await?
+                }
+            };
+            sqlx::query("BEGIN").execute(&mut *conn).await?;
             REGISTRY
                 .inner
                 .lock()
@@ -151,12 +161,12 @@ pub async fn execute(
 
                 if !is_last {
                     // Non-last statement — execute for side effects only
-                    conn.execute(sqlx::query(stmt))
+                    (&mut **conn).execute(sqlx::query(stmt))
                         .await
                         .map_err(|e| format!("[statement {}] {}", i, e))?;
                 } else if read {
                     // Last read statement — return rows
-                    let rows = conn
+                    let rows = (&mut **conn)
                         .fetch_all(sqlx::query(stmt))
                         .await
                         .map_err(|e| format!("[statement {}] {}", i, e))?;
@@ -192,7 +202,7 @@ pub async fn execute(
                     });
                 } else {
                     // Last write statement — return rows_affected
-                    let res = conn
+                    let res = (&mut **conn)
                         .execute(sqlx::query(stmt))
                         .await
                         .map_err(|e| format!("[statement {}] {}", i, e))?;
@@ -217,11 +227,11 @@ pub async fn execute(
                 let read = is_read_query(stmt);
 
                 if !is_last {
-                    conn.execute(sqlx::query(stmt))
+                    (&mut **conn).execute(sqlx::query(stmt))
                         .await
                         .map_err(|e| format!("[statement {}] {}", i, e))?;
                 } else if read {
-                    let rows = conn
+                    let rows = (&mut **conn)
                         .fetch_all(sqlx::query(stmt))
                         .await
                         .map_err(|e| format!("[statement {}] {}", i, e))?;
@@ -256,7 +266,7 @@ pub async fn execute(
                         rows_affected: count,
                     });
                 } else {
-                    let res = conn
+                    let res = (&mut **conn)
                         .execute(sqlx::query(stmt))
                         .await
                         .map_err(|e| format!("[statement {}] {}", i, e))?;
@@ -288,17 +298,18 @@ pub async fn commit(transaction_id: &str) -> Result<TransactionCommitResult, Str
     match state {
         TransactionState::Pg { mut conn } => {
             sqlx::query("COMMIT")
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| e.to_string())?;
-            conn.close().await.map_err(|e| e.to_string())?;
+            // Drop returns conn to the pool; no explicit close needed.
+            drop(conn);
         }
         TransactionState::MySql { mut conn } => {
             sqlx::query("COMMIT")
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| e.to_string())?;
-            conn.close().await.map_err(|e| e.to_string())?;
+            drop(conn);
         }
     }
 
@@ -323,12 +334,12 @@ pub async fn rollback(transaction_id: &str) -> Result<TransactionCommitResult, S
 
     match state {
         TransactionState::Pg { mut conn } => {
-            let _ = sqlx::query("ROLLBACK").execute(&mut conn).await;
-            let _ = conn.close().await;
+            let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+            drop(conn);
         }
         TransactionState::MySql { mut conn } => {
-            let _ = sqlx::query("ROLLBACK").execute(&mut conn).await;
-            let _ = conn.close().await;
+            let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+            drop(conn);
         }
     }
 
