@@ -1,47 +1,77 @@
-import { useEffect, useState, useRef } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+  type ReactNode,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react'
+import { useNavigate } from 'react-router-dom'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import {
+  Database,
   Ellipsis,
   Moon,
   PanelRightClose,
   PanelRightOpen,
+  Plus,
   Search,
   Sun,
 } from 'lucide-react'
 import { useTheme } from '../../../../app/theme'
 import { useShellLayout } from '../../store/shellLayoutStore'
+import { useConnectionStore } from '../../store/connectionStore'
+import { getConnectionDefaultRoute } from '../../utils'
+import { filterConnections } from '../../connection-management/service'
+import type { ConnectionType } from '../../types/domain'
 import { ActionButton } from '../ui/ActionButton'
 
-/**
- * Header — application-level top bar.
- *
- * Phase 1: standalone, no props. The Settings/About dropdown items from
- * the legacy `AppShell` were removed because Settings was deleted and
- * About has no destination. The overflow menu is kept as a placeholder
- * to preserve layout cadence (and for future Phase 3+ items).
- *
- * The Header also hosts the manual toggle for the right-side
- * `InspectorPanel` (default closed). The icon swaps between an
- * "open" and "closed" glyph so the current state is visible at a
- * glance, and the button uses `aria-pressed` for assistive tech.
- *
- * The native macOS title bar is disabled in `tauri.conf.json`
- * (`titleBarStyle: "Overlay"` + `hiddenTitle: true`). The traffic-light
- * buttons are rendered by the OS but visually sit on top of this
- * header. The `data-tauri-drag-region` attribute lets the user drag
- * the window from anywhere in the header while still allowing button
- * clicks (Tauri differentiates click from drag). The header uses a
- * three-column grid with equal side columns so the window-button area,
- * centered search bar, and right action group keep consistent spacing.
- */
+interface SearchMenuItem {
+  label: string
+  icon: ReactNode
+  onSelect: () => void
+}
+
 export function Header() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isWindowFocused, setIsWindowFocused] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLDivElement>(null)
   const { theme, switchTheme } = useTheme()
   const inspectorOpen = useShellLayout((s) => s.inspectorOpen)
   const toggleInspector = useShellLayout((s) => s.toggleInspector)
+  const navigate = useNavigate()
+  const connections = useConnectionStore((s) => s.items)
+
+  // Local filter state for the search dropdown's connection list.
+  const [query, setQuery] = useState('')
+  const filteredConnections = useMemo(
+    () => filterConnections(connections, query),
+    [connections, query],
+  )
+
+  const closeSearchMenu = () => {
+    setIsSearchOpen(false)
+    setQuery('')
+  }
+
+  const handleConnectionSelect = (id: string, type: ConnectionType) => {
+    navigate(getConnectionDefaultRoute(type, id))
+    closeSearchMenu()
+  }
+
+  const searchMenuItems: SearchMenuItem[] = [
+    {
+      label: 'New connection',
+      icon: <Plus size={15} />,
+      onSelect: () => {
+        navigate('/new-connection')
+        closeSearchMenu()
+      },
+    },
+  ]
 
   useEffect(() => {
     let isMounted = true
@@ -98,6 +128,42 @@ export function Header() {
     }
   }, [])
 
+  // Global Cmd/Ctrl+K toggles the search dropdown (the kbd hint is now live).
+  useEffect(() => {
+    const onHotkey = (e: globalThis.KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setIsSearchOpen((prev) => !prev)
+      }
+    }
+    document.addEventListener('keydown', onHotkey)
+    return () => document.removeEventListener('keydown', onHotkey)
+  }, [])
+
+  // Close the search dropdown on Escape or outside click.
+  useEffect(() => {
+    if (!isSearchOpen) return
+
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        closeSearchMenu()
+      }
+    }
+    const onClick = (e: globalThis.MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        closeSearchMenu()
+      }
+    }
+
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onClick)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onClick)
+    }
+  }, [isSearchOpen])
+
   return (
     <header
       data-tauri-drag-region
@@ -122,11 +188,17 @@ export function Header() {
       </div>
 
       {/* Center column — search bar (mathematically centered) */}
-      <div className="flex min-w-0 items-center justify-center">
+      <div
+        ref={searchRef}
+        className="relative flex min-w-0 items-center justify-center"
+      >
         <button
           type="button"
-          className="flex w-full items-center gap-2 rounded-lg border border-border-default bg-bg-subtle px-3 py-1.5 text-caption text-text-muted transition hover:border-border-strong hover:bg-bg-muted hover:text-text-secondary"
+          onClick={() => setIsSearchOpen((prev) => !prev)}
+          aria-haspopup="menu"
+          aria-expanded={isSearchOpen}
           aria-label="Search"
+          className="flex w-full items-center gap-2 rounded-lg border border-border-default bg-bg-subtle px-3 py-1.5 text-caption text-text-muted transition hover:border-border-strong hover:bg-bg-muted hover:text-text-secondary"
         >
           <Search size={14} />
           <span className="hidden sm:inline">Search…</span>
@@ -134,6 +206,82 @@ export function Header() {
             ⌘K
           </kbd>
         </button>
+
+        {isSearchOpen && (
+          <div
+            role="menu"
+            aria-label="Search connections"
+            className="absolute left-1/2 top-full z-50 mt-1.5 w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-xl border border-border-default bg-bg-base shadow-lg"
+          >
+            <div className="flex items-center gap-2 border-b border-border-default px-2.5">
+              <Search size={13} className="shrink-0 text-text-muted" />
+              <input
+                autoFocus
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => {
+                  if (e.key === 'Enter') {
+                    const first = filteredConnections[0]
+                    if (first) handleConnectionSelect(first.id, first.type)
+                  }
+                }}
+                placeholder="Search connections…"
+                className="h-8 w-full bg-transparent text-caption text-text-primary outline-none placeholder:text-text-muted"
+              />
+            </div>
+
+            <div className="py-1">
+              {searchMenuItems.map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  role="menuitem"
+                  onClick={item.onSelect}
+                  className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-caption text-text-secondary transition hover:bg-bg-hover"
+                >
+                  <span className="text-text-muted">{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {connections.length > 0 && (
+              <div className="max-h-56 overflow-y-auto border-t border-border-default py-1">
+                <div className="px-2.5 pb-2 pt-1 text-micro uppercase tracking-wide text-text-muted">
+                  Connections
+                </div>
+                {filteredConnections.length === 0 ? (
+                  <div className="px-2.5 py-1.5 text-caption text-text-muted">
+                    No connections found
+                  </div>
+                ) : (
+                  filteredConnections.map((conn) => (
+                    <button
+                      key={conn.id}
+                      type="button"
+                      role="menuitem"
+                      onClick={() =>
+                        handleConnectionSelect(conn.id, conn.type)
+                      }
+                      className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-caption text-text-secondary transition hover:bg-bg-hover"
+                    >
+                      <span className="shrink-0 text-text-muted">
+                        <Database size={14} />
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">
+                        {conn.name}
+                      </span>
+                      <span className="shrink-0 text-micro text-text-muted">
+                        {conn.type}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Right column — action group, right-aligned */}

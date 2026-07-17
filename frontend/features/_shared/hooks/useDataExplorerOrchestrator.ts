@@ -555,6 +555,40 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     setActiveTableTabId(null)
     setSelectedTreeNode(null)
     explorerData.setSelectedTable(null)
+
+    // Auto-expand the connection's tree node + fetch its data when opened
+    // via search/URL (sidebar clicks expand via onConnectionToggle). No-op
+    // if already expanded — mirrors handleConnectionToggle's expand path.
+    if (!id) return
+    const profile = items.find((item) => item.id === id)
+    if (!profile) return
+
+    const group = profile.tags[0] || 'Ungrouped'
+    const connectionPath = `${group}/${profile.name}`
+
+    setExpandedTreePaths((prev) => {
+      const next = prev.slice()
+      if (!next.includes(group)) next.push(group)
+      if (!next.includes(connectionPath)) next.push(connectionPath)
+      return next
+    })
+
+    if (!expandedTreePaths.includes(connectionPath)) {
+      if (hasCapabilityWithAdapter(profile.type, 'connect')) {
+        const treeData = explorerData.treeDataMap[id]
+        if (!treeData) {
+          explorerData.refreshConnectionData(id, profile)
+        } else if (treeData.databases?.[0]) {
+          explorerData.fetchDatabaseDetails(
+            id,
+            profile,
+            treeData.databases[0].name,
+          )
+        }
+      } else if (isElasticsearchLike(profile.type)) {
+        setExpandedConnectionId(id)
+      }
+    }
   }
 
   const handleOpenEditModal = (itemId: string) => {

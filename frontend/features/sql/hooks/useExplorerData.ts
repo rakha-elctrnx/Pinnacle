@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   executeSql,
   sqlGetAllColumns,
@@ -214,6 +214,10 @@ export function useExplorerData({
   const [loadingDatabaseNames, setLoadingDatabaseNames] = useState<Set<string>>(
     new Set(),
   )
+  // In-flight guards — prevent duplicate fetches when multiple callers fire
+  // in the same tick (e.g. sidebar label click runs both selection + toggle).
+  const inflightTreeFetches = useRef<Set<string>>(new Set())
+  const inflightDbDetails = useRef<Set<string>>(new Set())
 
   const [realTableColumns, setRealTableColumns] = useState<string[]>([])
   const [realTableRows, setRealTableRows] = useState<Record<string, string>[]>(
@@ -262,6 +266,8 @@ export function useExplorerData({
   const fetchTreeData = useCallback(
     async (connId: string, conn: ConnectionProfile) => {
       if (!isSqlConnectionType(conn.type)) return
+      if (inflightTreeFetches.current.has(connId)) return
+      inflightTreeFetches.current.add(connId)
       setTreeLoading((prev) => ({ ...prev, [connId]: true }))
       try {
         const payload = await getConnPayloadWithPassword(conn)
@@ -323,6 +329,7 @@ export function useExplorerData({
         console.error('Failed to fetch tree data:', error)
         setConnectionStatuses((prev) => ({ ...prev, [connId]: 'error' }))
       } finally {
+        inflightTreeFetches.current.delete(connId)
         setTreeLoading((prev) => ({ ...prev, [connId]: false }))
       }
     },
@@ -333,6 +340,9 @@ export function useExplorerData({
   const fetchDatabaseDetails = useCallback(
     async (connId: string, conn: ConnectionProfile, dbName: string) => {
       if (!isSqlConnectionType(conn.type)) return
+      const dbKey = `${connId}:${dbName}`
+      if (inflightDbDetails.current.has(dbKey)) return
+      inflightDbDetails.current.add(dbKey)
       setTreeLoading((prev) => ({ ...prev, [connId]: true }))
       setLoadingDatabaseNames((prev) => new Set([...prev, dbName]))
       try {
@@ -421,6 +431,7 @@ export function useExplorerData({
       } catch (error) {
         console.error('Failed to fetch database details:', error)
       } finally {
+        inflightDbDetails.current.delete(`${connId}:${dbName}`)
         setTreeLoading((prev) => ({ ...prev, [connId]: false }))
         setLoadingDatabaseNames((prev) => {
           const next = new Set(prev)
