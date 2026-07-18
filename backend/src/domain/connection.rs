@@ -65,6 +65,7 @@ pub struct SshConfig {
     pub private_key_path: Option<String>,
 }
 
+#[allow(dead_code)]
 impl SshConfig {
     pub fn auth_method(&self) -> SshAuthMethod {
         match self.auth_method.as_str() {
@@ -77,6 +78,7 @@ impl SshConfig {
 
 /// Discriminator for the SSH authentication strategy in use.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum SshAuthMethod {
     Password,
     PrivateKey,
@@ -106,6 +108,7 @@ pub struct SslConfig {
     pub client_key_path: Option<String>,
 }
 
+#[allow(dead_code)]
 impl SslConfig {
     /// Resolve the effective mode, falling back to "require" when empty.
     pub fn effective_mode(&self) -> &str {
@@ -149,6 +152,7 @@ pub struct ConnectionMetadata {
     pub idle_timeout_secs: Option<u64>,
 }
 
+#[allow(dead_code)]
 impl ConnectionMetadata {
     pub fn new(
         id: String,
@@ -260,6 +264,7 @@ pub struct DeleteConnectionRequest {
 /// Filter options for listing connections
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct ConnectionFilter {
     #[serde(default)]
     pub search: Option<String>,
@@ -273,11 +278,13 @@ pub struct ConnectionFilter {
 
 /// Full connection profile with password (used internally, not exposed to frontend)
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct FullConnection {
     pub metadata: ConnectionMetadata,
     pub password: String,
 }
 
+#[allow(dead_code)]
 impl FullConnection {
     pub fn new(metadata: ConnectionMetadata, password: String) -> Self {
         Self { metadata, password }
@@ -289,5 +296,103 @@ impl FullConnection {
             metadata: self.metadata.clone(),
             password_ref: format!("keyring://{}", self.metadata.id),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_metadata() -> ConnectionMetadata {
+        ConnectionMetadata::new(
+            "conn-1".to_string(),
+            "Test".to_string(),
+            ConnectionType::Postgresql,
+            "localhost".to_string(),
+            5432,
+            "user".to_string(),
+            "db".to_string(),
+            false,
+        )
+    }
+
+    #[test]
+    fn connection_metadata_new_sets_defaults() {
+        let m = sample_metadata();
+        assert_eq!(m.id, "conn-1");
+        assert!(m.schema.is_empty());
+        assert!(m.tags.is_empty());
+        assert!(!m.favorite);
+        assert!(m.ssh.is_none());
+        assert!(m.ssl_config.is_none());
+        assert!(m.pool_size.is_none());
+        assert!(m.idle_timeout_secs.is_none());
+        assert!(!m.created_at.is_empty());
+        assert!(!m.updated_at.is_empty());
+    }
+
+    #[test]
+    fn connection_metadata_keyring_accessors() {
+        let m = sample_metadata();
+        assert_eq!(m.keyring_service(), "pinnacle-connection-conn-1");
+        assert_eq!(m.keyring_username(), "conn-1");
+    }
+
+    #[test]
+    fn ssh_config_auth_method_discriminates() {
+        let pw = SshConfig {
+            auth_method: "password".to_string(),
+            ..Default::default()
+        };
+        assert_eq!(pw.auth_method(), SshAuthMethod::Password);
+
+        let key = SshConfig {
+            auth_method: "privateKey".to_string(),
+            ..Default::default()
+        };
+        assert_eq!(key.auth_method(), SshAuthMethod::PrivateKey);
+
+        let agent = SshConfig {
+            auth_method: "agent".to_string(),
+            ..Default::default()
+        };
+        assert_eq!(agent.auth_method(), SshAuthMethod::Agent);
+
+        let unknown = SshConfig {
+            auth_method: "banana".to_string(),
+            ..Default::default()
+        };
+        assert_eq!(unknown.auth_method(), SshAuthMethod::Password);
+    }
+
+    #[test]
+    fn ssl_config_effective_mode_connection() {
+        let empty = SslConfig::default();
+        assert_eq!(empty.effective_mode(), "require");
+
+        let explicit = SslConfig {
+            mode: "verify-full".to_string(),
+            ..Default::default()
+        };
+        assert_eq!(explicit.effective_mode(), "verify-full");
+    }
+
+    #[test]
+    fn connection_filter_default_is_empty() {
+        let f = ConnectionFilter::default();
+        assert!(f.search.is_none());
+        assert!(f.connection_type.is_none());
+        assert!(f.tags.is_none());
+        assert!(!f.favorites_only);
+    }
+
+    #[test]
+    fn full_connection_new_and_to_response() {
+        let m = sample_metadata();
+        let fc = FullConnection::new(m.clone(), "secret".to_string());
+        assert_eq!(fc.password, "secret");
+        let resp = fc.to_response();
+        assert_eq!(resp.metadata.id, "conn-1");
+        assert_eq!(resp.password_ref, "keyring://conn-1");
     }
 }

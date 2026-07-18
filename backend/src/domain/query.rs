@@ -77,6 +77,16 @@ pub struct SslConfig {
     pub client_key_path: Option<String>,
 }
 
+#[allow(dead_code)]
+impl SslConfig {
+    /// Resolve the effective mode, falling back to "require" when empty.
+    pub fn effective_mode(&self) -> &str {
+        if self.mode.is_empty() { "require" } else { &self.mode }
+    }
+}
+
+/// SSH tunnel configuration (mirrors domain::connection::SshConfig but lives
+
 /// SSH tunnel configuration (mirrors domain::connection::SshConfig but lives
 /// in the query payload so connectors can branch on it without a circular import).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]

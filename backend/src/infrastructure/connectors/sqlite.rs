@@ -21,6 +21,7 @@ fn build_connection_options(payload: &ConnectionPayload) -> SqliteConnectOptions
         .create_if_missing(true)
 }
 
+#[allow(dead_code)]
 pub async fn test_connection(payload: &ConnectionPayload) -> AppResult<()> {
     if !ensure_is_sqlite(payload) {
         return Err(AppError::UnsupportedDriver(payload.r#type.clone()));
@@ -32,6 +33,7 @@ pub async fn test_connection(payload: &ConnectionPayload) -> AppResult<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn is_read_query(sql: &str) -> bool {
     let upper = sql.trim().to_uppercase();
     upper.starts_with("SELECT")
@@ -42,6 +44,7 @@ fn is_read_query(sql: &str) -> bool {
         || upper.starts_with("VALUES")
 }
 
+#[allow(dead_code)]
 pub(crate) fn extract_sqlite_value(row: &sqlx::sqlite::SqliteRow, column_name: &str) -> serde_json::Value {
     if let Ok(Some(v)) = row.try_get::<Option<i64>, _>(column_name) {
         return serde_json::json!(v);
@@ -58,6 +61,7 @@ pub(crate) fn extract_sqlite_value(row: &sqlx::sqlite::SqliteRow, column_name: &
     serde_json::Value::Null
 }
 
+#[allow(dead_code)]
 pub async fn execute_sql(payload: &ConnectionPayload, sql: &str) -> AppResult<QueryResult> {
     if !ensure_is_sqlite(payload) {
         return Err(AppError::UnsupportedDriver(payload.r#type.clone()));
@@ -116,6 +120,7 @@ pub async fn execute_sql(payload: &ConnectionPayload, sql: &str) -> AppResult<Qu
 
 // ── SQLite Schema Types ───────────────────────────────────────────
 
+#[allow(dead_code)]
 struct SqliteColumnInfo {
     cid: i64,
     name: String,
@@ -607,3 +612,77 @@ pub(crate) fn quote_identifier(id: &str) -> String {
     format!("\"{}\"", id.replace('"', "\"\""))
 }
 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::query::ConnectionPayload;
+
+    fn payload(sql: &str) -> ConnectionPayload {
+        ConnectionPayload {
+            r#type: "sqlite".into(),
+            host: String::new(),
+            port: 0,
+            username: String::new(),
+            password: String::new(),
+            database: sql.into(),
+            ssl: false,
+            schema: String::new(),
+            ssh: None,
+            connection_id: None,
+            ssl_config: None,
+            pool_size: None,
+            idle_timeout_secs: None,
+        }
+    }
+
+    #[test]
+    fn is_read_query_classifies() {
+        assert!(is_read_query("SELECT 1"));
+        assert!(is_read_query("  with cte as (select 1) select 2"));
+        assert!(is_read_query("EXPLAIN QUERY PLAN SELECT 1"));
+        assert!(is_read_query("VALUES (1)"));
+        assert!(!is_read_query("INSERT INTO t VALUES (1)"));
+        assert!(!is_read_query("UPDATE t SET x = 1"));
+        assert!(!is_read_query("DELETE FROM t"));
+    }
+
+    #[test]
+    fn extract_sqlite_value_handles_types() {
+        use sqlx::sqlite::SqliteRow;
+        // Build a row from a query we can read a column out of.
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        rt.block_on(async {
+            let opts = SqliteConnectOptions::new()
+                .in_memory(true);
+            let mut conn = sqlx::SqliteConnection::connect_with(&opts).await.unwrap();
+            let row: &SqliteRow = &conn
+                .fetch_one(sqlx::query("SELECT 42 as n, 'hi' as s, 1 as b"))
+                .await
+                .unwrap();
+            assert_eq!(extract_sqlite_value(row, "n"), serde_json::json!(42));
+            assert_eq!(extract_sqlite_value(row, "s"), serde_json::Value::String("hi".into()));
+        });
+    }
+
+    #[tokio::test]
+    async fn execute_sql_runs_select_and_ddl() {
+        let p = payload(":memory:");
+        // CREATE then SELECT
+        let _ = execute_sql(&p, "CREATE TABLE t (id INTEGER)").await.unwrap();
+        let res = execute_sql(&p, "SELECT 1 as v").await.unwrap();
+        assert_eq!(res.rows.len(), 1);
+        assert_eq!(res.columns, vec!["v".to_string()]);
+        assert_eq!(res.rows[0].get("v"), Some(&serde_json::json!(1)));
+    }
+
+    #[tokio::test]
+    async fn test_connection_rejects_wrong_driver() {
+        let mut p = payload(":memory:");
+        p.r#type = "postgresql".into();
+        let err = test_connection(&p).await.unwrap_err();
+        assert!(format!("{}", err).contains("UnsupportedDriver") || format!("{}", err).contains("unsupported"));
+    }
+}

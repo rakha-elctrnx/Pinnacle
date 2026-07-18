@@ -1779,8 +1779,9 @@ async fn execute_sql_pg(
 ) -> AppResult<QueryResult> {
     super::postgresql::execute_sql(payload, sql, None, ssh_password, key_passphrase).await
 }
+#[cfg(test)]
 mod tests {
-    use super::*;
+    use super::generate_drop_table_sql;
     #[test]
     fn drop_table_pg_quoting() {
         let sql = generate_drop_table_sql("postgresql", "public", "users", false);
@@ -1829,5 +1830,65 @@ mod tests {
         // Identifiers containing backticks should be escaped
         let sql = generate_drop_table_sql("mysql", "my`db", "my`table", false);
         assert_eq!(sql, "DROP TABLE `my``db`.`my``table`;");
+    }
+
+    #[test]
+    fn drop_table_sqlite_quoting() {
+        let sql = generate_drop_table_sql("sqlite", "main", "users", false);
+        assert_eq!(sql, "DROP TABLE \"main\".\"users\";");
+    }
+
+    #[test]
+    fn drop_table_sqlite_no_schema() {
+        let sql = generate_drop_table_sql("sqlite", "", "users", false);
+        assert_eq!(sql, "DROP TABLE \"users\";");
+    }
+
+    #[test]
+    fn drop_table_sqlite_escaping() {
+        let sql = generate_drop_table_sql("sqlite", "main", "my\"table", false);
+        assert_eq!(sql, "DROP TABLE \"main\".\"my\"\"table\";");
+    }
+
+    #[test]
+    fn ssl_config_effective_mode_default() {
+        let config = crate::domain::query::SslConfig::default();
+        assert_eq!(config.effective_mode(), "require");
+    }
+
+    #[test]
+    fn ssl_config_effective_mode_explicit() {
+        let config = crate::domain::query::SslConfig {
+            mode: "verify-full".to_string(),
+            ..Default::default()
+        };
+        assert_eq!(config.effective_mode(), "verify-full");
+    }
+
+    #[test]
+    fn ssl_config_effective_mode_empty_string() {
+        let config = crate::domain::query::SslConfig {
+            mode: "".to_string(),
+            ..Default::default()
+        };
+        assert_eq!(config.effective_mode(), "require");
+    }
+
+    #[test]
+    fn ssl_config_effective_mode_prefer() {
+        let config = crate::domain::query::SslConfig {
+            mode: "prefer".to_string(),
+            ..Default::default()
+        };
+        assert_eq!(config.effective_mode(), "prefer");
+    }
+
+    #[test]
+    fn ssl_config_effective_mode_disable() {
+        let config = crate::domain::query::SslConfig {
+            mode: "disable".to_string(),
+            ..Default::default()
+        };
+        assert_eq!(config.effective_mode(), "disable");
     }
 }
