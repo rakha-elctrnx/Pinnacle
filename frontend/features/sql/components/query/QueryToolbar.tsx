@@ -6,6 +6,7 @@ import {
   WrapText,
   Minimize2,
   History,
+  LoaderCircle,
 } from 'lucide-react'
 import { ActionButton } from '../../../_shared/components/ui/ActionButton'
 
@@ -49,8 +50,8 @@ export function QueryToolbar({
   return (
     <div className="flex items-center gap-1 border-b border-border-default px-1.5 py-1.5 animate-in fade-in duration-200">
       <ActionButton
-        icon={<Play size={14} />}
-        aria-label="Run (Ctrl+Enter)"
+        icon={isRunningQuery ? <LoaderCircle size={14} className="animate-spin" /> : <Play size={14} />}
+        aria-label={isRunningQuery ? 'Running…' : 'Run (Ctrl+Enter)'}
         variant="accent"
         disabled={isRunningQuery}
         onClick={() => onRunQuery('run')}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Download } from 'lucide-react'
+import { Download, Terminal, Play } from 'lucide-react'
 import type { QueryResult, QueryResultTab } from '../../../_shared/types/shared'
 import { ActionButton } from '../../../_shared/components/ui/ActionButton'
 import { downloadTextFile, createCsv } from '../../../_shared/utils'
@@ -51,16 +51,92 @@ export function QueryResultPanel({
     return () => document.removeEventListener('mousedown', handleClick)
   }, [exportOpen])
 
-  if (!queryResult) return null
+  if (!queryResult) {
+    return (
+      <>
+        {/* Resize handle */}
+        <div
+          className="group flex h-3 shrink-0 cursor-row-resize items-center justify-center border-t border-border-default bg-bg-subtle/50 hover:bg-primary/10 active:bg-primary/15 transition-colors"
+          onMouseDown={handleResizeMouseDown}
+        >
+          <span className="h-px w-8 rounded-full bg-text-muted/40 transition-all duration-150 group-hover:w-12 group-hover:bg-primary/60" />
+        </div>
+        <div
+          className="flex min-h-0 flex-col"
+          style={{ height: resultHeight }}
+        >
+          <div className="flex items-center gap-1 px-1.5 py-1">
+            {RESULT_TABS.map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setQueryResultTab(tab)}
+                className={`rounded-md px-2 py-0.5 text-caption capitalize transition-colors ${
+                  queryResultTab === tab
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-text-muted hover:bg-bg-hover hover:text-text-primary'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+            <span className="ml-auto" />
+          </div>
+
+          {queryResultTab === 'results' && (
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 bg-bg-base px-4 py-12">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-bg-muted/50">
+                <Terminal
+                  className="h-6 w-6 text-text-muted"
+                  strokeWidth={1.5}
+                />
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <h3 className="text-sm font-semibold text-text-primary">
+                  Run a query to see results
+                </h3>
+                <p className="flex items-center gap-1.5 text-xs text-text-muted">
+                  <kbd className="inline-flex items-center gap-0.5 rounded border border-border-default bg-bg-subtle px-1.5 py-0.5 font-mono text-[10px] text-text-secondary">
+                    <Play size={10} />
+                    Ctrl+Enter
+                  </kbd>
+                  {' '}to run the active query
+                </p>
+              </div>
+            </div>
+          )}
+
+          {queryResultTab === 'messages' && (
+            <ul className="flex-1 min-h-0 space-y-0.5 overflow-auto bg-bg-base p-1.5 text-xs text-text-primary font-mono">
+              {queryMessages.map((m, i) => (
+                <li
+                  key={`msg-${i}`}
+                  className="rounded px-1.5 py-0.5 hover:bg-bg-subtle text-[11px]"
+                >
+                  {m}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {queryResultTab === 'statistics' && (
+            <div className="flex items-center gap-4 bg-bg-base px-3 py-2 text-xs">
+              <span className="text-text-muted">No query executed yet</span>
+            </div>
+          )}
+        </div>
+      </>
+    )
+  }
 
   return (
     <>
       {/* Resize handle */}
       <div
-        className="flex h-1.5 shrink-0 cursor-row-resize items-center justify-center border-t border-border-default bg-bg-subtle/50 hover:bg-primary/10 active:bg-primary/15 transition-colors"
+        className="group flex h-3 shrink-0 cursor-row-resize items-center justify-center border-t border-border-default bg-bg-subtle/50 hover:bg-primary/10 active:bg-primary/15 transition-colors"
         onMouseDown={handleResizeMouseDown}
       >
-        <span className="h-px w-8 rounded-full bg-text-muted/40" />
+        <span className="h-px w-8 rounded-full bg-text-muted/40 transition-all duration-150 group-hover:w-12 group-hover:bg-primary/60" />
       </div>
       <div
         className="flex min-h-0 flex-col"

@@ -336,10 +336,10 @@ export function TableDetailPage() {
     useTabStore.getState().setTabPendingCount(tabId, totalPending)
   }, [tabId, totalPending])
 
-  // Auto-dismiss success toasts after 4s.
+  // Auto-dismiss toasts — 4s for success, 6s for errors
   useEffect(() => {
-    if (!toast || toast.kind !== 'success') return
-    const t = setTimeout(() => setToast(null), 4000)
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), toast.kind === 'success' ? 4000 : 6000)
     return () => clearTimeout(t)
   }, [toast, setToast])
 
@@ -416,10 +416,10 @@ export function TableDetailPage() {
       {toast && (
         <div
           className={[
-            'pointer-events-auto fixed top-3 right-3 z-50 flex items-start gap-2 rounded-lg px-3 py-2 text-xs shadow-lg',
+            'pointer-events-auto absolute left-1/2 z-50 flex -translate-x-1/2 items-start gap-2 rounded-lg px-3 py-2 text-xs shadow-lg',
             toast.kind === 'success'
-              ? 'border border-border-success bg-success-subtle text-success-text'
-              : 'border border-border-danger bg-danger-subtle text-danger',
+              ? 'bottom-3 border border-border-success bg-success-subtle text-success-text'
+              : 'bottom-3 border border-border-danger bg-danger-subtle text-danger',
           ].join(' ')}
           role="alert"
         >
