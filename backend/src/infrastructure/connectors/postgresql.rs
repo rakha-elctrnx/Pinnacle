@@ -223,12 +223,9 @@ pub(crate) fn extract_pg_value(row: &sqlx::postgres::PgRow, column_name: &str) -
         return serde_json::json!(v);
     }
 
-    // handle JSONB columns in PostgreSQL
-    if let Ok(Some(v)) = row.try_get::<Option<serde_json::Value>, _>(column_name) {
-        // stringify JSON values to preserve formatting and avoid issues with nested structures
-        return serde_json::Value::String(v.to_string());
-    }
-
+    // handle JSONB columns in PostgreSQL — return the raw value
+    // (not stringified), so the frontend receives a proper JSON object
+    // and can send it back as a JSONB-compatible type on update.
     if let Ok(Some(v)) = row.try_get::<Option<serde_json::Value>, _>(column_name) {
         return v;
     }

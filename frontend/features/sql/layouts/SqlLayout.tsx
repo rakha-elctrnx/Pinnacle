@@ -116,9 +116,7 @@ export function SqlLayout() {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {/* ── Connection health badge ── */}
-      <div className="flex items-center justify-end border-b border-border-default px-4 py-1.5">
-        <ConnectionStatusBadge connectionId={connectionId} />
-      </div>
+      <ConnectionStatusBadge connectionId={connectionId} />
       {/* ── Page content ── */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <Outlet />

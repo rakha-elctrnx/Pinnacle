@@ -9,8 +9,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useConnectionStore } from '../store/connectionStore'
+import { useFolderStore } from '../store/folderStore'
 import { useTabStore, type TabPageType } from '../store/tabStore'
-import type { ConnectionProfile } from '../types/domain'
+import type { ConnectionProfile, Folder } from '../types/domain'
 import {
   showExportSaveDialog,
   getConnectionPassword,
@@ -44,10 +45,11 @@ import { useQueryExecution } from '../../sql/hooks/useQueryExecution'
 import { listen } from '@tauri-apps/api/event'
 import {
   filterConnections,
-  groupConnectionsByTag,
+  groupConnectionsByFolder,
   getRecentConnections,
   duplicateProfile,
   exportProfileSafe,
+  migrateGroupByTag,
 } from '../connection-management/service'
 import { hasCapability, defaultConnectorRegistry } from '../connector-runtime'
 import { hasCapabilityWithAdapter } from '../connector-runtime/adapters'
@@ -104,6 +106,12 @@ export interface DataExplorerOrchestratorResult {
   filtered: ConnectionProfile[]
   groupedConnections: Record<string, ConnectionProfile[]>
   recentConnections: ConnectionProfile[]
+  // ── Folder management ──
+  folders: Folder[]
+  handleCreateFolder: (name: string) => string
+  handleRenameFolder: (id: string, name: string) => void
+  handleDeleteFolder: (id: string) => void
+  handleMoveConnectionToFolder: (connectionId: string, folderId: string | null) => void
   selectedConnection: ConnectionProfile | null
   selectedConnectionId: string | null
   expandedConnectionId: string | null
@@ -212,6 +220,13 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
 
   const navigate = useNavigate()
 
+  // ── Folder store ──────────────────────────────────────────────
+  const folders = useFolderStore((s) => s.items)
+  const folderCreate = useFolderStore((s) => s.create)
+  const folderRename = useFolderStore((s) => s.rename)
+  const folderRemove = useFolderStore((s) => s.remove)
+  const folderRefresh = useFolderStore((s) => s.refresh)
+
   const [selectedConnectionId, setSelectedConnectionId] = useState<
     string | null
   >(null)
@@ -286,6 +301,35 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     refreshStore()
   }, [refreshStore])
 
+  // ── One-time migration: tags[0] → folderId ──────────────────
+  const migrationRanRef = useRef(false)
+  useEffect(() => {
+    if (migrationRanRef.current || items.length === 0) return
+    migrationRanRef.current = true
+
+    const hasUnmigrated = items.some((c) => !c.folderId && c.tags[0])
+    if (!hasUnmigrated) return
+
+    const migrated = migrateGroupByTag(items, folders)
+
+    // Persist new folders
+    if (migrated.folders.length > folders.length) {
+      localStorage.setItem(
+        'pinnacle_folders',
+        JSON.stringify(migrated.folders),
+      )
+      folderRefresh()
+    }
+
+    // Update connections that need folder assignment
+    for (const conn of migrated.connections) {
+      const old = items.find((c) => c.id === conn.id)
+      if (old && old.folderId !== conn.folderId) {
+        upsert(conn)
+      }
+    }
+  }, [items])
+
   // ── Trigger estimate when export modal opens ─────────────────
   useEffect(() => {
     if (!exportModalTarget) return
@@ -348,8 +392,8 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     [items, search],
   )
   const groupedConnections = useMemo(
-    () => groupConnectionsByTag(filtered),
-    [filtered],
+    () => groupConnectionsByFolder(filtered, folders),
+    [filtered, folders],
   )
   const recentConnections = useMemo(
     () => getRecentConnections(items, 5),
@@ -728,6 +772,33 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     setIsAddModalOpen(false)
   }
 
+  // ── Folder CRUD handlers ──────────────────────────────────────
+  const handleCreateFolder = (name: string): string => {
+    return folderCreate(name)
+  }
+
+  const handleRenameFolder = (id: string, name: string) => {
+    folderRename(id, name)
+  }
+
+  const handleDeleteFolder = (id: string) => {
+    // Move all connections in this folder to ungrouped
+    const connsToMove = items.filter((c) => c.folderId === id)
+    for (const conn of connsToMove) {
+      upsert({ ...conn, folderId: null })
+    }
+    folderRemove(id)
+  }
+
+  const handleMoveConnectionToFolder = (
+    connectionId: string,
+    folderId: string | null,
+  ) => {
+    const conn = items.find((c) => c.id === connectionId)
+    if (!conn) return
+    upsert({ ...conn, folderId })
+  }
+
   const handleToggleTreeNode = (path: string) => {
     setExpandedTreePaths((prev) =>
       prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path],
@@ -1016,6 +1087,11 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     handleFetchDatabaseDetails,
     wrappedHandleTreeNodeClick,
     handleCloseTableTab,
+    folders,
+    handleCreateFolder,
+    handleRenameFolder,
+    handleDeleteFolder,
+    handleMoveConnectionToFolder,
     handleActiveTableTabChange,
     setSelectedConnectionId,
     setEditingId,

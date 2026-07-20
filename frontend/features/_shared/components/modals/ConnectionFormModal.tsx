@@ -18,6 +18,7 @@ import { FolderOpen } from 'lucide-react'
 import type {
   ConnectionProfile,
   ConnectionType,
+  Folder,
   SshAuthMethod,
   SslMode,
 } from '../../types/domain'
@@ -47,6 +48,7 @@ interface ConnectionFormProps {
   editingId: string | null
   existingProfile: ConnectionProfile | null
   existingGroups: string[]
+  folders?: Folder[]
   onSave: (
     profile: ConnectionProfile,
     password?: string,
@@ -61,6 +63,7 @@ export function ConnectionFormModal({
   editingId,
   existingProfile,
   existingGroups,
+  folders = [],
   onSave,
   onClose,
   embedded = false,
@@ -93,6 +96,7 @@ export function ConnectionFormModal({
     existingProfile?.sslConfig?.clientKeyPath ?? '',
   )
   const [newSsl, setNewSsl] = useState(existingProfile?.ssl ?? false)
+  const [newFolderId, setNewFolderId] = useState<string | null>(existingProfile?.folderId ?? null)
   const [newGroup, setNewGroup] = useState(existingProfile?.tags[0] ?? '')
   const [groupDropdownOpen, setGroupDropdownOpen] = useState(false)
   const groupInputRef = useRef<HTMLInputElement>(null)
@@ -402,7 +406,8 @@ export function ConnectionFormModal({
         poolSize: poolSize ? Number(poolSize) : undefined,
         idleTimeoutSecs: idleTimeoutSecs ? Number(idleTimeoutSecs) : undefined,
         passwordRef: newPassword.length > 0 ? `keyring://${savedId}` : '',
-        tags: group ? [group] : ['Ungrouped'],
+        tags: group ? [group] : [],
+        folderId: newFolderId,
         favorite: existingProfile?.favorite ?? false,
         createdAt: existingProfile?.createdAt ?? now,
         updatedAt: now,
@@ -686,6 +691,23 @@ export function ConnectionFormModal({
                 />
               </div>
             )}
+
+            {/* Folder selector */}
+            <div className="flex items-center gap-3">
+              <select
+                value={newFolderId ?? ''}
+                onChange={(e) => setNewFolderId(e.target.value || null)}
+                className={`${inputClasses} flex-1`}
+                title="Folder"
+              >
+                <option value="">No folder (ungrouped)</option>
+                {folders.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {/* Group & SSL */}
             <div className="flex items-center gap-3">

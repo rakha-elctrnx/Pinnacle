@@ -1578,13 +1578,26 @@ fn bind_json_value_pg<'q>(
                 query.bind(n.to_string())
             }
         }
-        Some(serde_json::Value::String(s)) => query.bind(s.clone()),
+        Some(serde_json::Value::String(s)) => {
+            // If the string looks like JSON, try to parse it — this handles the
+            // case where a jsonb column was previously stringified on read and
+            // the frontend sends the string back. Binding a plain string to a
+            // jsonb column would fail with "column is of type jsonb but expression
+            // is of type text".
+            if s.starts_with('{') || s.starts_with('[') {
+                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(s) {
+                    return query.bind(parsed);
+                }
+            }
+            query.bind(s.clone())
+        }
         Some(serde_json::Value::Array(arr)) => {
-            // Serialize arrays as JSON strings for simple storage
-            query.bind(serde_json::json!(arr).to_string())
+            // Bind as serde_json::Value so sqlx maps it to jsonb
+            query.bind(serde_json::json!(arr))
         }
         Some(serde_json::Value::Object(obj)) => {
-            query.bind(serde_json::json!(obj).to_string())
+            // Bind as serde_json::Value so sqlx maps it to jsonb
+            query.bind(serde_json::json!(obj))
         }
     }
 }
@@ -1717,7 +1730,9 @@ fn bind_json_value_mysql<'q>(
                 query.bind(n.to_string())
             }
         }
-        Some(serde_json::Value::String(s)) => query.bind(s.clone()),
+        Some(serde_json::Value::String(s)) => {
+            query.bind(s.clone())
+        }
         Some(serde_json::Value::Array(arr)) => {
             query.bind(serde_json::json!(arr).to_string())
         }

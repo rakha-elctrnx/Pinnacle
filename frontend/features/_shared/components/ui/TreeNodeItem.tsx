@@ -14,11 +14,14 @@ import {
   Terminal,
   Zap,
   Folder,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 import type { TreeNode, ExplorerTreeData } from '../../types/shared'
-import type { ConnectionProfile } from '../../types/domain'
+import type { ConnectionProfile, Folder as FolderType } from '../../types/domain'
 import { databaseTypeOptions } from '../../constants'
 import { CenteredLoadingState } from './CenteredLoadingState'
+import { useState, useRef, useCallback, useEffect } from 'react'
 
 interface ExplorerDataContext {
   treeDataMap: Record<string, ExplorerTreeData>
@@ -109,6 +112,10 @@ export function TreeNodeItem({
   handleRetryElasticIndices,
   focusedNodePath,
   setFocusedNodePath,
+  folders,
+  onRenameFolder,
+  onDeleteFolder,
+  onMoveConnectionToFolder,
 }: {
   node: TreeNode
   depth: number
@@ -152,13 +159,27 @@ export function TreeNodeItem({
   handleRetryElasticIndices?: (connectionId: string) => void
   focusedNodePath: string | null
   setFocusedNodePath: (path: string | null) => void
+  folders?: FolderType[]
+  onRenameFolder?: (id: string, name: string) => void
+  onDeleteFolder?: (id: string) => void
+  onMoveConnectionToFolder?: (connectionId: string, folderId: string | null) => void
 }) {
   const nodePath = parentPath ? `${parentPath}/${node.label}` : node.label
   const hasChildren = node.children !== undefined
   const isExpanded = expandedTreePaths.includes(nodePath)
   const isGroupNode = node.nodeType === 'group'
   const isConnectionNode = node.nodeType === 'connection'
-  const isDatabaseNode = depth === 2 && !isGroupNode && !isConnectionNode
+  const isDatabaseNode = (() => {
+    if (isGroupNode || isConnectionNode) return false
+    // Database nodes are immediate children of connection nodes.
+    // Check if the parent path corresponds to a connection profile name.
+    if (!parentPath || !groupedConnections) return false
+    const parentName = parentPath.split('/').pop()
+    if (!parentName) return false
+    return Object.values(groupedConnections)
+      .flat()
+      .some((p) => p.name === parentName || p.id === parentName)
+  })()
   const isLeaf =
     !hasChildren ||
     (node.children && node.children.length === 0 && isCategoryNode(node.label))
@@ -173,6 +194,121 @@ export function TreeNodeItem({
   const categoryIcon = isCategoryNode(node.label)
     ? getCategoryIcon(node.label)
     : null
+
+  // ── Folder rename state ───────────────────────────────────────
+  const [isRenaming, setIsRenaming] = useState(false)
+  const [renameValue, setRenameValue] = useState(node.label)
+  const renameInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isRenaming) {
+      renameInputRef.current?.focus()
+      renameInputRef.current?.select()
+    }
+  }, [isRenaming])
+
+  // ── Drag & Drop state ─────────────────────────────────────────
+  const [isDragOver, setIsDragOver] = useState(false)
+  const dragTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ── Get folder id for group nodes ─────────────────────────────
+  const getFolderId = (): string | null => {
+    if (!isGroupNode || !folders) return null
+    const folder = folders.find((f) => f.name === node.label)
+    return folder?.id ?? null
+  }
+
+  // ── Handle rename submission ──────────────────────────────────
+  const handleRenameSubmit = useCallback(() => {
+    const folderId = getFolderId()
+    if (folderId && onRenameFolder && renameValue.trim()) {
+      onRenameFolder(folderId, renameValue.trim())
+    }
+    setIsRenaming(false)
+  }, [getFolderId, onRenameFolder, renameValue])
+
+  // ── Drag & Drop handlers ──────────────────────────────────────
+  const handleDragStart = useCallback(
+    (e: React.PointerEvent) => {
+      if (!isConnectionNode || !node.connectionId) return
+
+      e.preventDefault()
+      e.stopPropagation()
+
+      const ghost = document.createElement('div')
+      ghost.textContent = node.label
+      ghost.style.cssText = `
+        position: fixed; z-index: 9999; pointer-events: none;
+        padding: 4px 10px; border-radius: 6px;
+        background: var(--color-bg-emphasis, #333);
+        color: var(--color-text-on-emphasis, #fff);
+        font-size: 12px; white-space: nowrap;
+        opacity: 0.9; transform: scale(0.95);
+      `
+      document.body.appendChild(ghost)
+      document.body.dataset.dragging = 'connection'
+      document.body.dataset.draggedConnectionId = node.connectionId
+
+      const handleMove = (ev: PointerEvent) => {
+        ghost.style.left = `${ev.clientX + 10}px`
+        ghost.style.top = `${ev.clientY + 10}px`
+
+        // Check if hovering over a group/folder node
+        const target = document.elementFromPoint(ev.clientX, ev.clientY)
+        const groupEl = target?.closest('[data-is-group="true"]')
+        const sidebar = target?.closest('[data-sidebar-area="ungrouped"]')
+        setIsDragOver(!!groupEl || !!sidebar)
+      }
+
+      const handleUp = (ev: PointerEvent) => {
+        document.removeEventListener('pointermove', handleMove)
+        document.removeEventListener('pointerup', handleUp)
+        ghost.remove()
+        delete document.body.dataset.dragging
+        delete document.body.dataset.draggedConnectionId
+
+        const target = document.elementFromPoint(ev.clientX, ev.clientY)
+        const groupEl = target?.closest('[data-is-group="true"]')
+
+        if (groupEl) {
+          const folderName = groupEl.getAttribute('data-folder-name')
+          if (folderName && onMoveConnectionToFolder) {
+            const folder = folders?.find((f) => f.name === folderName)
+            onMoveConnectionToFolder(
+              node.connectionId!,
+              folder?.id ?? null,
+            )
+          }
+        } else if (
+          target?.closest('[data-sidebar-area="ungrouped"]')
+        ) {
+          onMoveConnectionToFolder?.(node.connectionId!, null)
+        }
+
+        setIsDragOver(false)
+      }
+
+      document.addEventListener('pointermove', handleMove)
+      document.addEventListener('pointerup', handleUp)
+    },
+    [isConnectionNode, node.connectionId, node.label, folders, onMoveConnectionToFolder],
+  )
+
+  const [showFolderMenu, setShowFolderMenu] = useState(false)
+  const [folderMenuPos, setFolderMenuPos] = useState({ x: 0, y: 0 })
+  const folderMenuRef = useRef<HTMLDivElement>(null)
+
+  // Close folder context menu on outside click
+  useEffect(() => {
+    if (!showFolderMenu) return
+    const handlePointerDown = (e: PointerEvent) => {
+      if (folderMenuRef.current && !folderMenuRef.current.contains(e.target as Node)) {
+        setShowFolderMenu(false)
+      }
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [showFolderMenu])
 
   // Get connection profile for connection nodes
   const connectionProfile =
@@ -324,12 +460,26 @@ export function TreeNodeItem({
       <div
         data-node-path={nodePath}
         tabIndex={focusedNodePath === nodePath ? 0 : -1}
+        data-is-group={isGroupNode ? 'true' : undefined}
+        data-folder-name={isGroupNode ? node.label : undefined}
+        data-drag-over={isDragOver && isGroupNode ? 'true' : undefined}
         onClick={(e) => {
           e.stopPropagation()
           handleLabelClick(e)
         }}
+        onPointerDown={(e) => {
+          // Enable drag for connection nodes on double-click delay
+          if (isConnectionNode) {
+            handleDragStart(e)
+          }
+        }}
         onContextMenu={(e) => {
-          if (isViewItem && onViewNodeContextMenu) {
+          if (isGroupNode && folders) {
+            e.preventDefault()
+            e.stopPropagation()
+            setFolderMenuPos({ x: e.clientX, y: e.clientY })
+            setShowFolderMenu(true)
+          } else if (isViewItem && onViewNodeContextMenu) {
             e.preventDefault()
             e.stopPropagation()
             const pathParts = parentPath.split('/')
@@ -378,7 +528,9 @@ export function TreeNodeItem({
         className={[
           'group flex w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-xs overflow-hidden cursor-pointer transition-all duration-150 focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none',
           isGroupNode
-            ? 'text-text-muted hover:text-text-secondary'
+            ? isDragOver
+              ? 'ring-1 ring-inset ring-primary/40 bg-primary-subtle/30 text-text-secondary'
+              : 'text-text-muted hover:text-text-secondary'
             : isActiveConnection
               ? 'bg-gradient-to-r from-primary-subtle/80 to-transparent text-text-secondary ring-1 ring-inset ring-focus-ring'
               : selectedTreeNode === nodePath
@@ -437,7 +589,22 @@ export function TreeNodeItem({
         ) : (
           <FileText size={11} className="shrink-0 text-text-muted" />
         )}
-        <span className="truncate min-w-0">{node.label}</span>
+        {isGroupNode && isRenaming ? (
+          <input
+            ref={renameInputRef}
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleRenameSubmit()
+              if (e.key === 'Escape') setIsRenaming(false)
+            }}
+            onBlur={handleRenameSubmit}
+            className="min-w-0 flex-1 rounded border border-border-default bg-bg-base px-1 py-0 text-xs outline-none"
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span className="truncate min-w-0">{node.label}</span>
+        )}
 
         {/* Group count badge */}
         {isGroupNode && (
@@ -458,6 +625,50 @@ export function TreeNodeItem({
           </span>
         )}
       </div>
+
+      {/* Folder context menu */}
+      {showFolderMenu && isGroupNode && (
+        <div
+          ref={folderMenuRef}
+          style={{
+            position: 'fixed',
+            left: folderMenuPos.x,
+            top: folderMenuPos.y,
+            zIndex: 9999,
+          }}
+          className="min-w-[140px] rounded-lg border border-border-default bg-bg-base py-1 shadow-xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-subtle transition-colors"
+            onClick={() => {
+              setIsRenaming(true)
+              setRenameValue(node.label)
+              setShowFolderMenu(false)
+            }}
+          >
+            <Pencil size={12} />
+            Rename Folder
+          </button>
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-danger hover:bg-danger-subtle/20 transition-colors"
+            onClick={() => {
+              const folderId = getFolderId()
+              if (folderId && onDeleteFolder) {
+                if (window.confirm(`Delete folder "${node.label}"? Connections inside will be moved to ungrouped.`)) {
+                  onDeleteFolder(folderId)
+                }
+              }
+              setShowFolderMenu(false)
+            }}
+          >
+            <Trash2 size={12} />
+            Delete Folder
+          </button>
+        </div>
+      )}
 
       {/* Connection-specific content (error messages, loading states) */}
       {isConnectionNode && isExpanded && node.connectionId && (
@@ -537,6 +748,10 @@ export function TreeNodeItem({
               handleRetryElasticIndices={handleRetryElasticIndices}
               focusedNodePath={focusedNodePath}
               setFocusedNodePath={setFocusedNodePath}
+              folders={folders}
+              onRenameFolder={onRenameFolder}
+              onDeleteFolder={onDeleteFolder}
+              onMoveConnectionToFolder={onMoveConnectionToFolder}
             />
           ))}
       </div>

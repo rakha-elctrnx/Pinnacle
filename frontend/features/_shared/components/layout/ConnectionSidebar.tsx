@@ -1,9 +1,9 @@
-import { useCallback, useMemo, useRef, useEffect } from 'react'
+import { useCallback, useMemo, useRef, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Plus, FolderPlus, X, Check } from 'lucide-react'
 import { ActionButton } from '../ui/ActionButton'
 import { TreeNodeItem } from '../ui/TreeNodeItem'
-import type { ConnectionProfile, ConnectionType } from '../../types/domain'
+import type { ConnectionProfile, ConnectionType, Folder } from '../../types/domain'
 import type { ElasticIndex } from '../../../elasticsearch/types/elasticsearch'
 import type { TreeNode, ExplorerTreeData } from '../../types/shared'
 import { isSqlConnectionType, isElasticsearchType } from '../../utils'
@@ -89,11 +89,12 @@ function getStaticTreeNodes(
   }
 }
 /**
- * Build a unified tree structure where groups and connections are first-class nodes.
- * This allows consistent styling and behavior across all tree levels.
+ * Build a unified tree structure where folders and connections are first-class nodes.
+ * Connections without folderId appear as top-level connection nodes (ungrouped).
  */
 function buildUnifiedTree(
   groupedConnections: Record<string, ConnectionProfile[]> | null,
+  folders: Folder[],
   explorerData: ExplorerDataContext,
   elasticIndices: Record<string, ElasticIndex[]> | null,
   expandedTreePaths: string[],
@@ -102,16 +103,19 @@ function buildUnifiedTree(
 
   const tree: TreeNode[] = []
 
-  for (const [groupName, profiles] of Object.entries(groupedConnections)) {
-    // Group node
+  // Render folder nodes first
+  for (const folder of folders) {
+    const folderProfiles = groupedConnections[folder.name]
+    // Empty folders (array with 0 items) are still rendered as group nodes
+    if (folderProfiles === undefined) continue
+
     const groupNode: TreeNode = {
-      label: groupName,
+      label: folder.name,
       nodeType: 'group',
       children: [],
     }
 
-    // Connection nodes under this group
-    for (const profile of profiles) {
+    for (const profile of folderProfiles) {
       const connectionNode: TreeNode = {
         label: profile.name,
         nodeType: 'connection',
@@ -119,7 +123,6 @@ function buildUnifiedTree(
         children: [],
       }
 
-      // Get the subtree for this connection
       const sqlTreeNodes = isSqlConnectionType(profile.type)
         ? explorerData.getTreeNodesForConnection(profile)
         : []
@@ -129,8 +132,7 @@ function buildUnifiedTree(
         : getStaticTreeNodes(profile.type, connectionIndices)
       const treeNodes = sqlTreeNodes.length > 0 ? sqlTreeNodes : staticTreeNodes
 
-      // Only include children if the connection is expanded
-      const connectionPath = `${groupName}/${profile.name}`
+      const connectionPath = `${folder.name}/${profile.name}`
       if (expandedTreePaths.includes(connectionPath)) {
         connectionNode.children = treeNodes
       }
@@ -141,12 +143,41 @@ function buildUnifiedTree(
     tree.push(groupNode)
   }
 
+  // Render ungrouped connections as top-level nodes (no folder wrapper)
+  const ungrouped = groupedConnections['__ungrouped__']
+  if (ungrouped) {
+    for (const profile of ungrouped) {
+      const connectionNode: TreeNode = {
+        label: profile.name,
+        nodeType: 'connection',
+        connectionId: profile.id,
+        children: [],
+      }
+
+      const sqlTreeNodes = isSqlConnectionType(profile.type)
+        ? explorerData.getTreeNodesForConnection(profile)
+        : []
+      const connectionIndices = elasticIndices?.[profile.id]
+      const staticTreeNodes = isSqlConnectionType(profile.type)
+        ? []
+        : getStaticTreeNodes(profile.type, connectionIndices)
+      const treeNodes = sqlTreeNodes.length > 0 ? sqlTreeNodes : staticTreeNodes
+
+      // For ungrouped connections, the path is just the profile name
+      if (expandedTreePaths.includes(profile.name)) {
+        connectionNode.children = treeNodes
+      }
+
+      tree.push(connectionNode)
+    }
+  }
+
   return tree
 }
 
 /**
  * Get connection profile from a node path.
- * Path format: "groupName/connectionName" or "groupName/connectionName/databaseName/..."
+ * Path format: "groupName/connectionName" or just "connectionName" (ungrouped).
  */
 function getConnectionFromPath(
   path: string,
@@ -155,15 +186,27 @@ function getConnectionFromPath(
   if (!groupedConnections || !path) return null
 
   const parts = path.split('/')
-  if (parts.length < 2) return null
+  if (parts.length < 1) return null
 
-  const groupName = parts[0]
-  const connectionName = parts[1]
+  // Try as groupName/connectionName
+  if (parts.length >= 2) {
+    const groupName = parts[0]
+    const connectionName = parts[1]
 
-  const profiles = groupedConnections[groupName]
-  if (!profiles) return null
+    const profiles = groupedConnections[groupName]
+    if (profiles) {
+      const found = profiles.find((p) => p.name === connectionName)
+      if (found) return found
+    }
+  }
 
-  return profiles.find((p) => p.name === connectionName) ?? null
+  // Try as ungrouped connection (just name)
+  const ungrouped = groupedConnections['__ungrouped__']
+  if (ungrouped) {
+    return ungrouped.find((p) => p.name === parts[0]) ?? null
+  }
+
+  return null
 }
 
 /**
@@ -198,19 +241,35 @@ export function ConnectionSidebar() {
     setFocusedNodePath,
     queryExecution,
     setExpandedConnectionId,
+    folders,
+    handleCreateFolder,
+    handleRenameFolder,
+    handleDeleteFolder,
+    handleMoveConnectionToFolder,
   } = useDataExplorerContext()
 
   const navigate = useNavigate()
 
-  // Build unified tree with groups and connections as first-class nodes
+  // ── Inline new folder input state ────────────────────────────
+  const [showNewFolderInput, setShowNewFolderInput] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
+  const newFolderInputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (showNewFolderInput) {
+      newFolderInputRef.current?.focus()
+    }
+  }, [showNewFolderInput])
+
+  // Build unified tree with folders and groups as first-class nodes
   const unifiedTree = useMemo(() => {
     return buildUnifiedTree(
       groupedConnections,
+      folders,
       explorerData,
       elasticIndices,
       expandedTreePaths,
     )
-  }, [groupedConnections, explorerData, elasticIndices, expandedTreePaths])
+  }, [groupedConnections, folders, explorerData, elasticIndices, expandedTreePaths])
 
   // Compute visible nodes from the unified tree
   const visibleNodes = useMemo(
@@ -518,17 +577,73 @@ export function ConnectionSidebar() {
       {/* Header (fixed) */}
       <div className="flex shrink-0 items-center justify-between border-b border-border-default/60 pl-4 pr-2.5 py-2 backdrop-blur-sm">
         <div className="flex items-center gap-1.5">
-          {/* <ChevronsLeftRightEllipsis size={14} className="text-text-secondary" /> */}
           <p className="text-label text-text-primary">Connections</p>
         </div>
-        <ActionButton
-          icon={<Plus size={14} />}
-          aria-label="Create connection"
-          variant="secondary"
-          className="duration-150 active:scale-95"
-          onClick={openCreateConnection}
-        />
+        <div className="flex items-center gap-1">
+          <ActionButton
+            icon={<FolderPlus size={14} />}
+            aria-label="New folder"
+            variant="secondary"
+            className="duration-150 active:scale-95"
+            onClick={() => setShowNewFolderInput(true)}
+          />
+          <ActionButton
+            icon={<Plus size={14} />}
+            aria-label="Create connection"
+            variant="secondary"
+            className="duration-150 active:scale-95"
+            onClick={openCreateConnection}
+          />
+        </div>
       </div>
+
+      {/* Inline new folder input */}
+      {showNewFolderInput && (
+        <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border-default/60">
+          <input
+            ref={newFolderInputRef}
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && newFolderName.trim()) {
+                handleCreateFolder(newFolderName.trim())
+                setShowNewFolderInput(false)
+                setNewFolderName('')
+              }
+              if (e.key === 'Escape') {
+                setShowNewFolderInput(false)
+                setNewFolderName('')
+              }
+            }}
+            placeholder="Folder name..."
+            className="min-w-0 flex-1 rounded border border-border-default bg-bg-base px-2 py-1 text-xs outline-none focus:border-focus-ring"
+            autoFocus
+          />
+          <button
+            type="button"
+            onClick={() => {
+              if (newFolderName.trim()) {
+                handleCreateFolder(newFolderName.trim())
+                setShowNewFolderInput(false)
+                setNewFolderName('')
+              }
+            }}
+            className="flex shrink-0 items-center justify-center rounded p-1 text-success hover:bg-bg-hover transition-colors"
+          >
+            <Check size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowNewFolderInput(false)
+              setNewFolderName('')
+            }}
+            className="flex shrink-0 items-center justify-center rounded p-1 text-text-muted hover:bg-bg-hover transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Scrollable connection list (scrollbar scoped here) */}
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-text-muted/20 [&::-webkit-scrollbar-thumb:hover]:bg-text-muted/40 [&::-webkit-scrollbar-track]:bg-transparent">
@@ -580,6 +695,10 @@ export function ConnectionSidebar() {
               handleRetryElasticIndices={handleRetryElasticIndices}
               focusedNodePath={focusedNodePath}
               setFocusedNodePath={setFocusedNodePath}
+              folders={folders}
+              onRenameFolder={handleRenameFolder}
+              onDeleteFolder={handleDeleteFolder}
+              onMoveConnectionToFolder={handleMoveConnectionToFolder}
             />
           ))}
         </div>

@@ -5,6 +5,8 @@ import {
   Copy,
   Download,
   Eraser,
+  Folder,
+  FolderPlus,
   Layers,
   Pencil,
   RefreshCw,
@@ -234,6 +236,9 @@ function DataExplorerLayoutChrome({
     handleRequestDeleteTableFromMenu,
     handleRequestDataOperationFromMenu,
     handleRequestExportFromMenu,
+    folders,
+    handleCreateFolder,
+    handleMoveConnectionToFolder,
   } = useDataExplorerContext()
 
   const handleCloseConnection = useCallback(
@@ -250,7 +255,7 @@ function DataExplorerLayoutChrome({
     [handleCloseConnectionRaw, navigate],
   )
 
-  // Derive existingGroups for new connection dropdown
+  // Derive existingGroups for new connection dropdown (backward compat)
   const existingGroups = useMemo(
     () => [...new Set(items.map((p) => p.tags[0]).filter(Boolean))].sort(),
     [items],
@@ -264,6 +269,7 @@ function DataExplorerLayoutChrome({
   const itemsRef = useRef(items)
   const editingIdRef = useRef(editingId)
   const existingGroupsRef = useRef(existingGroups)
+  const foldersRef = useRef(folders)
 
   // Track whether the connection window is currently open so the effect
   // can guard against duplicate opens and always run its cleanup.
@@ -278,6 +284,7 @@ function DataExplorerLayoutChrome({
     itemsRef.current = items
     editingIdRef.current = editingId
     existingGroupsRef.current = existingGroups
+    foldersRef.current = folders
   })
 
   // New connection window bridge — opens native OS window when modal state changes.
@@ -310,6 +317,7 @@ function DataExplorerLayoutChrome({
         editingId: currentEditingId,
         existingProfile,
         existingGroups: existingGroupsRef.current,
+        folders: foldersRef.current,
         theme:
           (document.documentElement.getAttribute('data-theme') as
             | 'light'
@@ -661,6 +669,41 @@ function DataExplorerLayoutChrome({
                       action: () => {
                         handleExportConnection(contextMenu.itemId)
                       },
+                    },
+                    // ── Move to folder (submenu) ─────────────────
+                    {
+                      label: 'Move to',
+                      icon: <Folder size={14} />,
+                      children: [
+                        {
+                          label: 'No folder (ungrouped)',
+                          action: () => {
+                            handleMoveConnectionToFolder(
+                              contextMenu.itemId,
+                              null,
+                            )
+                          },
+                        } as ContextMenuItem,
+                        ...folders.map((f) => ({
+                          label: f.name,
+                          action: () => {
+                            handleMoveConnectionToFolder(
+                              contextMenu.itemId,
+                              f.id,
+                            )
+                          },
+                        })) as ContextMenuItem[],
+                        { divider: true } as ContextMenuItem,
+                        {
+                          label: 'New Folder',
+                          icon: <FolderPlus size={14} />,
+                          action: () => {
+                            const count = folders.length + 1
+                            handleCreateFolder(`Folder ${count}`)
+                            setContextMenu(null)
+                          },
+                        } as ContextMenuItem,
+                      ],
                     },
                     { divider: true } as ContextMenuItem,
                     {

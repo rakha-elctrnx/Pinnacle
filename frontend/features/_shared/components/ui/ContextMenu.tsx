@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
 } from 'react'
+import { ChevronRight } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -17,6 +18,8 @@ export interface ContextMenuItem {
   dangerous?: boolean
   /** Standalone divider row — label/icon/action are ignored. */
   divider?: boolean
+  /** Submenu items (shown when hovered) */
+  children?: ContextMenuItem[]
 }
 
 export interface GenericContextMenuProps {
@@ -49,6 +52,8 @@ export function GenericContextMenu({
   const menuRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ top: y, left: x })
   const [activeIndex, setActiveIndex] = useState(0)
+  const [submenuIndex, setSubmenuIndex] = useState<number | null>(null)
+  const [submenuPos, setSubmenuPos] = useState({ top: 0, left: 0 })
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
   // ── Viewport boundary detection ──────────────────────────────────────
@@ -150,7 +155,7 @@ export function GenericContextMenu({
       aria-label={ariaLabel ?? 'Context menu'}
       style={{ top: pos.top, left: pos.left }}
       onKeyDown={handleKeyDown}
-      className="fixed z-50 min-w-44 rounded-xl border border-border-default bg-bg-base p-1 shadow-xl outline-none backdrop-blur-sm"
+      className="fixed z-50 min-w-36 rounded-lg border border-border-default bg-bg-base py-1 shadow-xl outline-none backdrop-blur-sm overflow-visible"
     >
       {items.map((item, index) => {
         if (item.divider) {
@@ -161,19 +166,42 @@ export function GenericContextMenu({
             />
           )
         }
+        const hasSubmenu = item.children && item.children.length > 0
         return (
-          <div key={item.label}>
+          <div key={item.label} className="relative">
             <button
               type="button"
               role="menuitem"
               tabIndex={-1}
               onClick={() => {
-                item.action?.()
-                onClose()
+                if (!hasSubmenu) {
+                  item.action?.()
+                  onClose()
+                }
               }}
-              onMouseEnter={() => setActiveIndex(index)}
+              onMouseEnter={(e) => {
+                setActiveIndex(index)
+                if (hasSubmenu) {
+                  const itemRect = e.currentTarget.getBoundingClientRect()
+                  // Submenu opens immediately to the right of button with small overlap
+                  setSubmenuPos({ top: itemRect.top - 1, left: itemRect.right - 2 })
+                  setSubmenuIndex(index)
+                } else {
+                  setSubmenuIndex(null)
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!hasSubmenu || submenuIndex !== index) {
+                  setSubmenuIndex(null)
+                  return
+                }
+                // Keep submenu open if moving into it
+                const subEl = document.querySelector(`[data-submenu="${index}"]`)
+                if (subEl && subEl.contains(e.relatedTarget as Node)) return
+                setSubmenuIndex(null)
+              }}
               className={[
-                'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-body transition-colors',
+                'flex w-full items-center gap-2 px-3 py-1.5 text-xs transition-colors',
                 item.dangerous
                   ? 'text-text-primary hover:bg-danger-subtle hover:text-danger'
                   : 'text-text-primary hover:bg-primary-subtle',
@@ -188,7 +216,7 @@ export function GenericContextMenu({
                 .join(' ')}
             >
               {item.icon && (
-                <span className="shrink-0 text-text-muted">{item.icon}</span>
+                <span className="shrink-0 text-text-muted [&_svg]:w-3 [&_svg]:h-3">{item.icon}</span>
               )}
               <span className="flex-1 text-left">{item.label}</span>
               {item.shortcut && (
@@ -196,9 +224,48 @@ export function GenericContextMenu({
                   {item.shortcut}
                 </span>
               )}
+              {hasSubmenu && (
+                <ChevronRight size={12} className="shrink-0 text-text-muted" />
+              )}
             </button>
             {item.dividerAfter && (
               <div className="my-1 border-t border-border-default" />
+            )}
+            {/* Submenu */}
+            {hasSubmenu && submenuIndex === index && (
+              <div
+                data-submenu={index}
+                className="fixed z-50 min-w-36 rounded-lg border border-border-default bg-bg-base py-1 shadow-xl outline-none"
+                style={{ top: submenuPos.top, left: submenuPos.left }}
+                onMouseEnter={() => setSubmenuIndex(index)}
+                onMouseLeave={() => setSubmenuIndex(null)}
+              >
+                {item.children!.map((child) => (
+                  <button
+                    key={child.label}
+                    type="button"
+                    role="menuitem"
+                    tabIndex={-1}
+                    onClick={() => {
+                      child.action?.()
+                      onClose()
+                    }}
+                    className={[
+                      'flex w-full items-center gap-2 px-3 py-1.5 text-xs transition-colors',
+                      child.dangerous
+                        ? 'text-text-primary hover:bg-danger-subtle hover:text-danger'
+                        : 'text-text-primary hover:bg-primary-subtle',
+                    ].join(' ')}
+                  >
+                    {child.icon && (
+                      <span className="shrink-0 text-text-muted [&_svg]:w-3 [&_svg]:h-3">
+                        {child.icon}
+                      </span>
+                    )}
+                    <span className="flex-1 text-left">{child.label}</span>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         )

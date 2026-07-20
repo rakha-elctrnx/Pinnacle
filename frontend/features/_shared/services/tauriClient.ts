@@ -40,6 +40,7 @@ export async function saveConnection(request: {
   schema?: string
   tags?: string[]
   favorite?: boolean
+  folderId?: string | null
   password?: string
   ssh?: SshConfig
   sshPassword?: string
@@ -60,6 +61,7 @@ export async function saveConnection(request: {
         schema: request.schema || '',
         tags: request.tags || [],
         favorite: request.favorite || false,
+        folderId: request.folderId ?? null,
         ssh: request.ssh,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),

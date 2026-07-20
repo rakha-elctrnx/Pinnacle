@@ -68,6 +68,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
         schema: profile.schema,
         tags: profile.tags,
         favorite: profile.favorite,
+        folderId: profile.folderId,
         password,
         ssh: profile.ssh,
         sshPassword,

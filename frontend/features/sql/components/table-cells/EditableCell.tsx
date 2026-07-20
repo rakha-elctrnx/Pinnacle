@@ -23,6 +23,23 @@ import {
   type EditableColumnMeta,
 } from '../../store/tableEditStore'
 
+// ── Value formatting helpers ──────────────────────────────────────────
+
+/** Safely convert a raw cell value to a display string.
+ *  Objects/arrays are JSON-stringified instead of falling back to
+ *  `String()` which produces `"[object Object]"`. */
+function valueToDisplayString(val: unknown): string {
+  if (val === null || val === undefined) return ''
+  if (typeof val === 'object') {
+    try {
+      return JSON.stringify(val)
+    } catch {
+      return String(val)
+    }
+  }
+  return String(val)
+}
+
 // ── Timestamp formatting ─────────────────────────────────────────────
 
 const TIMESTAMP_TYPES = new Set([
@@ -110,15 +127,14 @@ export function EditableCell({
   const { row, column, getValue } = context
   const field = column.id
   const rawValue = getValue()
-  const displayValue =
-    rawValue === null || rawValue === undefined ? '' : String(rawValue)
+  const displayValue = valueToDisplayString(rawValue)
   // Format timestamp values
   const isTimestamp =
     columnMeta?.dataType &&
     TIMESTAMP_TYPES.has(columnMeta.dataType.toUpperCase())
   const formattedValue =
     isTimestamp && rawValue
-      ? formatTimestampValue(String(rawValue))
+      ? formatTimestampValue(valueToDisplayString(rawValue))
       : isTimestamp
         ? '&#8203;'
         : null
@@ -144,7 +160,7 @@ export function EditableCell({
 
   // Show staged value if present, otherwise original value
   const effectiveValue =
-    stagedValue !== undefined ? String(stagedValue) : displayValue
+    stagedValue !== undefined ? valueToDisplayString(stagedValue) : displayValue
 
   // ── Binary column detection ───────────────────────────────────────
   const isBinary = isBinaryColumn(columnMeta?.dataType)
@@ -200,10 +216,10 @@ export function EditableCell({
       }
     }
 
-    // Compare with original value (unwrapped from "null" display)
+    // Compare with original value
     const originalRaw =
-      rawValue === null || rawValue === undefined ? null : String(rawValue)
-    const newRaw = newValue === null ? null : String(newValue)
+      rawValue === null || rawValue === undefined ? null : valueToDisplayString(rawValue)
+    const newRaw = newValue === null ? null : valueToDisplayString(newValue)
 
     if (newRaw !== originalRaw) {
       stageEdit(rowId, field, rawValue, newValue)
@@ -347,7 +363,7 @@ export function EditableCell({
         isInvalid
           ? (validationError ?? displayValue)
           : stagedValue !== undefined
-            ? `Changed: ${displayValue} → ${String(stagedValue)}`
+            ? `Changed: ${displayValue} → ${valueToDisplayString(stagedValue)}`
             : displayValue
       }
       onDoubleClick={handleDoubleClick}
@@ -359,7 +375,7 @@ export function EditableCell({
       {isNull
         ? '(null)'
         : stagedValue !== undefined
-          ? String(stagedValue)
+          ? valueToDisplayString(stagedValue)
           : formattedValue ||
             displayValue || <span className="text-text-muted">&#8203;</span>}
     </span>

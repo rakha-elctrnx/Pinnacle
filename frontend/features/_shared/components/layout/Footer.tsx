@@ -11,12 +11,16 @@ import { useDataExplorerContext } from '../../context/DataExplorerContext'
  * Click-to-navigate is deferred to Phase 2 per the task scope.
  */
 export function Footer() {
-  const { selectedConnection, selectedTreeNode, groupedConnections } =
+  const { selectedConnection, selectedTreeNode, groupedConnections, folders } =
     useDataExplorerContext()
 
-  // Derive the group label for the selected connection (its first tag).
+  // Derive the group label for the selected connection (from folderId or tags).
   const groupLabel = (() => {
     if (!selectedConnection) return '—'
+    if (selectedConnection.folderId) {
+      const folder = folders.find((f) => f.id === selectedConnection.folderId)
+      if (folder) return folder.name
+    }
     const group = selectedConnection.tags?.[0]
     return group || 'Ungrouped'
   })()

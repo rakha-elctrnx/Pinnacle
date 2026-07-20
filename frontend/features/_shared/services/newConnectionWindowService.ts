@@ -1,6 +1,6 @@
 import { emit, listen } from '@tauri-apps/api/event'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
-import type { ConnectionProfile } from '../types/domain'
+import type { ConnectionProfile, Folder } from '../types/domain'
 
 /**
  * New Connection Window Service
@@ -24,6 +24,7 @@ interface NewConnectionOpenPayload {
   editingId: string | null
   existingProfile: ConnectionProfile | null
   existingGroups: string[]
+  folders: Folder[]
   theme: 'light' | 'dark'
 }
 

@@ -383,6 +383,14 @@ export function RowDetailDrawer({
       }
       return JSON.stringify(val, null, 2)
     }
+    // Fallback: JSON.stringify to avoid "[object Object]"
+    if (typeof val === 'object') {
+      try {
+        return JSON.stringify(val)
+      } catch {
+        return String(val)
+      }
+    }
     return String(val)
   }, [focusedField, getEffectiveValue, metaMap])
 
@@ -511,7 +519,9 @@ export function RowDetailDrawer({
                 const valStr =
                   effectiveValue === null || effectiveValue === undefined
                     ? ''
-                    : String(effectiveValue)
+                    : (typeof effectiveValue === 'object'
+                      ? JSON.stringify(effectiveValue)
+                      : String(effectiveValue))
                 const metaDt = meta?.dataType?.toUpperCase()
                 const isBoolean = metaDt === 'BOOLEAN' || metaDt === 'BOOL'
                 const isNullable = editableMetaMap[col]?.isNullable ?? true

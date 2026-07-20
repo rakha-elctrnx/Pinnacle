@@ -31,6 +31,15 @@ export interface SslConfig {
   clientKeyPath?: string
 }
 
+/**
+ * A folder/group for organizing connections.
+ * Folders are stored in localStorage (frontend-only).
+ */
+export interface Folder {
+  id: string
+  name: string
+}
+
 // Connection profile stored in frontend (NO password - that's in OS keyring)
 export interface ConnectionProfile {
   id: string
@@ -54,6 +63,8 @@ export interface ConnectionProfile {
   passwordRef: string
   tags: string[]
   favorite: boolean
+  /** Folder/group ID for organizing. null = ungrouped (top-level). */
+  folderId: string | null
   createdAt: string
   updatedAt: string
 }

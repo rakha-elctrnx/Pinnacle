@@ -28,9 +28,11 @@ export function ConnectionStatusBadge({
   const s = STATES[health.state]
   if (!s) return null
   return (
-    <div className="flex items-center gap-1.5 text-caption">
-      <span className={`h-2 w-2 rounded-full ${s.dot}`} />
-      <span className={s.text}>{s.label}</span>
+    <div className="flex items-center justify-end border-b border-border-default px-4 py-1.5">
+      <div className="flex items-center gap-1.5 text-caption">
+        <span className={`h-2 w-2 rounded-full ${s.dot}`} />
+        <span className={s.text}>{s.label}</span>
+      </div>
     </div>
   )
 }
