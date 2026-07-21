@@ -163,8 +163,8 @@ pub async fn open_tunnel(
 
 /// Try each identity offered by the SSH agent until one authenticates.
 async fn authenticate_via_agent(
-    handle: &mut Handle<AcceptAllHandler>,
-    username: &str,
+    _handle: &mut Handle<AcceptAllHandler>,
+    _username: &str,
 ) -> AppResult<AuthResult> {
     #[cfg(unix)]
     {
@@ -188,8 +188,8 @@ async fn authenticate_via_agent(
             .map_err(AppError::from)?;
 
         for pubkey in identities {
-            match handle
-                .authenticate_publickey_with(username, pubkey.clone(), None, &mut agent)
+            match _handle
+                .authenticate_publickey_with(_username, pubkey.clone(), None, &mut agent)
                 .await
             {
                 Ok(r) if r.success() => return Ok(r),
