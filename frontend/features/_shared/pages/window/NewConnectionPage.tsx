@@ -5,7 +5,6 @@ import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import type {
   ConnectionProfile,
   ConnectionType,
-  Folder,
   SshAuthMethod,
   SslMode,
 } from '../../types/domain'
@@ -189,10 +188,6 @@ export function NewConnectionPage() {
     () => openPayload?.existingGroups ?? [],
     [openPayload],
   )
-  const folders = useMemo(
-    () => openPayload?.folders ?? [],
-    [openPayload],
-  )
 
   return (
     <div className="h-screen w-screen bg-bg-base text-text-primary">
@@ -201,7 +196,6 @@ export function NewConnectionPage() {
           editingId={editingId}
           existingProfile={existingProfile}
           existingGroups={existingGroups}
-          folders={folders}
           onSave={handleSave}
           onClose={handleClose}
         />
@@ -218,7 +212,6 @@ interface ConnectionFormProps {
   editingId: string | null
   existingProfile: ConnectionProfile | null
   existingGroups: string[]
-  folders?: Folder[]
   onSave: (
     profile: ConnectionProfile,
     password?: string,
@@ -267,7 +260,6 @@ function ConnectionFormEmbedded({
   editingId,
   existingProfile,
   existingGroups,
-  folders = [],
   onSave,
   onClose,
 }: ConnectionFormProps) {
@@ -599,6 +591,7 @@ function ConnectionFormEmbedded({
         idleTimeoutSecs: idleTimeoutSecs ? Number(idleTimeoutSecs) : undefined,
         passwordRef: `keyring://${savedId}`,
         tags: group ? [group] : ['Ungrouped'],
+        folderId: null,
         favorite: existingProfile?.favorite ?? false,
         createdAt: existingProfile?.createdAt ?? now,
         updatedAt: now,

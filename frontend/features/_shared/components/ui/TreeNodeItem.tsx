@@ -209,7 +209,6 @@ export function TreeNodeItem({
 
   // ── Drag & Drop state ─────────────────────────────────────────
   const [isDragOver, setIsDragOver] = useState(false)
-  const dragTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Get folder id for group nodes ─────────────────────────────
   const getFolderId = (): string | null => {
