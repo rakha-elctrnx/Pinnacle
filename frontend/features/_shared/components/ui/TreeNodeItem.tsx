@@ -211,11 +211,11 @@ export function TreeNodeItem({
   const [isDragOver, setIsDragOver] = useState(false)
 
   // ── Get folder id for group nodes ─────────────────────────────
-  const getFolderId = (): string | null => {
+  const getFolderId = useCallback((): string | null => {
     if (!isGroupNode || !folders) return null
     const folder = folders.find((f) => f.name === node.label)
     return folder?.id ?? null
-  }
+  }, [isGroupNode, folders, node.label])
 
   // ── Handle rename submission ──────────────────────────────────
   const handleRenameSubmit = useCallback(() => {
