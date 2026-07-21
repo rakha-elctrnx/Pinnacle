@@ -20,9 +20,7 @@ export function TableRenameForm({
       className="flex items-center gap-2 border-b border-border-default bg-bg-subtle px-3 py-1.5 animate-in slide-in-from-top-1 duration-150"
       onClick={(e) => e.stopPropagation()}
     >
-      <span className="shrink-0 text-label text-text-secondary">
-        Rename:
-      </span>
+      <span className="shrink-0 text-label text-text-secondary">Rename:</span>
       <span className="shrink-0 rounded bg-bg-muted px-1.5 py-0.5 text-mono text-text-primary">
         {tableName}
       </span>

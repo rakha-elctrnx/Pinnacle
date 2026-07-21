@@ -96,7 +96,9 @@ export function ConnectionFormModal({
     existingProfile?.sslConfig?.clientKeyPath ?? '',
   )
   const [newSsl, setNewSsl] = useState(existingProfile?.ssl ?? false)
-  const [newFolderId, setNewFolderId] = useState<string | null>(existingProfile?.folderId ?? null)
+  const [newFolderId, setNewFolderId] = useState<string | null>(
+    existingProfile?.folderId ?? null,
+  )
   const [newGroup, setNewGroup] = useState(existingProfile?.tags[0] ?? '')
   const [groupDropdownOpen, setGroupDropdownOpen] = useState(false)
   const groupInputRef = useRef<HTMLInputElement>(null)

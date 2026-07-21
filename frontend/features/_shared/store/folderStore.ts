@@ -50,9 +50,7 @@ export const useFolderStore = create<FolderState>()((set, get) => ({
   },
 
   rename: (id: string, name: string) => {
-    const next = get().items.map((f) =>
-      f.id === id ? { ...f, name } : f,
-    )
+    const next = get().items.map((f) => (f.id === id ? { ...f, name } : f))
     persistFolders(next)
     set({ items: next })
   },

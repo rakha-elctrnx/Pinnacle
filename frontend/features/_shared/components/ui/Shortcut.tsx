@@ -7,8 +7,9 @@ import { Command, CornerDownLeft, Option } from 'lucide-react'
 // signal that works in both without extra native dependencies.
 function isMacOS(): boolean {
   if (typeof navigator === 'undefined') return false
-  const uaData = (navigator as unknown as { userAgentData?: { platform?: string } })
-    .userAgentData
+  const uaData = (
+    navigator as unknown as { userAgentData?: { platform?: string } }
+  ).userAgentData
   const platform =
     uaData?.platform || navigator.platform || navigator.userAgent || ''
   return /mac/i.test(platform)

@@ -3,7 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, FolderPlus, X, Check } from 'lucide-react'
 import { ActionButton } from '../ui/ActionButton'
 import { TreeNodeItem } from '../ui/TreeNodeItem'
-import type { ConnectionProfile, ConnectionType, Folder } from '../../types/domain'
+import type {
+  ConnectionProfile,
+  ConnectionType,
+  Folder,
+} from '../../types/domain'
 import type { ElasticIndex } from '../../../elasticsearch/types/elasticsearch'
 import type { TreeNode, ExplorerTreeData } from '../../types/shared'
 import { isSqlConnectionType, isElasticsearchType } from '../../utils'
@@ -269,7 +273,13 @@ export function ConnectionSidebar() {
       elasticIndices,
       expandedTreePaths,
     )
-  }, [groupedConnections, folders, explorerData, elasticIndices, expandedTreePaths])
+  }, [
+    groupedConnections,
+    folders,
+    explorerData,
+    elasticIndices,
+    expandedTreePaths,
+  ])
 
   // Compute visible nodes from the unified tree
   const visibleNodes = useMemo(
@@ -504,6 +514,50 @@ export function ConnectionSidebar() {
     })
   }
 
+  const handleDatabaseNodeContextMenu = (
+    event: React.MouseEvent,
+    connectionId: string,
+    databaseName: string,
+  ) => {
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      itemId: connectionId,
+      databaseName,
+    })
+  }
+
+  const handleSchemaNodeContextMenu = (
+    event: React.MouseEvent,
+    connectionId: string,
+    databaseName: string,
+    schemaName: string,
+  ) => {
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      itemId: connectionId,
+      databaseName,
+      schemaName,
+    })
+  }
+
+  const handleTablesCategoryContextMenu = (
+    event: React.MouseEvent,
+    connectionId: string,
+    databaseName: string,
+    schemaName?: string,
+  ) => {
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      itemId: connectionId,
+      databaseName,
+      schemaName,
+      categoryName: 'Tables',
+    })
+  }
+
   // Handle connection node selection from tree — no tab created, just navigate
   const handleConnectionNodeSelect = useCallback(
     (nodePath: string, connectionId: string) => {
@@ -688,6 +742,9 @@ export function ConnectionSidebar() {
               onViewNodeContextMenu={handleViewNodeContextMenu}
               onIndexNodeContextMenu={handleIndexNodeContextMenu}
               onConnectionContextMenu={handleContextMenu}
+              onDatabaseNodeContextMenu={handleDatabaseNodeContextMenu}
+              onSchemaNodeContextMenu={handleSchemaNodeContextMenu}
+              onTablesCategoryContextMenu={handleTablesCategoryContextMenu}
               groupedConnections={groupedConnections}
               explorerData={explorerData}
               elasticIndicesError={elasticIndicesError}

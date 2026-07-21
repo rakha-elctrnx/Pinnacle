@@ -519,9 +519,9 @@ export function RowDetailDrawer({
                 const valStr =
                   effectiveValue === null || effectiveValue === undefined
                     ? ''
-                    : (typeof effectiveValue === 'object'
+                    : typeof effectiveValue === 'object'
                       ? JSON.stringify(effectiveValue)
-                      : String(effectiveValue))
+                      : String(effectiveValue)
                 const metaDt = meta?.dataType?.toUpperCase()
                 const isBoolean = metaDt === 'BOOLEAN' || metaDt === 'BOOL'
                 const isNullable = editableMetaMap[col]?.isNullable ?? true

@@ -134,7 +134,9 @@ export function Dropdown({
                   {item.icon}
                 </span>
               )}
-              <span className="flex-1 whitespace-nowrap text-left">{item.label}</span>
+              <span className="flex-1 whitespace-nowrap text-left">
+                {item.label}
+              </span>
               {item.shortcut && <Shortcut keys={item.shortcut} />}
             </button>
             {item.dividerAfter && (

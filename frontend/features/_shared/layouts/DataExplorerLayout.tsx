@@ -2,13 +2,18 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Braces,
+  ChevronDown,
+  ChevronRight,
+  CirclePlus,
   Copy,
-  Download,
+  Database,
   Eraser,
   Folder,
   FolderPlus,
-  Layers,
+  Network,
   Pencil,
+  Plug,
+  Plus,
   RefreshCw,
   Scissors,
   FileDown,
@@ -209,8 +214,6 @@ function DataExplorerLayoutChrome({
   onSidebarResize: (delta: number) => void
   onInspectorResize: (delta: number) => void
 }) {
-  const navigate = useNavigate()
-
   const {
     items,
     selectedConnection,
@@ -218,14 +221,16 @@ function DataExplorerLayoutChrome({
     contextMenuRef,
     isAddModalOpen,
     connectionModalNonce,
+    connectionStatuses,
+    openCreateConnection,
     editingId,
     queryExecution,
     explorerData,
+    expandedTreePaths,
     handleOpenEditModal,
     handleRefreshConnection,
     handleCloseConnection: handleCloseConnectionRaw,
     handleDuplicateConnection,
-    handleExportConnection,
     handleDeleteConnection,
     deleteConnectionTarget,
     handleConfirmDeleteConnection,
@@ -233,6 +238,9 @@ function DataExplorerLayoutChrome({
     handleSaveConnection,
     handleCloseAddModal,
     setContextMenu,
+    handleConnectionSelectionChange,
+    handleToggleTreeNode,
+    handleFetchDatabaseDetails,
     handleRequestDeleteTableFromMenu,
     handleRequestDataOperationFromMenu,
     handleRequestExportFromMenu,
@@ -240,6 +248,7 @@ function DataExplorerLayoutChrome({
     handleCreateFolder,
     handleMoveConnectionToFolder,
   } = useDataExplorerContext()
+  const navigate = useNavigate()
 
   const handleCloseConnection = useCallback(
     (itemId: string) => {
@@ -262,6 +271,213 @@ function DataExplorerLayoutChrome({
   )
 
   // Use refs for callback + payload data so the effect only re-runs on
+
+  const handleNewQueryFromMenu = useCallback(
+    (connectionId: string) => {
+      const profile = items.find((p) => p.id === connectionId)
+      if (!profile) return
+      if (selectedConnection?.id !== connectionId) {
+        handleConnectionSelectionChange(connectionId)
+      }
+      const qId = queryExecution.createQueryId()
+      const route = `/sql/${connectionId}/query/${qId}`
+      useTabStore.getState().openTab({
+        id: `${connectionId}:query:${qId}`,
+        label: `Query_${qId}`,
+        type: profile.type,
+        pageType: 'query',
+        route,
+        connectionId,
+      })
+      navigate(route)
+    },
+    [
+      items,
+      selectedConnection,
+      handleConnectionSelectionChange,
+      queryExecution,
+      navigate,
+    ],
+  )
+
+  const handleNewDatabaseFromMenu = useCallback(
+    (connectionId: string) => {
+      const profile = items.find((p) => p.id === connectionId)
+      if (!profile) return
+      if (selectedConnection?.id !== connectionId) {
+        handleConnectionSelectionChange(connectionId)
+      }
+      const qId = queryExecution.createQueryId()
+      const route = `/sql/${connectionId}/query/${qId}`
+      useTabStore.getState().openTab({
+        id: `${connectionId}:query:${qId}`,
+        label: `Query_${qId}`,
+        type: profile.type,
+        pageType: 'query',
+        route,
+        connectionId,
+      })
+      queryExecution.setActiveQueryId(qId)
+      queryExecution.updateActiveQuery('CREATE DATABASE new_database;')
+      navigate(route)
+    },
+    [
+      items,
+      selectedConnection,
+      handleConnectionSelectionChange,
+      queryExecution,
+      navigate,
+    ],
+  )
+
+  const handleNewSchemaFromMenu = useCallback(
+    (connectionId: string, databaseName: string) => {
+      const profile = items.find((p) => p.id === connectionId)
+      if (!profile) return
+      if (selectedConnection?.id !== connectionId) {
+        handleConnectionSelectionChange(connectionId)
+      }
+      const qId = queryExecution.createQueryId()
+      const route = `/sql/${connectionId}/query/${qId}`
+      useTabStore.getState().openTab({
+        id: `${connectionId}:query:${qId}`,
+        label: `Query_${qId}`,
+        type: profile.type,
+        pageType: 'query',
+        route,
+        connectionId,
+      })
+      queryExecution.setActiveQueryId(qId)
+      queryExecution.onQueryDatabaseChange(databaseName)
+      queryExecution.updateActiveQuery(
+        'CREATE SCHEMA IF NOT EXISTS new_schema;',
+      )
+      navigate(route)
+    },
+    [
+      items,
+      selectedConnection,
+      handleConnectionSelectionChange,
+      queryExecution,
+      navigate,
+    ],
+  )
+
+  const handleDeleteDatabaseFromMenu = useCallback(
+    (connectionId: string, databaseName: string) => {
+      const profile = items.find((p) => p.id === connectionId)
+      if (!profile) return
+      if (selectedConnection?.id !== connectionId) {
+        handleConnectionSelectionChange(connectionId)
+      }
+      const qId = queryExecution.createQueryId()
+      const route = `/sql/${connectionId}/query/${qId}`
+      useTabStore.getState().openTab({
+        id: `${connectionId}:query:${qId}`,
+        label: `Query_${qId}`,
+        type: profile.type,
+        pageType: 'query',
+        route,
+        connectionId,
+      })
+      queryExecution.setActiveQueryId(qId)
+      queryExecution.onQueryDatabaseChange(databaseName)
+      const quotedDb = /[A-Z]/.test(databaseName)
+        ? `"${databaseName}"`
+        : databaseName
+      queryExecution.updateActiveQuery(`DROP DATABASE IF EXISTS ${quotedDb};`)
+      navigate(route)
+    },
+    [
+      items,
+      selectedConnection,
+      handleConnectionSelectionChange,
+      queryExecution,
+      navigate,
+    ],
+  )
+  const handleDeleteSchemaFromMenu = useCallback(
+    (connectionId: string, databaseName: string, schemaName: string) => {
+      const profile = items.find((p) => p.id === connectionId)
+      if (!profile) return
+      if (selectedConnection?.id !== connectionId) {
+        handleConnectionSelectionChange(connectionId)
+      }
+      const qId = queryExecution.createQueryId()
+      const route = `/sql/${connectionId}/query/${qId}`
+      useTabStore.getState().openTab({
+        id: `${connectionId}:query:${qId}`,
+        label: `Query_${qId}`,
+        type: profile.type,
+        pageType: 'query',
+        route,
+        connectionId,
+      })
+      queryExecution.setActiveQueryId(qId)
+      queryExecution.onQueryDatabaseChange(databaseName)
+      const quotedSchema = /[A-Z]/.test(schemaName)
+        ? `"${schemaName}"`
+        : schemaName
+      queryExecution.updateActiveQuery(
+        `DROP SCHEMA IF EXISTS ${quotedSchema} CASCADE;`,
+      )
+      navigate(route)
+    },
+    [
+      items,
+      selectedConnection,
+      handleConnectionSelectionChange,
+      queryExecution,
+      navigate,
+    ],
+  )
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleExecuteSqlFile = useCallback(
+    (connectionId: string, databaseName: string, _schemaName: string) => {
+      let input = fileInputRef.current
+      if (!input) {
+        input = document.createElement('input')
+        input.type = 'file'
+        input.accept = '.sql,.txt'
+        input.style.display = 'none'
+        document.body.appendChild(input)
+        fileInputRef.current = input
+      }
+      input.onchange = async () => {
+        const file = input?.files?.[0]
+        if (!file) return
+        const content = await file.text()
+        const profile = items.find((p) => p.id === connectionId)
+        if (!profile) return
+        if (selectedConnection?.id !== connectionId) {
+          handleConnectionSelectionChange(connectionId)
+        }
+        queryExecution.onQueryDatabaseChange(databaseName)
+        const qId = queryExecution.createQueryId()
+        const route = `/sql/${connectionId}/query/${qId}`
+        useTabStore.getState().openTab({
+          id: `${connectionId}:query:${qId}`,
+          label: `${file.name}`,
+          type: profile.type,
+          pageType: 'query',
+          route,
+          connectionId,
+        })
+        queryExecution.setActiveQueryId(qId)
+        queryExecution.updateActiveQuery(content)
+        navigate(route)
+      }
+      input.click()
+    },
+    [
+      items,
+      selectedConnection,
+      handleConnectionSelectionChange,
+      queryExecution,
+      navigate,
+    ],
+  )
   // explicit open actions (isAddModalOpen / connectionModalNonce) rather
   // than on every orchestrator re-render.
   const handleSaveRef = useRef(handleSaveConnection)
@@ -540,37 +756,521 @@ function DataExplorerLayoutChrome({
                       : []),
                     { divider: true } as ContextMenuItem,
                   ]
-                : [
-                    // ── Connection-level actions ──────────────────
-                    {
-                      label: 'Rename / Edit',
-                      icon: <Pencil size={14} />,
-                      action: () => {
-                        handleOpenEditModal(contextMenu.itemId)
-                      },
-                    },
-                    ...(handleOpenDesignerForEdit
+                : // ── Tables-category actions (right-click "Tables" node) ──
+                  contextMenu.categoryName === 'Tables'
+                  ? [
+                      {
+                        label: 'New Table',
+                        icon: <CirclePlus size={14} />,
+                        action: async () => {
+                          const connId = contextMenu.itemId
+                          if (
+                            !connId ||
+                            !selectedConnection ||
+                            !isSqlConnectionType(selectedConnection.type)
+                          )
+                            return
+                          const dbName = contextMenu.databaseName!
+                          const schemaName = contextMenu.schemaName
+                          const profile = items.find((p) => p.id === connId)
+                          if (!profile) return
+                          if (selectedConnection?.id !== connId) {
+                            handleConnectionSelectionChange(connId)
+                          }
+                          queryExecution.onQueryDatabaseChange(dbName)
+                          if (
+                            schemaName &&
+                            selectedConnection.type === 'postgresql'
+                          ) {
+                            queryExecution.onQuerySchemaChange(schemaName)
+                          }
+                          const effDbName =
+                            dbName || selectedConnection.database
+                          const effSchema =
+                            selectedConnection.type === 'postgresql'
+                              ? schemaName || 'public'
+                              : (effDbName ?? '')
+                          const payload = {
+                            ...(await getConnPayloadWithPassword(profile)),
+                            database: effDbName ?? '',
+                          }
+                          await openDesignerWindow({
+                            mode: 'create',
+                            schema: effSchema,
+                            database: effDbName ?? '',
+                            connectionPayload: payload,
+                          })
+                        },
+                        disabled:
+                          connectionStatuses[contextMenu.itemId] !==
+                          'connected',
+                      } as ContextMenuItem,
+                      {
+                        label: 'New Query',
+                        icon: <SquareTerminal size={14} />,
+                        action: () => {
+                          const connId = contextMenu.itemId
+                          const dbName = contextMenu.databaseName!
+                          const profile = items.find((p) => p.id === connId)
+                          if (!profile) return
+                          if (selectedConnection?.id !== connId) {
+                            handleConnectionSelectionChange(connId)
+                          }
+                          queryExecution.onQueryDatabaseChange(dbName)
+                          const qId = queryExecution.createQueryId()
+                          const route = `/sql/${connId}/query/${qId}`
+                          useTabStore.getState().openTab({
+                            id: `${connId}:query:${qId}`,
+                            label: `Query_${qId}`,
+                            type: profile.type,
+                            pageType: 'query',
+                            route,
+                            connectionId: connId,
+                          })
+                          navigate(route)
+                        },
+                        disabled:
+                          connectionStatuses[contextMenu.itemId] !==
+                          'connected',
+                      } as ContextMenuItem,
+                      {
+                        label: 'View ER Diagram',
+                        icon: <Network size={14} />,
+                        action: () => {
+                          const connId = contextMenu.itemId
+                          if (!connId || !selectedConnection) return
+                          const tabId = `${connId}:tables`
+                          const tabStore = useTabStore.getState()
+                          const existing = tabStore.tabs.some((t) => t.id === tabId)
+                          if (existing) {
+                            tabStore.activateTab(tabId)
+                          } else {
+                            const route = `/sql/${connId}/tables`
+                            tabStore.openTab({
+                              id: tabId,
+                              label: 'Tables',
+                              type: selectedConnection.type,
+                              pageType: 'table',
+                              route,
+                              connectionId: connId,
+                            })
+                            navigate(route)
+                          }
+                        },
+                      } as ContextMenuItem,
+                      { divider: true } as ContextMenuItem,
+                      {
+                        label: 'Refresh',
+                        icon: <RefreshCw size={14} />,
+                        action: () => {
+                          handleRefreshConnection(contextMenu.itemId)
+                        },
+                      } as ContextMenuItem,
+                    ]
+                  : // ── Database-level actions ───────────────────────
+                    contextMenu.databaseName && !contextMenu.schemaName
+                    ? [
+                        // ── Open/Close Database toggle ───────────────
+                        ...(() => {
+                          const profile = items.find(
+                            (p) => p.id === contextMenu.itemId,
+                          )
+                          const connName = profile?.name ?? ''
+                          const connFolder =
+                            connName && profile?.folderId
+                              ? folders.find((f) => f.id === profile.folderId)
+                              : undefined
+                          const basePath = connFolder
+                            ? `${connFolder.name}/${connName}`
+                            : connName
+                          const dbPath = basePath
+                            ? `${basePath}/${contextMenu.databaseName}`
+                            : ''
+                          const isOpen = dbPath
+                            ? expandedTreePaths.includes(dbPath)
+                            : false
+                          return isOpen
+                            ? [
+                                {
+                                  label: 'Close Database',
+                                  icon: <ChevronDown size={14} />,
+                                  action: () => {
+                                    if (dbPath) handleToggleTreeNode(dbPath)
+                                  },
+                                } as ContextMenuItem,
+                              ]
+                            : [
+                                {
+                                  label: 'Open Database',
+                                  icon: <ChevronRight size={14} />,
+                                  action: () => {
+                                    if (dbPath) {
+                                      handleToggleTreeNode(dbPath)
+                                      handleFetchDatabaseDetails(
+                                        contextMenu.databaseName!,
+                                      )
+                                    }
+                                  },
+                                } as ContextMenuItem,
+                              ]
+                        })(),
+                        {
+                          label: 'Edit Connection',
+                          icon: <Pencil size={14} />,
+                          action: () => {
+                            handleOpenEditModal(contextMenu.itemId)
+                          },
+                        },
+                        {
+                          label: 'New Database',
+                          icon: <Database size={14} />,
+                          action: () =>
+                            handleNewDatabaseFromMenu(contextMenu.itemId),
+                          disabled:
+                            connectionStatuses[contextMenu.itemId] !==
+                            'connected',
+                        } as ContextMenuItem,
+                        {
+                          label: 'Delete Database',
+                          icon: <Trash2 size={14} />,
+                          action: () =>
+                            handleDeleteDatabaseFromMenu(
+                              contextMenu.itemId,
+                              contextMenu.databaseName!,
+                            ),
+                          dangerous: true,
+                        } as ContextMenuItem,
+                        { divider: true } as ContextMenuItem,
+                        {
+                          label: 'New Schema',
+                          icon: <Plus size={14} />,
+                          action: () =>
+                            handleNewSchemaFromMenu(
+                              contextMenu.itemId,
+                              contextMenu.databaseName!,
+                            ),
+                          disabled:
+                            connectionStatuses[contextMenu.itemId] !==
+                            'connected',
+                        } as ContextMenuItem,
+                        {
+                          label: 'New Query',
+                          icon: <SquareTerminal size={14} />,
+                          action: () => {
+                            const connId = contextMenu.itemId
+                            const dbName = contextMenu.databaseName!
+                            const profile = items.find((p) => p.id === connId)
+                            if (!profile) return
+                            if (selectedConnection?.id !== connId) {
+                              handleConnectionSelectionChange(connId)
+                            }
+                            queryExecution.onQueryDatabaseChange(dbName)
+                            const qId = queryExecution.createQueryId()
+                            const route = `/sql/${connId}/query/${qId}`
+                            useTabStore.getState().openTab({
+                              id: `${connId}:query:${qId}`,
+                              label: `Query_${qId}`,
+                              type: profile.type,
+                              pageType: 'query',
+                              route,
+                              connectionId: connId,
+                            })
+                            navigate(route)
+                          },
+                          disabled:
+                            connectionStatuses[contextMenu.itemId] !==
+                            'connected',
+                        } as ContextMenuItem,
+                        { divider: true } as ContextMenuItem,
+                        {
+                          label: 'Refresh',
+                          icon: <RefreshCw size={14} />,
+                          action: () => {
+                            handleRefreshConnection(contextMenu.itemId)
+                          },
+                        } as ContextMenuItem,
+                      ]
+                    : // ── Schema-level actions ───────────────────────────
+                      contextMenu.schemaName
                       ? [
+                          // ── Open/Close Schema toggle ─────────────────
+                          ...(() => {
+                            const profile = items.find(
+                              (p) => p.id === contextMenu.itemId,
+                            )
+                            const connName = profile?.name ?? ''
+                            const connFolder =
+                              connName && profile?.folderId
+                                ? folders.find((f) => f.id === profile.folderId)
+                                : undefined
+                            const basePath = connFolder
+                              ? `${connFolder.name}/${connName}`
+                              : connName
+                            const dbPath = basePath
+                              ? `${basePath}/${contextMenu.databaseName}`
+                              : ''
+                            const schemaPath = dbPath
+                              ? `${dbPath}/${contextMenu.schemaName}`
+                              : ''
+                            const isOpen = schemaPath
+                              ? expandedTreePaths.includes(schemaPath)
+                              : false
+                            return isOpen
+                              ? [
+                                  {
+                                    label: 'Close Schema',
+                                    icon: <ChevronDown size={14} />,
+                                    action: () => {
+                                      if (schemaPath)
+                                        handleToggleTreeNode(schemaPath)
+                                    },
+                                  } as ContextMenuItem,
+                                ]
+                              : [
+                                  {
+                                    label: 'Open Schema',
+                                    icon: <ChevronRight size={14} />,
+                                    action: () => {
+                                      if (schemaPath)
+                                        handleToggleTreeNode(schemaPath)
+                                    },
+                                  } as ContextMenuItem,
+                                ]
+                          })(),
                           {
-                            label: 'Edit Structure',
-                            icon: <TableProperties size={14} />,
+                            label: 'Edit Schema',
+                            icon: <Pencil size={14} />,
                             action: () => {
-                              handleOpenDesignerForEdit(contextMenu.itemId)
+                              const connId = contextMenu.itemId
+                              const dbName = contextMenu.databaseName!
+                              const schemaName = contextMenu.schemaName!
+                              const profile = items.find((p) => p.id === connId)
+                              if (!profile) return
+                              if (selectedConnection?.id !== connId) {
+                                handleConnectionSelectionChange(connId)
+                              }
+                              queryExecution.onQueryDatabaseChange(dbName)
+                              const qId = queryExecution.createQueryId()
+                              const route = `/sql/${connId}/query/${qId}`
+                              useTabStore.getState().openTab({
+                                id: `${connId}:query:${qId}`,
+                                label: `Query_${qId}`,
+                                type: profile.type,
+                                pageType: 'query',
+                                route,
+                                connectionId: connId,
+                              })
+                              queryExecution.setActiveQueryId(qId)
+                              const quotedSchema = /[A-Z]/.test(schemaName)
+                                ? `"${schemaName}"`
+                                : schemaName
+                              queryExecution.updateActiveQuery(
+                                `ALTER SCHEMA ${quotedSchema} RENAME TO new_name;`,
+                              )
+                              navigate(route)
+                            },
+                            disabled:
+                              connectionStatuses[contextMenu.itemId] !==
+                              'connected',
+                          } as ContextMenuItem,
+                          { divider: true } as ContextMenuItem,
+                          {
+                            label: 'New Schema',
+                            icon: <Plus size={14} />,
+                            action: () =>
+                              handleNewSchemaFromMenu(
+                                contextMenu.itemId,
+                                contextMenu.databaseName!,
+                              ),
+                            disabled:
+                              connectionStatuses[contextMenu.itemId] !==
+                              'connected',
+                          } as ContextMenuItem,
+                          {
+                            label: 'Delete Schema',
+                            icon: <Trash2 size={14} />,
+                            action: () =>
+                              handleDeleteSchemaFromMenu(
+                                contextMenu.itemId,
+                                contextMenu.databaseName!,
+                                contextMenu.schemaName!,
+                              ),
+                            dangerous: true,
+                            disabled:
+                              connectionStatuses[contextMenu.itemId] !==
+                              'connected',
+                          } as ContextMenuItem,
+                          { divider: true } as ContextMenuItem,
+                          {
+                            label: 'New Query',
+                            icon: <SquareTerminal size={14} />,
+                            action: () => {
+                              const connId = contextMenu.itemId
+                              const dbName = contextMenu.databaseName!
+                              const profile = items.find((p) => p.id === connId)
+                              if (!profile) return
+                              if (selectedConnection?.id !== connId) {
+                                handleConnectionSelectionChange(connId)
+                              }
+                              queryExecution.onQueryDatabaseChange(dbName)
+                              const qId = queryExecution.createQueryId()
+                              const route = `/sql/${connId}/query/${qId}`
+                              useTabStore.getState().openTab({
+                                id: `${connId}:query:${qId}`,
+                                label: `Query_${qId}`,
+                                type: profile.type,
+                                pageType: 'query',
+                                route,
+                                connectionId: connId,
+                              })
+                              navigate(route)
+                            },
+                            disabled:
+                              connectionStatuses[contextMenu.itemId] !==
+                              'connected',
+                          } as ContextMenuItem,
+                          {
+                            label: 'Execute SQL File',
+                            icon: <FileDown size={14} />,
+                            action: () =>
+                              handleExecuteSqlFile(
+                                contextMenu.itemId,
+                                contextMenu.databaseName!,
+                                contextMenu.schemaName!,
+                              ),
+                            disabled:
+                              connectionStatuses[contextMenu.itemId] !==
+                              'connected',
+                          } as ContextMenuItem,
+                          { divider: true } as ContextMenuItem,
+                          {
+                            label: 'Refresh',
+                            icon: <RefreshCw size={14} />,
+                            action: () => {
+                              handleRefreshConnection(contextMenu.itemId)
                             },
                           } as ContextMenuItem,
                         ]
-                      : []),
-                    {
-                      label: 'Create View',
-                      icon: <Layers size={14} />,
-                      action: () => {
-                        const connId = contextMenu.itemId
-                        if (!connId) return
-                        const route = `/sql/${connId}/views/new`
-                        navigate(route)
-                      },
-                    } as ContextMenuItem,
-                  ]),
+                      : // ── Connection-level actions ──────────────────
+                        !contextMenu.viewName && !contextMenu.indexName
+                        ? [
+                            // ── Open/Close toggle ────────────────────────
+                            ...(connectionStatuses[contextMenu.itemId] ===
+                            'connected'
+                              ? [
+                                  {
+                                    label: 'Close Connection',
+                                    icon: <Unplug size={14} />,
+                                    action: () => {
+                                      handleCloseConnection(contextMenu.itemId)
+                                    },
+                                  } as ContextMenuItem,
+                                ]
+                              : [
+                                  {
+                                    label: 'Open Connection',
+                                    icon: <Plug size={14} />,
+                                    action: () => {
+                                      handleConnectionSelectionChange(
+                                        contextMenu.itemId,
+                                      )
+                                      handleRefreshConnection(
+                                        contextMenu.itemId,
+                                      )
+                                    },
+                                  } as ContextMenuItem,
+                                ]),
+                            {
+                              label: 'Edit Connection',
+                              icon: <Pencil size={14} />,
+                              action: () => {
+                                handleOpenEditModal(contextMenu.itemId)
+                              },
+                            },
+                            {
+                              label: 'New Connection',
+                              icon: <Plus size={14} />,
+                              action: openCreateConnection,
+                            },
+                            {
+                              label: 'Delete Connection',
+                              icon: <Trash2 size={14} />,
+                              action: () => {
+                                handleDeleteConnection(contextMenu.itemId)
+                              },
+                              dangerous: true,
+                            } as ContextMenuItem,
+                            {
+                              label: 'Duplicate Connection',
+                              icon: <Copy size={14} />,
+                              action: () => {
+                                handleDuplicateConnection(contextMenu.itemId)
+                              },
+                            },
+                            { divider: true } as ContextMenuItem,
+                            {
+                              label: 'New Database',
+                              icon: <Database size={14} />,
+                              action: () =>
+                                handleNewDatabaseFromMenu(contextMenu.itemId),
+                              disabled:
+                                connectionStatuses[contextMenu.itemId] !==
+                                'connected',
+                            } as ContextMenuItem,
+                            {
+                              label: 'New Query',
+                              icon: <SquareTerminal size={14} />,
+                              action: () =>
+                                handleNewQueryFromMenu(contextMenu.itemId),
+                              disabled:
+                                connectionStatuses[contextMenu.itemId] !==
+                                'connected',
+                            } as ContextMenuItem,
+                            { divider: true } as ContextMenuItem,
+                            // ── Move to folder (submenu) ─────────────────
+                            {
+                              label: 'Move to',
+                              icon: <Folder size={14} />,
+                              children: [
+                                {
+                                  label: 'No folder (ungrouped)',
+                                  action: () => {
+                                    handleMoveConnectionToFolder(
+                                      contextMenu.itemId,
+                                      null,
+                                    )
+                                  },
+                                } as ContextMenuItem,
+                                ...(folders.map((f) => ({
+                                  label: f.name,
+                                  action: () => {
+                                    handleMoveConnectionToFolder(
+                                      contextMenu.itemId,
+                                      f.id,
+                                    )
+                                  },
+                                })) as ContextMenuItem[]),
+                                { divider: true } as ContextMenuItem,
+                                {
+                                  label: 'New Folder',
+                                  icon: <FolderPlus size={14} />,
+                                  action: () => {
+                                    const count = folders.length + 1
+                                    handleCreateFolder(`Folder ${count}`)
+                                    setContextMenu(null)
+                                  },
+                                } as ContextMenuItem,
+                              ],
+                            },
+                            {
+                              label: 'Refresh',
+                              icon: <RefreshCw size={14} />,
+                              action: () => {
+                                handleRefreshConnection(contextMenu.itemId)
+                              },
+                            } as ContextMenuItem,
+                          ]
+                        : []),
               // ── View-specific actions ──────────────────────────
               ...(contextMenu.viewName
                 ? [
@@ -641,86 +1341,6 @@ function DataExplorerLayoutChrome({
                       },
                     } as ContextMenuItem,
                     { divider: true } as ContextMenuItem,
-                  ]
-                : []),
-              // ── Common actions ───────────────────────────────
-              {
-                label: 'Refresh',
-                icon: <RefreshCw size={14} />,
-                action: () => {
-                  handleRefreshConnection(contextMenu.itemId)
-                },
-              },
-              // ── Connection-only extra actions ─────────────────
-              ...(!contextMenu.tableName &&
-              !contextMenu.indexName &&
-              !contextMenu.viewName
-                ? [
-                    {
-                      label: 'Duplicate',
-                      icon: <Copy size={14} />,
-                      action: () => {
-                        handleDuplicateConnection(contextMenu.itemId)
-                      },
-                    },
-                    {
-                      label: 'Export Configuration',
-                      icon: <Download size={14} />,
-                      action: () => {
-                        handleExportConnection(contextMenu.itemId)
-                      },
-                    },
-                    // ── Move to folder (submenu) ─────────────────
-                    {
-                      label: 'Move to',
-                      icon: <Folder size={14} />,
-                      children: [
-                        {
-                          label: 'No folder (ungrouped)',
-                          action: () => {
-                            handleMoveConnectionToFolder(
-                              contextMenu.itemId,
-                              null,
-                            )
-                          },
-                        } as ContextMenuItem,
-                        ...folders.map((f) => ({
-                          label: f.name,
-                          action: () => {
-                            handleMoveConnectionToFolder(
-                              contextMenu.itemId,
-                              f.id,
-                            )
-                          },
-                        })) as ContextMenuItem[],
-                        { divider: true } as ContextMenuItem,
-                        {
-                          label: 'New Folder',
-                          icon: <FolderPlus size={14} />,
-                          action: () => {
-                            const count = folders.length + 1
-                            handleCreateFolder(`Folder ${count}`)
-                            setContextMenu(null)
-                          },
-                        } as ContextMenuItem,
-                      ],
-                    },
-                    { divider: true } as ContextMenuItem,
-                    {
-                      label: 'Close Connection',
-                      icon: <Unplug size={14} />,
-                      action: () => {
-                        handleCloseConnection(contextMenu.itemId)
-                      },
-                    },
-                    {
-                      label: 'Delete',
-                      icon: <Trash2 size={14} />,
-                      action: () => {
-                        handleDeleteConnection(contextMenu.itemId)
-                      },
-                      dangerous: true,
-                    } as ContextMenuItem,
                   ]
                 : []),
             ]}

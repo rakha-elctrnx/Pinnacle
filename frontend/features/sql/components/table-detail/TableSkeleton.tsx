@@ -39,7 +39,7 @@ export function TableSkeleton({
     // Generate deterministic widths based on column names
     return columns.length > 0
       ? columns.map((col) => {
-          const baseWidth = MIN_COL_WIDTH + (col.length * 8)
+          const baseWidth = MIN_COL_WIDTH + col.length * 8
           return Math.min(MAX_COL_WIDTH, Math.max(MIN_COL_WIDTH, baseWidth))
         })
       : [80, 120, 150, 100, 90] // Default 5 columns
@@ -47,15 +47,11 @@ export function TableSkeleton({
 
   const totalWidth = useMemo(
     () => ROW_GUTTER_WIDTH + columnWidths.reduce((sum, w) => sum + w, 0),
-    [columnWidths]
+    [columnWidths],
   )
 
   const renderSkeletonCell = (key: string, width: number) => (
-    <td
-      key={key}
-      className="animate-pulse bg-bg-subtle"
-      style={{ width }}
-    >
+    <td key={key} className="animate-pulse bg-bg-subtle" style={{ width }}>
       <div className="mx-2 my-1 h-3 w-full rounded bg-bg-muted/50" />
     </td>
   )
@@ -103,10 +99,7 @@ export function TableSkeleton({
                 <div className="mx-auto h-3 w-6 rounded-full bg-bg-muted/50" />
               </td>
               {columnWidths.map((width, colIndex) =>
-                renderSkeletonCell(
-                  `skeleton-${rowIndex}-${colIndex}`,
-                  width
-                )
+                renderSkeletonCell(`skeleton-${rowIndex}-${colIndex}`, width),
               )}
             </tr>
           ))}

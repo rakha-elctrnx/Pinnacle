@@ -22,8 +22,12 @@ export function ElasticLayout() {
   const { connectionId } = useParams<{ connectionId: string }>()
   const location = useLocation()
 
-  const { items, selectedConnection, handleConnectionSelectionChange, openConnectionFromUrl } =
-    useDataExplorerContext()
+  const {
+    items,
+    selectedConnection,
+    handleConnectionSelectionChange,
+    openConnectionFromUrl,
+  } = useDataExplorerContext()
 
   // Find the connection by ID from the URL.
   const connection = useMemo(

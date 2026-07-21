@@ -56,7 +56,13 @@ export function QueryToolbar({
       <div className="relative">
         <div className="flex items-stretch">
           <ActionButton
-            icon={isRunningQuery ? <LoaderCircle size={14} className="animate-spin" /> : <Play size={14} />}
+            icon={
+              isRunningQuery ? (
+                <LoaderCircle size={14} className="animate-spin" />
+              ) : (
+                <Play size={14} />
+              )
+            }
             aria-label={isRunningQuery ? 'Running…' : 'Run (Ctrl+Enter)'}
             variant="accent"
             disabled={isRunningQuery}

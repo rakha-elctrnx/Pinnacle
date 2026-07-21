@@ -18,7 +18,10 @@ import {
   Trash2,
 } from 'lucide-react'
 import type { TreeNode, ExplorerTreeData } from '../../types/shared'
-import type { ConnectionProfile, Folder as FolderType } from '../../types/domain'
+import type {
+  ConnectionProfile,
+  Folder as FolderType,
+} from '../../types/domain'
 import { databaseTypeOptions } from '../../constants'
 import { CenteredLoadingState } from './CenteredLoadingState'
 import { useState, useRef, useCallback, useEffect } from 'react'
@@ -105,6 +108,9 @@ export function TreeNodeItem({
   onIndexNodeContextMenu,
   onConnectionContextMenu,
   onViewNodeContextMenu,
+  onDatabaseNodeContextMenu,
+  onSchemaNodeContextMenu,
+  onTablesCategoryContextMenu,
   groupedConnections,
   explorerData,
   elasticIndicesError,
@@ -152,6 +158,23 @@ export function TreeNodeItem({
     connectionId: string,
     viewName: string,
   ) => void
+  onDatabaseNodeContextMenu?: (
+    event: React.MouseEvent,
+    connectionId: string,
+    databaseName: string,
+  ) => void
+  onSchemaNodeContextMenu?: (
+    event: React.MouseEvent,
+    connectionId: string,
+    databaseName: string,
+    schemaName: string,
+  ) => void
+  onTablesCategoryContextMenu?: (
+    event: React.MouseEvent,
+    connectionId: string,
+    databaseName: string,
+    schemaName?: string,
+  ) => void
   groupedConnections?: Record<string, ConnectionProfile[]> | null
   explorerData?: ExplorerDataContext
   elasticIndicesError?: Record<string, string>
@@ -162,7 +185,10 @@ export function TreeNodeItem({
   folders?: FolderType[]
   onRenameFolder?: (id: string, name: string) => void
   onDeleteFolder?: (id: string) => void
-  onMoveConnectionToFolder?: (connectionId: string, folderId: string | null) => void
+  onMoveConnectionToFolder?: (
+    connectionId: string,
+    folderId: string | null,
+  ) => void
 }) {
   const nodePath = parentPath ? `${parentPath}/${node.label}` : node.label
   const hasChildren = node.children !== undefined
@@ -189,6 +215,12 @@ export function TreeNodeItem({
     isLeaf && !isCategoryNode(node.label) && parentPath.endsWith('/Views')
   const isIndexItem =
     isLeaf && !isCategoryNode(node.label) && parentPath.endsWith('/Indices')
+  const isSchemaNode =
+    !isConnectionNode &&
+    !isDatabaseNode &&
+    !isCategoryNode(node.label) &&
+    hasChildren &&
+    depth >= 2
   const parentCategory = parentPath.split('/').pop() ?? ''
   const isQueriesFolder = node.label === 'Queries'
   const categoryIcon = isCategoryNode(node.label)
@@ -273,14 +305,9 @@ export function TreeNodeItem({
           const folderName = groupEl.getAttribute('data-folder-name')
           if (folderName && onMoveConnectionToFolder) {
             const folder = folders?.find((f) => f.name === folderName)
-            onMoveConnectionToFolder(
-              node.connectionId!,
-              folder?.id ?? null,
-            )
+            onMoveConnectionToFolder(node.connectionId!, folder?.id ?? null)
           }
-        } else if (
-          target?.closest('[data-sidebar-area="ungrouped"]')
-        ) {
+        } else if (target?.closest('[data-sidebar-area="ungrouped"]')) {
           onMoveConnectionToFolder?.(node.connectionId!, null)
         }
 
@@ -290,7 +317,13 @@ export function TreeNodeItem({
       document.addEventListener('pointermove', handleMove)
       document.addEventListener('pointerup', handleUp)
     },
-    [isConnectionNode, node.connectionId, node.label, folders, onMoveConnectionToFolder],
+    [
+      isConnectionNode,
+      node.connectionId,
+      node.label,
+      folders,
+      onMoveConnectionToFolder,
+    ],
   )
 
   const [showFolderMenu, setShowFolderMenu] = useState(false)
@@ -301,7 +334,10 @@ export function TreeNodeItem({
   useEffect(() => {
     if (!showFolderMenu) return
     const handlePointerDown = (e: PointerEvent) => {
-      if (folderMenuRef.current && !folderMenuRef.current.contains(e.target as Node)) {
+      if (
+        folderMenuRef.current &&
+        !folderMenuRef.current.contains(e.target as Node)
+      ) {
         setShowFolderMenu(false)
       }
     }
@@ -510,6 +546,71 @@ export function TreeNodeItem({
             e.preventDefault()
             e.stopPropagation()
             onConnectionContextMenu(e, node.connectionId)
+          } else if (
+            isDatabaseNode &&
+            !isCategoryNode(node.label) &&
+            onDatabaseNodeContextMenu
+          ) {
+            e.preventDefault()
+            e.stopPropagation()
+            const pathParts = parentPath.split('/')
+            const connName = pathParts.length >= 3 ? pathParts[1] : pathParts[0]
+            const conn = groupedConnections
+              ? Object.values(groupedConnections)
+                  .flat()
+                  .find((p) => p.name === connName || p.id === connName)
+              : null
+            const connectionId = conn?.id ?? connName
+            onDatabaseNodeContextMenu(e, connectionId, node.label)
+          } else if (isSchemaNode && onSchemaNodeContextMenu) {
+            e.preventDefault()
+            e.stopPropagation()
+            const pathParts = parentPath.split('/')
+            // path = connName/dbName or folder/connName/dbName
+            let connName = pathParts[0]
+            const conn = groupedConnections
+              ? Object.values(groupedConnections)
+                  .flat()
+                  .find((p) => p.name === connName || p.id === connName)
+              : null
+            if (!conn && pathParts.length > 1) {
+              connName = pathParts[1]
+            }
+            const connectionId = conn?.id ?? connName
+            const databaseName = pathParts[pathParts.length - 1]
+            onSchemaNodeContextMenu(e, connectionId, databaseName, node.label)
+          } else if (
+            isCategoryNode(node.label) &&
+            node.label === 'Tables' &&
+            onTablesCategoryContextMenu
+          ) {
+            e.preventDefault()
+            e.stopPropagation()
+            const pathParts = parentPath.split('/')
+            let connName = pathParts[0]
+            const conn = groupedConnections
+              ? Object.values(groupedConnections)
+                  .flat()
+                  .find((p) => p.name === connName || p.id === connName)
+              : null
+            if (!conn && pathParts.length > 1) {
+              connName = pathParts[1]
+            }
+            const connectionId = conn?.id ?? connName
+            const connIndex = connName === pathParts[0] ? 0 : 1
+            const itemsAfterConn = pathParts.length - connIndex - 1
+            const databaseName =
+              itemsAfterConn >= 2
+                ? pathParts[pathParts.length - 2]
+                : pathParts[pathParts.length - 1]
+            const schemaName =
+              itemsAfterConn >= 2 ? pathParts[pathParts.length - 1] : undefined
+            onTablesCategoryContextMenu(
+              e,
+              connectionId,
+              databaseName,
+              schemaName,
+            )
           } else if (isIndexItem && onIndexNodeContextMenu) {
             e.preventDefault()
             e.stopPropagation()
@@ -656,7 +757,11 @@ export function TreeNodeItem({
             onClick={() => {
               const folderId = getFolderId()
               if (folderId && onDeleteFolder) {
-                if (window.confirm(`Delete folder "${node.label}"? Connections inside will be moved to ungrouped.`)) {
+                if (
+                  window.confirm(
+                    `Delete folder "${node.label}"? Connections inside will be moved to ungrouped.`,
+                  )
+                ) {
                   onDeleteFolder(folderId)
                 }
               }
@@ -740,6 +845,9 @@ export function TreeNodeItem({
               onTableNodeContextMenu={onTableNodeContextMenu}
               onIndexNodeContextMenu={onIndexNodeContextMenu}
               onConnectionContextMenu={onConnectionContextMenu}
+              onDatabaseNodeContextMenu={onDatabaseNodeContextMenu}
+              onSchemaNodeContextMenu={onSchemaNodeContextMenu}
+              onTablesCategoryContextMenu={onTablesCategoryContextMenu}
               groupedConnections={groupedConnections}
               explorerData={explorerData}
               elasticIndicesError={elasticIndicesError}

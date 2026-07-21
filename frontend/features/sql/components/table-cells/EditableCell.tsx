@@ -218,7 +218,9 @@ export function EditableCell({
 
     // Compare with original value
     const originalRaw =
-      rawValue === null || rawValue === undefined ? null : valueToDisplayString(rawValue)
+      rawValue === null || rawValue === undefined
+        ? null
+        : valueToDisplayString(rawValue)
     const newRaw = newValue === null ? null : valueToDisplayString(newValue)
 
     if (newRaw !== originalRaw) {

@@ -5,6 +5,7 @@
   "identifier": "com.pinnacle.app",
   "build": {
     "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
     "beforeDevCommand": "pnpm run dev",
     "beforeBuildCommand": "pnpm run build"
   },

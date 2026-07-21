@@ -61,10 +61,7 @@ export function QueryResultPanel({
         >
           <span className="h-px w-8 rounded-full bg-text-muted/40 transition-all duration-150 group-hover:w-12 group-hover:bg-primary/60" />
         </div>
-        <div
-          className="flex min-h-0 flex-col"
-          style={{ height: resultHeight }}
-        >
+        <div className="flex min-h-0 flex-col" style={{ height: resultHeight }}>
           <div className="flex items-center gap-1 px-1.5 py-1">
             {RESULT_TABS.map((tab) => (
               <button
@@ -99,8 +96,8 @@ export function QueryResultPanel({
                   <kbd className="inline-flex items-center gap-0.5 rounded border border-border-default bg-bg-subtle px-1.5 py-0.5 font-mono text-[10px] text-text-secondary">
                     <Play size={10} />
                     Ctrl+Enter
-                  </kbd>
-                  {' '}to run the active query
+                  </kbd>{' '}
+                  to run the active query
                 </p>
               </div>
             </div>
@@ -138,10 +135,7 @@ export function QueryResultPanel({
       >
         <span className="h-px w-8 rounded-full bg-text-muted/40 transition-all duration-150 group-hover:w-12 group-hover:bg-primary/60" />
       </div>
-      <div
-        className="flex min-h-0 flex-col"
-        style={{ height: resultHeight }}
-      >
+      <div className="flex min-h-0 flex-col" style={{ height: resultHeight }}>
         <div className="flex items-center gap-1 px-1.5 py-1">
           {RESULT_TABS.map((tab) => (
             <button
@@ -221,9 +215,7 @@ export function QueryResultPanel({
                   className="rounded px-1.5 py-0.5 hover:bg-bg-subtle text-[11px]"
                 >
                   <span
-                    className={
-                      step.success ? 'text-green-500' : 'text-red-500'
-                    }
+                    className={step.success ? 'text-green-500' : 'text-red-500'}
                   >
                     {step.success ? '✓' : '✗'}
                   </span>{' '}
@@ -231,9 +223,7 @@ export function QueryResultPanel({
                   {step.success
                     ? `Completed in ${step.elapsedMs} ms`
                     : `Error: ${step.error ?? 'Unknown error'}`}
-                  {step.rowsAffected > 0 && (
-                    <> · {step.rowsAffected} rows</>
-                  )}
+                  {step.rowsAffected > 0 && <> · {step.rowsAffected} rows</>}
                 </li>
               ))}
             {queryMessages.map((m, i) => (

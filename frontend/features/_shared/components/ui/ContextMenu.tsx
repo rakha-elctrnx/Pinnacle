@@ -20,6 +20,8 @@ export interface ContextMenuItem {
   divider?: boolean
   /** Submenu items (shown when hovered) */
   children?: ContextMenuItem[]
+  /** Makes item visually disabled and non-interactive */
+  disabled?: boolean
 }
 
 export interface GenericContextMenuProps {
@@ -122,14 +124,15 @@ export function GenericContextMenu({
           setActiveIndex((prev) => (prev - 1 + items.length) % items.length)
           break
         case 'Enter':
-        case ' ':
+        case ' ': {
           e.preventDefault()
           const activeItem = items[activeIndex]
-          if (activeItem && !activeItem.divider) {
+          if (activeItem && !activeItem.divider && !activeItem.disabled) {
             activeItem.action?.()
             onCloseRef.current()
           }
           return
+        }
         case 'Escape':
           e.preventDefault()
           onCloseRef.current()
@@ -174,17 +177,20 @@ export function GenericContextMenu({
               role="menuitem"
               tabIndex={-1}
               onClick={() => {
-                if (!hasSubmenu) {
-                  item.action?.()
-                  onClose()
-                }
+                if (hasSubmenu || item.disabled) return
+                item.action?.()
+                onClose()
               }}
+              disabled={item.disabled}
               onMouseEnter={(e) => {
                 setActiveIndex(index)
                 if (hasSubmenu) {
                   const itemRect = e.currentTarget.getBoundingClientRect()
                   // Submenu opens immediately to the right of button with small overlap
-                  setSubmenuPos({ top: itemRect.top - 1, left: itemRect.right - 2 })
+                  setSubmenuPos({
+                    top: itemRect.top - 1,
+                    left: itemRect.right - 2,
+                  })
                   setSubmenuIndex(index)
                 } else {
                   setSubmenuIndex(null)
@@ -196,7 +202,9 @@ export function GenericContextMenu({
                   return
                 }
                 // Keep submenu open if moving into it
-                const subEl = document.querySelector(`[data-submenu="${index}"]`)
+                const subEl = document.querySelector(
+                  `[data-submenu="${index}"]`,
+                )
                 if (subEl && subEl.contains(e.relatedTarget as Node)) return
                 setSubmenuIndex(null)
               }}
@@ -211,12 +219,24 @@ export function GenericContextMenu({
                 activeIndex === index && item.dangerous
                   ? 'bg-danger-subtle text-danger'
                   : '',
+                item.disabled
+                  ? 'opacity-50 cursor-not-allowed pointer-events-none hover:bg-transparent hover:text-text-primary'
+                  : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
             >
               {item.icon && (
-                <span className="shrink-0 text-text-muted [&_svg]:w-3 [&_svg]:h-3">{item.icon}</span>
+                <span
+                  className={[
+                    'shrink-0 [&_svg]:w-3 [&_svg]:h-3',
+                    item.dangerous ? '' : 'text-text-muted',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  {item.icon}
+                </span>
               )}
               <span className="flex-1 text-left">{item.label}</span>
               {item.shortcut && (
@@ -247,18 +267,30 @@ export function GenericContextMenu({
                     role="menuitem"
                     tabIndex={-1}
                     onClick={() => {
+                      if (child.disabled) return
                       child.action?.()
                       onClose()
                     }}
+                    disabled={child.disabled}
                     className={[
                       'flex w-full items-center gap-2 px-3 py-1.5 text-xs transition-colors',
                       child.dangerous
                         ? 'text-text-primary hover:bg-danger-subtle hover:text-danger'
                         : 'text-text-primary hover:bg-primary-subtle',
+                      child.disabled
+                        ? 'opacity-50 cursor-not-allowed pointer-events-none hover:bg-transparent hover:text-text-primary'
+                        : '',
                     ].join(' ')}
                   >
                     {child.icon && (
-                      <span className="shrink-0 text-text-muted [&_svg]:w-3 [&_svg]:h-3">
+                      <span
+                        className={[
+                          'shrink-0 [&_svg]:w-3 [&_svg]:h-3',
+                          child.dangerous ? '' : 'text-text-muted',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                      >
                         {child.icon}
                       </span>
                     )}

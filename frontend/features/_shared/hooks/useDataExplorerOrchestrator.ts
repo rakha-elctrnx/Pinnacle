@@ -111,7 +111,10 @@ export interface DataExplorerOrchestratorResult {
   handleCreateFolder: (name: string) => string
   handleRenameFolder: (id: string, name: string) => void
   handleDeleteFolder: (id: string) => void
-  handleMoveConnectionToFolder: (connectionId: string, folderId: string | null) => void
+  handleMoveConnectionToFolder: (
+    connectionId: string,
+    folderId: string | null,
+  ) => void
   selectedConnection: ConnectionProfile | null
   selectedConnectionId: string | null
   expandedConnectionId: string | null
@@ -314,10 +317,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
 
     // Persist new folders
     if (migrated.folders.length > folders.length) {
-      localStorage.setItem(
-        'pinnacle_folders',
-        JSON.stringify(migrated.folders),
-      )
+      localStorage.setItem('pinnacle_folders', JSON.stringify(migrated.folders))
       folderRefresh()
     }
 
@@ -630,7 +630,11 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       if (!treeData) {
         explorerData.refreshConnectionData(id, profile)
       } else if (treeData.databases?.[0]) {
-        explorerData.fetchDatabaseDetails(id, profile, treeData.databases[0].name)
+        explorerData.fetchDatabaseDetails(
+          id,
+          profile,
+          treeData.databases[0].name,
+        )
       }
     } else if (isElasticsearchLike(profile.type)) {
       setExpandedConnectionId(id)

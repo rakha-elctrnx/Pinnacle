@@ -1,7 +1,6 @@
 // Shared types used across the application
 import type { ConnectionType } from './domain'
 
-
 export type SqlConnectionType = 'postgresql' | 'mysql' | 'sqlite'
 export type ConnectionStatus =
   | 'connected'
@@ -90,7 +89,10 @@ export interface ContextMenuState {
   itemId: string
   tableName?: string
   viewName?: string
+  databaseName?: string
+  schemaName?: string
   indexName?: string
+  categoryName?: string
 }
 
 export interface DeleteTableTarget {

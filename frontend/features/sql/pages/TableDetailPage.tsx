@@ -339,7 +339,10 @@ export function TableDetailPage() {
   // Auto-dismiss toasts — 4s for success, 6s for errors
   useEffect(() => {
     if (!toast) return
-    const t = setTimeout(() => setToast(null), toast.kind === 'success' ? 4000 : 6000)
+    const t = setTimeout(
+      () => setToast(null),
+      toast.kind === 'success' ? 4000 : 6000,
+    )
     return () => clearTimeout(t)
   }, [toast, setToast])
 

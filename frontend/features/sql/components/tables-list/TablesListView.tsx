@@ -81,10 +81,7 @@ export function TablesListView({
         <tbody>
           {rows.length === 0 && (
             <tr>
-              <td
-                colSpan={5}
-                className="px-2 py-8 text-center text-text-muted"
-              >
+              <td colSpan={5} className="px-2 py-8 text-center text-text-muted">
                 No tables found
               </td>
             </tr>

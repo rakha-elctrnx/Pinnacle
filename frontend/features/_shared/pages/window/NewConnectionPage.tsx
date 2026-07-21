@@ -241,9 +241,7 @@ function Field({
         <label className="text-label font-medium text-text-secondary">
           {label}
         </label>
-        {hint && (
-          <span className="text-caption text-text-muted">{hint}</span>
-        )}
+        {hint && <span className="text-caption text-text-muted">{hint}</span>}
       </div>
       {children}
       {error && (
@@ -760,11 +758,7 @@ function ConnectionFormEmbedded({
                       }
                     />
                   </Field>
-                  <Field
-                    label="Port"
-                    error={fieldErrors.port}
-                    className="w-28"
-                  >
+                  <Field label="Port" error={fieldErrors.port} className="w-28">
                     <input
                       value={newPort}
                       onChange={(e) => setNewPort(e.target.value)}
@@ -1058,7 +1052,10 @@ function ConnectionFormEmbedded({
                             multiple: false,
                             directory: false,
                             filters: [
-                              { name: 'Client Key', extensions: ['pem', 'key'] },
+                              {
+                                name: 'Client Key',
+                                extensions: ['pem', 'key'],
+                              },
                               { name: 'All files', extensions: ['*'] },
                             ],
                           })
@@ -1078,9 +1075,7 @@ function ConnectionFormEmbedded({
               {/* Section divider before optional config */}
               <div className="flex items-center gap-3 pt-1">
                 <div className="h-px flex-1 bg-border-default" />
-                <span className="text-caption text-text-muted">
-                  Optional
-                </span>
+                <span className="text-caption text-text-muted">Optional</span>
                 <div className="h-px flex-1 bg-border-default" />
               </div>
 
@@ -1143,7 +1138,9 @@ function ConnectionFormEmbedded({
                             <select
                               value={sshAuthMethod}
                               onChange={(e) =>
-                                setSshAuthMethod(e.target.value as SshAuthMethod)
+                                setSshAuthMethod(
+                                  e.target.value as SshAuthMethod,
+                                )
                               }
                               className={inputClasses}
                             >
@@ -1199,7 +1196,9 @@ function ConnectionFormEmbedded({
                               <input
                                 type="password"
                                 value={keyPassphrase}
-                                onChange={(e) => setKeyPassphrase(e.target.value)}
+                                onChange={(e) =>
+                                  setKeyPassphrase(e.target.value)
+                                }
                                 placeholder="••••••••"
                                 className={inputClasses}
                               />

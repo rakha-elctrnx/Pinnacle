@@ -23,7 +23,9 @@ export function useQueryMonaco({
     tablesRef.current = schemaColumnsByTable
   }, [schemaColumnsByTable])
 
-  const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null)
+  const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(
+    null,
+  )
   const monacoRef = useRef<typeof monacoEditor | null>(null)
 
   const handleRunQueryRef = useRef(handleRunQuery)

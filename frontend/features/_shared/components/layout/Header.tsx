@@ -261,9 +261,7 @@ export function Header() {
                       key={conn.id}
                       type="button"
                       role="menuitem"
-                      onClick={() =>
-                        handleConnectionSelect(conn.id, conn.type)
-                      }
+                      onClick={() => handleConnectionSelect(conn.id, conn.type)}
                       className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-caption text-text-secondary transition hover:bg-bg-hover"
                     >
                       <span className="shrink-0 text-text-muted">
