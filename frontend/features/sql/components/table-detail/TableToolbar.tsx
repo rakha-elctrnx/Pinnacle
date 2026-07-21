@@ -8,6 +8,7 @@ import {
   Check,
   Keyboard,
   Download,
+  X,
 } from 'lucide-react'
 import { ActionButton } from '../../../_shared/components/ui/ActionButton'
 import { Dropdown } from '../../../_shared/components/ui/Dropdown'
@@ -117,7 +118,7 @@ export function TableToolbar({
         onClick={handleCommit}
       />
       <ActionButton
-        icon={<Undo2 size={14} />}
+        icon={<X size={14} />}
         aria-label="Revert changes"
         variant="danger"
         disabled={totalPending === 0}

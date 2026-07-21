@@ -5,6 +5,7 @@ import {
   useState,
   type KeyboardEvent,
 } from 'react'
+import { Shortcut } from './Shortcut'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -98,7 +99,7 @@ export function Dropdown({
         role="menu"
         tabIndex={-1}
         onKeyDown={handleKeyDown}
-        className={`absolute top-full mt-1 z-50 min-w-44 rounded-xl border border-border-default bg-bg-base p-1 shadow-xl outline-none backdrop-blur-sm ${
+        className={`absolute top-full z-50 min-w-36 rounded-lg border border-border-default bg-bg-base py-1 text-xs shadow-xl outline-none backdrop-blur-sm ${
           align === 'right' ? 'right-0' : 'left-0'
         }`}
       >
@@ -114,10 +115,10 @@ export function Dropdown({
               }}
               onMouseEnter={() => setActiveIndex(index)}
               className={[
-                'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-body transition-colors',
+                'flex w-full items-center gap-2 px-3 py-1.5 text-text-primary transition-colors',
                 item.dangerous
-                  ? 'text-text-primary hover:bg-danger-subtle hover:text-danger'
-                  : 'text-text-primary hover:bg-primary-subtle',
+                  ? 'hover:bg-danger-subtle hover:text-danger'
+                  : 'hover:bg-primary-subtle',
                 activeIndex === index && !item.dangerous
                   ? 'bg-primary-subtle text-primary'
                   : '',
@@ -129,16 +130,12 @@ export function Dropdown({
                 .join(' ')}
             >
               {item.icon && (
-                <span className="flex-shrink-0 text-text-muted">
+                <span className="flex-shrink-0 text-text-muted [&_svg]:h-3 [&_svg]:w-3">
                   {item.icon}
                 </span>
               )}
-              <span className="flex-1 text-left">{item.label}</span>
-              {item.shortcut && (
-                <span className="flex-shrink-0 text-micro text-text-muted">
-                  {item.shortcut}
-                </span>
-              )}
+              <span className="flex-1 whitespace-nowrap text-left">{item.label}</span>
+              {item.shortcut && <Shortcut keys={item.shortcut} />}
             </button>
             {item.dividerAfter && (
               <div className="my-1 border-t border-border-default" />

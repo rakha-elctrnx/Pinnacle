@@ -1,14 +1,16 @@
 import {
   Play,
   ListEnd,
-  Sparkles,
-  GitBranch,
+  HelpCircle,
   WrapText,
   Minimize2,
   History,
   LoaderCircle,
+  ChevronDown,
 } from 'lucide-react'
+import { useState } from 'react'
 import { ActionButton } from '../../../_shared/components/ui/ActionButton'
+import { Dropdown } from '../../../_shared/components/ui/Dropdown'
 
 interface QueryToolbarProps {
   connectionType: string
@@ -47,36 +49,63 @@ export function QueryToolbar({
   onDatabaseChange,
   onSchemaChange,
 }: QueryToolbarProps) {
+  const [runMenuOpen, setRunMenuOpen] = useState(false)
+
   return (
     <div className="flex items-center gap-1 border-b border-border-default px-1.5 py-1.5 animate-in fade-in duration-200">
-      <ActionButton
-        icon={isRunningQuery ? <LoaderCircle size={14} className="animate-spin" /> : <Play size={14} />}
-        aria-label={isRunningQuery ? 'Running…' : 'Run (Ctrl+Enter)'}
-        variant="accent"
-        disabled={isRunningQuery}
-        onClick={() => onRunQuery('run')}
-      />
-      <ActionButton
-        icon={<ListEnd size={14} />}
-        aria-label="Run Selected"
-        variant="accent"
-        disabled={isRunningQuery}
-        onClick={() => onRunQuery('run-selected')}
-      />
-      <ActionButton
-        icon={<Sparkles size={14} />}
-        aria-label="Explain"
-        disabled={isRunningQuery}
-        onClick={() => onRunQuery('explain')}
-      />
-      <span className="mx-0.5 h-5 w-px bg-border-default" />
-      <ActionButton
-        icon={<GitBranch size={14} />}
-        aria-label="Transaction Mode"
-        variant={transactionMode ? 'accent' : 'default'}
-        disabled={isRunningQuery}
-        onClick={onToggleTransactionMode}
-      />
+      <div className="relative">
+        <div className="flex items-stretch">
+          <ActionButton
+            icon={isRunningQuery ? <LoaderCircle size={14} className="animate-spin" /> : <Play size={14} />}
+            aria-label={isRunningQuery ? 'Running…' : 'Run (Ctrl+Enter)'}
+            variant="accent"
+            disabled={isRunningQuery}
+            className="rounded-r-none"
+            onClick={() => onRunQuery('run')}
+          />
+          <button
+            type="button"
+            aria-label="Run options"
+            disabled={isRunningQuery}
+            onClick={() => setRunMenuOpen((v) => !v)}
+            className="flex items-center rounded-r-lg px-1 text-primary transition hover:bg-primary/10 active:bg-primary/15 active:scale-95 disabled:cursor-not-allowed disabled:text-[var(--color-disabled-text)]"
+          >
+            <ChevronDown size={12} />
+          </button>
+        </div>
+        <Dropdown
+          open={runMenuOpen}
+          onClose={() => setRunMenuOpen(false)}
+          align="left"
+          items={[
+            {
+              label: 'Run',
+              icon: <Play size={14} />,
+              shortcut: 'Ctrl+Enter',
+              action: () => onRunQuery('run'),
+            },
+            {
+              label: 'Run Selected',
+              icon: <ListEnd size={14} />,
+              shortcut: 'Ctrl+Shift+Enter',
+              action: () => onRunQuery('run-selected'),
+            },
+          ]}
+        />
+      </div>
+      <div className="ml-1.5 flex items-center gap-1">
+        <span className="text-[11px] font-mono text-text-muted">Tx:</span>
+        <select
+          value={transactionMode ? 'manual' : 'auto'}
+          onChange={() => onToggleTransactionMode()}
+          disabled={isRunningQuery}
+          aria-label="Transaction Mode"
+          className="h-6 rounded border border-border-default bg-bg-base px-1 text-[11px] font-mono outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <option value="auto">Auto</option>
+          <option value="manual">Manual</option>
+        </select>
+      </div>
       <span className="mx-0.5 h-5 w-px bg-border-default" />
       <ActionButton
         icon={<WrapText size={14} />}
@@ -91,6 +120,12 @@ export function QueryToolbar({
         onClick={onMinify}
       />
       <span className="mx-0.5 h-5 w-px bg-border-default" />
+      <ActionButton
+        icon={<HelpCircle size={14} />}
+        aria-label="Explain"
+        disabled={isRunningQuery}
+        onClick={() => onRunQuery('explain')}
+      />
       <ActionButton
         icon={<History size={14} />}
         aria-label="Query History"
