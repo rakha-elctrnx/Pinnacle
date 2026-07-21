@@ -166,27 +166,43 @@ async fn authenticate_via_agent(
     handle: &mut Handle<AcceptAllHandler>,
     username: &str,
 ) -> AppResult<AuthResult> {
-    let mut agent = russh::keys::agent::client::AgentClient::connect_env()
-        .await
-        .map_err(AppError::from)?;
-    let identities = agent
-        .request_identities()
-        .await
-        .map_err(AppError::from)?;
+    #[cfg(unix)]
+    {
+        let socket_path = match std::env::var("SSH_AUTH_SOCK") {
+            Ok(p) => p,
+            Err(_) => {
+                return Err(AppError::Ssh(
+                    "SSH_AUTH_SOCK not set — agent auth unavailable".into(),
+                ))
+            }
+        };
 
-    for pubkey in identities {
-        // The agent signs via authenticate_publickey_with; hash alg None lets
-        // the agent pick (correct for non-RSA; RSA would need best_supported_rsa_hash).
-        match handle
-            .authenticate_publickey_with(username, pubkey.clone(), None, &mut agent)
+        use tokio::net::UnixStream;
+        let stream = UnixStream::connect(&socket_path)
             .await
-        {
-            Ok(r) if r.success() => return Ok(r),
-            _ => continue,
+            .map_err(|e| AppError::Ssh(format!("connect ssh-agent: {e}")))?;
+        let mut agent = russh::keys::agent::client::AgentClient::connect(stream);
+        let identities = agent
+            .request_identities()
+            .await
+            .map_err(AppError::from)?;
+
+        for pubkey in identities {
+            match handle
+                .authenticate_publickey_with(username, pubkey.clone(), None, &mut agent)
+                .await
+            {
+                Ok(r) if r.success() => return Ok(r),
+                _ => continue,
+            }
         }
+        Err(AppError::Ssh("SSH agent offered no accepted identities".into()))
     }
-    // No identity authenticated.
-    Err(AppError::Ssh(
-        "SSH agent: no usable identity".to_string(),
-    ))
+
+    #[cfg(not(unix))]
+    {
+        Err(AppError::Ssh(
+            "SSH agent auth is not supported on this platform".into(),
+        ))
+    }
 }
