@@ -634,7 +634,7 @@ export function TreeNodeItem({
             : isActiveConnection
               ? 'bg-gradient-to-r from-primary-subtle/80 to-transparent text-text-secondary ring-1 ring-inset ring-focus-ring'
               : selectedTreeNode === nodePath
-                ? 'bg-primary/15 text-primary ring-1 ring-inset ring-primary/20'
+                ? 'bg-primary/15 text-primary dark:text-white ring-1 ring-inset ring-primary/20'
                 : 'text-text-primary hover:text-text-secondary',
         ].join(' ')}
         style={{ paddingLeft: `${depth * 10 + 6}px` }}

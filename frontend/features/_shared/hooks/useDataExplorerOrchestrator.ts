@@ -30,6 +30,7 @@ import type { TableExportProgressEvent } from '../../sql/clients/sql'
 import type {
   ConnectionStatus,
   ContextMenuState,
+  CreateDatabaseTarget,
   DataOperationTarget,
   DeleteTableTarget,
   DetailStat,
@@ -166,6 +167,9 @@ export interface DataExplorerOrchestratorResult {
   deleteConnectionTarget: { id: string; name: string } | null
   handleConfirmDeleteConnection: (connectionId: string) => Promise<void>
   handleCloseDeleteConnectionModal: () => void
+  createDatabaseTarget: CreateDatabaseTarget | null
+  handleRequestCreateDatabase: (connectionId: string) => void
+  handleCloseCreateDatabaseModal: () => void
   handleCloseAddModal: () => void
   connectionModalNonce: number
   deleteTableTarget: DeleteTableTarget | null
@@ -278,6 +282,8 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   } | null>(null)
   const [dataOperationTarget, setDataOperationTarget] =
     useState<DataOperationTarget | null>(null)
+  const [createDatabaseTarget, setCreateDatabaseTarget] =
+    useState<CreateDatabaseTarget | null>(null)
 
   // ── Export state ───────────────────────────────────────────────
   const [exportModalTarget, setExportModalTarget] =
@@ -1122,6 +1128,19 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     },
     handleCloseDeleteConnectionModal: () => {
       setDeleteConnectionTarget(null)
+    },
+    createDatabaseTarget,
+    handleRequestCreateDatabase: (connectionId: string) => {
+      const conn = items.find((p) => p.id === connectionId)
+      if (!conn) return
+      setCreateDatabaseTarget({
+        connectionId: conn.id,
+        connectionName: conn.name,
+        connectionType: conn.type,
+      })
+    },
+    handleCloseCreateDatabaseModal: () => {
+      setCreateDatabaseTarget(null)
     },
     handleCloseAddModal: () => {
       setEditingId(null)

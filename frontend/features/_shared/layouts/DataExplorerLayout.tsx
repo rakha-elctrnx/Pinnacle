@@ -39,6 +39,7 @@ import {
   GenericContextMenu,
   type ContextMenuItem,
 } from '../components/ui/ContextMenu'
+import { CreateDatabaseModal } from '../../sql/components/shared/CreateDatabaseModal'
 import { DeleteConnectionModal } from '../components/modals/DeleteConnectionModal'
 import { getConnPayloadWithPassword, isSqlConnectionType } from '../utils'
 import { openNewConnectionWindow } from '../services/newConnectionWindowService'
@@ -232,6 +233,9 @@ function DataExplorerLayoutChrome({
     handleCloseConnection: handleCloseConnectionRaw,
     handleDuplicateConnection,
     handleDeleteConnection,
+    createDatabaseTarget,
+    handleRequestCreateDatabase,
+    handleCloseCreateDatabaseModal,
     deleteConnectionTarget,
     handleConfirmDeleteConnection,
     handleCloseDeleteConnectionModal,
@@ -298,38 +302,13 @@ function DataExplorerLayoutChrome({
       queryExecution,
       navigate,
     ],
-  )
-
+)
   const handleNewDatabaseFromMenu = useCallback(
     (connectionId: string) => {
-      const profile = items.find((p) => p.id === connectionId)
-      if (!profile) return
-      if (selectedConnection?.id !== connectionId) {
-        handleConnectionSelectionChange(connectionId)
-      }
-      const qId = queryExecution.createQueryId()
-      const route = `/sql/${connectionId}/query/${qId}`
-      useTabStore.getState().openTab({
-        id: `${connectionId}:query:${qId}`,
-        label: `Query_${qId}`,
-        type: profile.type,
-        pageType: 'query',
-        route,
-        connectionId,
-      })
-      queryExecution.setActiveQueryId(qId)
-      queryExecution.updateActiveQuery('CREATE DATABASE new_database;')
-      navigate(route)
+      handleRequestCreateDatabase(connectionId)
     },
-    [
-      items,
-      selectedConnection,
-      handleConnectionSelectionChange,
-      queryExecution,
-      navigate,
-    ],
+    [handleRequestCreateDatabase],
   )
-
   const handleNewSchemaFromMenu = useCallback(
     (connectionId: string, databaseName: string) => {
       const profile = items.find((p) => p.id === connectionId)
@@ -926,9 +905,6 @@ function DataExplorerLayoutChrome({
                           icon: <Database size={14} />,
                           action: () =>
                             handleNewDatabaseFromMenu(contextMenu.itemId),
-                          disabled:
-                            connectionStatuses[contextMenu.itemId] !==
-                            'connected',
                         } as ContextMenuItem,
                         {
                           label: 'Delete Database',
@@ -1213,9 +1189,6 @@ function DataExplorerLayoutChrome({
                               icon: <Database size={14} />,
                               action: () =>
                                 handleNewDatabaseFromMenu(contextMenu.itemId),
-                              disabled:
-                                connectionStatuses[contextMenu.itemId] !==
-                                'connected',
                             } as ContextMenuItem,
                             {
                               label: 'New Query',
@@ -1355,6 +1328,13 @@ function DataExplorerLayoutChrome({
           connectionName={deleteConnectionTarget.name}
           onDelete={handleConfirmDeleteConnection}
           onClose={handleCloseDeleteConnectionModal}
+        />
+      )}
+
+      {createDatabaseTarget && (
+        <CreateDatabaseModal
+          target={createDatabaseTarget}
+          onClose={handleCloseCreateDatabaseModal}
         />
       )}
     </>

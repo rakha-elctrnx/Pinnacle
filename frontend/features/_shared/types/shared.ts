@@ -167,3 +167,8 @@ export interface RecentTableExport {
   options: TableExportOptions
   savedPath: string | null
 }
+export interface CreateDatabaseTarget {
+  connectionId: string
+  connectionName: string
+  connectionType: string
+}
