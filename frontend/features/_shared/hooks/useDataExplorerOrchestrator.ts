@@ -159,6 +159,7 @@ export interface DataExplorerOrchestratorResult {
     nodeLabel: string,
     databaseName?: string,
     nodePath?: string,
+    schemaName?: string,
   ) => void
   handleCloseTableTab: (tabId: string) => void
   handleActiveTableTabChange: (tabId: string) => void
@@ -847,11 +848,11 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     indices: 'elastic-indices',
     query: 'elastic-query',
   }
-
   const wrappedHandleTreeNodeClick = async (
     nodeLabel: string,
     databaseName?: string,
     nodePath?: string,
+    schemaName?: string,
   ) => {
     // Use capability check instead of raw `type === 'postgresql' || type === 'mysql'`
     const isTablesNode = nodePath?.endsWith('/Tables')
@@ -861,13 +862,8 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       selectedConnection &&
       hasCapabilityWithAdapter(selectedConnection.type, 'load-navigation-tree')
     ) {
-      const pathParts = nodePath!.split('/').filter(Boolean)
-      const targetDatabase =
-        databaseName || pathParts[0] || selectedConnection.database
-      const targetSchema =
-        selectedConnection.type === 'postgresql' && pathParts.length >= 3
-          ? pathParts[pathParts.length - 2]
-          : undefined
+      const targetDatabase = databaseName || selectedConnection.database
+      const targetSchema = schemaName
 
       setSelectedTreeNode(nodePath ?? null)
       setActiveTableTabId(null)

@@ -62,6 +62,8 @@ export interface TreeNode {
   children?: TreeNode[]
   nodeType?: TreeNodeType
   connectionId?: string
+  databaseName?: string
+  schemaName?: string
 }
 
 export interface DatabaseTypeOption {

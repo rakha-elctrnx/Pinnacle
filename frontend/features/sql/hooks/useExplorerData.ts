@@ -662,74 +662,161 @@ export function useExplorerData({
       const treeData = treeDataMap[conn.id]
       if (!treeData) return []
 
-      return treeData.databases.map((db) => {
+      return treeData.databases.map((db): TreeNode => {
         if (!db.loaded) {
-          return { label: db.name }
+          return {
+            label: db.name,
+            nodeType: 'database',
+            connectionId: conn.id,
+            databaseName: db.name,
+          }
         }
 
         if (conn.type === 'postgresql') {
+          const schemaChildren = db.schemas.map((schema): TreeNode => {
+            const categoryChildren: TreeNode[] = []
+
+            if (schema.tables.length > 0) {
+              categoryChildren.push({
+                label: 'Tables',
+                nodeType: 'category',
+                connectionId: conn.id,
+                databaseName: db.name,
+                schemaName: schema.name,
+                children: schema.tables.map(
+                  (t): TreeNode => ({
+                    label: t,
+                    nodeType: 'item',
+                    connectionId: conn.id,
+                    databaseName: db.name,
+                    schemaName: schema.name,
+                  }),
+                ),
+              })
+            }
+
+            if (schema.views.length > 0) {
+              categoryChildren.push({
+                label: 'Views',
+                nodeType: 'category',
+                connectionId: conn.id,
+                databaseName: db.name,
+                schemaName: schema.name,
+                children: schema.views.map(
+                  (v): TreeNode => ({
+                    label: v,
+                    nodeType: 'item',
+                    connectionId: conn.id,
+                    databaseName: db.name,
+                    schemaName: schema.name,
+                  }),
+                ),
+              })
+            }
+
+            if (schema.functions.length > 0) {
+              categoryChildren.push({
+                label: 'Functions',
+                nodeType: 'category',
+                connectionId: conn.id,
+                databaseName: db.name,
+                schemaName: schema.name,
+                children: schema.functions.map(
+                  (f): TreeNode => ({
+                    label: f,
+                    nodeType: 'item',
+                    connectionId: conn.id,
+                    databaseName: db.name,
+                    schemaName: schema.name,
+                  }),
+                ),
+              })
+            }
+
+            categoryChildren.push({ label: 'Queries', children: [] })
+
+            return {
+              label: schema.name,
+              connectionId: conn.id,
+              databaseName: db.name,
+              schemaName: schema.name,
+              children: categoryChildren,
+            }
+          })
+
           return {
             label: db.name,
-            children: db.schemas.map((schema) => ({
-              label: schema.name,
-              children: [
-                ...(schema.tables.length > 0
-                  ? [
-                      {
-                        label: 'Tables',
-                        children: schema.tables.map((t) => ({ label: t })),
-                      },
-                    ]
-                  : []),
-                ...(schema.views.length > 0
-                  ? [
-                      {
-                        label: 'Views',
-                        children: schema.views.map((v) => ({ label: v })),
-                      },
-                    ]
-                  : []),
-                ...(schema.functions.length > 0
-                  ? [
-                      {
-                        label: 'Functions',
-                        children: schema.functions.map((f) => ({ label: f })),
-                      },
-                    ]
-                  : []),
-              ],
-            })),
+            nodeType: 'database',
+            connectionId: conn.id,
+            databaseName: db.name,
+            children: schemaChildren,
           }
         }
 
         if (conn.type === 'mysql') {
           const allTables = db.schemas[0]?.tables ?? []
           const allViews = db.schemas[0]?.views ?? []
+
+          const categoryChildren: TreeNode[] = []
+
+          if (allTables.length > 0) {
+            categoryChildren.push({
+              label: 'Tables',
+              nodeType: 'category',
+              connectionId: conn.id,
+              databaseName: db.name,
+              children: allTables.map(
+                (t): TreeNode => ({
+                  label: t,
+                  nodeType: 'item',
+                  connectionId: conn.id,
+                  databaseName: db.name,
+                }),
+              ),
+            })
+          }
+
+          if (allViews.length > 0) {
+            categoryChildren.push({
+              label: 'Views',
+              nodeType: 'category',
+              connectionId: conn.id,
+              databaseName: db.name,
+              children: allViews.map(
+                (v): TreeNode => ({
+                  label: v,
+                  nodeType: 'item',
+                  connectionId: conn.id,
+                  databaseName: db.name,
+                }),
+              ),
+            })
+          }
+
+          categoryChildren.push({
+            label: 'Functions',
+            nodeType: 'category',
+            connectionId: conn.id,
+            databaseName: db.name,
+            children: [],
+          })
+          categoryChildren.push({ label: 'Queries', children: [] })
+
           return {
             label: db.name,
-            children: [
-              ...(allTables.length > 0
-                ? [
-                    {
-                      label: 'Tables',
-                      children: allTables.map((t) => ({ label: t })),
-                    },
-                  ]
-                : []),
-              ...(allViews.length > 0
-                ? [
-                    {
-                      label: 'Views',
-                      children: allViews.map((v) => ({ label: v })),
-                    },
-                  ]
-                : []),
-              { label: 'Functions', children: [] },
-            ],
+            nodeType: 'database',
+            connectionId: conn.id,
+            databaseName: db.name,
+            children: categoryChildren,
           }
         }
 
-        return { label: db.name }
+        return {
+          label: db.name,
+          nodeType: 'database',
+          connectionId: conn.id,
+          databaseName: db.name,
+        }
       })
     },
     [treeDataMap],
