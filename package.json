@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "format": "prettier --write .",
+    "test": "vitest run",
     "tauri": "cross-env TAURI_APP_PATH=./backend tauri",
     "tauri:dev": "cross-env TAURI_APP_PATH=./backend tauri dev",
     "tauri:build": "cross-env TAURI_APP_PATH=./backend tauri build"

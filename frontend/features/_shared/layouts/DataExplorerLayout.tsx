@@ -42,6 +42,10 @@ import {
 import { CreateDatabaseModal } from '../../sql/components/shared/CreateDatabaseModal'
 import { DeleteConnectionModal } from '../components/modals/DeleteConnectionModal'
 import { getConnPayloadWithPassword, isSqlConnectionType } from '../utils'
+import {
+  qualifyIdentifierForEngine,
+  quoteIdentifierForEngine,
+} from '../../sql/logic/sqlIdentifier'
 import { openNewConnectionWindow } from '../services/newConnectionWindowService'
 
 /**
@@ -364,10 +368,9 @@ function DataExplorerLayoutChrome({
       })
       queryExecution.setActiveQueryId(qId)
       queryExecution.onQueryDatabaseChange(databaseName)
-      const quotedDb = /[A-Z]/.test(databaseName)
-        ? `"${databaseName}"`
-        : databaseName
-      queryExecution.updateActiveQuery(`DROP DATABASE IF EXISTS ${quotedDb};`)
+      queryExecution.updateActiveQuery(
+        `DROP DATABASE IF EXISTS ${quoteIdentifierForEngine(profile.type, databaseName)};`,
+      )
       navigate(route)
     },
     [
@@ -397,11 +400,8 @@ function DataExplorerLayoutChrome({
       })
       queryExecution.setActiveQueryId(qId)
       queryExecution.onQueryDatabaseChange(databaseName)
-      const quotedSchema = /[A-Z]/.test(schemaName)
-        ? `"${schemaName}"`
-        : schemaName
       queryExecution.updateActiveQuery(
-        `DROP SCHEMA IF EXISTS ${quotedSchema} CASCADE;`,
+        `DROP SCHEMA IF EXISTS ${quoteIdentifierForEngine(profile.type, schemaName)} CASCADE;`,
       )
       navigate(route)
     },
@@ -642,25 +642,28 @@ function DataExplorerLayoutChrome({
                       icon: <SquareTerminal size={14} />,
                       action: () => {
                         const connId = contextMenu.itemId
-                        if (!connId || !selectedConnection) return
+                        const profile = items.find((p) => p.id === connId)
+                        if (!profile) return
                         const qId = queryExecution.createQueryId()
                         const route = `/sql/${connId}/query/${qId}`
                         const openTab = useTabStore.getState().openTab
                         openTab({
                           id: `${connId}:query:${qId}`,
                           label: `Query_${qId}`,
-                          type: selectedConnection.type,
+                          type: profile.type,
                           pageType: 'query',
                           route,
                           connectionId: connId,
                         })
                         const table = contextMenu.tableName
                         if (table) {
-                          const hasUpperCase = /[A-Z]/.test(table)
-                          const quoted = hasUpperCase ? `"${table}"` : table
+                          const schemaSource =
+                            contextMenu.schemaName ??
+                            queryExecution.querySchema ??
+                            explorerData.selectedSchema
                           queryExecution.setActiveQueryId(qId)
                           queryExecution.updateActiveQuery(
-                            `SELECT * FROM ${quoted};`,
+                            `SELECT * FROM ${qualifyIdentifierForEngine(profile.type, schemaSource, table)};`,
                           )
                         }
                         navigate(route)
@@ -1040,11 +1043,8 @@ function DataExplorerLayoutChrome({
                                 connectionId: connId,
                               })
                               queryExecution.setActiveQueryId(qId)
-                              const quotedSchema = /[A-Z]/.test(schemaName)
-                                ? `"${schemaName}"`
-                                : schemaName
                               queryExecution.updateActiveQuery(
-                                `ALTER SCHEMA ${quotedSchema} RENAME TO new_name;`,
+                                `ALTER SCHEMA ${quoteIdentifierForEngine(profile.type, schemaName)} RENAME TO new_name;`,
                               )
                               navigate(route)
                             },
@@ -1254,25 +1254,28 @@ function DataExplorerLayoutChrome({
                       icon: <SquareTerminal size={14} />,
                       action: () => {
                         const connId = contextMenu.itemId
-                        if (!connId || !selectedConnection) return
+                        const profile = items.find((p) => p.id === connId)
+                        if (!profile) return
                         const qId = queryExecution.createQueryId()
                         const route = `/sql/${connId}/query/${qId}`
                         const openTab = useTabStore.getState().openTab
                         openTab({
                           id: `${connId}:query:${qId}`,
                           label: `Query_${qId}`,
-                          type: selectedConnection.type,
+                          type: profile.type,
                           pageType: 'query',
                           route,
                           connectionId: connId,
                         })
                         const view = contextMenu.viewName
                         if (view) {
-                          const hasUpperCase = /[A-Z]/.test(view)
-                          const quoted = hasUpperCase ? `"${view}"` : view
+                          const schemaSource =
+                            contextMenu.schemaName ??
+                            queryExecution.querySchema ??
+                            explorerData.selectedSchema
                           queryExecution.setActiveQueryId(qId)
                           queryExecution.updateActiveQuery(
-                            `SELECT * FROM ${quoted};`,
+                            `SELECT * FROM ${qualifyIdentifierForEngine(profile.type, schemaSource, view)};`,
                           )
                         }
                         navigate(route)
