@@ -679,6 +679,7 @@ export function ConnectionSidebar() {
         >
           {unifiedTree.map((node) => (
             <TreeNodeItem
+              key={node.label}
               node={node}
               depth={0}
               parentPath=""
