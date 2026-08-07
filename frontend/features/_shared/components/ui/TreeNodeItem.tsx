@@ -103,7 +103,6 @@ export function TreeNodeItem({
   onSelectedTreeNode,
   onToggleTreeNode,
   onFetchDatabaseDetails,
-  onTableNavigate,
   onQueryNavigate,
   onTablesCategoryClick,
   onConnectionSelect,
@@ -144,7 +143,6 @@ export function TreeNodeItem({
   onSelectedTreeNode: (label: string | null) => void
   onToggleTreeNode: (path: string) => void
   onFetchDatabaseDetails?: (dbName: string) => void
-  onTableNavigate?: (tableName: string, treePath?: string) => void
   onQueryNavigate?: () => void
   onTablesCategoryClick?: () => void
   onConnectionSelect?: (nodePath: string, connectionId: string) => void
@@ -288,11 +286,26 @@ export function TreeNodeItem({
     }
   }, [cleanupDrag])
 
+  // ── Single vs double click detection ─────────────────────────
+  // A single click waits ~200ms to see whether a second click (double
+  // click) follows before firing the select action. Double click cancels
+  // the pending select and runs the primary action instead.
+  const clickTimeoutRef = useRef<number | null>(null)
+  const clearClickTimer = useCallback(() => {
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current)
+      clickTimeoutRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => clearClickTimer()
+  }, [clearClickTimer])
+
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (!isConnectionNode || !node.connectionId) return
       if (e.button !== 0) return // Only primary button
-
       const startX = e.clientX
       const startY = e.clientY
       const threshold = 5 // 4-6 px movement threshold
@@ -460,10 +473,10 @@ export function TreeNodeItem({
     )
   }
 
-  // Chevron click: only toggles expand/collapse
-  const handleChevronClick = (e: React.MouseEvent) => {
-    e.stopPropagation()
-
+  // Toggle expand/collapse for container nodes (shared by chevron and the
+  // primary double-click/Enter action). Database nodes also lazy-fetch their
+  // children when expanding. Never navigates or opens tabs.
+  const handleToggleExpand = () => {
     if (isGroupNode) {
       onGroupToggle?.(nodePath)
     } else if (isConnectionNode && node.connectionId) {
@@ -480,71 +493,92 @@ export function TreeNodeItem({
     }
   }
 
-  // Label click: selects the node, navigates, and expands if expandable
-  const handleLabelClick = (e: React.MouseEvent) => {
+  // Chevron click: toggles expand/collapse only. Never navigates or tabs.
+  const handleChevronClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    handleToggleExpand()
+  }
+
+  // Select action (single click / Space): selects a node — or, for category
+  // and connection nodes, shows their list/active page. Never opens a leaf
+  // detail tab and never toggles expansion.
+  const handleSelectAction = () => {
+    setFocusedNodePath(nodePath)
+
+    if (isGroupNode) {
+      // Folder: select/focus only
+      onSelectedTreeNode(nodePath)
+    } else if (isConnectionNode && node.connectionId) {
+      // Connection: make it the active connection
+      onConnectionSelect?.(nodePath, node.connectionId)
+      onSelectedTreeNode(nodePath)
+    } else if (node.label === 'Queries') {
+      // Queries category: select + open query list
+      onSelectedTreeNode(nodePath)
+      onQueryNavigate?.()
+    } else if (isCategoryNode(node.label)) {
+      // Category: select + show its list page
+      onSelectedTreeNode(nodePath)
+      onTreeNodeClick(node.label, node.databaseName, nodePath, node.schemaName)
+      if (node.label === 'Tables') {
+        onTablesCategoryClick?.()
+      }
+    } else {
+      // Database, schema, leaf table/view/index: select only
+      onSelectedTreeNode(nodePath)
+    }
+
+    clickTimeoutRef.current = null
+  }
+
+
+  // Single click: select immediately + debounce the select action so a
+  // following double click can replace it with the primary action.
+  const handleRowClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (suppressClickRef.current) {
       suppressClickRef.current = false
       return
     }
     setFocusedNodePath(nodePath)
+    clearClickTimer()
+    clickTimeoutRef.current = setTimeout(() => {
+      handleSelectAction()
+    }, 200)
+  }
 
-    if (isGroupNode) {
-      // Groups are containers, just toggle expand
-      onGroupToggle?.(nodePath)
-    } else if (isConnectionNode && node.connectionId) {
-      // Select connection and navigate
-      onConnectionSelect?.(nodePath, node.connectionId)
-      onSelectedTreeNode(nodePath)
-      if (!isExpanded) {
-        onConnectionToggle?.(nodePath, node.connectionId)
-      }
-    } else if (isDatabaseNode && isCategoryNode(node.label)) {
-      // ES-style category nodes at depth 2 (direct children of connection)
-      onSelectedTreeNode(nodePath)
-      onTreeNodeClick(node.label, undefined, nodePath)
-    } else if (isDatabaseNode) {
-      onSelectedTreeNode(nodePath)
-      if (!isExpanded) {
-        onToggleTreeNode(nodePath)
-        onFetchDatabaseDetails?.(node.databaseName ?? node.label)
-      }
-    } else if (node.label === 'Queries') {
-      onSelectedTreeNode(nodePath)
-      if (!isExpanded) {
-        onToggleTreeNode(nodePath)
-      }
-      onQueryNavigate?.()
-    } else if (!hasChildren || (node.children && node.children.length === 0)) {
-      // Leaf nodes (including leaf category nodes like "Indexes" with no children)
-      onSelectedTreeNode(nodePath)
-      if (!isCategoryNode(node.label)) {
-        onTreeNodeClick(node.label, node.databaseName, nodePath)
-        if (isTableItem) {
-          onTableNavigate?.(node.label, nodePath)
-        }
-      }
-    } else if (isCategoryNode(node.label)) {
-      // Parent category nodes ("Tables", "Views", "Functions", "Keys", etc.)
-      // Expand the node AND open the corresponding page simultaneously
-      onSelectedTreeNode(nodePath)
-      if (!isExpanded && node.label !== 'Tables') {
-        onToggleTreeNode(nodePath)
-      }
-      onTreeNodeClick(node.label, node.databaseName, nodePath, node.schemaName)
-      if (node.label === 'Tables') {
-        onTablesCategoryClick?.()
-      }
+  // Double click: cancel the pending single-click select and run the primary
+  // action (toggle expansion or open a leaf detail tab once).
+  const handleRowDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    clearClickTimer()
+    handlePrimaryAction()
+  }
+
+  // Keyboard: Enter = primary action, Space = select action. Stop propagation
+  // so the tree container's Enter/Space simulation can't double-fire.
+  const handleRowKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      e.stopPropagation()
+      handlePrimaryAction()
+    } else if (e.key === ' ') {
+      e.preventDefault()
+      e.stopPropagation()
+      setFocusedNodePath(nodePath)
+      handleSelectAction()
+    }
+  }
+
+  // Primary action (double click / Enter): toggle expansion, or for a leaf
+  // table/view/index open its detail tab exactly once.
+  const handlePrimaryAction = () => {
+    const isLeafNode = !hasChildren || node.children?.length === 0
+    if (isLeafNode && !isCategoryNode(node.label)) {
+      // Leaf table/view/index: open detail tab once (single owner = onTreeNodeClick)
+      onTreeNodeClick(node.label, node.databaseName, nodePath)
     } else {
-      // Non-category container nodes (schemas, databases, etc.)
-      // Just select and expand — no tab to open
-      onSelectedTreeNode(nodePath)
-      if (!isExpanded) {
-        onToggleTreeNode(nodePath)
-      }
-      if (isDatabaseNode || (depth >= 2 && !isGroupNode && !isConnectionNode)) {
-        onFetchDatabaseDetails?.(node.databaseName ?? node.label)
-      }
+      handleToggleExpand()
     }
   }
 
@@ -565,10 +599,9 @@ export function TreeNodeItem({
         data-is-group={isGroupNode ? 'true' : undefined}
         data-folder-name={isGroupNode ? node.label : undefined}
         data-drag-over={isDragOver && isGroupNode ? 'true' : undefined}
-        onClick={(e) => {
-          e.stopPropagation()
-          handleLabelClick(e)
-        }}
+        onClick={handleRowClick}
+        onDoubleClick={handleRowDoubleClick}
+        onKeyDown={handleRowKeyDown}
         onPointerDown={(e) => {
           if (isConnectionNode) {
             handlePointerDown(e)
@@ -833,7 +866,6 @@ export function TreeNodeItem({
               onSelectedTreeNode={onSelectedTreeNode}
               onToggleTreeNode={onToggleTreeNode}
               onFetchDatabaseDetails={onFetchDatabaseDetails}
-              onTableNavigate={onTableNavigate}
               onQueryNavigate={onQueryNavigate}
               onTablesCategoryClick={onTablesCategoryClick}
               onConnectionSelect={onConnectionSelect}

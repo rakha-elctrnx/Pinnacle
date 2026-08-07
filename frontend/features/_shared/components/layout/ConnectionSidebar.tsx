@@ -351,11 +351,21 @@ export function ConnectionSidebar() {
       case 'Enter':
       case ' ': {
         e.preventDefault()
-        // Simulate click — the outer div with data-node-path now handles selection
+        // The focused row div (TreeNodeItem) owns the deterministic per-node
+        // action: Enter = primary action, Space = select action. Route to the
+        // row and let its handler decide — never simulate a generic click.
         const el = treeContainerRef.current?.querySelector<HTMLElement>(
           `[data-node-path="${CSS.escape(focusedNodePath)}"]`,
         )
-        el?.click()
+        if (!el) break
+        if (document.activeElement !== el) el.focus()
+        el.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key: e.key,
+            bubbles: true,
+            cancelable: true,
+          }),
+        )
         break
       }
       case 'Home': {
@@ -374,26 +384,6 @@ export function ConnectionSidebar() {
   }
 
   const openTab = useTabStore((s) => s.openTab)
-
-  // URL-driven navigation handlers
-  const handleTableNavigate = useCallback(
-    (tableName: string, treePath?: string) => {
-      const connectionId = selectedConnection?.id
-      if (!connectionId || !selectedConnection) return
-      const route = `/sql/${connectionId}/tables/${encodeURIComponent(tableName)}`
-      openTab({
-        id: `${connectionId}:table:${tableName}`,
-        label: tableName,
-        type: selectedConnection.type,
-        pageType: 'table',
-        route,
-        connectionId,
-        treePath,
-      })
-      navigate(route)
-    },
-    [selectedConnection, navigate, openTab],
-  )
 
   const handleQueryNavigate = useCallback(() => {
     const connectionId = selectedConnection?.id
@@ -689,7 +679,6 @@ export function ConnectionSidebar() {
         >
           {unifiedTree.map((node) => (
             <TreeNodeItem
-              key={node.label}
               node={node}
               depth={0}
               parentPath=""
@@ -699,7 +688,6 @@ export function ConnectionSidebar() {
               onSelectedTreeNode={setSelectedTreeNode}
               onToggleTreeNode={handleToggleTreeNode}
               onFetchDatabaseDetails={handleFetchDatabaseDetails}
-              onTableNavigate={handleTableNavigate}
               onQueryNavigate={handleQueryNavigate}
               onTablesCategoryClick={handleTablesCategoryClick}
               onTableNodeContextMenu={handleTableNodeContextMenu}
