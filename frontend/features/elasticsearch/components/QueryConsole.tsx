@@ -77,7 +77,20 @@ export function QueryConsole({ connection }: Props) {
   )
   const [error, setError] = useState<string | null>(tabState?.error ?? null)
   const [loading, setLoading] = useState(false)
-  const [history, setHistory] = useState<QueryHistoryEntry[]>([])
+  // History is persisted to sessionStorage per tab. `QueryConsolePage` remounts
+  // this component with `key={activeTabId}`, so the key is stable for the
+  // lifetime of this instance and history can be loaded lazily on init.
+  const historyKey = activeTabId ? `es-query-${activeTabId}-history` : null
+  const [history, setHistory] = useState<QueryHistoryEntry[]>(() => {
+    if (!historyKey) return []
+    try {
+      const raw = sessionStorage.getItem(historyKey)
+      if (raw) return JSON.parse(raw) as QueryHistoryEntry[]
+    } catch {
+      // ignore
+    }
+    return []
+  })
   const [historyOpen, setHistoryOpen] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
   const [resultTab, setResultTab] = useState<ResultTab>(
@@ -93,22 +106,6 @@ export function QueryConsole({ connection }: Props) {
     if (!activeTabId) return
     setTab(activeTabId, { method, path, body, resultTab, result, error })
   }, [activeTabId, setTab, method, path, body, resultTab, result, error])
-
-  // Persist history separately
-  const historyKey = activeTabId ? `es-query-${activeTabId}-history` : null
-
-  // Load history from sessionStorage on mount
-  useEffect(() => {
-    if (!historyKey) return
-    try {
-      const raw = sessionStorage.getItem(historyKey)
-      if (raw) {
-        setHistory(JSON.parse(raw) as QueryHistoryEntry[])
-      }
-    } catch {
-      // ignore
-    }
-  }, [historyKey])
 
   // Save history on change
   useEffect(() => {

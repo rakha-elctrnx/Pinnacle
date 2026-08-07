@@ -304,6 +304,7 @@ export function SqliteIcon({
 /**
  * Returns the icon component for a given ConnectionType string.
  */
+// eslint-disable-next-line react-refresh/only-export-components -- non-component helper co-located with its icon components for cohesive imports (see TabBar)
 export function getDatabaseIcon(type: string) {
   switch (type) {
     case 'postgresql':

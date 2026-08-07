@@ -588,7 +588,6 @@ function makeMarker(
   token: Token,
   message: string,
   severity: Monaco.MarkerSeverity,
-  _monacoInstance: typeof Monaco,
 ): Monaco.editor.IMarkerData {
   const endCol = token.col + token.value.length
   return {
@@ -807,7 +806,7 @@ function validateMisspelledKeywords(
         ? `"${tok.value}" is not a recognised SQL keyword.`
         : `Unknown keyword "${tok.value}" — did you mean ${match.kw}?`
 
-    markers.push(makeMarker(tok, message, mono.MarkerSeverity.Warning, mono))
+    markers.push(makeMarker(tok, message, mono.MarkerSeverity.Warning))
   }
 }
 
@@ -832,7 +831,6 @@ function validateParentheses(
             tok,
             'Unexpected closing parenthesis — no matching opening parenthesis.',
             mono.MarkerSeverity.Error,
-            mono,
           ),
         )
       } else {
@@ -846,7 +844,6 @@ function validateParentheses(
         unmatched,
         'Unclosed parenthesis — add a matching closing parenthesis.',
         mono.MarkerSeverity.Error,
-        mono,
       ),
     )
   }
@@ -865,7 +862,6 @@ function validateUnclosedStrings(
             tok,
             'Unclosed string literal — missing closing single quote.',
             mono.MarkerSeverity.Error,
-            mono,
           ),
         )
       else if (tok.value.startsWith('"'))
@@ -874,7 +870,6 @@ function validateUnclosedStrings(
             tok,
             'Unclosed quoted identifier — missing closing double quote.',
             mono.MarkerSeverity.Error,
-            mono,
           ),
         )
       else if (tok.value.startsWith('`'))
@@ -883,7 +878,6 @@ function validateUnclosedStrings(
             tok,
             'Unclosed quoted identifier — missing closing backtick.',
             mono.MarkerSeverity.Error,
-            mono,
           ),
         )
       else if (tok.value.startsWith('['))
@@ -892,7 +886,6 @@ function validateUnclosedStrings(
             tok,
             'Unclosed bracketed identifier — missing closing bracket `]`.',
             mono.MarkerSeverity.Error,
-            mono,
           ),
         )
     }
@@ -961,7 +954,6 @@ function validateClauseOrder(
           topKws[iWhere].tok,
           'WHERE must come after FROM.',
           mono.MarkerSeverity.Error,
-          mono,
         ),
       )
     }
@@ -973,7 +965,6 @@ function validateClauseOrder(
           topKws[iHaving].tok,
           'HAVING requires a GROUP BY clause.',
           mono.MarkerSeverity.Error,
-          mono,
         ),
       )
     }
@@ -983,7 +974,6 @@ function validateClauseOrder(
           topKws[iHaving].tok,
           'HAVING must come after GROUP BY.',
           mono.MarkerSeverity.Error,
-          mono,
         ),
       )
     }
@@ -995,7 +985,6 @@ function validateClauseOrder(
           topKws[iOrder].tok,
           'ORDER BY must come after GROUP BY.',
           mono.MarkerSeverity.Error,
-          mono,
         ),
       )
     }
@@ -1007,7 +996,6 @@ function validateClauseOrder(
           topKws[iOffset].tok,
           'OFFSET requires a LIMIT clause.',
           mono.MarkerSeverity.Warning,
-          mono,
         ),
       )
     }
@@ -1024,7 +1012,6 @@ function validateClauseOrder(
           first,
           'INSERT requires INTO.',
           mono.MarkerSeverity.Error,
-          mono,
         ),
       )
     }
@@ -1034,7 +1021,6 @@ function validateClauseOrder(
           first,
           'INSERT requires VALUES or a SELECT subquery.',
           mono.MarkerSeverity.Warning,
-          mono,
         ),
       )
     }
@@ -1049,7 +1035,6 @@ function validateClauseOrder(
           first,
           'UPDATE requires a SET clause.',
           mono.MarkerSeverity.Error,
-          mono,
         ),
       )
     }
@@ -1064,7 +1049,6 @@ function validateClauseOrder(
           first,
           'DELETE requires FROM.',
           mono.MarkerSeverity.Error,
-          mono,
         ),
       )
     }
@@ -1096,7 +1080,6 @@ function validateDuplicateClauses(
             extra.tok,
             `Duplicate ${kw} clause — each clause may only appear once in a statement.`,
             mono.MarkerSeverity.Error,
-            mono,
           ),
         )
       }
@@ -1141,7 +1124,6 @@ function validateTrailingComma(
             tok,
             `Trailing comma before ${next.value} — remove the comma.`,
             mono.MarkerSeverity.Error,
-            mono,
           ),
         )
       }
@@ -1152,7 +1134,6 @@ function validateTrailingComma(
             tok,
             'Trailing comma before closing parenthesis — remove the comma.',
             mono.MarkerSeverity.Error,
-            mono,
           ),
         )
       }
@@ -1180,7 +1161,6 @@ function validateLogicalOperatorAtStart(
         m[0],
         `Statement starts with ${firstKw} — did you mean to add a WHERE clause first?`,
         mono.MarkerSeverity.Error,
-        mono,
       ),
     )
   }
@@ -1230,7 +1210,6 @@ function validateSelectColumns(
         m[selectIdx],
         'SELECT has no column list — add at least one column or *.',
         mono.MarkerSeverity.Error,
-        mono,
       ),
     )
   }
@@ -1319,7 +1298,6 @@ function validateJoinOnClause(
               tok,
               'JOIN is missing an ON (or USING) clause.',
               mono.MarkerSeverity.Warning,
-              mono,
             ),
           )
         }
@@ -1351,7 +1329,6 @@ function validateUnknownTopLevelKeyword(
         firstTok,
         `"${firstTok.value}" is not a valid statement keyword.${suggestion}`,
         mono.MarkerSeverity.Error,
-        mono,
       ),
     )
   }

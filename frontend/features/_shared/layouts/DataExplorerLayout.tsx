@@ -62,7 +62,10 @@ function ResizeHandle({
 }) {
   const draggingRef = useRef(false)
   const onResizeRef = useRef(onResize)
-  onResizeRef.current = onResize
+
+  useEffect(() => {
+    onResizeRef.current = onResize
+  }, [onResize])
 
   useEffect(() => {
     const handleMove = (e: MouseEvent) => {
@@ -413,7 +416,7 @@ function DataExplorerLayoutChrome({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleExecuteSqlFile = useCallback(
-    (connectionId: string, databaseName: string, _schemaName: string) => {
+    (connectionId: string, databaseName: string) => {
       let input = fileInputRef.current
       if (!input) {
         input = document.createElement('input')
@@ -1112,7 +1115,6 @@ function DataExplorerLayoutChrome({
                               handleExecuteSqlFile(
                                 contextMenu.itemId,
                                 contextMenu.databaseName!,
-                                contextMenu.schemaName!,
                               ),
                             disabled:
                               connectionStatuses[contextMenu.itemId] !==

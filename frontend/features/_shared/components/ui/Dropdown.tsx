@@ -46,12 +46,16 @@ export function Dropdown({
   align = 'right',
 }: DropdownProps) {
   const menuRef = useRef<HTMLDivElement>(null)
-  const [activeIndex, setActiveIndex] = useState(0)
 
-  // Reset active index when menu opens
-  useEffect(() => {
-    if (open) setActiveIndex(0)
-  }, [open])
+  // Reset active index when the menu toggles open. Track the last-seen
+  // `open` value and reset during render instead of in an effect
+  // (avoids react-hooks/set-state-in-effect).
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [lastOpen, setLastOpen] = useState(open)
+  if (open !== lastOpen) {
+    setLastOpen(open)
+    setActiveIndex(0)
+  }
 
   // ── Keyboard navigation ────────────────────────────────────────────────
   const handleKeyDown = useCallback(

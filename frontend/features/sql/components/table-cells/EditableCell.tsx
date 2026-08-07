@@ -181,22 +181,28 @@ export function EditableCell({
   }, [isEditing])
 
   // Enter edit mode
-  const enterEditMode = useCallback(() => {
+  const enterEditMode = () => {
     if (isDeleted) return
     if (isBinary) return // binary columns are not editable
     setEditValue(effectiveValue)
     setValidationError(null)
     setIsEditing(true)
-  }, [isDeleted, isBinary, effectiveValue])
+  }
 
   // Listen for table:enter-edit custom event (dispatched by keyboard hook)
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
-    const handler = () => enterEditMode()
+    const handler = () => {
+      if (isDeleted) return
+      if (isBinary) return // binary columns are not editable
+      setEditValue(effectiveValue)
+      setValidationError(null)
+      setIsEditing(true)
+    }
     el.addEventListener('table:enter-edit', handler)
     return () => el.removeEventListener('table:enter-edit', handler)
-  }, [enterEditMode])
+  }, [isDeleted, isBinary, effectiveValue])
 
   // Validate and commit edit
   const commitEdit = useCallback(() => {
@@ -235,42 +241,38 @@ export function EditableCell({
   }, [editValue, columnMeta, rawValue, rowId, field, stageEdit, unstageEdit])
 
   // Cancel edit (revert to original)
-  const cancelEdit = useCallback(() => {
+  const cancelEdit = () => {
     setEditValue(effectiveValue)
     setIsEditing(false)
     setValidationError(null)
-  }, [effectiveValue])
+  }
 
   // ── Handlers ───────────────────────────────────────────────────────
-  const handleDoubleClick = useCallback(() => {
+  const handleDoubleClick = () => {
     enterEditMode()
-  }, [enterEditMode])
+  }
 
   const handleChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     setEditValue(e.target.value)
     setValidationError(null) // clear error on new input
   }, [])
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        commitEdit()
-      } else if (e.key === 'Escape') {
-        e.preventDefault()
-        cancelEdit()
-      } else if (e.key === 'Tab') {
-        e.preventDefault()
-        commitEdit()
-        // Tab will naturally move focus; the parent can handle next-cell
-        // navigation via a broader handler if needed.
-      } else if (e.key === 'F2') {
-        e.preventDefault()
-        // F2 toggles edit mode (already in edit mode, no-op)
-      }
-    },
-    [commitEdit, cancelEdit],
-  )
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commitEdit()
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      cancelEdit()
+    } else if (e.key === 'Tab') {
+      e.preventDefault()
+      commitEdit()
+      // Tab will naturally move focus; the parent can handle next-cell
+      // navigation via a broader handler if needed.
+    } else if (e.key === 'F2') {
+      e.preventDefault()
+      // F2 toggles edit mode (already in edit mode, no-op)
+    }
+  }
 
   const handleBlur = useCallback(() => {
     // Commit on blur (clicking elsewhere saves the edit)
@@ -280,16 +282,13 @@ export function EditableCell({
   }, [isEditing, commitEdit])
 
   // ── Global key handler when not editing ────────────────────────────
-  const handleGlobalKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLSpanElement>) => {
-      if (isEditing) return
-      if (e.key === 'Enter' || e.key === 'F2') {
-        e.preventDefault()
-        enterEditMode()
-      }
-    },
-    [isEditing, enterEditMode],
-  )
+  const handleGlobalKeyDown = (e: KeyboardEvent<HTMLSpanElement>) => {
+    if (isEditing) return
+    if (e.key === 'Enter' || e.key === 'F2') {
+      e.preventDefault()
+      enterEditMode()
+    }
+  }
 
   // ── Derived classes ────────────────────────────────────────────────
   const isInvalid = validationError != null

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -64,14 +64,17 @@ export function useColumnResizer({
     Array(initialWidths.length).fill(-1),
   )
 
-  // Reset state when initialWidths changes (table switch, data load)
+  // Reset state when initialWidths changes (table switch, data load).
+  // Compared in a layout effect so refs are not read/written during render.
   const prevInitialRef = useRef<string>(initialWidths.join(','))
   const currentInitial = initialWidths.join(',')
-  if (prevInitialRef.current !== currentInitial) {
-    prevInitialRef.current = currentInitial
-    setWidths([...initialWidths])
-    setUserSetWidths(Array(initialWidths.length).fill(-1))
-  }
+  useLayoutEffect(() => {
+    if (prevInitialRef.current !== currentInitial) {
+      prevInitialRef.current = currentInitial
+      setWidths([...initialWidths])
+      setUserSetWidths(Array(initialWidths.length).fill(-1))
+    }
+  }, [currentInitial, initialWidths])
   const startXRef = useRef(0)
   const startWidthRef = useRef(0)
 

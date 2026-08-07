@@ -57,7 +57,13 @@ export function GenericContextMenu({
   const [submenuIndex, setSubmenuIndex] = useState<number | null>(null)
   const [submenuPos, setSubmenuPos] = useState({ top: 0, left: 0 })
   const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
+
+  // Keep ref in sync with the latest onClose prop (avoid stale closures in
+  // the document-level listeners below). Must run in an effect — updating a
+  // ref during render is not allowed.
+  useLayoutEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
   // ── Viewport boundary detection ──────────────────────────────────────
   useLayoutEffect(() => {
     const el = menuRef.current

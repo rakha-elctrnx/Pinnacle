@@ -262,7 +262,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   >('results')
   const [openedTableTabs, setOpenedTableTabs] = useState<OpenedTableTab[]>([])
   const [activeTableTabId, setActiveTableTabId] = useState<string | null>(null)
-  const [isDetailsPanelOpen, _setIsDetailsPanelOpen] = useState(false)
+  const [isDetailsPanelOpen] = useState(false)
   const [elasticIndices, setElasticIndices] = useState<
     Record<string, ElasticIndex[]>
   >({})
@@ -334,7 +334,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
         upsert(conn)
       }
     }
-  }, [items])
+  }, [items, folders, folderRefresh, upsert])
 
   // ── Trigger estimate when export modal opens ─────────────────
   useEffect(() => {

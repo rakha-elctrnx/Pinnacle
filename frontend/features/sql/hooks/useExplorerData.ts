@@ -80,17 +80,36 @@ export type TableIndex = {
 }
 
 function mapQueryIndexesToTableIndexes(
-  records: Record<string, any>[],
+  records: Record<string, unknown>[],
 ): TableIndex[] {
+  const toBoolean = (value: unknown): boolean => {
+    if (typeof value === 'boolean') return value
+    if (typeof value === 'number') return value !== 0
+    if (typeof value === 'string')
+      return value === 't' || value === '1' || value === 'true'
+    return false
+  }
+
+  const toStringArray = (value: unknown): string[] => {
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item))
+    }
+    return value == null ? [] : [String(value)]
+  }
+
   return records.map((rec) => {
-    const schemaName = rec.schema_name || 'unknown_schema'
-    const tableName = rec.table_name || 'unknown_table'
-    const indexName = rec.index_name || 'unknown_index'
-    const indexDef = rec.index_definition || null
-    const isUnique = rec.is_unique || null
-    const isPrimary = rec.is_primary || null
-    const indexType = rec.index_type || null
-    const columnName = rec.column_name || []
+    const schemaName =
+      typeof rec.schema_name === 'string' ? rec.schema_name : 'unknown_schema'
+    const tableName =
+      typeof rec.table_name === 'string' ? rec.table_name : 'unknown_table'
+    const indexName =
+      typeof rec.index_name === 'string' ? rec.index_name : 'unknown_index'
+    const indexDef =
+      typeof rec.index_definition === 'string' ? rec.index_definition : null
+    const isUnique = toBoolean(rec.is_unique)
+    const isPrimary = toBoolean(rec.is_primary)
+    const indexType = typeof rec.index_type === 'string' ? rec.index_type : null
+    const columnName = toStringArray(rec.column_name)
 
     return {
       schemaName,
@@ -257,7 +276,7 @@ export function useExplorerData({
         },
         {} as Record<string, SchemaColumn[]>,
       )
-    } catch (error) {
+    } catch {
       return {}
     }
   }, [schemaColumnsRaw])

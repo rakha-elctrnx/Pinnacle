@@ -37,4 +37,5 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- context hook exported alongside ThemeProvider; moving it would split the theme module
 export const useTheme = () => useContext(ThemeContext)

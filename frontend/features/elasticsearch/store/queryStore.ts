@@ -64,7 +64,8 @@ export const useEsQueryStore = create<EsQueryStore>()(
 
       removeTab: (tabId) =>
         set((prev) => {
-          const { [tabId]: _removed, ...rest } = prev.tabs
+          const rest = { ...prev.tabs }
+          delete rest[tabId]
           return { tabs: rest }
         }),
     }),
