@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "format": "prettier --write .",
+    "test": "vitest run",
     "tauri": "cross-env TAURI_APP_PATH=./backend tauri",
     "tauri:dev": "cross-env TAURI_APP_PATH=./backend tauri dev",
     "tauri:build": "cross-env TAURI_APP_PATH=./backend tauri build"
@@ -51,7 +52,8 @@
     "tailwindcss": "^4.3.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "vitest": "^3.2.7"
   },
   "packageManager": "pnpm@10.25.0+sha512.5e82639027af37cf832061bcc6d639c219634488e0f2baebe785028a793de7b525ffcd3f7ff574f5e9860654e098fe852ba8ac5dd5cefe1767d23a020a92f501"
 }
