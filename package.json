@@ -10,7 +10,6 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "format": "prettier --write .",
-    "test": "vitest run",
     "tauri": "cross-env TAURI_APP_PATH=./backend tauri",
     "tauri:dev": "cross-env TAURI_APP_PATH=./backend tauri dev",
     "tauri:build": "cross-env TAURI_APP_PATH=./backend tauri build"
@@ -38,6 +37,8 @@
     "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.3.0",
     "@tauri-apps/cli": "^2.11.2",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
@@ -47,13 +48,14 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "jsdom": "^30.0.1",
     "monaco-editor": "^0.56.0",
     "prettier": "^3.8.3",
     "tailwindcss": "^4.3.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12",
-    "vitest": "^3.2.7"
+    "vitest": "^4.1.10"
   },
   "packageManager": "pnpm@10.25.0+sha512.5e82639027af37cf832061bcc6d639c219634488e0f2baebe785028a793de7b525ffcd3f7ff574f5e9860654e098fe852ba8ac5dd5cefe1767d23a020a92f501"
 }
