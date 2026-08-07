@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, fireEvent, cleanup } from '@testing-library/react'
+import { render, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import { TreeNodeItem } from '../TreeNodeItem'
-import type { ExplorerNode } from '../../types'
+import type { TreeNode } from '../../../types/shared'
 
 describe('TreeNodeItem connection drag & threshold interaction tests', () => {
-  const connectionNode: ExplorerNode = {
+  const connectionNode: TreeNode = {
     label: 'Test Postgres DB',
     nodeType: 'connection',
     connectionId: 'conn-1',
@@ -40,7 +40,7 @@ describe('TreeNodeItem connection drag & threshold interaction tests', () => {
     delete document.body.dataset.draggedConnectionId
   })
 
-  it('does not create drag ghost or start dragging on press/release without movement', () => {
+  it('does not create drag ghost or start dragging on press/release without movement', async () => {
     const { getByRole } = render(<TreeNodeItem {...mockProps} />)
     const treeItem = getByRole('treeitem').firstElementChild!
 
@@ -55,7 +55,9 @@ describe('TreeNodeItem connection drag & threshold interaction tests', () => {
 
     // Trigger click since pointer up alone doesn't fire click in synthetic test
     fireEvent.click(treeItem)
-    expect(mockProps.onConnectionSelect).toHaveBeenCalledWith('Test Postgres DB', 'conn-1')
+    await waitFor(() => {
+      expect(mockProps.onConnectionSelect).toHaveBeenCalledWith('Test Postgres DB', 'conn-1')
+    })
   })
 
   it('does not start drag when movement is below 5px threshold', () => {

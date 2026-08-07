@@ -9,7 +9,11 @@ import type {
   Folder,
 } from '../../types/domain'
 import type { ElasticIndex } from '../../../elasticsearch/types/elasticsearch'
-import type { TreeNode, ExplorerTreeData } from '../../types/shared'
+import type {
+  TreeNode,
+  ExplorerTreeData,
+  TreeNodeContextMenuMeta,
+} from '../../types/shared'
 import { isSqlConnectionType, isElasticsearchType } from '../../utils'
 
 interface ExplorerDataContext {
@@ -373,11 +377,21 @@ export function ConnectionSidebar() {
       case 'Enter':
       case ' ': {
         e.preventDefault()
-        // Simulate click — the outer div with data-node-path now handles selection
+        // The focused row div (TreeNodeItem) owns the deterministic per-node
+        // action: Enter = primary action, Space = select action. Route to the
+        // row and let its handler decide — never simulate a generic click.
         const el = treeContainerRef.current?.querySelector<HTMLElement>(
           `[data-node-path="${CSS.escape(focusedNodePath)}"]`,
         )
-        el?.click()
+        if (!el) break
+        if (document.activeElement !== el) el.focus()
+        el.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key: e.key,
+            bubbles: true,
+            cancelable: true,
+          }),
+        )
         break
       }
 
@@ -397,26 +411,6 @@ export function ConnectionSidebar() {
   }
 
   const openTab = useTabStore((s) => s.openTab)
-
-  // URL-driven navigation handlers
-  const handleTableNavigate = useCallback(
-    (tableName: string, treePath?: string) => {
-      const connectionId = selectedConnection?.id
-      if (!connectionId || !selectedConnection) return
-      const route = `/sql/${connectionId}/tables/${encodeURIComponent(tableName)}`
-      openTab({
-        id: `${connectionId}:table:${tableName}`,
-        label: tableName,
-        type: selectedConnection.type,
-        pageType: 'table',
-        route,
-        connectionId,
-        treePath,
-      })
-      navigate(route)
-    },
-    [selectedConnection, navigate, openTab],
-  )
 
   const handleQueryNavigate = useCallback(() => {
     const connectionId = selectedConnection?.id
@@ -449,90 +443,102 @@ export function ConnectionSidebar() {
     navigate(route)
   }, [selectedConnection, navigate, openTab])
 
-  const handleContextMenu = (event: React.MouseEvent, itemId: string) => {
+  const handleContextMenu = (
+    event: React.MouseEvent,
+    meta: TreeNodeContextMenuMeta,
+  ) => {
     event.preventDefault()
-    setContextMenu({ x: event.clientX, y: event.clientY, itemId })
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      itemId: meta.connectionId,
+      tableName: meta.tableName,
+      viewName: meta.viewName,
+      indexName: meta.indexName,
+      databaseName: meta.databaseName,
+      schemaName: meta.schemaName,
+      categoryName: meta.categoryName,
+    })
   }
 
   const handleTableNodeContextMenu = (
     event: React.MouseEvent,
-    connectionId: string,
-    tableName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => {
     setContextMenu({
       x: event.clientX,
       y: event.clientY,
-      itemId: connectionId,
-      tableName,
+      itemId: meta.connectionId,
+      databaseName: meta.databaseName,
+      schemaName: meta.schemaName,
+      tableName: meta.tableName,
     })
   }
+
   const handleViewNodeContextMenu = (
     event: React.MouseEvent,
-    connectionId: string,
-    viewName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => {
     setContextMenu({
       x: event.clientX,
       y: event.clientY,
-      itemId: connectionId,
-      viewName,
+      itemId: meta.connectionId,
+      databaseName: meta.databaseName,
+      schemaName: meta.schemaName,
+      viewName: meta.viewName,
     })
   }
 
   const handleIndexNodeContextMenu = (
     event: React.MouseEvent,
-    connectionId: string,
-    indexName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => {
     setContextMenu({
       x: event.clientX,
       y: event.clientY,
-      itemId: connectionId,
-      indexName,
+      itemId: meta.connectionId,
+      databaseName: meta.databaseName,
+      schemaName: meta.schemaName,
+      indexName: meta.indexName,
     })
   }
 
   const handleDatabaseNodeContextMenu = (
     event: React.MouseEvent,
-    connectionId: string,
-    databaseName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => {
     setContextMenu({
       x: event.clientX,
       y: event.clientY,
-      itemId: connectionId,
-      databaseName,
+      itemId: meta.connectionId,
+      databaseName: meta.databaseName,
     })
   }
 
   const handleSchemaNodeContextMenu = (
     event: React.MouseEvent,
-    connectionId: string,
-    databaseName: string,
-    schemaName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => {
     setContextMenu({
       x: event.clientX,
       y: event.clientY,
-      itemId: connectionId,
-      databaseName,
-      schemaName,
+      itemId: meta.connectionId,
+      databaseName: meta.databaseName,
+      schemaName: meta.schemaName,
     })
   }
 
   const handleTablesCategoryContextMenu = (
     event: React.MouseEvent,
-    connectionId: string,
-    databaseName: string,
-    schemaName?: string,
+    meta: TreeNodeContextMenuMeta,
   ) => {
     setContextMenu({
       x: event.clientX,
       y: event.clientY,
-      itemId: connectionId,
-      databaseName,
-      schemaName,
-      categoryName: 'Tables',
+      itemId: meta.connectionId,
+      databaseName: meta.databaseName,
+      schemaName: meta.schemaName,
+      categoryName: meta.categoryName ?? 'Tables',
     })
   }
 
@@ -710,7 +716,6 @@ export function ConnectionSidebar() {
               onSelectedTreeNode={setSelectedTreeNode}
               onToggleTreeNode={handleToggleTreeNode}
               onFetchDatabaseDetails={handleFetchDatabaseDetails}
-              onTableNavigate={handleTableNavigate}
               onQueryNavigate={handleQueryNavigate}
               onTablesCategoryClick={handleTablesCategoryClick}
               onTableNodeContextMenu={handleTableNodeContextMenu}

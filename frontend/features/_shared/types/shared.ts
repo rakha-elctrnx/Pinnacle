@@ -89,11 +89,26 @@ export interface TestConnectionResult {
 export interface ContextMenuState {
   x: number
   y: number
-  itemId: string
-  tableName?: string
-  viewName?: string
+  itemId: string // connectionId
   databaseName?: string
   schemaName?: string
+  categoryName?: string
+  tableName?: string
+  viewName?: string
+  indexName?: string
+}
+
+/**
+ * Explicit node identity passed to sidebar context-menu callbacks. Always
+ * carries the clicked node's connectionId (never stale global selection),
+ * plus any deeper node metadata available for the clicked node.
+ */
+export interface TreeNodeContextMenuMeta {
+  connectionId: string
+  databaseName?: string
+  schemaName?: string
+  tableName?: string
+  viewName?: string
   indexName?: string
   categoryName?: string
 }

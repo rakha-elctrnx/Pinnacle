@@ -17,7 +17,11 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react'
-import type { TreeNode, ExplorerTreeData } from '../../types/shared'
+import type {
+  TreeNode,
+  ExplorerTreeData,
+  TreeNodeContextMenuMeta,
+} from '../../types/shared'
 import type {
   ConnectionProfile,
   Folder as FolderType,
@@ -52,18 +56,6 @@ function isCategoryNode(label: string): boolean {
   return CATEGORY_LABELS.includes(label)
 }
 
-function getPathSegments(raw: string): string[] {
-  const out: string[] = []
-  let start = 0
-  let idx = raw.indexOf('/')
-  while (idx !== -1) {
-    out.push(raw.slice(start, idx))
-    start = idx + 1
-    idx = raw.indexOf('/', start)
-  }
-  out.push(raw.slice(start))
-  return out
-}
 
 /**
  * Returns an icon component to use for a given category label.
@@ -111,7 +103,6 @@ export function TreeNodeItem({
   onSelectedTreeNode,
   onToggleTreeNode,
   onFetchDatabaseDetails,
-  onTableNavigate,
   onQueryNavigate,
   onTablesCategoryClick,
   onConnectionSelect,
@@ -124,6 +115,7 @@ export function TreeNodeItem({
   onDatabaseNodeContextMenu,
   onSchemaNodeContextMenu,
   onTablesCategoryContextMenu,
+  parentConnectionId,
   groupedConnections,
   explorerData,
   elasticIndicesError,
@@ -138,6 +130,7 @@ export function TreeNodeItem({
 }: {
   node: TreeNode
   depth: number
+  parentConnectionId?: string,
   parentPath: string
   selectedTreeNode: string | null
   expandedTreePaths: string[]
@@ -150,7 +143,6 @@ export function TreeNodeItem({
   onSelectedTreeNode: (label: string | null) => void
   onToggleTreeNode: (path: string) => void
   onFetchDatabaseDetails?: (dbName: string) => void
-  onTableNavigate?: (tableName: string, treePath?: string) => void
   onQueryNavigate?: () => void
   onTablesCategoryClick?: () => void
   onConnectionSelect?: (nodePath: string, connectionId: string) => void
@@ -158,36 +150,31 @@ export function TreeNodeItem({
   onConnectionToggle?: (connectionPath: string, connectionId: string) => void
   onTableNodeContextMenu?: (
     event: React.MouseEvent,
-    connectionId: string,
-    tableName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => void
   onIndexNodeContextMenu?: (
     event: React.MouseEvent,
-    connectionId: string,
-    indexName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => void
-  onConnectionContextMenu?: (event: React.MouseEvent, itemId: string) => void
+  onConnectionContextMenu?: (
+    event: React.MouseEvent,
+    meta: TreeNodeContextMenuMeta,
+  ) => void
   onViewNodeContextMenu?: (
     event: React.MouseEvent,
-    connectionId: string,
-    viewName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => void
   onDatabaseNodeContextMenu?: (
     event: React.MouseEvent,
-    connectionId: string,
-    databaseName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => void
   onSchemaNodeContextMenu?: (
     event: React.MouseEvent,
-    connectionId: string,
-    databaseName: string,
-    schemaName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => void
   onTablesCategoryContextMenu?: (
     event: React.MouseEvent,
-    connectionId: string,
-    databaseName: string,
-    schemaName?: string,
+    meta: TreeNodeContextMenuMeta,
   ) => void
   groupedConnections?: Record<string, ConnectionProfile[]> | null
   explorerData?: ExplorerDataContext
@@ -225,12 +212,29 @@ export function TreeNodeItem({
     isLeaf && !isCategoryNode(node.label) && parentPath.endsWith('/Views')
   const isIndexItem =
     isLeaf && !isCategoryNode(node.label) && parentPath.endsWith('/Indices')
-  const isSchemaNode = node.nodeType === 'schema'
+  const isSchemaNode =
+    !isConnectionNode &&
+    !isDatabaseNode &&
+    !isCategoryNode(node.label) &&
+    hasChildren &&
+    depth >= 2
   const parentCategory = parentPath.slice(parentPath.lastIndexOf('/') + 1)
   const isQueriesFolder = node.label === 'Queries'
   const categoryIcon = isCategoryNode(node.label)
     ? getCategoryIcon(node.label)
     : null
+  // Explicit node identity for context-menu callbacks. Every node in the
+  // unified tree inherits connectionId from its connection ancestor, so the
+  // clicked node's connection is always resolved — never the active selection.
+  const contextMenuMeta: TreeNodeContextMenuMeta = {
+    connectionId: node.connectionId ?? parentConnectionId ?? '',
+    databaseName: node.databaseName,
+    schemaName: node.schemaName,
+    tableName: isTableItem ? node.label : undefined,
+    viewName: isViewItem ? node.label : undefined,
+    indexName: isIndexItem ? node.label : undefined,
+    categoryName: isCategoryNode(node.label) ? node.label : undefined,
+  }
 
   // ── Folder rename state ───────────────────────────────────────
   const [isRenaming, setIsRenaming] = useState(false)
@@ -282,11 +286,26 @@ export function TreeNodeItem({
     }
   }, [cleanupDrag])
 
+  // ── Single vs double click detection ─────────────────────────
+  // A single click waits ~200ms to see whether a second click (double
+  // click) follows before firing the select action. Double click cancels
+  // the pending select and runs the primary action instead.
+  const clickTimeoutRef = useRef<number | null>(null)
+  const clearClickTimer = useCallback(() => {
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current)
+      clickTimeoutRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => clearClickTimer()
+  }, [clearClickTimer])
+
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (!isConnectionNode || !node.connectionId) return
       if (e.button !== 0) return // Only primary button
-
       const startX = e.clientX
       const startY = e.clientY
       const threshold = 5 // 4-6 px movement threshold
@@ -454,10 +473,10 @@ export function TreeNodeItem({
     )
   }
 
-  // Chevron click: only toggles expand/collapse
-  const handleChevronClick = (e: React.MouseEvent) => {
-    e.stopPropagation()
-
+  // Toggle expand/collapse for container nodes (shared by chevron and the
+  // primary double-click/Enter action). Database nodes also lazy-fetch their
+  // children when expanding. Never navigates or opens tabs.
+  const handleToggleExpand = () => {
     if (isGroupNode) {
       onGroupToggle?.(nodePath)
     } else if (isConnectionNode && node.connectionId) {
@@ -474,71 +493,92 @@ export function TreeNodeItem({
     }
   }
 
-  // Label click: selects the node, navigates, and expands if expandable
-  const handleLabelClick = (e: React.MouseEvent) => {
+  // Chevron click: toggles expand/collapse only. Never navigates or tabs.
+  const handleChevronClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    handleToggleExpand()
+  }
+
+  // Select action (single click / Space): selects a node — or, for category
+  // and connection nodes, shows their list/active page. Never opens a leaf
+  // detail tab and never toggles expansion.
+  const handleSelectAction = () => {
+    setFocusedNodePath(nodePath)
+
+    if (isGroupNode) {
+      // Folder: select/focus only
+      onSelectedTreeNode(nodePath)
+    } else if (isConnectionNode && node.connectionId) {
+      // Connection: make it the active connection
+      onConnectionSelect?.(nodePath, node.connectionId)
+      onSelectedTreeNode(nodePath)
+    } else if (node.label === 'Queries') {
+      // Queries category: select + open query list
+      onSelectedTreeNode(nodePath)
+      onQueryNavigate?.()
+    } else if (isCategoryNode(node.label)) {
+      // Category: select + show its list page
+      onSelectedTreeNode(nodePath)
+      onTreeNodeClick(node.label, node.databaseName, nodePath, node.schemaName)
+      if (node.label === 'Tables') {
+        onTablesCategoryClick?.()
+      }
+    } else {
+      // Database, schema, leaf table/view/index: select only
+      onSelectedTreeNode(nodePath)
+    }
+
+    clickTimeoutRef.current = null
+  }
+
+
+  // Single click: select immediately + debounce the select action so a
+  // following double click can replace it with the primary action.
+  const handleRowClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (suppressClickRef.current) {
       suppressClickRef.current = false
       return
     }
     setFocusedNodePath(nodePath)
+    clearClickTimer()
+    clickTimeoutRef.current = setTimeout(() => {
+      handleSelectAction()
+    }, 200)
+  }
 
-    if (isGroupNode) {
-      // Groups are containers, just toggle expand
-      onGroupToggle?.(nodePath)
-    } else if (isConnectionNode && node.connectionId) {
-      // Select connection and navigate
-      onConnectionSelect?.(nodePath, node.connectionId)
-      onSelectedTreeNode(nodePath)
-      if (!isExpanded) {
-        onConnectionToggle?.(nodePath, node.connectionId)
-      }
-    } else if (isDatabaseNode && isCategoryNode(node.label)) {
-      // ES-style category nodes at depth 2 (direct children of connection)
-      onSelectedTreeNode(nodePath)
-      onTreeNodeClick(node.label, undefined, nodePath)
-    } else if (isDatabaseNode) {
-      onSelectedTreeNode(nodePath)
-      if (!isExpanded) {
-        onToggleTreeNode(nodePath)
-        onFetchDatabaseDetails?.(node.databaseName ?? node.label)
-      }
-    } else if (node.label === 'Queries') {
-      onSelectedTreeNode(nodePath)
-      if (!isExpanded) {
-        onToggleTreeNode(nodePath)
-      }
-      onQueryNavigate?.()
-    } else if (!hasChildren || (node.children && node.children.length === 0)) {
-      // Leaf nodes (including leaf category nodes like "Indexes" with no children)
-      onSelectedTreeNode(nodePath)
-      if (!isCategoryNode(node.label)) {
-        onTreeNodeClick(node.label, node.databaseName, nodePath)
-        if (isTableItem) {
-          onTableNavigate?.(node.label, nodePath)
-        }
-      }
-    } else if (isCategoryNode(node.label)) {
-      // Parent category nodes ("Tables", "Views", "Functions", "Keys", etc.)
-      // Expand the node AND open the corresponding page simultaneously
-      onSelectedTreeNode(nodePath)
-      if (!isExpanded && node.label !== 'Tables') {
-        onToggleTreeNode(nodePath)
-      }
-      onTreeNodeClick(node.label, node.databaseName, nodePath, node.schemaName)
-      if (node.label === 'Tables') {
-        onTablesCategoryClick?.()
-      }
+  // Double click: cancel the pending single-click select and run the primary
+  // action (toggle expansion or open a leaf detail tab once).
+  const handleRowDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    clearClickTimer()
+    handlePrimaryAction()
+  }
+
+  // Keyboard: Enter = primary action, Space = select action. Stop propagation
+  // so the tree container's Enter/Space simulation can't double-fire.
+  const handleRowKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      e.stopPropagation()
+      handlePrimaryAction()
+    } else if (e.key === ' ') {
+      e.preventDefault()
+      e.stopPropagation()
+      setFocusedNodePath(nodePath)
+      handleSelectAction()
+    }
+  }
+
+  // Primary action (double click / Enter): toggle expansion, or for a leaf
+  // table/view/index open its detail tab exactly once.
+  const handlePrimaryAction = () => {
+    const isLeafNode = !hasChildren || node.children?.length === 0
+    if (isLeafNode && !isCategoryNode(node.label)) {
+      // Leaf table/view/index: open detail tab once (single owner = onTreeNodeClick)
+      onTreeNodeClick(node.label, node.databaseName, nodePath)
     } else {
-      // Non-category container nodes (schemas, databases, etc.)
-      // Just select and expand — no tab to open
-      onSelectedTreeNode(nodePath)
-      if (!isExpanded) {
-        onToggleTreeNode(nodePath)
-      }
-      if (isDatabaseNode || isSchemaNode) {
-        onFetchDatabaseDetails?.(node.databaseName ?? node.label)
-      }
+      handleToggleExpand()
     }
   }
 
@@ -559,10 +599,9 @@ export function TreeNodeItem({
         data-is-group={isGroupNode ? 'true' : undefined}
         data-folder-name={isGroupNode ? node.label : undefined}
         data-drag-over={isDragOver && isGroupNode ? 'true' : undefined}
-        onClick={(e) => {
-          e.stopPropagation()
-          handleLabelClick(e)
-        }}
+        onClick={handleRowClick}
+        onDoubleClick={handleRowDoubleClick}
+        onKeyDown={handleRowKeyDown}
         onPointerDown={(e) => {
           if (isConnectionNode) {
             handlePointerDown(e)
@@ -577,43 +616,19 @@ export function TreeNodeItem({
           } else if (isViewItem && onViewNodeContextMenu) {
             e.preventDefault()
             e.stopPropagation()
-            if (node.connectionId) {
-              onViewNodeContextMenu(e, node.connectionId, node.label)
-            } else {
-              // Non-SQL static trees carry no metadata — derive the connection
-              // from the parent path segments (same values as legacy parsing).
-              const segments = getPathSegments(parentPath)
-              const connName = segments.length >= 3 ? segments[1] : segments[0]
-              const conn = groupedConnections
-                ? Object.values(groupedConnections)
-                    .flat()
-                    .find((p) => p.name === connName || p.id === connName)
-                : null
-              onViewNodeContextMenu(e, conn?.id ?? connName, node.label)
-            }
+            onViewNodeContextMenu(e, contextMenuMeta)
           } else if (isTableItem && onTableNodeContextMenu) {
             e.preventDefault()
             e.stopPropagation()
-            if (node.connectionId) {
-              onTableNodeContextMenu(e, node.connectionId, node.label)
-            } else {
-              const segments = getPathSegments(parentPath)
-              const connName = segments.length >= 3 ? segments[1] : segments[0]
-              const conn = groupedConnections
-                ? Object.values(groupedConnections)
-                    .flat()
-                    .find((p) => p.name === connName || p.id === connName)
-                : null
-              onTableNodeContextMenu(e, conn?.id ?? connName, node.label)
-            }
+            onTableNodeContextMenu(e, contextMenuMeta)
           } else if (
             isConnectionNode &&
-            node.connectionId &&
+            contextMenuMeta.connectionId &&
             onConnectionContextMenu
           ) {
             e.preventDefault()
             e.stopPropagation()
-            onConnectionContextMenu(e, node.connectionId)
+            onConnectionContextMenu(e, contextMenuMeta)
           } else if (
             isDatabaseNode &&
             !isCategoryNode(node.label) &&
@@ -621,51 +636,11 @@ export function TreeNodeItem({
           ) {
             e.preventDefault()
             e.stopPropagation()
-            if (node.connectionId) {
-              onDatabaseNodeContextMenu(
-                e,
-                node.connectionId,
-                node.databaseName ?? node.label,
-              )
-            } else {
-              const segments = getPathSegments(parentPath)
-              const connName = segments.length >= 3 ? segments[1] : segments[0]
-              const conn = groupedConnections
-                ? Object.values(groupedConnections)
-                    .flat()
-                    .find((p) => p.name === connName || p.id === connName)
-                : null
-              onDatabaseNodeContextMenu(e, conn?.id ?? connName, node.label)
-            }
+            onDatabaseNodeContextMenu(e, contextMenuMeta)
           } else if (isSchemaNode && onSchemaNodeContextMenu) {
             e.preventDefault()
             e.stopPropagation()
-            if (node.connectionId) {
-              onSchemaNodeContextMenu(
-                e,
-                node.connectionId,
-                node.databaseName ?? '',
-                node.schemaName ?? node.label,
-              )
-            } else {
-              const segments = getPathSegments(parentPath)
-              // path = connName/dbName or folder/connName/dbName
-              let connName = segments[0]
-              const conn = groupedConnections
-                ? Object.values(groupedConnections)
-                    .flat()
-                    .find((p) => p.name === connName || p.id === connName)
-                : null
-              if (!conn && segments.length > 1) {
-                connName = segments[1]
-              }
-              onSchemaNodeContextMenu(
-                e,
-                conn?.id ?? connName,
-                segments[segments.length - 1],
-                node.label,
-              )
-            }
+            onSchemaNodeContextMenu(e, contextMenuMeta)
           } else if (
             isCategoryNode(node.label) &&
             node.label === 'Tables' &&
@@ -673,50 +648,11 @@ export function TreeNodeItem({
           ) {
             e.preventDefault()
             e.stopPropagation()
-            if (node.connectionId) {
-              onTablesCategoryContextMenu(
-                e,
-                node.connectionId,
-                node.databaseName ?? '',
-                node.schemaName,
-              )
-            } else {
-              const segments = getPathSegments(parentPath)
-              let connName = segments[0]
-              const conn = groupedConnections
-                ? Object.values(groupedConnections)
-                    .flat()
-                    .find((p) => p.name === connName || p.id === connName)
-                : null
-              if (!conn && segments.length > 1) {
-                connName = segments[1]
-              }
-              const connIndex = connName === segments[0] ? 0 : 1
-              const itemsAfterConn = segments.length - connIndex - 1
-              onTablesCategoryContextMenu(
-                e,
-                conn?.id ?? connName,
-                itemsAfterConn >= 2
-                  ? segments[segments.length - 2]
-                  : segments[segments.length - 1],
-                itemsAfterConn >= 2 ? segments[segments.length - 1] : undefined,
-              )
-            }
+            onTablesCategoryContextMenu(e, contextMenuMeta)
           } else if (isIndexItem && onIndexNodeContextMenu) {
             e.preventDefault()
             e.stopPropagation()
-            if (node.connectionId) {
-              onIndexNodeContextMenu(e, node.connectionId, node.label)
-            } else {
-              const segments = getPathSegments(parentPath)
-              const connName = segments.length >= 3 ? segments[1] : segments[0]
-              const conn = groupedConnections
-                ? Object.values(groupedConnections)
-                    .flat()
-                    .find((p) => p.name === connName || p.id === connName)
-                : null
-              onIndexNodeContextMenu(e, conn?.id ?? connName, node.label)
-            }
+            onIndexNodeContextMenu(e, contextMenuMeta)
           }
         }}
         className={[
@@ -923,13 +859,13 @@ export function TreeNodeItem({
               node={child}
               depth={depth + 1}
               parentPath={nodePath}
+              parentConnectionId={node.connectionId ?? parentConnectionId}
               selectedTreeNode={selectedTreeNode}
               expandedTreePaths={expandedTreePaths}
               onTreeNodeClick={onTreeNodeClick}
               onSelectedTreeNode={onSelectedTreeNode}
               onToggleTreeNode={onToggleTreeNode}
               onFetchDatabaseDetails={onFetchDatabaseDetails}
-              onTableNavigate={onTableNavigate}
               onQueryNavigate={onQueryNavigate}
               onTablesCategoryClick={onTablesCategoryClick}
               onConnectionSelect={onConnectionSelect}
