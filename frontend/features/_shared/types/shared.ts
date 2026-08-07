@@ -56,6 +56,7 @@ export type TreeNodeType =
   | 'database'
   | 'category'
   | 'item'
+  | 'schema'
 
 export interface TreeNode {
   label: string

@@ -737,6 +737,7 @@ export function useExplorerData({
 
             return {
               label: schema.name,
+              nodeType: 'schema',
               connectionId: conn.id,
               databaseName: db.name,
               schemaName: schema.name,

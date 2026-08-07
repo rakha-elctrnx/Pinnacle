@@ -52,11 +52,15 @@ export function GenericContextMenu({
   ariaLabel,
 }: GenericContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
+  const menuItemRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const submenuItemRefs = useRef<Array<HTMLButtonElement | null>>([])
   const [pos, setPos] = useState({ top: y, left: x })
   const [activeIndex, setActiveIndex] = useState(0)
   const [submenuIndex, setSubmenuIndex] = useState<number | null>(null)
+  const [submenuChildIndex, setSubmenuChildIndex] = useState(0)
   const [submenuPos, setSubmenuPos] = useState({ top: 0, left: 0 })
   const onCloseRef = useRef(onClose)
+  const savedFocusRef = useRef<HTMLElement | null>(null)
 
   // Keep ref in sync with the latest onClose prop (avoid stale closures in
   // the document-level listeners below). Must run in an effect — updating a
@@ -85,11 +89,9 @@ export function GenericContextMenu({
       left = x - rect.width
       if (left < GAP) left = GAP
     }
-    if (top < GAP) top = GAP
-    if (left < GAP) left = GAP
-
     setPos({ top, left })
     setActiveIndex(0)
+    setSubmenuChildIndex(0)
   }, [x, y])
 
   // ── Close on click outside ──────────────────────────────────────────
@@ -111,10 +113,34 @@ export function GenericContextMenu({
   // ── Close on Escape ─────────────────────────────────────────────────
   useEffect(() => {
     const handleKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === 'Escape') onCloseRef.current()
+      // The menu's own keydown handler already handled Escape (e.g. it
+      // closed a submenu first) — don't close the whole menu on top.
+      if (e.key === 'Escape' && !e.defaultPrevented) onCloseRef.current()
     }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
+  }, [])
+
+  // ── Focus restore ──────────────────────────────────────────────────
+  // Capture the trigger element on mount and return focus to it when the
+  // menu closes (either via onClose() or unmount). Callers unmount on close.
+  useEffect(() => {
+    savedFocusRef.current = document.activeElement as HTMLElement | null
+  }, [])
+  useLayoutEffect(() => {
+    return () => {
+      savedFocusRef.current?.focus?.()
+    }
+  }, [])
+  // Open the submenu for a top-level item and position it next to the
+  // item's button (mouse hover already positions it; keyboard needs this).
+  const openSubmenu = useCallback((index: number) => {
+    const itemEl = menuItemRefs.current[index]
+    if (itemEl) {
+      const rect = itemEl.getBoundingClientRect()
+      setSubmenuPos({ top: rect.top - 1, left: rect.right - 2 })
+    }
+    setSubmenuIndex(index)
   }, [])
 
   // ── Keyboard navigation ─────────────────────────────────────────────
@@ -122,39 +148,112 @@ export function GenericContextMenu({
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       switch (e.key) {
         case 'ArrowDown':
+        case 'ArrowUp': {
           e.preventDefault()
-          setActiveIndex((prev) => (prev + 1) % items.length)
+          const delta = e.key === 'ArrowDown' ? 1 : -1
+          if (submenuIndex !== null) {
+            const children = items[submenuIndex]?.children ?? []
+            const interactive = children
+              .map((c, i) => ({ c, i }))
+              .filter(({ c }) => !c.divider && !c.disabled)
+            if (interactive.length === 0) return
+            setSubmenuChildIndex((prev) => {
+              const idx = interactive.findIndex(({ i }) => i === prev)
+              const next = interactive[(idx + delta + interactive.length) % interactive.length]
+              return next.i
+            })
+          } else {
+            const active = items
+              .map((c, i) => ({ c, i }))
+              .filter(({ c }) => !c.divider && !c.disabled)
+            if (active.length === 0) return
+            setActiveIndex((prev) => {
+              const idx = active.findIndex(({ i }) => i === prev)
+              const next = active[(idx + delta + active.length) % active.length]
+              return next.i
+            })
+          }
           break
-        case 'ArrowUp':
+        }
+        case 'ArrowRight': {
           e.preventDefault()
-          setActiveIndex((prev) => (prev - 1 + items.length) % items.length)
+          if (submenuIndex !== null) {
+            // Already inside a submenu — nothing further right
+            return
+          }
+          const item = items[activeIndex]
+          const children = item?.children
+          if (!children || children.length === 0 || item.disabled) return
+          const firstInteractive = children.findIndex(
+            (c) => !c.divider && !c.disabled,
+          )
+          if (firstInteractive === -1) return
+          openSubmenu(activeIndex)
+          setSubmenuChildIndex(firstInteractive)
           break
+        }
+        case 'ArrowLeft': {
+          e.preventDefault()
+          if (submenuIndex !== null) {
+            setSubmenuIndex(null)
+            setSubmenuChildIndex(0)
+          }
+          break
+        }
         case 'Enter':
         case ' ': {
           e.preventDefault()
-          const activeItem = items[activeIndex]
-          if (activeItem && !activeItem.divider && !activeItem.disabled) {
-            activeItem.action?.()
+          if (submenuIndex !== null) {
+            const children = items[submenuIndex]?.children ?? []
+            const child = children[submenuChildIndex]
+            if (child && !child.divider && !child.disabled) {
+              child.action?.()
+              onCloseRef.current()
+            }
+            return
+          }
+          const item = items[activeIndex]
+          if (!item || item.divider || item.disabled) return
+          const children = item.children
+          if (children && children.length > 0) {
+            const firstInteractive = children.findIndex(
+              (c) => !c.divider && !c.disabled,
+            )
+            if (firstInteractive === -1) return
+            openSubmenu(activeIndex)
+            setSubmenuChildIndex(firstInteractive)
+          } else {
+            item.action?.()
             onCloseRef.current()
           }
           return
         }
-        case 'Escape':
+        case 'Escape': {
           e.preventDefault()
-          onCloseRef.current()
+          if (submenuIndex !== null) {
+            setSubmenuIndex(null)
+            setSubmenuChildIndex(0)
+          } else {
+            onCloseRef.current()
+          }
           return
+        }
       }
     },
-    [activeIndex, items],
+    [activeIndex, submenuIndex, submenuChildIndex, items, openSubmenu],
   )
 
   // ── Focus management ────────────────────────────────────────────────
   useEffect(() => {
-    const menuEl = menuRef.current
-    if (!menuEl) return
-    const target = menuEl.children[activeIndex] as HTMLElement | undefined
-    target?.focus?.()
-  }, [activeIndex])
+    if (submenuIndex !== null) {
+      const el = submenuItemRefs.current[submenuChildIndex]
+      el?.focus?.()
+      return
+    }
+    const el = menuItemRefs.current[activeIndex]
+    el?.focus?.()
+  }, [activeIndex, submenuIndex, submenuChildIndex])
+
 
   return (
     <div
@@ -171,6 +270,7 @@ export function GenericContextMenu({
           return (
             <div
               key={`divider-${index}`}
+              role="separator"
               className="my-1 border-t border-border-default"
             />
           )
@@ -180,14 +280,18 @@ export function GenericContextMenu({
           <div key={item.label} className="relative">
             <button
               type="button"
+              ref={(el) => {
+                menuItemRefs.current[index] = el
+              }}
               role="menuitem"
               tabIndex={-1}
+              aria-expanded={hasSubmenu ? submenuIndex === index : undefined}
+              aria-disabled={item.disabled || undefined}
               onClick={() => {
                 if (hasSubmenu || item.disabled) return
                 item.action?.()
                 onClose()
               }}
-              disabled={item.disabled}
               onMouseEnter={(e) => {
                 setActiveIndex(index)
                 if (hasSubmenu) {
@@ -261,17 +365,23 @@ export function GenericContextMenu({
             {hasSubmenu && submenuIndex === index && (
               <div
                 data-submenu={index}
+                role="menu"
+                aria-label={item.label}
                 className="fixed z-50 min-w-36 rounded-lg border border-border-default bg-bg-base py-1 shadow-xl outline-none"
                 style={{ top: submenuPos.top, left: submenuPos.left }}
                 onMouseEnter={() => setSubmenuIndex(index)}
                 onMouseLeave={() => setSubmenuIndex(null)}
               >
-                {item.children!.map((child) => (
+                {item.children!.map((child, childIndex) => (
                   <button
                     key={child.label}
                     type="button"
+                    ref={(el) => {
+                      submenuItemRefs.current[childIndex] = el
+                    }}
                     role="menuitem"
                     tabIndex={-1}
+                    aria-disabled={child.disabled || undefined}
                     onClick={() => {
                       if (child.disabled) return
                       child.action?.()

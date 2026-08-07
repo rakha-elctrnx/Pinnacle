@@ -130,7 +130,7 @@ export function TreeNodeItem({
 }: {
   node: TreeNode
   depth: number
-  parentConnectionId?: string,
+  parentConnectionId?: string
   parentPath: string
   selectedTreeNode: string | null
   expandedTreePaths: string[]
@@ -213,11 +213,13 @@ export function TreeNodeItem({
   const isIndexItem =
     isLeaf && !isCategoryNode(node.label) && parentPath.endsWith('/Indices')
   const isSchemaNode =
-    !isConnectionNode &&
-    !isDatabaseNode &&
-    !isCategoryNode(node.label) &&
-    hasChildren &&
-    depth >= 2
+    node.nodeType === 'schema' ||
+    (!isGroupNode &&
+      !isConnectionNode &&
+      !isDatabaseNode &&
+      !isCategoryNode(node.label) &&
+      hasChildren &&
+      depth >= 2)
   const parentCategory = parentPath.slice(parentPath.lastIndexOf('/') + 1)
   const isQueriesFolder = node.label === 'Queries'
   const categoryIcon = isCategoryNode(node.label)
