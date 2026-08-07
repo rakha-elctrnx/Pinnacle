@@ -17,7 +17,11 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react'
-import type { TreeNode, ExplorerTreeData } from '../../types/shared'
+import type {
+  TreeNode,
+  ExplorerTreeData,
+  TreeNodeContextMenuMeta,
+} from '../../types/shared'
 import type {
   ConnectionProfile,
   Folder as FolderType,
@@ -52,18 +56,6 @@ function isCategoryNode(label: string): boolean {
   return CATEGORY_LABELS.includes(label)
 }
 
-function getPathSegments(raw: string): string[] {
-  const out: string[] = []
-  let start = 0
-  let idx = raw.indexOf('/')
-  while (idx !== -1) {
-    out.push(raw.slice(start, idx))
-    start = idx + 1
-    idx = raw.indexOf('/', start)
-  }
-  out.push(raw.slice(start))
-  return out
-}
 
 /**
  * Returns an icon component to use for a given category label.
@@ -124,6 +116,7 @@ export function TreeNodeItem({
   onDatabaseNodeContextMenu,
   onSchemaNodeContextMenu,
   onTablesCategoryContextMenu,
+  parentConnectionId,
   groupedConnections,
   explorerData,
   elasticIndicesError,
@@ -138,6 +131,7 @@ export function TreeNodeItem({
 }: {
   node: TreeNode
   depth: number
+  parentConnectionId?: string,
   parentPath: string
   selectedTreeNode: string | null
   expandedTreePaths: string[]
@@ -158,36 +152,31 @@ export function TreeNodeItem({
   onConnectionToggle?: (connectionPath: string, connectionId: string) => void
   onTableNodeContextMenu?: (
     event: React.MouseEvent,
-    connectionId: string,
-    tableName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => void
   onIndexNodeContextMenu?: (
     event: React.MouseEvent,
-    connectionId: string,
-    indexName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => void
-  onConnectionContextMenu?: (event: React.MouseEvent, itemId: string) => void
+  onConnectionContextMenu?: (
+    event: React.MouseEvent,
+    meta: TreeNodeContextMenuMeta,
+  ) => void
   onViewNodeContextMenu?: (
     event: React.MouseEvent,
-    connectionId: string,
-    viewName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => void
   onDatabaseNodeContextMenu?: (
     event: React.MouseEvent,
-    connectionId: string,
-    databaseName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => void
   onSchemaNodeContextMenu?: (
     event: React.MouseEvent,
-    connectionId: string,
-    databaseName: string,
-    schemaName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => void
   onTablesCategoryContextMenu?: (
     event: React.MouseEvent,
-    connectionId: string,
-    databaseName: string,
-    schemaName?: string,
+    meta: TreeNodeContextMenuMeta,
   ) => void
   groupedConnections?: Record<string, ConnectionProfile[]> | null
   explorerData?: ExplorerDataContext
@@ -236,6 +225,18 @@ export function TreeNodeItem({
   const categoryIcon = isCategoryNode(node.label)
     ? getCategoryIcon(node.label)
     : null
+  // Explicit node identity for context-menu callbacks. Every node in the
+  // unified tree inherits connectionId from its connection ancestor, so the
+  // clicked node's connection is always resolved — never the active selection.
+  const contextMenuMeta: TreeNodeContextMenuMeta = {
+    connectionId: node.connectionId ?? parentConnectionId ?? '',
+    databaseName: node.databaseName,
+    schemaName: node.schemaName,
+    tableName: isTableItem ? node.label : undefined,
+    viewName: isViewItem ? node.label : undefined,
+    indexName: isIndexItem ? node.label : undefined,
+    categoryName: isCategoryNode(node.label) ? node.label : undefined,
+  }
 
   // ── Folder rename state ───────────────────────────────────────
   const [isRenaming, setIsRenaming] = useState(false)
@@ -582,43 +583,19 @@ export function TreeNodeItem({
           } else if (isViewItem && onViewNodeContextMenu) {
             e.preventDefault()
             e.stopPropagation()
-            if (node.connectionId) {
-              onViewNodeContextMenu(e, node.connectionId, node.label)
-            } else {
-              // Non-SQL static trees carry no metadata — derive the connection
-              // from the parent path segments (same values as legacy parsing).
-              const segments = getPathSegments(parentPath)
-              const connName = segments.length >= 3 ? segments[1] : segments[0]
-              const conn = groupedConnections
-                ? Object.values(groupedConnections)
-                    .flat()
-                    .find((p) => p.name === connName || p.id === connName)
-                : null
-              onViewNodeContextMenu(e, conn?.id ?? connName, node.label)
-            }
+            onViewNodeContextMenu(e, contextMenuMeta)
           } else if (isTableItem && onTableNodeContextMenu) {
             e.preventDefault()
             e.stopPropagation()
-            if (node.connectionId) {
-              onTableNodeContextMenu(e, node.connectionId, node.label)
-            } else {
-              const segments = getPathSegments(parentPath)
-              const connName = segments.length >= 3 ? segments[1] : segments[0]
-              const conn = groupedConnections
-                ? Object.values(groupedConnections)
-                    .flat()
-                    .find((p) => p.name === connName || p.id === connName)
-                : null
-              onTableNodeContextMenu(e, conn?.id ?? connName, node.label)
-            }
+            onTableNodeContextMenu(e, contextMenuMeta)
           } else if (
             isConnectionNode &&
-            node.connectionId &&
+            contextMenuMeta.connectionId &&
             onConnectionContextMenu
           ) {
             e.preventDefault()
             e.stopPropagation()
-            onConnectionContextMenu(e, node.connectionId)
+            onConnectionContextMenu(e, contextMenuMeta)
           } else if (
             isDatabaseNode &&
             !isCategoryNode(node.label) &&
@@ -626,51 +603,11 @@ export function TreeNodeItem({
           ) {
             e.preventDefault()
             e.stopPropagation()
-            if (node.connectionId) {
-              onDatabaseNodeContextMenu(
-                e,
-                node.connectionId,
-                node.databaseName ?? node.label,
-              )
-            } else {
-              const segments = getPathSegments(parentPath)
-              const connName = segments.length >= 3 ? segments[1] : segments[0]
-              const conn = groupedConnections
-                ? Object.values(groupedConnections)
-                    .flat()
-                    .find((p) => p.name === connName || p.id === connName)
-                : null
-              onDatabaseNodeContextMenu(e, conn?.id ?? connName, node.label)
-            }
+            onDatabaseNodeContextMenu(e, contextMenuMeta)
           } else if (isSchemaNode && onSchemaNodeContextMenu) {
             e.preventDefault()
             e.stopPropagation()
-            if (node.connectionId) {
-              onSchemaNodeContextMenu(
-                e,
-                node.connectionId,
-                node.databaseName ?? '',
-                node.schemaName ?? node.label,
-              )
-            } else {
-              const segments = getPathSegments(parentPath)
-              // path = connName/dbName or folder/connName/dbName
-              let connName = segments[0]
-              const conn = groupedConnections
-                ? Object.values(groupedConnections)
-                    .flat()
-                    .find((p) => p.name === connName || p.id === connName)
-                : null
-              if (!conn && segments.length > 1) {
-                connName = segments[1]
-              }
-              onSchemaNodeContextMenu(
-                e,
-                conn?.id ?? connName,
-                segments[segments.length - 1],
-                node.label,
-              )
-            }
+            onSchemaNodeContextMenu(e, contextMenuMeta)
           } else if (
             isCategoryNode(node.label) &&
             node.label === 'Tables' &&
@@ -678,50 +615,11 @@ export function TreeNodeItem({
           ) {
             e.preventDefault()
             e.stopPropagation()
-            if (node.connectionId) {
-              onTablesCategoryContextMenu(
-                e,
-                node.connectionId,
-                node.databaseName ?? '',
-                node.schemaName,
-              )
-            } else {
-              const segments = getPathSegments(parentPath)
-              let connName = segments[0]
-              const conn = groupedConnections
-                ? Object.values(groupedConnections)
-                    .flat()
-                    .find((p) => p.name === connName || p.id === connName)
-                : null
-              if (!conn && segments.length > 1) {
-                connName = segments[1]
-              }
-              const connIndex = connName === segments[0] ? 0 : 1
-              const itemsAfterConn = segments.length - connIndex - 1
-              onTablesCategoryContextMenu(
-                e,
-                conn?.id ?? connName,
-                itemsAfterConn >= 2
-                  ? segments[segments.length - 2]
-                  : segments[segments.length - 1],
-                itemsAfterConn >= 2 ? segments[segments.length - 1] : undefined,
-              )
-            }
+            onTablesCategoryContextMenu(e, contextMenuMeta)
           } else if (isIndexItem && onIndexNodeContextMenu) {
             e.preventDefault()
             e.stopPropagation()
-            if (node.connectionId) {
-              onIndexNodeContextMenu(e, node.connectionId, node.label)
-            } else {
-              const segments = getPathSegments(parentPath)
-              const connName = segments.length >= 3 ? segments[1] : segments[0]
-              const conn = groupedConnections
-                ? Object.values(groupedConnections)
-                    .flat()
-                    .find((p) => p.name === connName || p.id === connName)
-                : null
-              onIndexNodeContextMenu(e, conn?.id ?? connName, node.label)
-            }
+            onIndexNodeContextMenu(e, contextMenuMeta)
           }
         }}
         className={[
@@ -928,6 +826,7 @@ export function TreeNodeItem({
               node={child}
               depth={depth + 1}
               parentPath={nodePath}
+              parentConnectionId={node.connectionId ?? parentConnectionId}
               selectedTreeNode={selectedTreeNode}
               expandedTreePaths={expandedTreePaths}
               onTreeNodeClick={onTreeNodeClick}
