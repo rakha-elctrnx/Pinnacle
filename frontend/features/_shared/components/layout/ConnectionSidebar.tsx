@@ -9,7 +9,11 @@ import type {
   Folder,
 } from '../../types/domain'
 import type { ElasticIndex } from '../../../elasticsearch/types/elasticsearch'
-import type { TreeNode, ExplorerTreeData } from '../../types/shared'
+import type {
+  TreeNode,
+  ExplorerTreeData,
+  TreeNodeContextMenuMeta,
+} from '../../types/shared'
 import { isSqlConnectionType, isElasticsearchType } from '../../utils'
 
 interface ExplorerDataContext {
@@ -412,90 +416,102 @@ export function ConnectionSidebar() {
     navigate(route)
   }, [selectedConnection, navigate, openTab])
 
-  const handleContextMenu = (event: React.MouseEvent, itemId: string) => {
+  const handleContextMenu = (
+    event: React.MouseEvent,
+    meta: TreeNodeContextMenuMeta,
+  ) => {
     event.preventDefault()
-    setContextMenu({ x: event.clientX, y: event.clientY, itemId })
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      itemId: meta.connectionId,
+      tableName: meta.tableName,
+      viewName: meta.viewName,
+      indexName: meta.indexName,
+      databaseName: meta.databaseName,
+      schemaName: meta.schemaName,
+      categoryName: meta.categoryName,
+    })
   }
 
   const handleTableNodeContextMenu = (
     event: React.MouseEvent,
-    connectionId: string,
-    tableName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => {
     setContextMenu({
       x: event.clientX,
       y: event.clientY,
-      itemId: connectionId,
-      tableName,
+      itemId: meta.connectionId,
+      databaseName: meta.databaseName,
+      schemaName: meta.schemaName,
+      tableName: meta.tableName,
     })
   }
+
   const handleViewNodeContextMenu = (
     event: React.MouseEvent,
-    connectionId: string,
-    viewName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => {
     setContextMenu({
       x: event.clientX,
       y: event.clientY,
-      itemId: connectionId,
-      viewName,
+      itemId: meta.connectionId,
+      databaseName: meta.databaseName,
+      schemaName: meta.schemaName,
+      viewName: meta.viewName,
     })
   }
 
   const handleIndexNodeContextMenu = (
     event: React.MouseEvent,
-    connectionId: string,
-    indexName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => {
     setContextMenu({
       x: event.clientX,
       y: event.clientY,
-      itemId: connectionId,
-      indexName,
+      itemId: meta.connectionId,
+      databaseName: meta.databaseName,
+      schemaName: meta.schemaName,
+      indexName: meta.indexName,
     })
   }
 
   const handleDatabaseNodeContextMenu = (
     event: React.MouseEvent,
-    connectionId: string,
-    databaseName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => {
     setContextMenu({
       x: event.clientX,
       y: event.clientY,
-      itemId: connectionId,
-      databaseName,
+      itemId: meta.connectionId,
+      databaseName: meta.databaseName,
     })
   }
 
   const handleSchemaNodeContextMenu = (
     event: React.MouseEvent,
-    connectionId: string,
-    databaseName: string,
-    schemaName: string,
+    meta: TreeNodeContextMenuMeta,
   ) => {
     setContextMenu({
       x: event.clientX,
       y: event.clientY,
-      itemId: connectionId,
-      databaseName,
-      schemaName,
+      itemId: meta.connectionId,
+      databaseName: meta.databaseName,
+      schemaName: meta.schemaName,
     })
   }
 
   const handleTablesCategoryContextMenu = (
     event: React.MouseEvent,
-    connectionId: string,
-    databaseName: string,
-    schemaName?: string,
+    meta: TreeNodeContextMenuMeta,
   ) => {
     setContextMenu({
       x: event.clientX,
       y: event.clientY,
-      itemId: connectionId,
-      databaseName,
-      schemaName,
-      categoryName: 'Tables',
+      itemId: meta.connectionId,
+      databaseName: meta.databaseName,
+      schemaName: meta.schemaName,
+      categoryName: meta.categoryName ?? 'Tables',
     })
   }
 
@@ -663,6 +679,7 @@ export function ConnectionSidebar() {
         >
           {unifiedTree.map((node) => (
             <TreeNodeItem
+              key={node.label}
               node={node}
               depth={0}
               parentPath=""

@@ -545,19 +545,29 @@ function DataExplorerLayoutChrome({
       resetWindow()
     }
   }, [isAddModalOpen, connectionModalNonce])
-  const handleOpenDesignerForEdit = async (tableName: string) => {
-    if (!selectedConnection || !isSqlConnectionType(selectedConnection.type))
-      return
+  const handleOpenDesignerForEdit = async (
+    connectionId: string,
+    tableName: string,
+  ) => {
+    const profile = items.find((p) => p.id === connectionId)
+    if (!profile || !isSqlConnectionType(profile.type)) return
+    if (selectedConnection?.id !== connectionId) {
+      handleConnectionSelectionChange(connectionId)
+    }
     const databaseName =
-      queryExecution.queryDatabase ||
-      explorerData.selectedDatabase ||
-      selectedConnection.database
+      contextMenu?.databaseName ??
+      (queryExecution.queryDatabase ||
+        explorerData.selectedDatabase ||
+        profile.database)
     const schemaName =
-      selectedConnection.type === 'postgresql'
-        ? queryExecution.querySchema || explorerData.selectedSchema || 'public'
+      profile.type === 'postgresql'
+        ? (contextMenu?.schemaName ??
+          (queryExecution.querySchema ||
+            explorerData.selectedSchema ||
+            'public'))
         : (databaseName ?? '')
     const payload = {
-      ...(await getConnPayloadWithPassword(selectedConnection)),
+      ...(await getConnPayloadWithPassword(profile)),
       database: databaseName ?? '',
     }
     await openDesignerWindow({
@@ -568,6 +578,22 @@ function DataExplorerLayoutChrome({
       tableName,
     })
   }
+
+  // Context-menu identity — always derived from the CLICKED node's itemId,
+  // never from the global selectedConnection. Profile + engine capabilities
+  // resolve against the clicked connection so a menu opened on a node under a
+  // non-active connection hides/disables actions correctly.
+  const contextProfile = contextMenu
+    ? items.find((p) => p.id === contextMenu.itemId)
+    : undefined
+  const isConnected = contextMenu
+    ? connectionStatuses[contextMenu.itemId] === 'connected'
+    : false
+  const isSql = contextProfile ? isSqlConnectionType(contextProfile.type) : false
+  const isPg = contextProfile?.type === 'postgresql'
+  const isMysql = contextProfile?.type === 'mysql'
+  const isSqlite = contextProfile?.type === 'sqlite'
+  const isEs = contextProfile?.type === 'elasticsearch'
 
   return (
     <>
@@ -644,6 +670,12 @@ function DataExplorerLayoutChrome({
                         const connId = contextMenu.itemId
                         const profile = items.find((p) => p.id === connId)
                         if (!profile) return
+                        if (selectedConnection?.id !== connId) {
+                          handleConnectionSelectionChange(connId)
+                        }
+                        queryExecution.onQueryDatabaseChange(
+                          contextMenu.databaseName ?? '',
+                        )
                         const qId = queryExecution.createQueryId()
                         const route = `/sql/${connId}/query/${qId}`
                         const openTab = useTabStore.getState().openTab
@@ -657,25 +689,30 @@ function DataExplorerLayoutChrome({
                         })
                         const table = contextMenu.tableName
                         if (table) {
-                          const schemaSource =
-                            contextMenu.schemaName ??
-                            queryExecution.querySchema ??
-                            explorerData.selectedSchema
+                          const schemaSource = isMysql
+                            ? contextMenu.databaseName
+                            : (contextMenu.schemaName ?? 'public')
+                          const effSchemaSource =
+                            schemaSource || contextMenu.databaseName
                           queryExecution.setActiveQueryId(qId)
                           queryExecution.updateActiveQuery(
-                            `SELECT * FROM ${qualifyIdentifierForEngine(profile.type, schemaSource, table)};`,
+                            `SELECT * FROM ${qualifyIdentifierForEngine(profile.type, effSchemaSource, table)};`,
                           )
                         }
                         navigate(route)
                       },
+                      disabled: !isConnected,
                     } as ContextMenuItem,
-                    ...(handleOpenDesignerForEdit
+                    ...(isSql && handleOpenDesignerForEdit
                       ? [
                           {
                             label: 'Design Table',
                             icon: <TableProperties size={14} />,
                             action: () => {
-                              handleOpenDesignerForEdit(contextMenu.tableName!)
+                              handleOpenDesignerForEdit(
+                                contextMenu.itemId,
+                                contextMenu.tableName!,
+                              )
                             },
                           } as ContextMenuItem,
                         ]
@@ -692,6 +729,7 @@ function DataExplorerLayoutChrome({
                                 'empty',
                               )
                             },
+                            disabled: !isConnected,
                           } as ContextMenuItem,
                         ]
                       : []),
@@ -707,6 +745,7 @@ function DataExplorerLayoutChrome({
                                 'truncate',
                               )
                             },
+                            disabled: !isConnected,
                           } as ContextMenuItem,
                         ]
                       : []),
@@ -721,6 +760,7 @@ function DataExplorerLayoutChrome({
                                 contextMenu.tableName!,
                               )
                             },
+                            disabled: !isConnected,
                           } as ContextMenuItem,
                         ]
                       : []),
@@ -736,6 +776,7 @@ function DataExplorerLayoutChrome({
                               )
                             },
                             dangerous: true,
+                            disabled: !isConnected,
                           } as ContextMenuItem,
                         ]
                       : []),
@@ -749,30 +790,22 @@ function DataExplorerLayoutChrome({
                         icon: <CirclePlus size={14} />,
                         action: async () => {
                           const connId = contextMenu.itemId
-                          if (
-                            !connId ||
-                            !selectedConnection ||
-                            !isSqlConnectionType(selectedConnection.type)
-                          )
-                            return
+                          if (!connId) return
                           const dbName = contextMenu.databaseName!
                           const schemaName = contextMenu.schemaName
                           const profile = items.find((p) => p.id === connId)
-                          if (!profile) return
+                          if (!profile || !isSqlConnectionType(profile.type))
+                            return
                           if (selectedConnection?.id !== connId) {
                             handleConnectionSelectionChange(connId)
                           }
                           queryExecution.onQueryDatabaseChange(dbName)
-                          if (
-                            schemaName &&
-                            selectedConnection.type === 'postgresql'
-                          ) {
+                          if (schemaName && profile.type === 'postgresql') {
                             queryExecution.onQuerySchemaChange(schemaName)
                           }
-                          const effDbName =
-                            dbName || selectedConnection.database
+                          const effDbName = dbName || profile.database
                           const effSchema =
-                            selectedConnection.type === 'postgresql'
+                            profile.type === 'postgresql'
                               ? schemaName || 'public'
                               : (effDbName ?? '')
                           const payload = {
@@ -786,9 +819,7 @@ function DataExplorerLayoutChrome({
                             connectionPayload: payload,
                           })
                         },
-                        disabled:
-                          connectionStatuses[contextMenu.itemId] !==
-                          'connected',
+                        disabled: !isConnected,
                       } as ContextMenuItem,
                       {
                         label: 'New Query',
@@ -814,19 +845,21 @@ function DataExplorerLayoutChrome({
                           })
                           navigate(route)
                         },
-                        disabled:
-                          connectionStatuses[contextMenu.itemId] !==
-                          'connected',
+                        disabled: !isConnected,
                       } as ContextMenuItem,
                       {
                         label: 'View ER Diagram',
                         icon: <Network size={14} />,
                         action: () => {
                           const connId = contextMenu.itemId
-                          if (!connId || !selectedConnection) return
+                          if (!connId) return
+                          const profile = items.find((p) => p.id === connId)
+                          if (!profile) return
                           const tabId = `${connId}:tables`
                           const tabStore = useTabStore.getState()
-                          const existing = tabStore.tabs.some((t) => t.id === tabId)
+                          const existing = tabStore.tabs.some(
+                            (t) => t.id === tabId,
+                          )
                           if (existing) {
                             tabStore.activateTab(tabId)
                           } else {
@@ -834,7 +867,7 @@ function DataExplorerLayoutChrome({
                             tabStore.openTab({
                               id: tabId,
                               label: 'Tables',
-                              type: selectedConnection.type,
+                              type: profile.type,
                               pageType: 'table',
                               route,
                               connectionId: connId,
@@ -853,7 +886,10 @@ function DataExplorerLayoutChrome({
                       } as ContextMenuItem,
                     ]
                   : // ── Database-level actions ───────────────────────
-                    contextMenu.databaseName && !contextMenu.schemaName
+                    contextMenu.databaseName &&
+                    !contextMenu.schemaName &&
+                    !contextMenu.viewName &&
+                    !contextMenu.indexName
                     ? [
                         // ── Open/Close Database toggle ───────────────
                         ...(() => {
@@ -906,35 +942,45 @@ function DataExplorerLayoutChrome({
                             handleOpenEditModal(contextMenu.itemId)
                           },
                         },
-                        {
-                          label: 'New Database',
-                          icon: <Database size={14} />,
-                          action: () =>
-                            handleNewDatabaseFromMenu(contextMenu.itemId),
-                        } as ContextMenuItem,
-                        {
-                          label: 'Delete Database',
-                          icon: <Trash2 size={14} />,
-                          action: () =>
-                            handleDeleteDatabaseFromMenu(
-                              contextMenu.itemId,
-                              contextMenu.databaseName!,
-                            ),
-                          dangerous: true,
-                        } as ContextMenuItem,
+                        ...(!isSqlite
+                          ? [
+                              {
+                                label: 'New Database',
+                                icon: <Database size={14} />,
+                                action: () =>
+                                  handleNewDatabaseFromMenu(contextMenu.itemId),
+                              } as ContextMenuItem,
+                            ]
+                          : []),
+                        ...(!isSqlite
+                          ? [
+                              {
+                                label: 'Delete Database',
+                                icon: <Trash2 size={14} />,
+                                action: () =>
+                                  handleDeleteDatabaseFromMenu(
+                                    contextMenu.itemId,
+                                    contextMenu.databaseName!,
+                                  ),
+                                dangerous: true,
+                              } as ContextMenuItem,
+                            ]
+                          : []),
                         { divider: true } as ContextMenuItem,
-                        {
-                          label: 'New Schema',
-                          icon: <Plus size={14} />,
-                          action: () =>
-                            handleNewSchemaFromMenu(
-                              contextMenu.itemId,
-                              contextMenu.databaseName!,
-                            ),
-                          disabled:
-                            connectionStatuses[contextMenu.itemId] !==
-                            'connected',
-                        } as ContextMenuItem,
+                        ...(isPg
+                          ? [
+                              {
+                                label: 'New Schema',
+                                icon: <Plus size={14} />,
+                                action: () =>
+                                  handleNewSchemaFromMenu(
+                                    contextMenu.itemId,
+                                    contextMenu.databaseName!,
+                                  ),
+                                disabled: !isConnected,
+                              } as ContextMenuItem,
+                            ]
+                          : []),
                         {
                           label: 'New Query',
                           icon: <SquareTerminal size={14} />,
@@ -959,9 +1005,7 @@ function DataExplorerLayoutChrome({
                             })
                             navigate(route)
                           },
-                          disabled:
-                            connectionStatuses[contextMenu.itemId] !==
-                            'connected',
+                          disabled: !isConnected,
                         } as ContextMenuItem,
                         { divider: true } as ContextMenuItem,
                         {
@@ -973,7 +1017,9 @@ function DataExplorerLayoutChrome({
                         } as ContextMenuItem,
                       ]
                     : // ── Schema-level actions ───────────────────────────
-                      contextMenu.schemaName
+                      contextMenu.schemaName &&
+                      !contextMenu.viewName &&
+                      !contextMenu.indexName
                       ? [
                           // ── Open/Close Schema toggle ─────────────────
                           ...(() => {
@@ -1020,7 +1066,7 @@ function DataExplorerLayoutChrome({
                                 ]
                           })(),
                           {
-                            label: 'Edit Schema',
+                            label: 'Edit Schema (SQL)',
                             icon: <Pencil size={14} />,
                             action: () => {
                               const connId = contextMenu.itemId
@@ -1048,23 +1094,23 @@ function DataExplorerLayoutChrome({
                               )
                               navigate(route)
                             },
-                            disabled:
-                              connectionStatuses[contextMenu.itemId] !==
-                              'connected',
+                            disabled: !isConnected,
                           } as ContextMenuItem,
                           { divider: true } as ContextMenuItem,
-                          {
-                            label: 'New Schema',
-                            icon: <Plus size={14} />,
-                            action: () =>
-                              handleNewSchemaFromMenu(
-                                contextMenu.itemId,
-                                contextMenu.databaseName!,
-                              ),
-                            disabled:
-                              connectionStatuses[contextMenu.itemId] !==
-                              'connected',
-                          } as ContextMenuItem,
+                          ...(isPg
+                            ? [
+                                {
+                                  label: 'New Schema',
+                                  icon: <Plus size={14} />,
+                                  action: () =>
+                                    handleNewSchemaFromMenu(
+                                      contextMenu.itemId,
+                                      contextMenu.databaseName!,
+                                    ),
+                                  disabled: !isConnected,
+                                } as ContextMenuItem,
+                              ]
+                            : []),
                           {
                             label: 'Delete Schema',
                             icon: <Trash2 size={14} />,
@@ -1075,9 +1121,7 @@ function DataExplorerLayoutChrome({
                                 contextMenu.schemaName!,
                               ),
                             dangerous: true,
-                            disabled:
-                              connectionStatuses[contextMenu.itemId] !==
-                              'connected',
+                            disabled: !isConnected,
                           } as ContextMenuItem,
                           { divider: true } as ContextMenuItem,
                           {
@@ -1104,9 +1148,7 @@ function DataExplorerLayoutChrome({
                               })
                               navigate(route)
                             },
-                            disabled:
-                              connectionStatuses[contextMenu.itemId] !==
-                              'connected',
+                            disabled: !isConnected,
                           } as ContextMenuItem,
                           {
                             label: 'Execute SQL File',
@@ -1116,9 +1158,7 @@ function DataExplorerLayoutChrome({
                                 contextMenu.itemId,
                                 contextMenu.databaseName!,
                               ),
-                            disabled:
-                              connectionStatuses[contextMenu.itemId] !==
-                              'connected',
+                            disabled: !isConnected,
                           } as ContextMenuItem,
                           { divider: true } as ContextMenuItem,
                           {
@@ -1186,20 +1226,24 @@ function DataExplorerLayoutChrome({
                               },
                             },
                             { divider: true } as ContextMenuItem,
-                            {
-                              label: 'New Database',
-                              icon: <Database size={14} />,
-                              action: () =>
-                                handleNewDatabaseFromMenu(contextMenu.itemId),
-                            } as ContextMenuItem,
+                            ...(!isSqlite
+                              ? [
+                                  {
+                                    label: 'New Database',
+                                    icon: <Database size={14} />,
+                                    action: () =>
+                                      handleNewDatabaseFromMenu(
+                                        contextMenu.itemId,
+                                      ),
+                                  } as ContextMenuItem,
+                                ]
+                              : []),
                             {
                               label: 'New Query',
                               icon: <SquareTerminal size={14} />,
                               action: () =>
                                 handleNewQueryFromMenu(contextMenu.itemId),
-                              disabled:
-                                connectionStatuses[contextMenu.itemId] !==
-                                'connected',
+                              disabled: !isConnected,
                             } as ContextMenuItem,
                             { divider: true } as ContextMenuItem,
                             // ── Move to folder (submenu) ─────────────────
@@ -1248,7 +1292,7 @@ function DataExplorerLayoutChrome({
                         : []),
               // ── View-specific actions ──────────────────────────
               ...(contextMenu.viewName
-                ? [
+                    ? [
                     {
                       label: 'New Query',
                       icon: <SquareTerminal size={14} />,
@@ -1256,6 +1300,9 @@ function DataExplorerLayoutChrome({
                         const connId = contextMenu.itemId
                         const profile = items.find((p) => p.id === connId)
                         if (!profile) return
+                        if (selectedConnection?.id !== connId) {
+                          handleConnectionSelectionChange(connId)
+                        }
                         const qId = queryExecution.createQueryId()
                         const route = `/sql/${connId}/query/${qId}`
                         const openTab = useTabStore.getState().openTab
@@ -1271,6 +1318,7 @@ function DataExplorerLayoutChrome({
                         if (view) {
                           const schemaSource =
                             contextMenu.schemaName ??
+                            contextMenu.databaseName ??
                             queryExecution.querySchema ??
                             explorerData.selectedSchema
                           queryExecution.setActiveQueryId(qId)
@@ -1280,13 +1328,14 @@ function DataExplorerLayoutChrome({
                         }
                         navigate(route)
                       },
+                      disabled: !isConnected,
                     } as ContextMenuItem,
                     {
                       label: 'Edit View',
                       icon: <TableProperties size={14} />,
                       action: () => {
                         const connId = contextMenu.itemId
-                        if (!connId || !selectedConnection) return
+                        if (!connId) return
                         const view = contextMenu.viewName!
                         const route = `/sql/${connId}/views/${encodeURIComponent(view)}`
                         navigate(route)
@@ -1296,21 +1345,21 @@ function DataExplorerLayoutChrome({
                   ]
                 : []),
               // ── Elastic index actions ──────────────────────────
-              ...(contextMenu.indexName
+              ...(contextMenu.indexName && isEs
                 ? [
                     {
                       label: 'View Mapping',
                       icon: <Braces size={14} />,
                       action: () => {
                         const connId = contextMenu.itemId
-                        if (!connId || !selectedConnection) return
+                        if (!connId) return
                         const indexName = contextMenu.indexName!
                         const route = `/elasticsearch/${connId}/indices/${indexName}/mappings`
                         const openTab = useTabStore.getState().openTab
                         openTab({
                           id: `${connId}:index-mapping`,
                           label: `${indexName} • Mapping`,
-                          type: selectedConnection.type,
+                          type: contextProfile?.type ?? 'elasticsearch',
                           pageType: 'elastic-mappings',
                           route,
                           connectionId: connId,
