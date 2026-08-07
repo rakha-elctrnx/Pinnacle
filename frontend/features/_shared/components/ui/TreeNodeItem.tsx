@@ -225,12 +225,7 @@ export function TreeNodeItem({
     isLeaf && !isCategoryNode(node.label) && parentPath.endsWith('/Views')
   const isIndexItem =
     isLeaf && !isCategoryNode(node.label) && parentPath.endsWith('/Indices')
-  const isSchemaNode =
-    !isConnectionNode &&
-    !isDatabaseNode &&
-    !isCategoryNode(node.label) &&
-    hasChildren &&
-    depth >= 2
+  const isSchemaNode = node.nodeType === 'schema'
   const parentCategory = parentPath.slice(parentPath.lastIndexOf('/') + 1)
   const isQueriesFolder = node.label === 'Queries'
   const categoryIcon = isCategoryNode(node.label)
@@ -541,7 +536,7 @@ export function TreeNodeItem({
       if (!isExpanded) {
         onToggleTreeNode(nodePath)
       }
-      if (isDatabaseNode || (depth >= 2 && !isGroupNode && !isConnectionNode)) {
+      if (isDatabaseNode || isSchemaNode) {
         onFetchDatabaseDetails?.(node.databaseName ?? node.label)
       }
     }

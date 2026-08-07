@@ -308,18 +308,23 @@ export function ConnectionSidebar() {
 
         if (!isExpanded && hasChildren) {
           handleToggleTreeNode(focusedNodePath)
-          // For connection nodes (depth 1), trigger lazy fetch
-          const connectionId = current.node.connectionId ?? null
-          if (connectionId) {
-            const profile = Object.values(groupedConnections ?? {})
-              .flat()
-              .find((p) => p.id === connectionId)
-            if (profile && isSqlConnectionType(profile.type)) {
-              const treeData = explorerData.treeDataMap[connectionId]
-              if (!treeData) {
-                explorerData.refreshConnectionData(connectionId, profile)
-              } else if (treeData.databases?.[0]) {
-                handleFetchDatabaseDetails(treeData.databases[0].name)
+          // For connection nodes, trigger lazy fetch regardless of depth
+          // (whether the connection sits inside a group folder or root-level).
+          const isConnectionType =
+            current.node.nodeType === 'connection' || !!current.node.connectionId
+          if (isConnectionType) {
+            const connectionId = current.node.connectionId ?? null
+            if (connectionId) {
+              const profile = Object.values(groupedConnections ?? {})
+                .flat()
+                .find((p) => p.id === connectionId)
+              if (profile && isSqlConnectionType(profile.type)) {
+                const treeData = explorerData.treeDataMap[connectionId]
+                if (!treeData) {
+                  explorerData.refreshConnectionData(connectionId, profile)
+                } else if (treeData.databases?.[0]) {
+                  handleFetchDatabaseDetails(treeData.databases[0].name)
+                }
               }
             }
           }
@@ -344,6 +349,27 @@ export function ConnectionSidebar() {
         }
         break
       }
+      case 'ContextMenu': // Actual menu/context key
+      case 'F10': // Shift+F10 is the Windows menu key equivalent
+        {
+          if (e.key === 'F10' && !e.shiftKey) break
+          e.preventDefault()
+          const el = treeContainerRef.current?.querySelector<HTMLElement>(
+            `[data-node-path="${CSS.escape(focusedNodePath)}"]`,
+          )
+          if (el) {
+            const rect = el.getBoundingClientRect()
+            el.dispatchEvent(
+              new MouseEvent('contextmenu', {
+                bubbles: true,
+                cancelable: true,
+                clientX: rect.left + rect.width / 2,
+                clientY: rect.top + rect.height / 2,
+              }),
+            )
+          }
+          break
+        }
       case 'Enter':
       case ' ': {
         e.preventDefault()
@@ -354,6 +380,7 @@ export function ConnectionSidebar() {
         el?.click()
         break
       }
+
       case 'Home': {
         e.preventDefault()
         const first = getFirstVisibleNode(visibleNodes)
