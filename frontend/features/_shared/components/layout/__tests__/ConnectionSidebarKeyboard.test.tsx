@@ -6,9 +6,13 @@ import {
   cleanup,
   waitFor,
 } from '@testing-library/react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ConnectionSidebar } from '../ConnectionSidebar'
-import type { ContextMenuState } from '../../../types/shared'
+import type {
+  ContextMenuState,
+  ExplorerTreeData,
+  TreeNode,
+} from '../../../types/shared'
 import type {
   ConnectionProfile,
   Folder,
@@ -24,6 +28,13 @@ const mockCtx = vi.hoisted(() => {
     folders: [] as Folder[],
     groupedConnections: null as Record<string, ConnectionProfile[]> | null,
     selectedConnection: null as ConnectionProfile | null,
+    treeDataMap: {} as Record<string, ExplorerTreeData>,
+    refreshConnectionData: null as
+      | ((id: string, p: ConnectionProfile) => void)
+      | null,
+    fetchDatabaseDetails: null as
+      | ((id: string, p: ConnectionProfile, db: string) => void)
+      | null,
   }
   return {
     store,
@@ -51,7 +62,9 @@ vi.mock('../../../context/DataExplorerContext', () => ({
           : [...mockCtx.store.expandedTreePaths, path]
       mockCtx.notify?.()
     },
-    handleFetchDatabaseDetails: vi.fn(),
+    handleFetchDatabaseDetails: (id: string, p: ConnectionProfile, db: string) => {
+      mockCtx.store.fetchDatabaseDetails?.(id, p, db)
+    },
     handleRetryElasticIndices: vi.fn(),
     setExpandedConnectionId: vi.fn(),
     setSelectedTreeNode: (v: string | null) => {
@@ -67,11 +80,29 @@ vi.mock('../../../context/DataExplorerContext', () => ({
       mockCtx.notify?.()
     },
     explorerData: {
-      treeDataMap: {},
+      treeDataMap: mockCtx.store.treeDataMap,
       treeLoading: {},
-      getTreeNodesForConnection: () => [],
-      fetchDatabaseDetails: vi.fn(),
-      refreshConnectionData: vi.fn(),
+      getTreeNodesForConnection: (conn: ConnectionProfile) => {
+        // Mirrors useExplorerData.getTreeNodesForConnection: builds database
+        // nodes from treeDataMap so children render when a connection expands.
+        const treeData = mockCtx.store.treeDataMap[conn.id]
+        if (!treeData) return []
+        return treeData.databases.map((db): TreeNode => ({
+          label: db.name,
+          nodeType: 'database',
+          connectionId: conn.id,
+          databaseName: db.name,
+        }))
+      },
+      fetchDatabaseDetails: vi.fn(
+        (_id: string, _p: ConnectionProfile, _db: string) => {
+          mockCtx.store.fetchDatabaseDetails?.(_id, _p, _db)
+        },
+      ),
+
+      refreshConnectionData: vi.fn((_id: string, _p: ConnectionProfile) => {
+        mockCtx.store.refreshConnectionData?.(_id, _p)
+      }),
     },
     elasticIndices: {},
     elasticIndicesError: {},
@@ -93,7 +124,9 @@ vi.mock('react-router-dom', async (importOriginal) => {
 /** Re-render the sidebar whenever mockCtx state changes. */
 function Harness() {
   const [, setTick] = useState(0)
-  mockCtx.notify = () => setTick((t) => t + 1)
+  useEffect(() => {
+    mockCtx.notify = () => setTick((t) => t + 1)
+  }, [])
   return <ConnectionSidebar />
 }
 
@@ -198,10 +231,13 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
 
   it('ArrowRight expands a group and moves into its first child; ArrowLeft collapses', async () => {
     seedTree()
-    mockCtx.store.focusedNodePath = 'Production'
     const { getAllByRole } = render(<Harness />)
     const tree = getAllByRole('tree')[0]
     fireEvent.focus(tree)
+    await waitFor(() => {
+      expect(mockCtx.store.focusedNodePath).toBe('Production')
+    })
+
     fireEvent.keyDown(tree, { key: 'ArrowRight' })
     await waitFor(() => {
       expect(mockCtx.store.expandedTreePaths).toContain('Production')
@@ -222,12 +258,10 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
       expect(mockCtx.store.expandedTreePaths).not.toContain('Production')
     })
   })
-
   it('Enter and Space activate the focused node (click behavior)', async () => {
     seedTree()
     mockCtx.store.focusedNodePath = 'connB'
-    const { getAllByRole } = render(<Harness />)
-    const tree = getAllByRole('tree')[0]
+    render(<Harness />)
 
     const nodeEl = document.querySelector('[data-node-path="connB"]') as HTMLElement
     expect(nodeEl).toBeTruthy()
@@ -240,8 +274,7 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
   it('Shift+F10 triggers the context menu for the focused node', async () => {
     seedTree()
     mockCtx.store.focusedNodePath = 'connB'
-    const { getAllByRole } = render(<Harness />)
-    const tree = getAllByRole('tree')[0]
+    render(<Harness />)
 
     const nodeEl = document.querySelector('[data-node-path="connB"]') as HTMLElement
     expect(nodeEl).toBeTruthy()
@@ -255,8 +288,7 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
   it('ContextMenu key opens the context menu for the focused node', async () => {
     seedTree()
     mockCtx.store.focusedNodePath = 'connB'
-    const { getAllByRole } = render(<Harness />)
-    const tree = getAllByRole('tree')[0]
+    render(<Harness />)
 
     const nodeEl = document.querySelector('[data-node-path="connB"]') as HTMLElement
     expect(nodeEl).toBeTruthy()
@@ -265,6 +297,53 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
       expect(mockCtx.store.contextMenu).not.toBeNull()
     })
     expect(mockCtx.store.contextMenu?.itemId).toBe('conn-b')
+  })
+
+
+  it('ArrowRight on a SQL connection without cached tree data lazy-loads it', async () => {
+    seedTree()
+    // conn-b is SQL but has no entry in treeDataMap — expanding it must
+    // trigger refreshConnectionData instead of a database-detail fetch.
+    mockCtx.store.treeDataMap = {}
+    mockCtx.store.expandedTreePaths = ['Production']
+    mockCtx.store.focusedNodePath = 'connB'
+    mockCtx.store.refreshConnectionData = vi.fn()
+    mockCtx.store.fetchDatabaseDetails = vi.fn()
+
+    render(<Harness />)
+    const tree = document.querySelectorAll('[role="tree"]')[0]
+
+    fireEvent.keyDown(tree, { key: 'ArrowRight' })
+    await waitFor(() => {
+      expect(mockCtx.store.expandedTreePaths).toContain('connB')
+    })
+
+    expect(mockCtx.store.refreshConnectionData).toHaveBeenCalledTimes(1)
+    expect(mockCtx.store.fetchDatabaseDetails).not.toHaveBeenCalled()
+  })
+
+  it('ArrowRight on a SQL connection with cached databases fetches the first DB details', async () => {
+    seedTree()
+    // conn-b already has cached database data — ArrowRight must drill into a
+    // database-detail fetch for the first database, not refresh the root.
+    mockCtx.store.treeDataMap = {
+      'conn-b': { databases: [{ name: 'appdb' }] },
+    }
+    mockCtx.store.expandedTreePaths = ['Production']
+    mockCtx.store.focusedNodePath = 'connB'
+    mockCtx.store.refreshConnectionData = vi.fn()
+    mockCtx.store.fetchDatabaseDetails = vi.fn()
+
+    render(<Harness />)
+    const tree = document.querySelectorAll('[role="tree"]')[0]
+
+    fireEvent.keyDown(tree, { key: 'ArrowRight' })
+    await waitFor(() => {
+      expect(mockCtx.store.expandedTreePaths).toContain('connB')
+    })
+
+    expect(mockCtx.store.fetchDatabaseDetails).toHaveBeenCalledTimes(1)
+    expect(mockCtx.store.refreshConnectionData).not.toHaveBeenCalled()
   })
 
   it('plain F10 without shift does not open the context menu', async () => {

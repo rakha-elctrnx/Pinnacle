@@ -22,5 +22,10 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["frontend"],
-  "exclude": ["frontend/**/__tests__/**", "frontend/**/*.check.ts"]
+  "exclude": [
+    "frontend/**/__tests__/**",
+    "frontend/**/*.test.ts",
+    "frontend/**/*.test.tsx",
+    "frontend/**/*.check.ts"
+  ]
 }

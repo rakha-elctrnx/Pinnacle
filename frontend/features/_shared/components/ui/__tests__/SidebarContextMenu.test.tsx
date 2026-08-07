@@ -39,7 +39,14 @@ describe('Sidebar context menu — resolves the clicked node, not the active con
           label: 'public',
           ...base,
           schemaName: 'public',
-          nodeType: 'item',
+          nodeType: 'schema',
+          children: [],
+        }
+      case 'connection':
+        return {
+          label: 'conn-2',
+          connectionId: nonActiveConnectionId,
+          nodeType: 'connection',
           children: [],
         }
       case 'database':
@@ -76,6 +83,8 @@ describe('Sidebar context menu — resolves the clicked node, not the active con
         }
       case 'schema':
         return { parentPath: `${nonActiveConnectionId}/mydb`, depth: 2 }
+      case 'connection':
+        return { parentPath: '', depth: 0 }
       case 'database':
         return { parentPath: nonActiveConnectionId, depth: 1 }
       case 'tablesCategory':
@@ -175,6 +184,12 @@ describe('Sidebar context menu — resolves the clicked node, not the active con
       { databaseName: 'mydb' },
     ],
     [
+      'connection',
+      'conn-2',
+      'onConnectionContextMenu',
+      { connectionId: 'conn-2' },
+    ],
+    [
       'tablesCategory',
       'conn-2/mydb/public/Tables',
       'onTablesCategoryContextMenu',
@@ -195,6 +210,163 @@ describe('Sidebar context menu — resolves the clicked node, not the active con
       // The active/global connection must never leak into these callbacks.
       expect(meta.connectionId).not.toBe(activeConnectionId)
       // Deeper metadata for the clicked node is attached to the meta object.
+      for (const [key, value] of Object.entries(expected)) {
+        expect(meta[key as keyof TreeNodeContextMenuMeta]).toBe(value)
+      }
+    },
+  )
+})
+
+describe('Sidebar context menu — foldered trees (Folder/Connection/Database/Schema/Tables)', () => {
+  const folderPrefix = 'Production/conn-2'
+
+  function folderedNode(type: string): TreeNode {
+    switch (type) {
+      case 'table':
+        return {
+          label: 'users',
+          connectionId: 'conn-2',
+          databaseName: 'mydb',
+          schemaName: 'public',
+          nodeType: 'item',
+        }
+      case 'schema':
+        return {
+          label: 'public',
+          connectionId: 'conn-2',
+          databaseName: 'mydb',
+          schemaName: 'public',
+          nodeType: 'schema',
+          children: [],
+        }
+      case 'database':
+        return {
+          label: 'mydb',
+          connectionId: 'conn-2',
+          databaseName: 'mydb',
+          nodeType: 'database',
+          children: [],
+        }
+      case 'tablesCategory':
+        return {
+          label: 'Tables',
+          connectionId: 'conn-2',
+          databaseName: 'mydb',
+          schemaName: 'public',
+          nodeType: 'category',
+          children: [],
+        }
+      default:
+        throw new Error(`unknown foldered fixture: ${type}`)
+    }
+  }
+
+  const cases: Array<{
+    type: string
+    parentPath: string
+    depth: number
+    path: string
+    handler: string
+    expected: Record<string, string>
+  }> = [
+    {
+      type: 'database',
+      parentPath: `${folderPrefix}`,
+      depth: 1,
+      path: `${folderPrefix}/mydb`,
+      handler: 'onDatabaseNodeContextMenu',
+      expected: { databaseName: 'mydb', connectionId: 'conn-2' },
+    },
+    {
+      type: 'schema',
+      parentPath: `${folderPrefix}/mydb`,
+      depth: 2,
+      path: `${folderPrefix}/mydb/public`,
+      handler: 'onSchemaNodeContextMenu',
+      expected: {
+        databaseName: 'mydb',
+        schemaName: 'public',
+        connectionId: 'conn-2',
+      },
+    },
+    {
+      type: 'tablesCategory',
+      parentPath: `${folderPrefix}/mydb/public`,
+      depth: 3,
+      path: `${folderPrefix}/mydb/public/Tables`,
+      handler: 'onTablesCategoryContextMenu',
+      expected: {
+        databaseName: 'mydb',
+        schemaName: 'public',
+        categoryName: 'Tables',
+        connectionId: 'conn-2',
+      },
+    },
+    {
+      type: 'table',
+      parentPath: `${folderPrefix}/mydb/public/Tables`,
+      depth: 4,
+      path: `${folderPrefix}/mydb/public/Tables/users`,
+      handler: 'onTableNodeContextMenu',
+      expected: {
+        databaseName: 'mydb',
+        schemaName: 'public',
+        tableName: 'users',
+        connectionId: 'conn-2',
+      },
+    },
+  ]
+
+  it.each(cases)(
+    'right-clicking the $type node inside a folder resolves Production/conn-2 metadata',
+    ({ type, parentPath, depth, path, handler, expected }) => {
+      const node = folderedNode(type)
+      const handlers = {
+        onTableNodeContextMenu: vi.fn(),
+        onViewNodeContextMenu: vi.fn(),
+        onDatabaseNodeContextMenu: vi.fn(),
+        onSchemaNodeContextMenu: vi.fn(),
+        onTablesCategoryContextMenu: vi.fn(),
+        onIndexNodeContextMenu: vi.fn(),
+        onConnectionContextMenu: vi.fn(),
+      }
+      const props = {
+        node,
+        depth,
+        parentPath,
+        selectedTreeNode: null,
+        expandedTreePaths: [],
+        onTreeNodeClick: vi.fn(),
+        onSelectedTreeNode: vi.fn(),
+        onToggleTreeNode: vi.fn(),
+        onFetchDatabaseDetails: vi.fn(),
+        onTableNavigate: vi.fn(),
+        onQueryNavigate: vi.fn(),
+        onTablesCategoryClick: vi.fn(),
+        onConnectionSelect: vi.fn(),
+        onGroupToggle: vi.fn(),
+        onConnectionToggle: vi.fn(),
+        focusedNodePath: null,
+        setFocusedNodePath: vi.fn(),
+        folders: [],
+        onMoveConnectionToFolder: vi.fn(),
+        ...handlers,
+      }
+
+      const { container } = render(<TreeNodeItem {...props} />)
+      const el = container.querySelector<HTMLElement>(
+        `[data-node-path="${path}"]`,
+      )
+      expect(el).toBeTruthy()
+      fireEvent.contextMenu(el!)
+
+      const handlerMock = handlers[
+        handler as keyof typeof handlers
+      ] as Mock<
+        (event: React.MouseEvent, meta: TreeNodeContextMenuMeta) => void
+      >
+      expect(handlerMock).toHaveBeenCalledTimes(1)
+      const meta = handlerMock.mock.calls[0][1] as TreeNodeContextMenuMeta
       for (const [key, value] of Object.entries(expected)) {
         expect(meta[key as keyof TreeNodeContextMenuMeta]).toBe(value)
       }

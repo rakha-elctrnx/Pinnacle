@@ -360,4 +360,124 @@ describe('TreeNodeItem — leaf table / view / index node', () => {
     expect(h.onTreeNodeClick).not.toHaveBeenCalled()
     expect(h.onToggleTreeNode).not.toHaveBeenCalled()
   })
+
+  it('double click opens the detail tab with full explicit node identity', () => {
+    const h = mount(
+      {
+        label: 'orders',
+        nodeType: 'item',
+        connectionId: 'conn-7',
+        databaseName: 'shop',
+        schemaName: 'sales',
+        children: [],
+      },
+      { parentPath: 'conn-7/shop/sales/Tables' },
+    )
+    act(() => fireEvent.doubleClick(row()))
+    // The resolver must never guess from path shape — the leaf navigation
+    // carries label, database, path AND schema explicitly.
+    expect(h.onTreeNodeClick).toHaveBeenCalledWith(
+      'orders',
+      'shop',
+      'conn-7/shop/sales/Tables/orders',
+      'sales',
+    )
+    expect(h.onToggleTreeNode).not.toHaveBeenCalled()
+  })
+
+  it('Enter opens the detail tab with full explicit node identity', () => {
+    const h = mount(
+      {
+        label: 'invoices',
+        nodeType: 'item',
+        connectionId: 'conn-7',
+        databaseName: 'shop',
+        schemaName: 'sales',
+        children: [],
+      },
+      { parentPath: 'conn-7/shop/sales/Tables' },
+    )
+    act(() => fireEvent.keyDown(row(), { key: 'Enter' }))
+    expect(h.onTreeNodeClick).toHaveBeenCalledWith(
+      'invoices',
+      'shop',
+      'conn-7/shop/sales/Tables/invoices',
+      'sales',
+    )
+  })
+})
+
+describe('TreeNodeItem — foldered / grouped trees (path-independent metadata)', () => {
+  it('resolves database/schema/category metadata from node fields, not path depth', () => {
+    // A table nested inside a user folder (Production) at depth 3 — the same
+    // depth where an ungrouped tree would have a database node. Node-level
+    // metadata must win so the category/leaf detection never misfires.
+    const h = mount(
+      {
+        label: 'users',
+        nodeType: 'item',
+        connectionId: 'conn-1',
+        databaseName: 'appdb',
+        schemaName: 'public',
+        children: [],
+      },
+      {
+        parentPath: 'Production/conn-1/appdb/public/Tables',
+        depth: 3,
+      },
+    )
+    clickRowOnce()
+    expect(h.onSelectedTreeNode).toHaveBeenCalledWith(
+      'Production/conn-1/appdb/public/Tables/users',
+    )
+    expect(h.onTreeNodeClick).not.toHaveBeenCalled()
+  })
+
+  it('Enter on a foldered leaf opens the detail tab with explicit metadata', () => {
+    const h = mount(
+      {
+        label: 'payments',
+        nodeType: 'item',
+        connectionId: 'conn-2',
+        databaseName: 'billing',
+        schemaName: 'public',
+        children: [],
+      },
+      {
+        parentPath: 'Production/conn-2/billing/public/Tables',
+        depth: 3,
+      },
+    )
+    act(() => fireEvent.keyDown(row(), { key: 'Enter' }))
+    expect(h.onTreeNodeClick).toHaveBeenCalledWith(
+      'payments',
+      'billing',
+      'Production/conn-2/billing/public/Tables/payments',
+      'public',
+    )
+    expect(h.onSelectedTreeNode).not.toHaveBeenCalled()
+  })
+
+  it('double click on a foldered schema node toggles without a detail fetch', () => {
+    const h = mount(
+      {
+        label: 'audit',
+        nodeType: 'schema',
+        connectionId: 'conn-3',
+        databaseName: 'appdb',
+        schemaName: 'audit',
+        children: [CHILD],
+      },
+      {
+        parentPath: 'Production/conn-3/appdb',
+        depth: 2,
+      },
+    )
+    act(() => fireEvent.doubleClick(row()))
+    expect(h.onToggleTreeNode).toHaveBeenCalledWith(
+      'Production/conn-3/appdb/audit',
+    )
+    expect(h.onFetchDatabaseDetails).not.toHaveBeenCalled()
+    expect(h.onTreeNodeClick).not.toHaveBeenCalled()
+  })
 })

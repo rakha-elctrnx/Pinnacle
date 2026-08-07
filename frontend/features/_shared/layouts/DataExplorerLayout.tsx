@@ -668,7 +668,7 @@ function DataExplorerLayoutChrome({
                       icon: <SquareTerminal size={14} />,
                       action: () => {
                         const connId = contextMenu.itemId
-                        const profile = items.find((p) => p.id === connId)
+                        const profile = contextProfile
                         if (!profile) return
                         if (selectedConnection?.id !== connId) {
                           handleConnectionSelectionChange(connId)
@@ -793,7 +793,7 @@ function DataExplorerLayoutChrome({
                           if (!connId) return
                           const dbName = contextMenu.databaseName!
                           const schemaName = contextMenu.schemaName
-                          const profile = items.find((p) => p.id === connId)
+                          const profile = contextProfile
                           if (!profile || !isSqlConnectionType(profile.type))
                             return
                           if (selectedConnection?.id !== connId) {
@@ -827,7 +827,7 @@ function DataExplorerLayoutChrome({
                         action: () => {
                           const connId = contextMenu.itemId
                           const dbName = contextMenu.databaseName!
-                          const profile = items.find((p) => p.id === connId)
+                          const profile = contextProfile
                           if (!profile) return
                           if (selectedConnection?.id !== connId) {
                             handleConnectionSelectionChange(connId)
@@ -853,7 +853,7 @@ function DataExplorerLayoutChrome({
                         action: () => {
                           const connId = contextMenu.itemId
                           if (!connId) return
-                          const profile = items.find((p) => p.id === connId)
+                          const profile = contextProfile
                           if (!profile) return
                           const tabId = `${connId}:tables`
                           const tabStore = useTabStore.getState()
@@ -987,7 +987,7 @@ function DataExplorerLayoutChrome({
                           action: () => {
                             const connId = contextMenu.itemId
                             const dbName = contextMenu.databaseName!
-                            const profile = items.find((p) => p.id === connId)
+                            const profile = contextProfile
                             if (!profile) return
                             if (selectedConnection?.id !== connId) {
                               handleConnectionSelectionChange(connId)
@@ -1072,7 +1072,7 @@ function DataExplorerLayoutChrome({
                               const connId = contextMenu.itemId
                               const dbName = contextMenu.databaseName!
                               const schemaName = contextMenu.schemaName!
-                              const profile = items.find((p) => p.id === connId)
+                              const profile = contextProfile
                               if (!profile) return
                               if (selectedConnection?.id !== connId) {
                                 handleConnectionSelectionChange(connId)
@@ -1130,7 +1130,7 @@ function DataExplorerLayoutChrome({
                             action: () => {
                               const connId = contextMenu.itemId
                               const dbName = contextMenu.databaseName!
-                              const profile = items.find((p) => p.id === connId)
+                              const profile = contextProfile
                               if (!profile) return
                               if (selectedConnection?.id !== connId) {
                                 handleConnectionSelectionChange(connId)
@@ -1298,7 +1298,7 @@ function DataExplorerLayoutChrome({
                       icon: <SquareTerminal size={14} />,
                       action: () => {
                         const connId = contextMenu.itemId
-                        const profile = items.find((p) => p.id === connId)
+                        const profile = contextProfile
                         if (!profile) return
                         if (selectedConnection?.id !== connId) {
                           handleConnectionSelectionChange(connId)

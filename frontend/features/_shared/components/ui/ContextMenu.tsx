@@ -32,6 +32,16 @@ export interface GenericContextMenuProps {
   ariaLabel?: string
 }
 
+/**
+ * Index of the first interactable (non-divider, non-disabled) top-level item,
+ * or 0 when every item is inert. Used to seed initial focus so keyboard
+ * navigation never lands on a divider/disabled row.
+ */
+function firstActiveIndex(items: ContextMenuItem[]): number {
+  const i = items.findIndex((c) => !c.divider && !c.disabled)
+  return i < 0 ? 0 : i
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 /**
@@ -55,7 +65,9 @@ export function GenericContextMenu({
   const menuItemRefs = useRef<Array<HTMLButtonElement | null>>([])
   const submenuItemRefs = useRef<Array<HTMLButtonElement | null>>([])
   const [pos, setPos] = useState({ top: y, left: x })
-  const [activeIndex, setActiveIndex] = useState(0)
+  const [activeIndex, setActiveIndex] = useState(() =>
+    firstActiveIndex(items),
+  )
   const [submenuIndex, setSubmenuIndex] = useState<number | null>(null)
   const [submenuChildIndex, setSubmenuChildIndex] = useState(0)
   const [submenuPos, setSubmenuPos] = useState({ top: 0, left: 0 })
@@ -90,9 +102,9 @@ export function GenericContextMenu({
       if (left < GAP) left = GAP
     }
     setPos({ top, left })
-    setActiveIndex(0)
+    setActiveIndex(firstActiveIndex(items))
     setSubmenuChildIndex(0)
-  }, [x, y])
+  }, [x, y, items])
 
   // ── Close on click outside ──────────────────────────────────────────
   useEffect(() => {

@@ -203,24 +203,18 @@ export function TreeNodeItem({
       !isCategoryNode(node.label) &&
       !!node.databaseName &&
       node.databaseName === node.label)
+  // Parent category for leaf classification — derived from the category
+  // ancestor's label (Tables/Views/Indices) via the explicit parentPath
+  // contract, never positional string splitting of the full path.
+  const parentCategory = parentPath.slice(parentPath.lastIndexOf('/') + 1)
+  const isSchemaNode = node.nodeType === 'schema'
   const isLeaf =
     !hasChildren ||
     (node.children && node.children.length === 0 && isCategoryNode(node.label))
-  const isTableItem =
-    isLeaf && !isCategoryNode(node.label) && parentPath.endsWith('/Tables')
-  const isViewItem =
-    isLeaf && !isCategoryNode(node.label) && parentPath.endsWith('/Views')
-  const isIndexItem =
-    isLeaf && !isCategoryNode(node.label) && parentPath.endsWith('/Indices')
-  const isSchemaNode =
-    node.nodeType === 'schema' ||
-    (!isGroupNode &&
-      !isConnectionNode &&
-      !isDatabaseNode &&
-      !isCategoryNode(node.label) &&
-      hasChildren &&
-      depth >= 2)
-  const parentCategory = parentPath.slice(parentPath.lastIndexOf('/') + 1)
+  const isLeafItem = isLeaf && !isCategoryNode(node.label)
+  const isTableItem = isLeafItem && parentCategory === 'Tables'
+  const isViewItem = isLeafItem && parentCategory === 'Views'
+  const isIndexItem = isLeafItem && parentCategory === 'Indices'
   const isQueriesFolder = node.label === 'Queries'
   const categoryIcon = isCategoryNode(node.label)
     ? getCategoryIcon(node.label)
@@ -574,11 +568,18 @@ export function TreeNodeItem({
 
   // Primary action (double click / Enter): toggle expansion, or for a leaf
   // table/view/index open its detail tab exactly once.
+  // The leaf detail navigation carries full explicit node identity (label,
+  // database, path, schema) so the resolver never has to guess from path shape.
   const handlePrimaryAction = () => {
     const isLeafNode = !hasChildren || node.children?.length === 0
     if (isLeafNode && !isCategoryNode(node.label)) {
       // Leaf table/view/index: open detail tab once (single owner = onTreeNodeClick)
-      onTreeNodeClick(node.label, node.databaseName, nodePath)
+      onTreeNodeClick(
+        node.label,
+        node.databaseName,
+        nodePath,
+        node.schemaName,
+      )
     } else {
       handleToggleExpand()
     }

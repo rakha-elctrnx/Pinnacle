@@ -218,4 +218,47 @@ describe('GenericContextMenu keyboard navigation', () => {
       expect(document.activeElement).toBe(trigger)
     })
   })
+
+  it('focuses the first interactive item when item 0 is a divider or disabled', async () => {
+    const action = vi.fn()
+    const { getByRole } = renderMenu([
+      { divider: true },
+      { label: 'Disabled', disabled: true },
+      { label: 'First Active', action },
+      { label: 'Second', action: vi.fn() },
+    ])
+    const menu = getByRole('menu')
+
+    // On mount activeIndex should skip the leading divider and disabled row and
+    // focus the first interactive item, never an inert row.
+    await waitFor(() => {
+      expect(document.activeElement?.textContent).toBe('First Active')
+    })
+
+    // ArrowDown continues from there into the real interactive items.
+    fireEvent.keyDown(menu, { key: 'ArrowDown' })
+    await waitFor(() => {
+      expect(document.activeElement?.textContent).toBe('Second')
+    })
+  })
+
+
+  it('keeps the menu inert when every item is a divider', async () => {
+    const { getByRole } = renderMenu([{ divider: true }, { divider: true }])
+    const menu = getByRole('menu')
+    await waitFor(() => {
+      expect(menu.querySelectorAll('[role="separator"]').length).toBe(2)
+    })
+    // No actionable menuitem exists (dividers are role=separator) and none is
+    // focused.
+    expect(menu.querySelectorAll('[role="menuitem"]').length).toBe(0)
+    expect(
+      menu.querySelectorAll('[role="menuitem"][tabindex="0"]').length,
+    ).toBe(0)
+    expect(
+      Array.from(document.querySelectorAll('[role="menuitem"]')).filter(
+        (el) => document.activeElement === el,
+      ).length,
+    ).toBe(0)
+  })
 })
