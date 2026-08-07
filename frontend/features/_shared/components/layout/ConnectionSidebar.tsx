@@ -179,50 +179,6 @@ function buildUnifiedTree(
   return tree
 }
 
-/**
- * Get connection profile from a node path.
- * Path format: "groupName/connectionName" or just "connectionName" (ungrouped).
- */
-function getConnectionFromPath(
-  path: string,
-  groupedConnections: Record<string, ConnectionProfile[]> | null,
-): ConnectionProfile | null {
-  if (!groupedConnections || !path) return null
-
-  const parts = path.split('/')
-  if (parts.length < 1) return null
-
-  // Try as groupName/connectionName
-  if (parts.length >= 2) {
-    const groupName = parts[0]
-    const connectionName = parts[1]
-
-    const profiles = groupedConnections[groupName]
-    if (profiles) {
-      const found = profiles.find((p) => p.name === connectionName)
-      if (found) return found
-    }
-  }
-
-  // Try as ungrouped connection (just name)
-  const ungrouped = groupedConnections['__ungrouped__']
-  if (ungrouped) {
-    return ungrouped.find((p) => p.name === parts[0]) ?? null
-  }
-
-  return null
-}
-
-/**
- * Get connection ID from a node path.
- */
-function getConnectionIdFromPath(
-  path: string,
-  groupedConnections: Record<string, ConnectionProfile[]> | null,
-): string | null {
-  const profile = getConnectionFromPath(path, groupedConnections)
-  return profile?.id ?? null
-}
 export function ConnectionSidebar() {
   const {
     groupedConnections,
@@ -353,22 +309,17 @@ export function ConnectionSidebar() {
         if (!isExpanded && hasChildren) {
           handleToggleTreeNode(focusedNodePath)
           // For connection nodes (depth 1), trigger lazy fetch
-          if (current.depth === 1 && current.node.nodeType === 'connection') {
-            const connectionId = getConnectionIdFromPath(
-              focusedNodePath,
-              groupedConnections,
-            )
-            if (connectionId) {
-              const profile = Object.values(groupedConnections ?? {})
-                .flat()
-                .find((p) => p.id === connectionId)
-              if (profile && isSqlConnectionType(profile.type)) {
-                const treeData = explorerData.treeDataMap[connectionId]
-                if (!treeData) {
-                  explorerData.refreshConnectionData(connectionId, profile)
-                } else if (treeData.databases?.[0]) {
-                  handleFetchDatabaseDetails(treeData.databases[0].name)
-                }
+          const connectionId = current.node.connectionId ?? null
+          if (connectionId) {
+            const profile = Object.values(groupedConnections ?? {})
+              .flat()
+              .find((p) => p.id === connectionId)
+            if (profile && isSqlConnectionType(profile.type)) {
+              const treeData = explorerData.treeDataMap[connectionId]
+              if (!treeData) {
+                explorerData.refreshConnectionData(connectionId, profile)
+              } else if (treeData.databases?.[0]) {
+                handleFetchDatabaseDetails(treeData.databases[0].name)
               }
             }
           }

@@ -52,6 +52,19 @@ function isCategoryNode(label: string): boolean {
   return CATEGORY_LABELS.includes(label)
 }
 
+function getPathSegments(raw: string): string[] {
+  const out: string[] = []
+  let start = 0
+  let idx = raw.indexOf('/')
+  while (idx !== -1) {
+    out.push(raw.slice(start, idx))
+    start = idx + 1
+    idx = raw.indexOf('/', start)
+  }
+  out.push(raw.slice(start))
+  return out
+}
+
 /**
  * Returns an icon component to use for a given category label.
  */
@@ -132,6 +145,7 @@ export function TreeNodeItem({
     nodeLabel: string,
     databaseName?: string,
     nodePath?: string,
+    schemaName?: string,
   ) => void
   onSelectedTreeNode: (label: string | null) => void
   onToggleTreeNode: (path: string) => void
@@ -195,17 +209,13 @@ export function TreeNodeItem({
   const isExpanded = expandedTreePaths.includes(nodePath)
   const isGroupNode = node.nodeType === 'group'
   const isConnectionNode = node.nodeType === 'connection'
-  const isDatabaseNode = (() => {
-    if (isGroupNode || isConnectionNode) return false
-    // Database nodes are immediate children of connection nodes.
-    // Check if the parent path corresponds to a connection profile name.
-    if (!parentPath || !groupedConnections) return false
-    const parentName = parentPath.split('/').pop()
-    if (!parentName) return false
-    return Object.values(groupedConnections)
-      .flat()
-      .some((p) => p.name === parentName || p.id === parentName)
-  })()
+  const isDatabaseNode =
+    node.nodeType === 'database' ||
+    (!isGroupNode &&
+      !isConnectionNode &&
+      !isCategoryNode(node.label) &&
+      !!node.databaseName &&
+      node.databaseName === node.label)
   const isLeaf =
     !hasChildren ||
     (node.children && node.children.length === 0 && isCategoryNode(node.label))
@@ -221,7 +231,7 @@ export function TreeNodeItem({
     !isCategoryNode(node.label) &&
     hasChildren &&
     depth >= 2
-  const parentCategory = parentPath.split('/').pop() ?? ''
+  const parentCategory = parentPath.slice(parentPath.lastIndexOf('/') + 1)
   const isQueriesFolder = node.label === 'Queries'
   const categoryIcon = isCategoryNode(node.label)
     ? getCategoryIcon(node.label)
@@ -403,7 +413,7 @@ export function TreeNodeItem({
     } else if (isDatabaseNode && !isCategoryNode(node.label)) {
       if (!isExpanded) {
         onToggleTreeNode(nodePath)
-        onFetchDatabaseDetails?.(node.label)
+        onFetchDatabaseDetails?.(node.databaseName ?? node.label)
       } else {
         onToggleTreeNode(nodePath)
       }
@@ -435,7 +445,7 @@ export function TreeNodeItem({
       onSelectedTreeNode(nodePath)
       if (!isExpanded) {
         onToggleTreeNode(nodePath)
-        onFetchDatabaseDetails?.(node.label)
+        onFetchDatabaseDetails?.(node.databaseName ?? node.label)
       }
     } else if (node.label === 'Queries') {
       onSelectedTreeNode(nodePath)
@@ -447,9 +457,7 @@ export function TreeNodeItem({
       // Leaf nodes (including leaf category nodes like "Indexes" with no children)
       onSelectedTreeNode(nodePath)
       if (!isCategoryNode(node.label)) {
-        const pathParts = parentPath.split('/')
-        const databaseName = pathParts.length >= 3 ? pathParts[2] : pathParts[0]
-        onTreeNodeClick(node.label, databaseName, nodePath)
+        onTreeNodeClick(node.label, node.databaseName, nodePath)
         if (isTableItem) {
           onTableNavigate?.(node.label, nodePath)
         }
@@ -461,10 +469,7 @@ export function TreeNodeItem({
       if (!isExpanded && node.label !== 'Tables') {
         onToggleTreeNode(nodePath)
       }
-      // In unified tree: path is groupName/connName/dbName/..., so [2] is the database name
-      const pathParts = parentPath.split('/')
-      const databaseName = pathParts.length >= 3 ? pathParts[2] : pathParts[0]
-      onTreeNodeClick(node.label, databaseName, nodePath)
+      onTreeNodeClick(node.label, node.databaseName, nodePath, node.schemaName)
       if (node.label === 'Tables') {
         onTablesCategoryClick?.()
       }
@@ -476,7 +481,7 @@ export function TreeNodeItem({
         onToggleTreeNode(nodePath)
       }
       if (isDatabaseNode || (depth >= 2 && !isGroupNode && !isConnectionNode)) {
-        onFetchDatabaseDetails?.(node.label)
+        onFetchDatabaseDetails?.(node.databaseName ?? node.label)
       }
     }
   }
@@ -517,27 +522,35 @@ export function TreeNodeItem({
           } else if (isViewItem && onViewNodeContextMenu) {
             e.preventDefault()
             e.stopPropagation()
-            const pathParts = parentPath.split('/')
-            const connName = pathParts.length >= 3 ? pathParts[1] : pathParts[0]
-            const conn = groupedConnections
-              ? Object.values(groupedConnections)
-                  .flat()
-                  .find((p) => p.name === connName || p.id === connName)
-              : null
-            const connectionId = conn?.id ?? connName
-            onViewNodeContextMenu(e, connectionId, node.label)
+            if (node.connectionId) {
+              onViewNodeContextMenu(e, node.connectionId, node.label)
+            } else {
+              // Non-SQL static trees carry no metadata — derive the connection
+              // from the parent path segments (same values as legacy parsing).
+              const segments = getPathSegments(parentPath)
+              const connName = segments.length >= 3 ? segments[1] : segments[0]
+              const conn = groupedConnections
+                ? Object.values(groupedConnections)
+                    .flat()
+                    .find((p) => p.name === connName || p.id === connName)
+                : null
+              onViewNodeContextMenu(e, conn?.id ?? connName, node.label)
+            }
           } else if (isTableItem && onTableNodeContextMenu) {
             e.preventDefault()
             e.stopPropagation()
-            const pathParts = parentPath.split('/')
-            const connName = pathParts.length >= 3 ? pathParts[1] : pathParts[0]
-            const conn = groupedConnections
-              ? Object.values(groupedConnections)
-                  .flat()
-                  .find((p) => p.name === connName || p.id === connName)
-              : null
-            const connectionId = conn?.id ?? connName
-            onTableNodeContextMenu(e, connectionId, node.label)
+            if (node.connectionId) {
+              onTableNodeContextMenu(e, node.connectionId, node.label)
+            } else {
+              const segments = getPathSegments(parentPath)
+              const connName = segments.length >= 3 ? segments[1] : segments[0]
+              const conn = groupedConnections
+                ? Object.values(groupedConnections)
+                    .flat()
+                    .find((p) => p.name === connName || p.id === connName)
+                : null
+              onTableNodeContextMenu(e, conn?.id ?? connName, node.label)
+            }
           } else if (
             isConnectionNode &&
             node.connectionId &&
@@ -553,32 +566,51 @@ export function TreeNodeItem({
           ) {
             e.preventDefault()
             e.stopPropagation()
-            const pathParts = parentPath.split('/')
-            const connName = pathParts.length >= 3 ? pathParts[1] : pathParts[0]
-            const conn = groupedConnections
-              ? Object.values(groupedConnections)
-                  .flat()
-                  .find((p) => p.name === connName || p.id === connName)
-              : null
-            const connectionId = conn?.id ?? connName
-            onDatabaseNodeContextMenu(e, connectionId, node.label)
+            if (node.connectionId) {
+              onDatabaseNodeContextMenu(
+                e,
+                node.connectionId,
+                node.databaseName ?? node.label,
+              )
+            } else {
+              const segments = getPathSegments(parentPath)
+              const connName = segments.length >= 3 ? segments[1] : segments[0]
+              const conn = groupedConnections
+                ? Object.values(groupedConnections)
+                    .flat()
+                    .find((p) => p.name === connName || p.id === connName)
+                : null
+              onDatabaseNodeContextMenu(e, conn?.id ?? connName, node.label)
+            }
           } else if (isSchemaNode && onSchemaNodeContextMenu) {
             e.preventDefault()
             e.stopPropagation()
-            const pathParts = parentPath.split('/')
-            // path = connName/dbName or folder/connName/dbName
-            let connName = pathParts[0]
-            const conn = groupedConnections
-              ? Object.values(groupedConnections)
-                  .flat()
-                  .find((p) => p.name === connName || p.id === connName)
-              : null
-            if (!conn && pathParts.length > 1) {
-              connName = pathParts[1]
+            if (node.connectionId) {
+              onSchemaNodeContextMenu(
+                e,
+                node.connectionId,
+                node.databaseName ?? '',
+                node.schemaName ?? node.label,
+              )
+            } else {
+              const segments = getPathSegments(parentPath)
+              // path = connName/dbName or folder/connName/dbName
+              let connName = segments[0]
+              const conn = groupedConnections
+                ? Object.values(groupedConnections)
+                    .flat()
+                    .find((p) => p.name === connName || p.id === connName)
+                : null
+              if (!conn && segments.length > 1) {
+                connName = segments[1]
+              }
+              onSchemaNodeContextMenu(
+                e,
+                conn?.id ?? connName,
+                segments[segments.length - 1],
+                node.label,
+              )
             }
-            const connectionId = conn?.id ?? connName
-            const databaseName = pathParts[pathParts.length - 1]
-            onSchemaNodeContextMenu(e, connectionId, databaseName, node.label)
           } else if (
             isCategoryNode(node.label) &&
             node.label === 'Tables' &&
@@ -586,43 +618,50 @@ export function TreeNodeItem({
           ) {
             e.preventDefault()
             e.stopPropagation()
-            const pathParts = parentPath.split('/')
-            let connName = pathParts[0]
-            const conn = groupedConnections
-              ? Object.values(groupedConnections)
-                  .flat()
-                  .find((p) => p.name === connName || p.id === connName)
-              : null
-            if (!conn && pathParts.length > 1) {
-              connName = pathParts[1]
+            if (node.connectionId) {
+              onTablesCategoryContextMenu(
+                e,
+                node.connectionId,
+                node.databaseName ?? '',
+                node.schemaName,
+              )
+            } else {
+              const segments = getPathSegments(parentPath)
+              let connName = segments[0]
+              const conn = groupedConnections
+                ? Object.values(groupedConnections)
+                    .flat()
+                    .find((p) => p.name === connName || p.id === connName)
+                : null
+              if (!conn && segments.length > 1) {
+                connName = segments[1]
+              }
+              const connIndex = connName === segments[0] ? 0 : 1
+              const itemsAfterConn = segments.length - connIndex - 1
+              onTablesCategoryContextMenu(
+                e,
+                conn?.id ?? connName,
+                itemsAfterConn >= 2
+                  ? segments[segments.length - 2]
+                  : segments[segments.length - 1],
+                itemsAfterConn >= 2 ? segments[segments.length - 1] : undefined,
+              )
             }
-            const connectionId = conn?.id ?? connName
-            const connIndex = connName === pathParts[0] ? 0 : 1
-            const itemsAfterConn = pathParts.length - connIndex - 1
-            const databaseName =
-              itemsAfterConn >= 2
-                ? pathParts[pathParts.length - 2]
-                : pathParts[pathParts.length - 1]
-            const schemaName =
-              itemsAfterConn >= 2 ? pathParts[pathParts.length - 1] : undefined
-            onTablesCategoryContextMenu(
-              e,
-              connectionId,
-              databaseName,
-              schemaName,
-            )
           } else if (isIndexItem && onIndexNodeContextMenu) {
             e.preventDefault()
             e.stopPropagation()
-            const pathParts = parentPath.split('/')
-            const connName = pathParts.length >= 3 ? pathParts[1] : pathParts[0]
-            const conn = groupedConnections
-              ? Object.values(groupedConnections)
-                  .flat()
-                  .find((p) => p.name === connName || p.id === connName)
-              : null
-            const connectionId = conn?.id ?? connName
-            onIndexNodeContextMenu(e, connectionId, node.label)
+            if (node.connectionId) {
+              onIndexNodeContextMenu(e, node.connectionId, node.label)
+            } else {
+              const segments = getPathSegments(parentPath)
+              const connName = segments.length >= 3 ? segments[1] : segments[0]
+              const conn = groupedConnections
+                ? Object.values(groupedConnections)
+                    .flat()
+                    .find((p) => p.name === connName || p.id === connName)
+                : null
+              onIndexNodeContextMenu(e, conn?.id ?? connName, node.label)
+            }
           }
         }}
         className={[
