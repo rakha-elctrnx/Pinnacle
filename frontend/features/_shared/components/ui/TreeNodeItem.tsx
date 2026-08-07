@@ -258,33 +258,66 @@ export function TreeNodeItem({
     setIsRenaming(false)
   }, [getFolderId, onRenameFolder, renameValue])
 
-  // ── Drag & Drop handlers ──────────────────────────────────────
-  const handleDragStart = useCallback(
+  // ── Drag & Drop handlers with threshold and click suppression ─
+  const isDraggingRef = useRef(false)
+  const suppressClickRef = useRef(false)
+  const ghostRef = useRef<HTMLDivElement | null>(null)
+  const dragCleanupRef = useRef<(() => void) | null>(null)
+
+  const cleanupDrag = useCallback(() => {
+    if (dragCleanupRef.current) {
+      dragCleanupRef.current()
+      dragCleanupRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      cleanupDrag()
+    }
+  }, [cleanupDrag])
+
+  const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (!isConnectionNode || !node.connectionId) return
+      if (e.button !== 0) return // Only primary button
 
-      e.preventDefault()
-      e.stopPropagation()
-
-      const ghost = document.createElement('div')
-      ghost.textContent = node.label
-      ghost.style.cssText = `
-        position: fixed; z-index: 9999; pointer-events: none;
-        padding: 4px 10px; border-radius: 6px;
-        background: var(--color-bg-emphasis, #333);
-        color: var(--color-text-on-emphasis, #fff);
-        font-size: 12px; white-space: nowrap;
-        opacity: 0.9; transform: scale(0.95);
-      `
-      document.body.appendChild(ghost)
-      document.body.dataset.dragging = 'connection'
-      document.body.dataset.draggedConnectionId = node.connectionId
+      const startX = e.clientX
+      const startY = e.clientY
+      const threshold = 5 // 4-6 px movement threshold
+      let isDragActive = false
 
       const handleMove = (ev: PointerEvent) => {
-        ghost.style.left = `${ev.clientX + 10}px`
-        ghost.style.top = `${ev.clientY + 10}px`
+        const dx = ev.clientX - startX
+        const dy = ev.clientY - startY
 
-        // Check if hovering over a group/folder node
+        if (!isDragActive) {
+          if (Math.hypot(dx, dy) < threshold) return
+
+          isDragActive = true
+          isDraggingRef.current = true
+
+          const ghost = document.createElement('div')
+          ghost.textContent = node.label
+          ghost.style.cssText = `
+            position: fixed; z-index: 9999; pointer-events: none;
+            padding: 4px 10px; border-radius: 6px;
+            background: var(--color-bg-emphasis, #333);
+            color: var(--color-text-on-emphasis, #fff);
+            font-size: 12px; white-space: nowrap;
+            opacity: 0.9; transform: scale(0.95);
+          `
+          document.body.appendChild(ghost)
+          ghostRef.current = ghost
+          document.body.dataset.dragging = 'connection'
+          document.body.dataset.draggedConnectionId = node.connectionId!
+        }
+
+        if (ghostRef.current) {
+          ghostRef.current.style.left = `${ev.clientX + 10}px`
+          ghostRef.current.style.top = `${ev.clientY + 10}px`
+        }
+
         const target = document.elementFromPoint(ev.clientX, ev.clientY)
         const groupEl = target?.closest('[data-is-group="true"]')
         const sidebar = target?.closest('[data-sidebar-area="ungrouped"]')
@@ -292,30 +325,54 @@ export function TreeNodeItem({
       }
 
       const handleUp = (ev: PointerEvent) => {
+        cleanup()
+
+        if (isDragActive) {
+          suppressClickRef.current = true
+          const target = document.elementFromPoint(ev.clientX, ev.clientY)
+          const groupEl = target?.closest('[data-is-group="true"]')
+
+          if (groupEl) {
+            const folderName = groupEl.getAttribute('data-folder-name')
+            if (folderName && onMoveConnectionToFolder) {
+              const folder = folders?.find((f) => f.name === folderName)
+              onMoveConnectionToFolder(node.connectionId!, folder?.id ?? null)
+            }
+          } else if (target?.closest('[data-sidebar-area="ungrouped"]')) {
+            onMoveConnectionToFolder?.(node.connectionId!, null)
+          }
+        }
+      }
+
+      const handleKeyDown = (ev: KeyboardEvent) => {
+        if (ev.key === 'Escape') {
+          cleanup()
+        }
+      }
+
+      const cleanup = () => {
         document.removeEventListener('pointermove', handleMove)
         document.removeEventListener('pointerup', handleUp)
-        ghost.remove()
+        document.removeEventListener('pointercancel', cleanup)
+        window.removeEventListener('keydown', handleKeyDown)
+
+        if (ghostRef.current) {
+          ghostRef.current.remove()
+          ghostRef.current = null
+        }
         delete document.body.dataset.dragging
         delete document.body.dataset.draggedConnectionId
-
-        const target = document.elementFromPoint(ev.clientX, ev.clientY)
-        const groupEl = target?.closest('[data-is-group="true"]')
-
-        if (groupEl) {
-          const folderName = groupEl.getAttribute('data-folder-name')
-          if (folderName && onMoveConnectionToFolder) {
-            const folder = folders?.find((f) => f.name === folderName)
-            onMoveConnectionToFolder(node.connectionId!, folder?.id ?? null)
-          }
-        } else if (target?.closest('[data-sidebar-area="ungrouped"]')) {
-          onMoveConnectionToFolder?.(node.connectionId!, null)
-        }
-
         setIsDragOver(false)
+        isDraggingRef.current = false
+        dragCleanupRef.current = null
       }
+
+      dragCleanupRef.current = cleanup
 
       document.addEventListener('pointermove', handleMove)
       document.addEventListener('pointerup', handleUp)
+      document.addEventListener('pointercancel', cleanup)
+      window.addEventListener('keydown', handleKeyDown)
     },
     [
       isConnectionNode,
@@ -415,6 +472,10 @@ export function TreeNodeItem({
   // Label click: selects the node, navigates, and expands if expandable
   const handleLabelClick = (e: React.MouseEvent) => {
     e.stopPropagation()
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false
+      return
+    }
     setFocusedNodePath(nodePath)
 
     if (isGroupNode) {
@@ -503,9 +564,8 @@ export function TreeNodeItem({
           handleLabelClick(e)
         }}
         onPointerDown={(e) => {
-          // Enable drag for connection nodes on double-click delay
           if (isConnectionNode) {
-            handleDragStart(e)
+            handlePointerDown(e)
           }
         }}
         onContextMenu={(e) => {
