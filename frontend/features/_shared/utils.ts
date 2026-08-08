@@ -57,6 +57,7 @@ export function getConnPayload(conn: ConnectionProfile, schema?: string) {
     schema: schema ?? '',
     poolSize: conn.poolSize,
     idleTimeoutSecs: conn.idleTimeoutSecs,
+    statementTimeoutMs: conn.statementTimeoutMs,
   }
 }
 

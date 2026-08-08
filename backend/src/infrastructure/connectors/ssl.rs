@@ -142,6 +142,7 @@ mod tests {
             ssl_config,
             pool_size: None,
             idle_timeout_secs: None,
+            statement_timeout_ms: None,
         }
     }
 

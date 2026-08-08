@@ -633,6 +633,7 @@ mod tests {
             ssl_config: None,
             pool_size: None,
             idle_timeout_secs: None,
+            statement_timeout_ms: None,
         }
     }
 

@@ -97,6 +97,13 @@ pub async fn execute_sql(
             .await?;
         }
 
+        // Apply configured statement timeout (milliseconds)
+        if let Some(ms) = payload.statement_timeout_ms {
+            sqlx::query(&format!("SET statement_timeout = {}", ms))
+                .execute(&mut *pooled)
+                .await?;
+        }
+
         if read {
             let rows = (&mut *pooled).fetch_all(sqlx::query(sql)).await?;
             let columns: Vec<String> = if let Some(first) = rows.first() {

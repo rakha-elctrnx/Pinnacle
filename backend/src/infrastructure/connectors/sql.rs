@@ -230,6 +230,12 @@ pub async fn execute_sql(
             let conn_id = payload.connection_id.clone();
             let res = pool::with_retry(|| async {
                 let mut pooled = acquire_mysql_conn(payload, ssh_password, key_passphrase).await?;
+                // Apply configured statement timeout (milliseconds); MAX_EXECUTION_TIME is in ms
+                if let Some(ms) = payload.statement_timeout_ms {
+                    sqlx::query(&format!("SET max_execution_time = {}", ms))
+                        .execute(&mut *pooled)
+                        .await?;
+                }
                 // `&mut *pooled` derefs PoolConnection -> &mut MySqlConnection (Executor).
                 if read {
                     let rows = (&mut *pooled).fetch_all(sqlx::query(sql)).await?;

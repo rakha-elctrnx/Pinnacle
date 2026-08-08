@@ -150,6 +150,9 @@ pub struct ConnectionMetadata {
     /// Idle connection reaper timeout (seconds). `None` => 300s.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub idle_timeout_secs: Option<u64>,
+    /// Optional statement timeout (milliseconds). `None` => no explicit timeout.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub statement_timeout_ms: Option<u64>,
 }
 
 #[allow(dead_code)]
@@ -183,6 +186,7 @@ impl ConnectionMetadata {
             ssl_config: None,
             pool_size: None,
             idle_timeout_secs: None,
+            statement_timeout_ms: None,
         }
     }
 
@@ -327,6 +331,7 @@ mod tests {
         assert!(m.ssl_config.is_none());
         assert!(m.pool_size.is_none());
         assert!(m.idle_timeout_secs.is_none());
+        assert!(m.statement_timeout_ms.is_none());
         assert!(!m.created_at.is_empty());
         assert!(!m.updated_at.is_empty());
     }
