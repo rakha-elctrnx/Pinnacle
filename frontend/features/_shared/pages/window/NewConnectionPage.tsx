@@ -322,6 +322,11 @@ function ConnectionFormEmbedded({
   const [idleTimeoutSecs, setIdleTimeoutSecs] = useState(
     existingProfile?.idleTimeoutSecs?.toString() ?? '',
   )
+  const [statementTimeoutSecs, setStatementTimeoutSecs] = useState(
+    existingProfile?.statementTimeoutMs
+      ? (existingProfile.statementTimeoutMs / 1000).toString()
+      : '',
+  )
 
   // Close group dropdown on outside click
   useEffect(() => {
@@ -441,6 +446,7 @@ function ConnectionFormEmbedded({
     setAdvancedExpanded(false)
     setPoolSize('')
     setIdleTimeoutSecs('')
+    setStatementTimeoutSecs('')
   }
 
   const handleClose = () => {
@@ -499,6 +505,8 @@ function ConnectionFormEmbedded({
         ssl: effectiveSsl,
         sslConfig: sqlSslConfig,
         ssh: sshConfig,
+        statementTimeoutMs:
+          statementTimeoutSecs ? Number(statementTimeoutSecs) * 1000 : undefined,
       }
       if (isEsType) {
         await elasticTestConnection(payload)
@@ -587,6 +595,9 @@ function ConnectionFormEmbedded({
         ssh: sshConfig,
         poolSize: poolSize ? Number(poolSize) : undefined,
         idleTimeoutSecs: idleTimeoutSecs ? Number(idleTimeoutSecs) : undefined,
+        statementTimeoutMs: statementTimeoutSecs
+          ? Number(statementTimeoutSecs) * 1000
+          : undefined,
         passwordRef: `keyring://${savedId}`,
         tags: group ? [group] : ['Ungrouped'],
         folderId: null,
@@ -1259,6 +1270,20 @@ function ConnectionFormEmbedded({
                             value={idleTimeoutSecs}
                             onChange={(e) => setIdleTimeoutSecs(e.target.value)}
                             placeholder="300"
+                            className={inputClasses}
+                          />
+                        </Field>
+                        <Field
+                          label="Statement Timeout"
+                          hint="seconds · 0 = no limit"
+                          className="flex-1"
+                        >
+                          <input
+                            type="number"
+                            min={0}
+                            value={statementTimeoutSecs}
+                            onChange={(e) => setStatementTimeoutSecs(e.target.value)}
+                            placeholder="0 (no limit)"
                             className={inputClasses}
                           />
                         </Field>

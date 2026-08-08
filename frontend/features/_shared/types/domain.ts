@@ -59,6 +59,8 @@ export interface ConnectionProfile {
   // Pool config (optional; backend defaults: poolSize=10, idleTimeoutSecs=300)
   poolSize?: number
   idleTimeoutSecs?: number
+  // Statement timeout (ms; optional; backend executes SET statement_timeout / MAX_EXECUTION_TIME)
+  statementTimeoutMs?: number
   // Reference to password in keyring (format: keyring://{connectionId})
   passwordRef: string
   tags: string[]

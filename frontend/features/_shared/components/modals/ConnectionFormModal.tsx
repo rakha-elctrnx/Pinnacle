@@ -131,6 +131,11 @@ export function ConnectionFormModal({
   const [idleTimeoutSecs, setIdleTimeoutSecs] = useState(
     existingProfile?.idleTimeoutSecs?.toString() ?? '',
   )
+  const [statementTimeoutSecs, setStatementTimeoutSecs] = useState(
+    existingProfile?.statementTimeoutMs
+      ? (existingProfile.statementTimeoutMs / 1000).toString()
+      : '',
+  )
   const [fieldErrors, setFieldErrors] = useState<FieldError>({})
 
   // Close group dropdown on outside click
@@ -252,6 +257,7 @@ export function ConnectionFormModal({
     setAdvancedExpanded(false)
     setPoolSize('')
     setIdleTimeoutSecs('')
+    setStatementTimeoutSecs('')
   }
 
   const handleClose = () => {
@@ -305,6 +311,9 @@ export function ConnectionFormModal({
           ? parsedPort
           : defaultPortByType[newType],
         username: newUser.trim(),
+        statementTimeoutMs: statementTimeoutSecs
+          ? Number(statementTimeoutSecs) * 1000
+          : undefined,
         password: newPassword,
         database:
           newInitialDatabase.trim() || defaultInitialDatabaseByType[newType],
@@ -407,6 +416,9 @@ export function ConnectionFormModal({
         ssh: sshConfig,
         poolSize: poolSize ? Number(poolSize) : undefined,
         idleTimeoutSecs: idleTimeoutSecs ? Number(idleTimeoutSecs) : undefined,
+        statementTimeoutMs: statementTimeoutSecs
+          ? Number(statementTimeoutSecs) * 1000
+          : undefined,
         passwordRef: newPassword.length > 0 ? `keyring://${savedId}` : '',
         tags: group ? [group] : [],
         folderId: newFolderId,
@@ -1067,6 +1079,19 @@ export function ConnectionFormModal({
                           value={poolSize}
                           onChange={(e) => setPoolSize(e.target.value)}
                           placeholder="10"
+                          className={inputClasses}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="mb-1 block text-label text-on-surface/70">
+                          Statement Timeout (seconds)
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={statementTimeoutSecs}
+                          onChange={(e) => setStatementTimeoutSecs(e.target.value)}
+                          placeholder="0 (no limit)"
                           className={inputClasses}
                         />
                       </div>

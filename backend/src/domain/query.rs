@@ -60,6 +60,9 @@ pub struct ConnectionPayload {
     /// Idle connection reaper timeout (seconds). `None` => 300s.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub idle_timeout_secs: Option<u64>,
+    /// Optional statement timeout (milliseconds). `None` => no explicit timeout.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub statement_timeout_ms: Option<u64>,
 }
 
 /// SSL/TLS configuration for SQL connections (mirrors

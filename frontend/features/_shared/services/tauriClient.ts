@@ -20,6 +20,7 @@ export interface ConnectionPayload {
   ssh?: SshConfig
   poolSize?: number
   idleTimeoutSecs?: number
+  statementTimeoutMs?: number
 }
 
 /**
@@ -45,6 +46,7 @@ export async function saveConnection(request: {
   ssh?: SshConfig
   sshPassword?: string
   keyPassphrase?: string
+  statementTimeoutMs?: number
 }): Promise<ConnectionResponse> {
   return invoke<ConnectionResponse>('save_connection', {
     request: {
@@ -63,6 +65,7 @@ export async function saveConnection(request: {
         favorite: request.favorite || false,
         folderId: request.folderId ?? null,
         ssh: request.ssh,
+        statementTimeoutMs: request.statementTimeoutMs,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
