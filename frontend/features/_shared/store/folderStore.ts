@@ -41,8 +41,16 @@ export const useFolderStore = create<FolderState>()((set, get) => ({
   },
 
   create: (name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed) return ''
+    const existing = get().items.find(
+      (f) => f.name.toLowerCase() === trimmed.toLowerCase(),
+    )
+    if (existing) {
+      return existing.id
+    }
     const id = crypto.randomUUID()
-    const folder: Folder = { id, name }
+    const folder: Folder = { id, name: trimmed }
     const next = [...get().items, folder]
     persistFolders(next)
     set({ items: next })
@@ -50,7 +58,13 @@ export const useFolderStore = create<FolderState>()((set, get) => ({
   },
 
   rename: (id: string, name: string) => {
-    const next = get().items.map((f) => (f.id === id ? { ...f, name } : f))
+    const trimmed = name.trim()
+    if (!trimmed) return
+    const existing = get().items.find(
+      (f) => f.id !== id && f.name.toLowerCase() === trimmed.toLowerCase(),
+    )
+    if (existing) return
+    const next = get().items.map((f) => (f.id === id ? { ...f, name: trimmed } : f))
     persistFolders(next)
     set({ items: next })
   },

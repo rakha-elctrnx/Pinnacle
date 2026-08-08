@@ -780,7 +780,6 @@ function DataExplorerLayoutChrome({
                           } as ContextMenuItem,
                         ]
                       : []),
-                    { divider: true } as ContextMenuItem,
                   ]
                 : // ── Tables-category actions (right-click "Tables" node) ──
                   contextMenu.categoryName === 'Tables'
@@ -1251,15 +1250,6 @@ function DataExplorerLayoutChrome({
                               label: 'Move to',
                               icon: <Folder size={14} />,
                               children: [
-                                {
-                                  label: 'No folder (ungrouped)',
-                                  action: () => {
-                                    handleMoveConnectionToFolder(
-                                      contextMenu.itemId,
-                                      null,
-                                    )
-                                  },
-                                } as ContextMenuItem,
                                 ...(folders.map((f) => ({
                                   label: f.name,
                                   action: () => {
@@ -1269,7 +1259,13 @@ function DataExplorerLayoutChrome({
                                     )
                                   },
                                 })) as ContextMenuItem[]),
-                                { divider: true } as ContextMenuItem,
+                                ...(folders.length > 0
+                                  ? [
+                                      {
+                                        divider: true,
+                                      } as ContextMenuItem,
+                                    ]
+                                  : []),
                                 {
                                   label: 'New Folder',
                                   icon: <FolderPlus size={14} />,
@@ -1341,7 +1337,6 @@ function DataExplorerLayoutChrome({
                         navigate(route)
                       },
                     } as ContextMenuItem,
-                    { divider: true } as ContextMenuItem,
                   ]
                 : []),
               // ── Elastic index actions ──────────────────────────
@@ -1367,7 +1362,6 @@ function DataExplorerLayoutChrome({
                         navigate(route)
                       },
                     } as ContextMenuItem,
-                    { divider: true } as ContextMenuItem,
                   ]
                 : []),
             ]}

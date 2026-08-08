@@ -311,26 +311,11 @@ export function ConnectionSidebar() {
         const hasChildren = current.node.children !== undefined
 
         if (!isExpanded && hasChildren) {
-          handleToggleTreeNode(focusedNodePath)
-          // For connection nodes, trigger lazy fetch regardless of depth
-          // (whether the connection sits inside a group folder or root-level).
-          const isConnectionType =
-            current.node.nodeType === 'connection' || !!current.node.connectionId
-          if (isConnectionType) {
-            const connectionId = current.node.connectionId ?? null
-            if (connectionId) {
-              const profile = Object.values(groupedConnections ?? {})
-                .flat()
-                .find((p) => p.id === connectionId)
-              if (profile && isSqlConnectionType(profile.type)) {
-                const treeData = explorerData.treeDataMap[connectionId]
-                if (!treeData) {
-                  explorerData.refreshConnectionData(connectionId, profile)
-                } else if (treeData.databases?.[0]) {
-                  handleFetchDatabaseDetails(treeData.databases[0].name)
-                }
-              }
-            }
+          const connectionId = current.node.connectionId ?? null
+          if (connectionId) {
+            handleConnectionToggle(focusedNodePath, connectionId)
+          } else {
+            handleToggleTreeNode(focusedNodePath)
           }
         } else if (
           isExpanded &&
@@ -428,20 +413,54 @@ export function ConnectionSidebar() {
     navigate(route)
   }, [selectedConnection, navigate, openTab, queryExecution])
 
-  const handleTablesCategoryClick = useCallback(() => {
-    const connectionId = selectedConnection?.id
-    if (!connectionId || !selectedConnection) return
-    const route = `/sql/${connectionId}/tables`
-    openTab({
-      id: `${connectionId}:tables`,
-      label: 'Tables',
-      type: selectedConnection.type,
-      pageType: 'table',
-      route,
-      connectionId,
-    })
-    navigate(route)
-  }, [selectedConnection, navigate, openTab])
+  const handleTablesCategoryClick = useCallback(
+    async (
+      nodePath: string,
+      databaseName?: string,
+      schemaName?: string,
+      connectionId?: string,
+    ) => {
+      const pathParts = nodePath.split('/')
+      const profiles = Object.values(groupedConnections ?? {}).flat()
+      const profile =
+        profiles.find((item) => item.id === connectionId) ??
+        profiles.find((item) => pathParts.includes(item.name)) ??
+        selectedConnection
+      const targetDatabase = databaseName || profile?.database
+      if (!profile || !targetDatabase) return
+
+      const targetSchema =
+        profile.type === 'postgresql' ? schemaName || 'public' : undefined
+      handleConnectionSelectionChange(profile.id)
+      queryExecution.onQueryDatabaseChange(targetDatabase)
+      queryExecution.onQuerySchemaChange(targetSchema || '')
+      await explorerData.fetchSqlTableList(
+        profile,
+        targetDatabase,
+        targetSchema,
+      )
+
+      const route = `/sql/${profile.id}/tables`
+      openTab({
+        id: `${profile.id}:tables`,
+        label: 'Tables',
+        type: profile.type,
+        pageType: 'table',
+        route,
+        connectionId: profile.id,
+      })
+      navigate(route)
+    },
+    [
+      selectedConnection,
+      groupedConnections,
+      handleConnectionSelectionChange,
+      queryExecution,
+      explorerData,
+      navigate,
+      openTab,
+    ],
+  )
 
   const handleContextMenu = (
     event: React.MouseEvent,
@@ -593,7 +612,7 @@ export function ConnectionSidebar() {
             explorerData.refreshConnectionData(connectionId, profile)
           } else if (treeData.databases?.[0]) {
             // Database list exists — fetch details for the first database
-            handleFetchDatabaseDetails(treeData.databases[0].name)
+            handleFetchDatabaseDetails(treeData.databases[0].name, connectionId)
           }
         } else if (profile && isElasticsearchType(profile.type)) {
           setExpandedConnectionId(connectionId)
@@ -706,7 +725,7 @@ export function ConnectionSidebar() {
         >
           {unifiedTree.map((node) => (
             <TreeNodeItem
-              key={node.label}
+              key={node.nodeType === 'group' ? `group:${node.label}` : node.connectionId ? `conn:${node.connectionId}` : node.label}
               node={node}
               depth={0}
               parentPath=""

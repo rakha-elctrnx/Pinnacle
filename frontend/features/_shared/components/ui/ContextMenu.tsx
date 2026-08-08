@@ -70,7 +70,6 @@ export function GenericContextMenu({
   )
   const [submenuIndex, setSubmenuIndex] = useState<number | null>(null)
   const [submenuChildIndex, setSubmenuChildIndex] = useState(0)
-  const [submenuPos, setSubmenuPos] = useState({ top: 0, left: 0 })
   const onCloseRef = useRef(onClose)
   const savedFocusRef = useRef<HTMLElement | null>(null)
 
@@ -80,7 +79,7 @@ export function GenericContextMenu({
   useLayoutEffect(() => {
     onCloseRef.current = onClose
   }, [onClose])
-  // ── Viewport boundary detection ──────────────────────────────────────
+  // ── Viewport placement and pointer-origin entrance ──────────────────
   useLayoutEffect(() => {
     const el = menuRef.current
     if (!el) return
@@ -94,16 +93,29 @@ export function GenericContextMenu({
     let left = x
 
     if (top + rect.height > vh) {
-      top = y - rect.height
-      if (top < GAP) top = GAP
+      top = Math.max(GAP, y - rect.height)
     }
     if (left + rect.width > vw) {
-      left = x - rect.width
-      if (left < GAP) left = GAP
+      left = Math.max(GAP, x - rect.width)
     }
+
     setPos({ top, left })
     setActiveIndex(firstActiveIndex(items))
     setSubmenuChildIndex(0)
+
+    const originX = Math.min(Math.max(x - left, 0), rect.width)
+    const originY = Math.min(Math.max(y - top, 0), rect.height)
+    el.style.transformOrigin = `${originX}px ${originY}px`
+
+    if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      el.animate?.(
+        [
+          { opacity: 0, transform: 'scale(0.78)', filter: 'blur(4px)' },
+          { opacity: 1, transform: 'scale(1)', filter: 'blur(0)' },
+        ],
+        { duration: 190, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+      )
+    }
   }, [x, y, items])
 
   // ── Close on click outside ──────────────────────────────────────────
@@ -144,14 +156,10 @@ export function GenericContextMenu({
       savedFocusRef.current?.focus?.()
     }
   }, [])
-  // Open the submenu for a top-level item and position it next to the
-  // item's button (mouse hover already positions it; keyboard needs this).
+  // Open the submenu for a top-level item. Positioning is purely CSS — the
+  // submenu is absolutely anchored to this item's `.relative` wrapper — so
+  // keyboard opening needs no scroll/viewport measurement.
   const openSubmenu = useCallback((index: number) => {
-    const itemEl = menuItemRefs.current[index]
-    if (itemEl) {
-      const rect = itemEl.getBoundingClientRect()
-      setSubmenuPos({ top: rect.top - 1, left: rect.right - 2 })
-    }
     setSubmenuIndex(index)
   }, [])
 
@@ -275,7 +283,15 @@ export function GenericContextMenu({
       aria-label={ariaLabel ?? 'Context menu'}
       style={{ top: pos.top, left: pos.left }}
       onKeyDown={handleKeyDown}
-      className="fixed z-50 min-w-36 rounded-lg border border-border-default bg-bg-base py-1 shadow-xl outline-none backdrop-blur-sm overflow-visible"
+      onMouseLeave={(e) => {
+        if (submenuIndex !== null) {
+          const subEl = document.querySelector(`[data-submenu="${submenuIndex}"]`)
+          if (subEl && subEl.contains(e.relatedTarget as Node)) return
+        }
+        setActiveIndex(-1)
+        setSubmenuIndex(null)
+      }}
+      className="fixed z-50 min-w-36 overflow-visible rounded-lg border border-border-default bg-bg-base py-1 shadow-xl outline-none backdrop-blur-sm"
     >
       {items.map((item, index) => {
         if (item.divider) {
@@ -304,16 +320,10 @@ export function GenericContextMenu({
                 item.action?.()
                 onClose()
               }}
-              onMouseEnter={(e) => {
+              onMouseEnter={() => {
                 setActiveIndex(index)
                 if (hasSubmenu) {
-                  const itemRect = e.currentTarget.getBoundingClientRect()
-                  // Submenu opens immediately to the right of button with small overlap
-                  setSubmenuPos({
-                    top: itemRect.top - 1,
-                    left: itemRect.right - 2,
-                  })
-                  setSubmenuIndex(index)
+                  openSubmenu(index)
                 } else {
                   setSubmenuIndex(null)
                 }
@@ -379,52 +389,63 @@ export function GenericContextMenu({
                 data-submenu={index}
                 role="menu"
                 aria-label={item.label}
-                className="fixed z-50 min-w-36 rounded-lg border border-border-default bg-bg-base py-1 shadow-xl outline-none"
-                style={{ top: submenuPos.top, left: submenuPos.left }}
+                className="absolute left-[calc(100%-2px)] top-0 z-50 min-w-36 origin-top-left rounded-lg border border-border-default bg-bg-base py-1 shadow-xl outline-none animate-in fade-in zoom-in-95 duration-150 motion-reduce:animate-none"
                 onMouseEnter={() => setSubmenuIndex(index)}
                 onMouseLeave={() => setSubmenuIndex(null)}
               >
-                {item.children!.map((child, childIndex) => (
-                  <button
-                    key={child.label}
-                    type="button"
-                    ref={(el) => {
-                      submenuItemRefs.current[childIndex] = el
-                    }}
-                    role="menuitem"
-                    tabIndex={-1}
-                    aria-disabled={child.disabled || undefined}
-                    onClick={() => {
-                      if (child.disabled) return
-                      child.action?.()
-                      onClose()
-                    }}
-                    disabled={child.disabled}
-                    className={[
-                      'flex w-full items-center gap-2 px-3 py-1.5 text-xs transition-colors',
-                      child.dangerous
-                        ? 'text-text-primary hover:bg-danger-subtle hover:text-danger'
-                        : 'text-text-primary hover:bg-primary-subtle',
-                      child.disabled
-                        ? 'opacity-50 cursor-not-allowed pointer-events-none hover:bg-transparent hover:text-text-primary'
-                        : '',
-                    ].join(' ')}
-                  >
-                    {child.icon && (
-                      <span
-                        className={[
-                          'shrink-0 [&_svg]:w-3 [&_svg]:h-3',
-                          child.dangerous ? '' : 'text-text-muted',
-                        ]
-                          .filter(Boolean)
-                          .join(' ')}
-                      >
-                        {child.icon}
-                      </span>
-                    )}
-                    <span className="flex-1 text-left">{child.label}</span>
-                  </button>
-                ))}
+                {item.children!.map((child, childIndex) => {
+                  if (child.divider) {
+                    return (
+                      <div
+                        key={`divider-${childIndex}`}
+                        role="separator"
+                        className="my-1 border-t border-border-default"
+                      />
+                    )
+                  }
+
+                  return (
+                    <button
+                      key={child.label}
+                      type="button"
+                      ref={(el) => {
+                        submenuItemRefs.current[childIndex] = el
+                      }}
+                      role="menuitem"
+                      tabIndex={-1}
+                      aria-disabled={child.disabled || undefined}
+                      onClick={() => {
+                        if (child.disabled) return
+                        child.action?.()
+                        onClose()
+                      }}
+                      disabled={child.disabled}
+                      className={[
+                        'flex w-full items-center gap-2 px-3 py-1.5 text-xs transition-colors',
+                        child.dangerous
+                          ? 'text-text-primary hover:bg-danger-subtle hover:text-danger'
+                          : 'text-text-primary hover:bg-primary-subtle',
+                        child.disabled
+                          ? 'opacity-50 cursor-not-allowed pointer-events-none hover:bg-transparent hover:text-text-primary'
+                          : '',
+                      ].join(' ')}
+                    >
+                      {child.icon && (
+                        <span
+                          className={[
+                            'shrink-0 [&_svg]:w-3 [&_svg]:h-3',
+                            child.dangerous ? '' : 'text-text-muted',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
+                        >
+                          {child.icon}
+                        </span>
+                      )}
+                      <span className="flex-1 text-left">{child.label}</span>
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>

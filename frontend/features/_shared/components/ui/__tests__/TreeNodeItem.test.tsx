@@ -32,8 +32,7 @@ const SELECT_DEBOUNCE_MS = 200
 const CHILD: TreeNode = { label: 'child', nodeType: 'item', children: [] }
 
 function row(): HTMLElement {
-  const treeItem = screen.getByRole('treeitem')
-  return treeItem.firstElementChild as HTMLElement
+  return screen.getByRole('treeitem')
 }
 
 function chevron(): HTMLButtonElement {
@@ -164,14 +163,11 @@ describe('TreeNodeItem — connection node', () => {
     children: [CHILD],
   }
 
-  it('single click makes the connection active (select + connect) without expanding', () => {
+  it('single click selects without activating or expanding the connection', () => {
     const h = mount(connectionNode)
     clickRowOnce()
     expect(h.onSelectedTreeNode).toHaveBeenCalledWith('Test Postgres DB')
-    expect(h.onConnectionSelect).toHaveBeenCalledWith(
-      'Test Postgres DB',
-      'conn-1',
-    )
+    expect(h.onConnectionSelect).not.toHaveBeenCalled()
     expect(h.onConnectionToggle).not.toHaveBeenCalled()
   })
 
@@ -204,14 +200,11 @@ describe('TreeNodeItem — connection node', () => {
     expect(h.onSelectedTreeNode).not.toHaveBeenCalled()
   })
 
-  it('Space makes the connection active (onConnectionSelect)', () => {
+  it('Space selects without activating the connection', () => {
     const h = mount(connectionNode)
     act(() => fireEvent.keyDown(row(), { key: ' ' }))
-    expect(h.onConnectionSelect).toHaveBeenCalledWith(
-      'Test Postgres DB',
-      'conn-1',
-    )
     expect(h.onSelectedTreeNode).toHaveBeenCalledWith('Test Postgres DB')
+    expect(h.onConnectionSelect).not.toHaveBeenCalled()
     expect(h.onConnectionToggle).not.toHaveBeenCalled()
   })
 })
@@ -281,21 +274,27 @@ describe('TreeNodeItem — Tables category node', () => {
     children: [CHILD],
   }
 
-  it('single click shows the list view (onTablesCategoryClick + tab)', () => {
+  it('single click selects without opening or expanding', () => {
     const h = mount(categoryNode, { parentPath: 'conn/appdb' })
     clickRowOnce()
     expect(h.onSelectedTreeNode).toHaveBeenCalledWith('conn/appdb/Tables')
-    expect(h.onTreeNodeClick).toHaveBeenCalled()
-    expect(h.onTablesCategoryClick).toHaveBeenCalled()
+    expect(h.onTreeNodeClick).not.toHaveBeenCalled()
+    expect(h.onTablesCategoryClick).not.toHaveBeenCalled()
     expect(h.onToggleTreeNode).not.toHaveBeenCalled()
   })
 
-  it('double click toggles expand (onToggleTreeNode) without showing the list', () => {
+  it('double click opens the Tables tab without expanding children', () => {
     const h = mount(categoryNode, { parentPath: 'conn/appdb' })
     act(() => fireEvent.doubleClick(row()))
-    expect(h.onToggleTreeNode).toHaveBeenCalledWith('conn/appdb/Tables')
+    expect(h.onSelectedTreeNode).toHaveBeenCalledWith('conn/appdb/Tables')
+    expect(h.onTablesCategoryClick).toHaveBeenCalledWith(
+      'conn/appdb/Tables',
+      'appdb',
+      undefined,
+      undefined,
+    )
     expect(h.onTreeNodeClick).not.toHaveBeenCalled()
-    expect(h.onTablesCategoryClick).not.toHaveBeenCalled()
+    expect(h.onToggleTreeNode).not.toHaveBeenCalled()
   })
 
   it('chevron click toggles expand (onToggleTreeNode)', () => {
@@ -305,19 +304,24 @@ describe('TreeNodeItem — Tables category node', () => {
     expect(h.onTreeNodeClick).not.toHaveBeenCalled()
   })
 
-  it('Enter toggles expand (onToggleTreeNode)', () => {
+  it('Enter opens the Tables tab without expanding children', () => {
     const h = mount(categoryNode, { parentPath: 'conn/appdb' })
     act(() => fireEvent.keyDown(row(), { key: 'Enter' }))
-    expect(h.onToggleTreeNode).toHaveBeenCalledWith('conn/appdb/Tables')
-    expect(h.onTreeNodeClick).not.toHaveBeenCalled()
+    expect(h.onTablesCategoryClick).toHaveBeenCalledWith(
+      'conn/appdb/Tables',
+      'appdb',
+      undefined,
+      undefined,
+    )
+    expect(h.onToggleTreeNode).not.toHaveBeenCalled()
   })
 
-  it('Space shows the list view (onSelectedTreeNode + onTreeNodeClick)', () => {
+  it('Space selects without opening or expanding', () => {
     const h = mount(categoryNode, { parentPath: 'conn/appdb' })
     act(() => fireEvent.keyDown(row(), { key: ' ' }))
     expect(h.onSelectedTreeNode).toHaveBeenCalledWith('conn/appdb/Tables')
-    expect(h.onTreeNodeClick).toHaveBeenCalled()
-    expect(h.onTablesCategoryClick).toHaveBeenCalled()
+    expect(h.onTreeNodeClick).not.toHaveBeenCalled()
+    expect(h.onTablesCategoryClick).not.toHaveBeenCalled()
     expect(h.onToggleTreeNode).not.toHaveBeenCalled()
   })
 })

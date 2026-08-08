@@ -142,9 +142,14 @@ export function TreeNodeItem({
   ) => void
   onSelectedTreeNode: (label: string | null) => void
   onToggleTreeNode: (path: string) => void
-  onFetchDatabaseDetails?: (dbName: string) => void
+  onFetchDatabaseDetails?: (dbName: string, connectionId?: string) => void
   onQueryNavigate?: () => void
-  onTablesCategoryClick?: () => void
+  onTablesCategoryClick?: (
+    nodePath: string,
+    databaseName?: string,
+    schemaName?: string,
+    connectionId?: string,
+  ) => void
   onConnectionSelect?: (nodePath: string, connectionId: string) => void
   onGroupToggle?: (groupPath: string) => void
   onConnectionToggle?: (connectionPath: string, connectionId: string) => void
@@ -207,10 +212,17 @@ export function TreeNodeItem({
   // ancestor's label (Tables/Views/Indices) via the explicit parentPath
   // contract, never positional string splitting of the full path.
   const parentCategory = parentPath.slice(parentPath.lastIndexOf('/') + 1)
-  const isSchemaNode = node.nodeType === 'schema'
+  const isSchemaNode =
+    node.nodeType === 'schema' ||
+    (!isGroupNode &&
+      !isConnectionNode &&
+      !isDatabaseNode &&
+      !isCategoryNode(node.label) &&
+      parentPath.split('/').length >= 2 &&
+      !['Tables', 'Views', 'Indices', 'Functions'].includes(parentCategory))
   const isLeaf =
     !hasChildren ||
-    (node.children && node.children.length === 0 && isCategoryNode(node.label))
+    (node.children && node.children.length === 0)
   const isLeafItem = isLeaf && !isCategoryNode(node.label)
   const isTableItem = isLeafItem && parentCategory === 'Tables'
   const isViewItem = isLeafItem && parentCategory === 'Views'
@@ -349,6 +361,9 @@ export function TreeNodeItem({
 
         if (isDragActive) {
           suppressClickRef.current = true
+          setTimeout(() => {
+            suppressClickRef.current = false
+          }, 100)
           const target = document.elementFromPoint(ev.clientX, ev.clientY)
           const groupEl = target?.closest('[data-is-group="true"]')
 
@@ -478,11 +493,11 @@ export function TreeNodeItem({
     } else if (isConnectionNode && node.connectionId) {
       onConnectionToggle?.(nodePath, node.connectionId)
     } else if (isDatabaseNode && !isCategoryNode(node.label)) {
-      if (!isExpanded) {
-        onToggleTreeNode(nodePath)
-        onFetchDatabaseDetails?.(node.databaseName ?? node.label)
+      onToggleTreeNode(nodePath)
+      if (node.connectionId) {
+        onFetchDatabaseDetails?.(node.databaseName ?? node.label, node.connectionId)
       } else {
-        onToggleTreeNode(nodePath)
+        onFetchDatabaseDetails?.(node.databaseName ?? node.label)
       }
     } else {
       onToggleTreeNode(nodePath)
@@ -495,30 +510,27 @@ export function TreeNodeItem({
     handleToggleExpand()
   }
 
-  // Select action (single click / Space): selects a node — or, for category
-  // and connection nodes, shows their list/active page. Never opens a leaf
-  // detail tab and never toggles expansion.
+  // Select action (single click / Space): updates tree selection only for
+  // connection/container/leaf nodes. Category nodes retain their list-page
+  // navigation. Expansion and connection activation belong to the primary
+  // double-click/Enter action.
   const handleSelectAction = () => {
     setFocusedNodePath(nodePath)
 
     if (isGroupNode) {
       // Folder: select/focus only
       onSelectedTreeNode(nodePath)
-    } else if (isConnectionNode && node.connectionId) {
-      // Connection: make it the active connection
-      onConnectionSelect?.(nodePath, node.connectionId)
+    } else if (isConnectionNode) {
+      // Connection: select/focus only; double-click or Enter opens it.
       onSelectedTreeNode(nodePath)
     } else if (node.label === 'Queries') {
       // Queries category: select + open query list
       onSelectedTreeNode(nodePath)
       onQueryNavigate?.()
     } else if (isCategoryNode(node.label)) {
-      // Category: select + show its list page
+      // Categories select only. Their primary action handles navigation;
+      // expansion is reserved for the chevron.
       onSelectedTreeNode(nodePath)
-      onTreeNodeClick(node.label, node.databaseName, nodePath, node.schemaName)
-      if (node.label === 'Tables') {
-        onTablesCategoryClick?.()
-      }
     } else {
       // Database, schema, leaf table/view/index: select only
       onSelectedTreeNode(nodePath)
@@ -566,14 +578,35 @@ export function TreeNodeItem({
     }
   }
 
-  // Primary action (double click / Enter): toggle expansion, or for a leaf
-  // table/view/index open its detail tab exactly once.
-  // The leaf detail navigation carries full explicit node identity (label,
-  // database, path, schema) so the resolver never has to guess from path shape.
+  // Primary action (double click / Enter): open leaf details and category
+  // pages, or toggle non-category containers. Category expansion is reserved
+  // for the chevron so opening a list never changes tree disclosure state.
   const handlePrimaryAction = () => {
-    const isLeafNode = !hasChildren || node.children?.length === 0
-    if (isLeafNode && !isCategoryNode(node.label)) {
-      // Leaf table/view/index: open detail tab once (single owner = onTreeNodeClick)
+    const isLeafItemType =
+      node.nodeType === 'item' ||
+      (!isCategoryNode(node.label) &&
+        !isConnectionNode &&
+        !isGroupNode &&
+        !isDatabaseNode &&
+        !isSchemaNode)
+
+    if (node.label === 'Tables') {
+      onSelectedTreeNode(nodePath)
+      onTablesCategoryClick?.(
+        nodePath,
+        node.databaseName,
+        node.schemaName,
+        node.connectionId ?? parentConnectionId,
+      )
+    } else if (isCategoryNode(node.label)) {
+      onSelectedTreeNode(nodePath)
+      onTreeNodeClick(
+        node.label,
+        node.databaseName,
+        nodePath,
+        node.schemaName,
+      )
+    } else if (isLeafItemType) {
       onTreeNodeClick(
         node.label,
         node.databaseName,
@@ -593,71 +626,73 @@ export function TreeNodeItem({
       id={`treeitem-${nodePath.replace(/\//g, '-')}`}
       role="treeitem"
       aria-level={depth + 1}
-      aria-expanded={hasChildren ? isExpanded : undefined}
+      aria-expanded={hasChildren && !isLeaf ? isExpanded : undefined}
       aria-selected={selectedTreeNode === nodePath}
+      tabIndex={focusedNodePath === nodePath ? 0 : -1}
+      data-node-path={nodePath}
+      data-is-group={isGroupNode ? 'true' : undefined}
+      data-folder-name={isGroupNode ? node.label : undefined}
+      data-drag-over={isDragOver && isGroupNode ? 'true' : undefined}
+      onClick={handleRowClick}
+      onDoubleClick={handleRowDoubleClick}
+      onKeyDown={handleRowKeyDown}
+      onPointerDown={(e) => {
+        if (isConnectionNode) {
+          handlePointerDown(e)
+        }
+      }}
+      onContextMenu={(e) => {
+        if (isGroupNode && folders) {
+          e.preventDefault()
+          e.stopPropagation()
+          setFolderMenuPos({ x: e.clientX, y: e.clientY })
+          setShowFolderMenu(true)
+        } else if (isViewItem && onViewNodeContextMenu) {
+          e.preventDefault()
+          e.stopPropagation()
+          onViewNodeContextMenu(e, contextMenuMeta)
+        } else if (isTableItem && onTableNodeContextMenu) {
+          e.preventDefault()
+          e.stopPropagation()
+          onTableNodeContextMenu(e, contextMenuMeta)
+        } else if (
+          isConnectionNode &&
+          contextMenuMeta.connectionId &&
+          onConnectionContextMenu
+        ) {
+          e.preventDefault()
+          e.stopPropagation()
+          onConnectionContextMenu(e, contextMenuMeta)
+        } else if (
+          isDatabaseNode &&
+          !isCategoryNode(node.label) &&
+          onDatabaseNodeContextMenu
+        ) {
+          e.preventDefault()
+          e.stopPropagation()
+          onDatabaseNodeContextMenu(e, contextMenuMeta)
+        } else if (isSchemaNode && onSchemaNodeContextMenu) {
+          e.preventDefault()
+          e.stopPropagation()
+          onSchemaNodeContextMenu(e, contextMenuMeta)
+        } else if (
+          isCategoryNode(node.label) &&
+          node.label === 'Tables' &&
+          onTablesCategoryContextMenu
+        ) {
+          e.preventDefault()
+          e.stopPropagation()
+          onTablesCategoryContextMenu(e, contextMenuMeta)
+        } else if (isIndexItem && onIndexNodeContextMenu) {
+          e.preventDefault()
+          e.stopPropagation()
+          onIndexNodeContextMenu(e, contextMenuMeta)
+        }
+      }}
+      className="flex flex-col w-full focus-visible:outline-none"
     >
+      {/* Row Header / Label bar */}
       <div
-        data-node-path={nodePath}
-        tabIndex={focusedNodePath === nodePath ? 0 : -1}
-        data-is-group={isGroupNode ? 'true' : undefined}
-        data-folder-name={isGroupNode ? node.label : undefined}
-        data-drag-over={isDragOver && isGroupNode ? 'true' : undefined}
-        onClick={handleRowClick}
-        onDoubleClick={handleRowDoubleClick}
-        onKeyDown={handleRowKeyDown}
-        onPointerDown={(e) => {
-          if (isConnectionNode) {
-            handlePointerDown(e)
-          }
-        }}
-        onContextMenu={(e) => {
-          if (isGroupNode && folders) {
-            e.preventDefault()
-            e.stopPropagation()
-            setFolderMenuPos({ x: e.clientX, y: e.clientY })
-            setShowFolderMenu(true)
-          } else if (isViewItem && onViewNodeContextMenu) {
-            e.preventDefault()
-            e.stopPropagation()
-            onViewNodeContextMenu(e, contextMenuMeta)
-          } else if (isTableItem && onTableNodeContextMenu) {
-            e.preventDefault()
-            e.stopPropagation()
-            onTableNodeContextMenu(e, contextMenuMeta)
-          } else if (
-            isConnectionNode &&
-            contextMenuMeta.connectionId &&
-            onConnectionContextMenu
-          ) {
-            e.preventDefault()
-            e.stopPropagation()
-            onConnectionContextMenu(e, contextMenuMeta)
-          } else if (
-            isDatabaseNode &&
-            !isCategoryNode(node.label) &&
-            onDatabaseNodeContextMenu
-          ) {
-            e.preventDefault()
-            e.stopPropagation()
-            onDatabaseNodeContextMenu(e, contextMenuMeta)
-          } else if (isSchemaNode && onSchemaNodeContextMenu) {
-            e.preventDefault()
-            e.stopPropagation()
-            onSchemaNodeContextMenu(e, contextMenuMeta)
-          } else if (
-            isCategoryNode(node.label) &&
-            node.label === 'Tables' &&
-            onTablesCategoryContextMenu
-          ) {
-            e.preventDefault()
-            e.stopPropagation()
-            onTablesCategoryContextMenu(e, contextMenuMeta)
-          } else if (isIndexItem && onIndexNodeContextMenu) {
-            e.preventDefault()
-            e.stopPropagation()
-            onIndexNodeContextMenu(e, contextMenuMeta)
-          }
-        }}
         className={[
           'group flex w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-xs overflow-hidden cursor-pointer transition-all duration-150 focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none',
           isGroupNode
@@ -672,91 +707,91 @@ export function TreeNodeItem({
         ].join(' ')}
         style={{ paddingLeft: `${depth * 10 + 6}px` }}
       >
-        {/* Chevron button: separate click target for expand/collapse */}
-        {((hasChildren && !isLeaf) || isDatabaseNode) &&
-        node.label !== 'Cluster' &&
-        node.label !== 'Query Console' ? (
-          <button
-            type="button"
-            onClick={handleChevronClick}
-            className="flex shrink-0 items-center justify-center min-w-[18px] min-h-[18px] rounded-sm cursor-pointer"
-          >
-            <ChevronRight
-              size={isGroupNode ? 9 : 11}
-              className={[
-                'text-text-muted transition-transform duration-150 group-hover:text-text-secondary',
-                isExpanded ? 'rotate-90 text-primary' : '',
-              ].join(' ')}
-            />
-          </button>
-        ) : (
-          <span className="shrink-0 min-w-[18px] min-h-[18px]" />
-        )}
-        {/* Primary icon */}
-        {isGroupNode ? (
-          <Folder size={11} className="shrink-0 text-text-muted" />
-        ) : categoryIcon ? (
-          categoryIcon
-        ) : isConnectionNode ? (
-          getConnectionIcon()
-        ) : isDatabaseNode ? (
-          <Database size={11} className="shrink-0 text-success" />
-        ) : isTableItem ? (
-          <Table size={11} className="shrink-0 text-primary" />
-        ) : parentCategory === 'Views' ? (
-          <Layers size={11} className="shrink-0 text-sky-500" />
-        ) : parentCategory === 'Functions' ? (
-          <Zap size={11} className="shrink-0 text-amber-500" />
-        ) : parentCategory === 'Keys' ? (
-          <Hash size={11} className="shrink-0 text-purple-500" />
-        ) : parentCategory === 'Indexes' ? (
-          <Zap size={11} className="shrink-0 text-orange-500" />
-        ) : parentCategory === 'Exchanges' ? (
-          <Layers size={11} className="shrink-0 text-green-500" />
-        ) : parentCategory === 'Queues' ? (
-          <List size={11} className="shrink-0 text-sky-500" />
-        ) : parentCategory === 'Channels' ? (
-          <MessageSquare size={11} className="shrink-0 text-pink-500" />
-        ) : parentCategory === 'Indices' ? (
-          <Database size={11} className="shrink-0 text-sky-500" />
-        ) : (
-          <FileText size={11} className="shrink-0 text-text-muted" />
-        )}
-        {isGroupNode && isRenaming ? (
-          <input
-            ref={renameInputRef}
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleRenameSubmit()
-              if (e.key === 'Escape') setIsRenaming(false)
-            }}
-            onBlur={handleRenameSubmit}
-            className="min-w-0 flex-1 rounded border border-border-default bg-bg-base px-1 py-0 text-xs outline-none"
-            onClick={(e) => e.stopPropagation()}
+      {/* Chevron button: separate click target for expand/collapse */}
+      {((hasChildren && !isLeaf) || isDatabaseNode) &&
+      node.label !== 'Cluster' &&
+      node.label !== 'Query Console' ? (
+        <button
+          type="button"
+          onClick={handleChevronClick}
+          className="flex shrink-0 items-center justify-center min-w-[18px] min-h-[18px] rounded-sm cursor-pointer"
+        >
+          <ChevronRight
+            size={isGroupNode ? 9 : 11}
+            className={[
+              'text-text-muted transition-transform duration-150 group-hover:text-text-secondary',
+              isExpanded ? 'rotate-90 text-primary' : '',
+            ].join(' ')}
           />
-        ) : (
-          <span className="truncate min-w-0">{node.label}</span>
-        )}
+        </button>
+      ) : (
+        <span className="shrink-0 min-w-[18px] min-h-[18px]" />
+      )}
+      {/* Primary icon */}
+      {isGroupNode ? (
+        <Folder size={11} className="shrink-0 text-text-muted" />
+      ) : categoryIcon ? (
+        categoryIcon
+      ) : isConnectionNode ? (
+        getConnectionIcon()
+      ) : isDatabaseNode ? (
+        <Database size={11} className="shrink-0 text-success" />
+      ) : isTableItem ? (
+        <Table size={11} className="shrink-0 text-primary" />
+      ) : parentCategory === 'Views' ? (
+        <Layers size={11} className="shrink-0 text-sky-500" />
+      ) : parentCategory === 'Functions' ? (
+        <Zap size={11} className="shrink-0 text-amber-500" />
+      ) : parentCategory === 'Keys' ? (
+        <Hash size={11} className="shrink-0 text-purple-500" />
+      ) : parentCategory === 'Indexes' ? (
+        <Zap size={11} className="shrink-0 text-orange-500" />
+      ) : parentCategory === 'Exchanges' ? (
+        <Layers size={11} className="shrink-0 text-green-500" />
+      ) : parentCategory === 'Queues' ? (
+        <List size={11} className="shrink-0 text-sky-500" />
+      ) : parentCategory === 'Channels' ? (
+        <MessageSquare size={11} className="shrink-0 text-pink-500" />
+      ) : parentCategory === 'Indices' ? (
+        <Database size={11} className="shrink-0 text-sky-500" />
+      ) : (
+        <FileText size={11} className="shrink-0 text-text-muted" />
+      )}
+      {isGroupNode && isRenaming ? (
+        <input
+          ref={renameInputRef}
+          value={renameValue}
+          onChange={(e) => setRenameValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleRenameSubmit()
+            if (e.key === 'Escape') setIsRenaming(false)
+          }}
+          onBlur={handleRenameSubmit}
+          className="min-w-0 flex-1 rounded border border-border-default bg-bg-base px-1 py-0 text-xs outline-none"
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <span className="truncate min-w-0">{node.label}</span>
+      )}
 
-        {/* Group count badge */}
-        {isGroupNode && (
-          <span className="shrink-0 tabular-nums text-micro text-text-muted/60">
-            {getGroupCount()}
-          </span>
-        )}
+      {/* Group count badge */}
+      {isGroupNode && (
+        <span className="shrink-0 tabular-nums text-micro text-text-muted/60">
+          {getGroupCount()}
+        </span>
+      )}
 
-        {/* Loading indicator on the right */}
-        {isConnectionNode && isConnectionLoading() && (
-          <span className="shrink-0 ml-auto">
-            <CenteredLoadingState
-              loading={true}
-              label=""
-              iconSize={3}
-              showElapsed={false}
-            />
-          </span>
-        )}
+      {/* Loading indicator on the right */}
+      {isConnectionNode && isConnectionLoading() && (
+        <span className="shrink-0 ml-auto">
+          <CenteredLoadingState
+            loading={true}
+            label=""
+            iconSize={3}
+            showElapsed={false}
+          />
+        </span>
+      )}
       </div>
 
       {/* Folder context menu */}
@@ -842,23 +877,20 @@ export function TreeNodeItem({
         </div>
       )}
 
-      <div className="relative">
-        {/* Vertical guide line from chevron to last child */}
-        {isExpanded &&
-          !isQueriesFolder &&
-          !isLeaf &&
-          node.children &&
-          node.children.length > 0 && (
+      {/* Child tree items & nested group */}
+      {isExpanded && node.children && node.children.length > 0 && (
+        <div role="group" className="relative">
+          {/* Vertical guide line from chevron to last child */}
+          {!isQueriesFolder && !isLeaf && (
             <span
               aria-hidden
               className="absolute top-0 bottom-0 w-px bg-border-default/40"
               style={{ left: `${depth * 10 + 15}px` }}
             />
           )}
-        {isExpanded &&
-          node.children?.map((child) => (
+          {node.children.map((child, idx) => (
             <TreeNodeItem
-              key={child.label}
+              key={`${child.nodeType ?? 'item'}:${child.connectionId ?? ''}:${child.label}:${idx}`}
               node={child}
               depth={depth + 1}
               parentPath={nodePath}
@@ -894,7 +926,8 @@ export function TreeNodeItem({
               onMoveConnectionToFolder={onMoveConnectionToFolder}
             />
           ))}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

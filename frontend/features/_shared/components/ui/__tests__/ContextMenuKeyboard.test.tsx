@@ -261,4 +261,104 @@ describe('GenericContextMenu keyboard navigation', () => {
       ).length,
     ).toBe(0)
   })
+
+  it('renders submenu dividers as separators instead of empty menu items', async () => {
+    const { getByRole } = renderMenu([
+      {
+        label: 'Move to',
+        children: [
+          { label: 'Production', action: vi.fn() },
+          { divider: true },
+          { label: 'New Folder', action: vi.fn() },
+        ],
+      },
+    ])
+
+    const parentMenu = getByRole('menu')
+    fireEvent.mouseEnter(parentMenu.querySelector('[role="menuitem"]')!)
+
+    const submenu = await waitFor(() => getByRole('menu', { name: 'Move to' }))
+    expect(submenu.querySelectorAll('[role="separator"]')).toHaveLength(1)
+    expect(
+      Array.from(submenu.querySelectorAll('[role="menuitem"]')).map(
+        (item) => item.textContent,
+      ),
+    ).toEqual(['Production', 'New Folder'])
+  })
+
+  it('expands the root menu from the right-click coordinates', async () => {
+    const animate = vi.fn()
+    const originalAnimate = HTMLElement.prototype.animate
+    const originalRect = HTMLElement.prototype.getBoundingClientRect
+    HTMLElement.prototype.animate = animate
+    HTMLElement.prototype.getBoundingClientRect = () =>
+      ({
+        top: 10,
+        left: 10,
+        right: 170,
+        bottom: 110,
+        width: 160,
+        height: 100,
+        x: 10,
+        y: 10,
+        toJSON: () => ({}),
+      }) as DOMRect
+
+    try {
+      const { getByRole } = renderMenu([{ label: 'Open', action: vi.fn() }])
+      const menu = getByRole('menu') as HTMLElement
+
+      await waitFor(() => expect(animate).toHaveBeenCalled())
+      expect(menu.style.transformOrigin).toBe('0px 0px')
+      expect(animate).toHaveBeenCalledWith(
+        [
+          { opacity: 0, transform: 'scale(0.78)', filter: 'blur(4px)' },
+          { opacity: 1, transform: 'scale(1)', filter: 'blur(0)' },
+        ],
+        { duration: 190, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+      )
+    } finally {
+      HTMLElement.prototype.animate = originalAnimate
+      HTMLElement.prototype.getBoundingClientRect = originalRect
+    }
+  })
+
+  it('anchors an opened submenu to its parent menu item (not fixed)', async () => {
+    const { getByRole } = renderMenu([
+      {
+        label: 'Move to',
+        children: [
+          { label: 'Connection', action: vi.fn() },
+          { label: 'Database', action: vi.fn() },
+        ],
+      },
+    ])
+    const menu = getByRole('menu')
+
+    // Open via hover — the path used for real sidebar menus.
+    const parentItem = menu.querySelector(
+      '[role="menuitem"]',
+    ) as HTMLElement
+    fireEvent.mouseEnter(parentItem)
+    await waitFor(() => {
+      expect(document.querySelectorAll('[role="menu"]').length).toBe(2)
+    })
+
+    const submenu = getByRole('menu', { name: 'Move to' }) as HTMLElement
+    const wrapper = submenu.parentElement as HTMLElement
+
+    // The submenu is a DOM child of the parent item's `relative` wrapper and
+    // positioned by CSS relative to it — not to the viewport.
+    expect(wrapper.className).toContain('relative')
+    expect(submenu.className).toContain('absolute')
+    // Anchored to the parent item's top-right edge with the 2px overlap.
+    expect(submenu.className).toContain('top-0')
+    expect(submenu.className).toContain('left-[calc(100%-2px)]')
+    // No fixed positioning and no inline viewport coordinates.
+    expect(submenu.className).not.toContain('fixed')
+    expect(submenu.getAttribute('style')).toBeNull()
+
+    // The root menu is the only viewport-positioned element.
+    expect(Array.from(document.querySelectorAll('.fixed'))).toEqual([menu])
+  })
 })

@@ -53,11 +53,16 @@ describe('TreeNodeItem connection drag & threshold interaction tests', () => {
 
     expect(document.body.dataset.dragging).toBeFalsy()
 
-    // Trigger click since pointer up alone doesn't fire click in synthetic test
+    // Trigger click since pointer up alone doesn't fire click in synthetic test.
+    // A connection click selects the tree node but does not activate/open it.
     fireEvent.click(treeItem)
     await waitFor(() => {
-      expect(mockProps.onConnectionSelect).toHaveBeenCalledWith('Test Postgres DB', 'conn-1')
+      expect(mockProps.onSelectedTreeNode).toHaveBeenCalledWith(
+        'Test Postgres DB',
+      )
     })
+    expect(mockProps.onConnectionSelect).not.toHaveBeenCalled()
+    expect(mockProps.onConnectionToggle).not.toHaveBeenCalled()
   })
 
   it('does not start drag when movement is below 5px threshold', () => {

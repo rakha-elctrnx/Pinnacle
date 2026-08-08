@@ -154,7 +154,7 @@ export interface DataExplorerOrchestratorResult {
     keyPassphrase?: string,
   ) => void
   handleToggleTreeNode: (path: string) => void
-  handleFetchDatabaseDetails: (dbName: string) => void
+  handleFetchDatabaseDetails: (dbName: string, targetConnectionId?: string) => void
   wrappedHandleTreeNodeClick: (
     nodeLabel: string,
     databaseName?: string,
@@ -816,17 +816,22 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     )
   }
 
-  const handleFetchDatabaseDetails = (dbName: string) => {
-    if (selectedConnection) {
-      const treeData = explorerData.treeDataMap[selectedConnection.id]
-      const db = treeData?.databases.find((d) => d.name === dbName)
-      if (db && !db.loaded) {
-        explorerData.fetchDatabaseDetails(
-          selectedConnection.id,
-          selectedConnection,
-          dbName,
-        )
-      }
+  const handleFetchDatabaseDetails = (
+    dbName: string,
+    targetConnectionId?: string,
+  ) => {
+    const connId = targetConnectionId ?? selectedConnection?.id
+    if (!connId) return
+
+    const conn =
+      items.find((c) => c.id === connId) ??
+      (selectedConnection?.id === connId ? selectedConnection : undefined)
+    if (!conn) return
+
+    const treeData = explorerData.treeDataMap[connId]
+    const db = treeData?.databases.find((d) => d.name === dbName)
+    if (db && !db.loaded) {
+      explorerData.fetchDatabaseDetails(connId, conn, dbName)
     }
   }
 
@@ -931,11 +936,26 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
         return
       }
     }
+    // Resolve target connection (fallback to nodePath matching if selectedConnection isn't set yet)
+    let conn = selectedConnection
+    if (!conn && nodePath) {
+      const parts = nodePath.split('/')
+      // nodePath might be "Ungrouped/PostgresConn/db/public/Tables/users" or "PostgresConn/db/Tables/users"
+      for (const part of parts) {
+        const found = items.find((item) => item.name === part)
+        if (found) {
+          conn = found
+          setSelectedConnectionId(found.id)
+          break
+        }
+      }
+    }
+
     // Set context without fetching — TableDetailPage will fetch via useEffect.
     // This avoids double-fetch: once here and once in TableDetailPage.
-    const treeData = explorerData.treeDataMap[selectedConnection?.id ?? '']
-    if (treeData && selectedConnection) {
-      if (selectedConnection.type === 'postgresql') {
+    const treeData = explorerData.treeDataMap[conn?.id ?? '']
+    if (treeData && conn) {
+      if (conn.type === 'postgresql') {
         for (const db of treeData.databases) {
           for (const schema of db.schemas) {
             if (schema.views.includes(nodeLabel)) {
@@ -956,7 +976,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
             }
           }
         }
-      } else if (selectedConnection.type === 'mysql') {
+      } else if (conn.type === 'mysql') {
         for (const db of treeData.databases) {
           const views = db.schemas[0]?.views ?? []
           const tables = db.schemas[0]?.tables ?? []
@@ -980,10 +1000,9 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       }
     }
     // Open global tab and navigate
-    if (selectedConnection) {
-      const globalTabId = `${selectedConnection.id}:table:${nodeLabel}`
-      const navigateRoute = `/sql/${selectedConnection.id}/tables/${encodeURIComponent(nodeLabel)}`
-
+    if (conn) {
+      const globalTabId = `${conn.id}:table:${nodeLabel}`
+      const navigateRoute = `/sql/${conn.id}/tables/${encodeURIComponent(nodeLabel)}`
       // Check if we already have an internal tab for this table
       const existingTab = openedTableTabs.find((tab) => tab.label === nodeLabel)
       if (existingTab) {
@@ -1001,10 +1020,10 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       useTabStore.getState().openTab({
         id: globalTabId,
         label: nodeLabel,
-        type: selectedConnection.type,
+        type: conn.type,
         pageType: 'table',
         route: navigateRoute,
-        connectionId: selectedConnection.id,
+        connectionId: conn.id,
         treePath: nodePath,
       })
       navigate(navigateRoute)
