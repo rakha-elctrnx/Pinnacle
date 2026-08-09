@@ -323,7 +323,7 @@ export function useExplorerData({
         if (conn.type === 'postgresql') {
           const statsRes = await executeSql({
             connection: payload,
-            sql: `SELECT COUNT(*) as table_count FROM pg_tables WHERE schemaname NOT IN ('pg_catalog', 'information_schema')`,
+            sql: `SELECT COUNT(*) as table_count FROM pg_tables WHERE schemaname NOT LIKE 'pg_%' AND schemaname != 'information_schema'`,
           })
           const tableCount = statsRes.rows[0]?.table_count ?? '0'
           setRealDbStats([
@@ -372,7 +372,7 @@ export function useExplorerData({
         if (conn.type === 'postgresql') {
           const schemaRes = await executeSql({
             connection: payload,
-            sql: `SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast') ORDER BY schema_name`,
+            sql: `SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT LIKE 'pg_%' AND schema_name != 'information_schema' ORDER BY schema_name`,
           })
           const schemaNames = schemaRes.rows.map((r) =>
             String(r.schema_name || ''),
