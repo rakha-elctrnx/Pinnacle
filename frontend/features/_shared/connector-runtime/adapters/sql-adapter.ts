@@ -60,7 +60,7 @@ export const sqlAdapter: ConnectorAdapter = {
             table_name,
             table_type
           FROM information_schema.tables
-          WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+          WHERE table_schema NOT LIKE 'pg_%' AND table_schema != 'information_schema'
             AND table_type IN ('BASE TABLE', 'VIEW')
           ORDER BY table_catalog, table_schema, table_name
         `,
