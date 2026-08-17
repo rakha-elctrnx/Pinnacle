@@ -57,8 +57,9 @@ describe('TreeNodeItem connection drag & threshold interaction tests', () => {
     // A connection click selects the tree node but does not activate/open it.
     fireEvent.click(treeItem)
     await waitFor(() => {
+      // Tree node paths are URI-encoded per segment: spaces become %20.
       expect(mockProps.onSelectedTreeNode).toHaveBeenCalledWith(
-        'Test Postgres DB',
+        'Test%20Postgres%20DB',
       )
     })
     expect(mockProps.onConnectionSelect).not.toHaveBeenCalled()

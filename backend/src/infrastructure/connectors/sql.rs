@@ -1113,10 +1113,10 @@ async fn get_all_columns_pg(
         .map(|row| SchemaColumn {
             table_name: row.get("table_name"),
             column_name: row.get("column_name"),
-            data_type: row.get("data_type"),
+            data_type: row.get::<Option<String>, _>("data_type").unwrap_or_else(|| "unknown".to_string()),
             is_nullable: row.get::<bool, _>("is_nullable"),
             default_value: row.get("column_default"),
-            data_type_name: row.get("data_type_name"),
+            data_type_name: row.get::<Option<String>, _>("data_type_name").unwrap_or_else(|| "unknown".to_string()),
         })
         .collect();
     Ok(result)
@@ -1147,10 +1147,10 @@ async fn get_all_columns_mysql(
         .map(|row| SchemaColumn {
             table_name: row.get("table_name"),
             column_name: row.get("column_name"),
-            data_type: row.get("data_type"),
+            data_type: row.get::<Option<String>, _>("data_type").unwrap_or_else(|| "unknown".to_string()),
             is_nullable: row.get::<bool, _>("is_nullable"),
             default_value: row.get("column_default"),
-            data_type_name: row.get("data_type_name"),
+            data_type_name: row.get::<Option<String>, _>("data_type_name").unwrap_or_else(|| "unknown".to_string()),
         })
         .collect();
     Ok(result)

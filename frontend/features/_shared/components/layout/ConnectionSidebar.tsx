@@ -38,6 +38,9 @@ import {
   getParentPath,
   getFirstVisibleNode,
   getLastVisibleNode,
+  encodePathSegment,
+  buildPath,
+  decodePathSegment,
 } from '../../utils/treeNavigation'
 import { useTabStore } from '../../store/tabStore'
 import { getConnectionDefaultRoute } from '../../utils'
@@ -140,7 +143,7 @@ function buildUnifiedTree(
         : getStaticTreeNodes(profile.type, connectionIndices)
       const treeNodes = sqlTreeNodes.length > 0 ? sqlTreeNodes : staticTreeNodes
 
-      const connectionPath = `${folder.name}/${profile.name}`
+      const connectionPath = buildPath(folder.name, profile.name)
       if (expandedTreePaths.includes(connectionPath)) {
         connectionNode.children = treeNodes
       }
@@ -171,8 +174,9 @@ function buildUnifiedTree(
         : getStaticTreeNodes(profile.type, connectionIndices)
       const treeNodes = sqlTreeNodes.length > 0 ? sqlTreeNodes : staticTreeNodes
 
-      // For ungrouped connections, the path is just the profile name
-      if (expandedTreePaths.includes(profile.name)) {
+      // For ungrouped connections, the path is the encoded profile name
+      const connectionPath = encodePathSegment(profile.name)
+      if (expandedTreePaths.includes(connectionPath)) {
         connectionNode.children = treeNodes
       }
 
@@ -247,30 +251,26 @@ export function ConnectionSidebar() {
     [unifiedTree, expandedTreePaths],
   )
 
-  // Focus management: imperatively focus DOM element when focusedNodePath changes
+  // Latest-value ref so tree-mutation callbacks passed to every memoized
+  // TreeNodeItem can stay reference-stable (the memo compares callbacks by
+  // reference) while always reading fresh state.
+  const expandedTreePathsRef = useRef(expandedTreePaths)
+  useEffect(() => {
+    expandedTreePathsRef.current = expandedTreePaths
+  }, [expandedTreePaths])
+
+  // Keep DOM focus synchronized without changing the user's scroll position.
+  // Mouse, keyboard, and programmatic selection must never move the sidebar;
+  // only direct user scrolling changes its viewport.
   const treeContainerRef = useRef<HTMLDivElement>(null)
   const focusEffect = () => {
     if (!focusedNodePath || !treeContainerRef.current) return
-    const el = treeContainerRef.current.querySelector<HTMLElement>(
+    const row = treeContainerRef.current.querySelector<HTMLElement>(
       `[data-node-path="${CSS.escape(focusedNodePath)}"]`,
     )
-    el?.focus()
-    el?.scrollIntoView({ block: 'nearest' })
+    row?.focus({ preventScroll: true })
   }
   useEffect(focusEffect, [focusedNodePath])
-
-  // Scroll tree to show the selected node when it changes programmatically
-  // (e.g. tab switch, tab close fallback) — without stealing focus from content.
-  const scrollEffect = () => {
-    if (!selectedTreeNode || !treeContainerRef.current) return
-    // Already handled by focusEffect when focusedNodePath matches
-    if (focusedNodePath === selectedTreeNode) return
-    const el = treeContainerRef.current.querySelector<HTMLElement>(
-      `[data-node-path="${CSS.escape(selectedTreeNode)}"]`,
-    )
-    el?.scrollIntoView({ block: 'nearest' })
-  }
-  useEffect(scrollEffect, [selectedTreeNode, focusedNodePath])
 
   // Reset focused node only on connection-scoped tree changes, not every re-render.
   // Observe only connection identity switches — the narrower scope prevents focus
@@ -322,7 +322,7 @@ export function ConnectionSidebar() {
           current.node.children &&
           current.node.children.length > 0
         ) {
-          const childPath = `${focusedNodePath}/${current.node.children[0].label}`
+          const childPath = buildPath(focusedNodePath, current.node.children[0].label)
           setFocusedNodePath(childPath)
         }
         break
@@ -420,7 +420,7 @@ export function ConnectionSidebar() {
       schemaName?: string,
       connectionId?: string,
     ) => {
-      const pathParts = nodePath.split('/')
+      const pathParts = nodePath.split('/').map(decodePathSegment)
       const profiles = Object.values(groupedConnections ?? {}).flat()
       const profile =
         profiles.find((item) => item.id === connectionId) ??
@@ -462,105 +462,107 @@ export function ConnectionSidebar() {
     ],
   )
 
-  const handleContextMenu = (
-    event: React.MouseEvent,
-    meta: TreeNodeContextMenuMeta,
-  ) => {
-    event.preventDefault()
-    setContextMenu({
-      x: event.clientX,
-      y: event.clientY,
-      itemId: meta.connectionId,
-      tableName: meta.tableName,
-      viewName: meta.viewName,
-      indexName: meta.indexName,
-      databaseName: meta.databaseName,
-      schemaName: meta.schemaName,
-      categoryName: meta.categoryName,
-    })
-  }
+  // Context-menu handlers are passed down to every TreeNodeItem. Memoized so
+  // the memoized TreeNodeItem's comparator sees stable references and can skip
+  // re-rendering siblings on focus/selection/expansion changes.
+  const handleContextMenu = useCallback(
+    (event: React.MouseEvent, meta: TreeNodeContextMenuMeta) => {
+      event.preventDefault()
+      setContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        itemId: meta.connectionId,
+        tableName: meta.tableName,
+        viewName: meta.viewName,
+        indexName: meta.indexName,
+        databaseName: meta.databaseName,
+        schemaName: meta.schemaName,
+        categoryName: meta.categoryName,
+      })
+    },
+    [setContextMenu],
+  )
 
-  const handleTableNodeContextMenu = (
-    event: React.MouseEvent,
-    meta: TreeNodeContextMenuMeta,
-  ) => {
-    setContextMenu({
-      x: event.clientX,
-      y: event.clientY,
-      itemId: meta.connectionId,
-      databaseName: meta.databaseName,
-      schemaName: meta.schemaName,
-      tableName: meta.tableName,
-    })
-  }
+  const handleTableNodeContextMenu = useCallback(
+    (event: React.MouseEvent, meta: TreeNodeContextMenuMeta) => {
+      setContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        itemId: meta.connectionId,
+        databaseName: meta.databaseName,
+        schemaName: meta.schemaName,
+        tableName: meta.tableName,
+      })
+    },
+    [setContextMenu],
+  )
 
-  const handleViewNodeContextMenu = (
-    event: React.MouseEvent,
-    meta: TreeNodeContextMenuMeta,
-  ) => {
-    setContextMenu({
-      x: event.clientX,
-      y: event.clientY,
-      itemId: meta.connectionId,
-      databaseName: meta.databaseName,
-      schemaName: meta.schemaName,
-      viewName: meta.viewName,
-    })
-  }
+  const handleViewNodeContextMenu = useCallback(
+    (event: React.MouseEvent, meta: TreeNodeContextMenuMeta) => {
+      setContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        itemId: meta.connectionId,
+        databaseName: meta.databaseName,
+        schemaName: meta.schemaName,
+        viewName: meta.viewName,
+      })
+    },
+    [setContextMenu],
+  )
 
-  const handleIndexNodeContextMenu = (
-    event: React.MouseEvent,
-    meta: TreeNodeContextMenuMeta,
-  ) => {
-    setContextMenu({
-      x: event.clientX,
-      y: event.clientY,
-      itemId: meta.connectionId,
-      databaseName: meta.databaseName,
-      schemaName: meta.schemaName,
-      indexName: meta.indexName,
-    })
-  }
+  const handleIndexNodeContextMenu = useCallback(
+    (event: React.MouseEvent, meta: TreeNodeContextMenuMeta) => {
+      setContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        itemId: meta.connectionId,
+        databaseName: meta.databaseName,
+        schemaName: meta.schemaName,
+        indexName: meta.indexName,
+      })
+    },
+    [setContextMenu],
+  )
 
-  const handleDatabaseNodeContextMenu = (
-    event: React.MouseEvent,
-    meta: TreeNodeContextMenuMeta,
-  ) => {
-    setContextMenu({
-      x: event.clientX,
-      y: event.clientY,
-      itemId: meta.connectionId,
-      databaseName: meta.databaseName,
-    })
-  }
+  const handleDatabaseNodeContextMenu = useCallback(
+    (event: React.MouseEvent, meta: TreeNodeContextMenuMeta) => {
+      setContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        itemId: meta.connectionId,
+        databaseName: meta.databaseName,
+      })
+    },
+    [setContextMenu],
+  )
 
-  const handleSchemaNodeContextMenu = (
-    event: React.MouseEvent,
-    meta: TreeNodeContextMenuMeta,
-  ) => {
-    setContextMenu({
-      x: event.clientX,
-      y: event.clientY,
-      itemId: meta.connectionId,
-      databaseName: meta.databaseName,
-      schemaName: meta.schemaName,
-    })
-  }
+  const handleSchemaNodeContextMenu = useCallback(
+    (event: React.MouseEvent, meta: TreeNodeContextMenuMeta) => {
+      setContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        itemId: meta.connectionId,
+        databaseName: meta.databaseName,
+        schemaName: meta.schemaName,
+      })
+    },
+    [setContextMenu],
+  )
 
-  const handleTablesCategoryContextMenu = (
-    event: React.MouseEvent,
-    meta: TreeNodeContextMenuMeta,
-  ) => {
-    setContextMenu({
-      x: event.clientX,
-      y: event.clientY,
-      itemId: meta.connectionId,
-      databaseName: meta.databaseName,
-      schemaName: meta.schemaName,
-      categoryName: meta.categoryName ?? 'Tables',
-    })
-  }
-
+  const handleTablesCategoryContextMenu = useCallback(
+    (event: React.MouseEvent, meta: TreeNodeContextMenuMeta) => {
+      setContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        itemId: meta.connectionId,
+        databaseName: meta.databaseName,
+        schemaName: meta.schemaName,
+        categoryName: meta.categoryName ?? 'Tables',
+      })
+    },
+    [setContextMenu],
+  )
   // Handle connection node selection from tree — no tab created, just navigate
   const handleConnectionNodeSelect = useCallback(
     (nodePath: string, connectionId: string) => {
@@ -597,7 +599,7 @@ export function ConnectionSidebar() {
   // Handle connection node toggle (expand/collapse)
   const handleConnectionToggle = useCallback(
     (connectionPath: string, connectionId: string) => {
-      const wasExpanded = expandedTreePaths.includes(connectionPath)
+      const wasExpanded = expandedTreePathsRef.current.includes(connectionPath)
       handleToggleTreeNode(connectionPath)
 
       // When expanding a connection, trigger the initial data fetch if needed
@@ -620,7 +622,6 @@ export function ConnectionSidebar() {
       }
     },
     [
-      expandedTreePaths,
       groupedConnections,
       explorerData,
       handleToggleTreeNode,
@@ -715,9 +716,12 @@ export function ConnectionSidebar() {
           }
           tabIndex={0}
           onFocus={() => {
-            // When tree receives focus via Tab, set focus to selected or first node
+            // When tree receives focus via Tab, set focus to selected or first node.
+            // Focused paths are always in encoded form.
             if (!focusedNodePath && unifiedTree.length > 0) {
-              setFocusedNodePath(selectedTreeNode || unifiedTree[0].label)
+              setFocusedNodePath(
+                selectedTreeNode || encodePathSegment(unifiedTree[0].label),
+              )
             }
           }}
           onKeyDown={handleTreeKeyDown}

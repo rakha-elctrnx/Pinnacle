@@ -12,6 +12,7 @@ import {
   elasticRefreshIndex,
   elasticOpenIndex,
 } from '../clients/elasticsearch'
+import { buildPath } from '../../_shared/utils/treeNavigation'
 type SortField =
   | 'health'
   | 'index'
@@ -164,14 +165,13 @@ export function IndicesPage() {
             profiles.some((p) => p.id === selectedConnection.id),
           )?.[0]
         : undefined
-
     // Build full tree path: groupName/connectionName/Indices/indexName
-    const parts = []
+    // Each segment is URI-encoded so slashes inside names don't collide.
+    let treePath = buildPath('', 'Indices')
     if (groupName && selectedConnection) {
-      parts.push(groupName, selectedConnection.name)
+      treePath = buildPath(buildPath(groupName, selectedConnection.name), 'Indices')
     }
-    parts.push('Indices', indexName)
-    const treePath = parts.join('/')
+    treePath = buildPath(treePath, indexName)
 
     wrappedHandleTreeNodeClick(indexName, undefined, treePath)
   }

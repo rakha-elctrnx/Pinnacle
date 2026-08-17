@@ -3,23 +3,20 @@ import { create } from 'zustand'
 /**
  * Shell Layout Store — layout-level UI state for the Data Explorer shell.
  *
- * Phase 1 (current): in-memory only — width/visibility reset on reload.
- * Phase 2 (deferred): persist `sidebarWidth` and `inspectorWidth` to
- * localStorage or a Tauri store plugin.
- *
- * Owns: connection-sidebar width, inspector visibility + width. The
- * `NavigationStrip` and its toggleable sidebar overlay were removed —
- * the connection sidebar is now always visible, so visibility actions
- * for it are no longer needed.
+ * Owns: connection sidebar open state + width, inspector visibility + width.
  */
 
 interface ShellLayoutState {
-  /** Width in px of the always-visible connection sidebar. */
+  /** Whether the connection sidebar is open/visible. */
+  sidebarOpen: boolean
+  /** Width in px of the connection sidebar. */
   sidebarWidth: number
   inspectorOpen: boolean
   inspectorWidth: number
 
   // Sidebar actions
+  setSidebarOpen: (open: boolean) => void
+  toggleSidebar: () => void
   setSidebarWidth: (width: number) => void
 
   // Inspector actions
@@ -30,10 +27,14 @@ interface ShellLayoutState {
 }
 
 export const useShellLayoutStore = create<ShellLayoutState>((set) => ({
+  sidebarOpen: true,
   sidebarWidth: 280,
   inspectorOpen: false,
   inspectorWidth: 320,
 
+  setSidebarOpen: (open) => set({ sidebarOpen: open }),
+  toggleSidebar: () =>
+    set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setSidebarWidth: (width) => set({ sidebarWidth: width }),
 
   setInspectorOpen: (open) => set({ inspectorOpen: open }),

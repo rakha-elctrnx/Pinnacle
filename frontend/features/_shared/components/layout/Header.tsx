@@ -12,6 +12,8 @@ import {
   Database,
   Ellipsis,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
   Plus,
@@ -35,11 +37,13 @@ interface SearchMenuItem {
 export function Header() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
-  const [isWindowFocused, setIsWindowFocused] = useState(true)
+  const isWindowFocusedRef = useRef(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLDivElement>(null)
   const { theme, switchTheme } = useTheme()
+  const sidebarOpen = useShellLayout((s) => s.sidebarOpen)
+  const toggleSidebar = useShellLayout((s) => s.toggleSidebar)
   const inspectorOpen = useShellLayout((s) => s.inspectorOpen)
   const toggleInspector = useShellLayout((s) => s.toggleInspector)
   const navigate = useNavigate()
@@ -87,13 +91,13 @@ export function Header() {
         ])
 
         if (isMounted) {
-          setIsWindowFocused(focused)
+          isWindowFocusedRef.current = focused
           setIsFullscreen(fullscreen)
         }
 
         unlistenFocusChange = await currentWindow.onFocusChanged(
           ({ payload }) => {
-            setIsWindowFocused(payload)
+            isWindowFocusedRef.current = payload
           },
         )
 
@@ -113,7 +117,7 @@ export function Header() {
         })
       } catch {
         if (isMounted) {
-          setIsWindowFocused(true)
+          isWindowFocusedRef.current = true
           setIsFullscreen(false)
         }
       }
@@ -169,12 +173,12 @@ export function Header() {
       data-tauri-drag-region
       className="relative grid h-10 grid-cols-[minmax(5rem,1fr)_minmax(16rem,28rem)_minmax(5rem,1fr)] items-center gap-3 px-3 pb-2"
     >
-      {/* Left column — reserved for macOS window buttons & drag region */}
+      {/* Left column — macOS window buttons placeholder, app brand title & sidebar toggle */}
       <div
         data-tauri-drag-region
-        className="flex h-full items-center justify-start"
+        className="flex h-full items-center justify-start gap-2 min-w-0"
       >
-        {!isWindowFocused && !isFullscreen && (
+        {/* {!isWindowFocused && !isFullscreen && (
           <div
             className="pointer-events-none absolute left-3 top-4 z-10 flex -translate-y-1/2 items-center gap-2"
             aria-hidden="true"
@@ -183,8 +187,35 @@ export function Header() {
             <span className="h-3 w-3 rounded-full bg-border-default shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-border-strong)_35%,transparent)]" />
             <span className="h-3 w-3 rounded-full bg-border-default shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-border-strong)_35%,transparent)]" />
           </div>
+        )} */}
+        {/*
+          Traffic light spacer: Only reserved when in Tauri desktop non-fullscreen mode.
+          When in browser (window.__TAURI_INTERNALS__ is undefined) or Tauri fullscreen,
+          we do not render the spacer so "Pinnacle" is directly on the left edge.
+        */}
+        {!isFullscreen && typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window && (
+          <div className="h-7 w-20 shrink-0" aria-hidden="true" />
         )}
-        <div className="h-7 w-20" aria-hidden="true" />
+        <span className="truncate font-bold text-sm text-text-primary tracking-tight">
+          Pinnacle
+        </span>
+
+        <ActionButton
+          icon={
+            sidebarOpen ? (
+              <PanelLeftClose size={16} />
+            ) : (
+              <PanelLeftOpen size={16} />
+            )
+          }
+          aria-label={
+            sidebarOpen ? 'Close connection sidebar' : 'Open connection sidebar'
+          }
+          aria-pressed={sidebarOpen}
+          title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+          variant="default"
+          onClick={toggleSidebar}
+        />
       </div>
 
       {/* Center column — search bar (mathematically centered) */}

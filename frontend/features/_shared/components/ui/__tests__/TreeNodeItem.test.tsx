@@ -162,11 +162,13 @@ describe('TreeNodeItem — connection node', () => {
     connectionId: 'conn-1',
     children: [CHILD],
   }
+  // Tree node paths are URI-encoded per segment: spaces become %20.
+  const encodedPath = 'Test%20Postgres%20DB'
 
   it('single click selects without activating or expanding the connection', () => {
     const h = mount(connectionNode)
     clickRowOnce()
-    expect(h.onSelectedTreeNode).toHaveBeenCalledWith('Test Postgres DB')
+    expect(h.onSelectedTreeNode).toHaveBeenCalledWith(encodedPath)
     expect(h.onConnectionSelect).not.toHaveBeenCalled()
     expect(h.onConnectionToggle).not.toHaveBeenCalled()
   })
@@ -175,7 +177,7 @@ describe('TreeNodeItem — connection node', () => {
     const h = mount(connectionNode)
     act(() => fireEvent.doubleClick(row()))
     expect(h.onConnectionToggle).toHaveBeenCalledWith(
-      'Test Postgres DB',
+      encodedPath,
       'conn-1',
     )
   })
@@ -184,7 +186,7 @@ describe('TreeNodeItem — connection node', () => {
     const h = mount(connectionNode)
     act(() => fireEvent.click(chevron()))
     expect(h.onConnectionToggle).toHaveBeenCalledWith(
-      'Test Postgres DB',
+      encodedPath,
       'conn-1',
     )
     expect(h.onSelectedTreeNode).not.toHaveBeenCalled()
@@ -194,7 +196,7 @@ describe('TreeNodeItem — connection node', () => {
     const h = mount(connectionNode)
     act(() => fireEvent.keyDown(row(), { key: 'Enter' }))
     expect(h.onConnectionToggle).toHaveBeenCalledWith(
-      'Test Postgres DB',
+      encodedPath,
       'conn-1',
     )
     expect(h.onSelectedTreeNode).not.toHaveBeenCalled()
@@ -203,11 +205,12 @@ describe('TreeNodeItem — connection node', () => {
   it('Space selects without activating the connection', () => {
     const h = mount(connectionNode)
     act(() => fireEvent.keyDown(row(), { key: ' ' }))
-    expect(h.onSelectedTreeNode).toHaveBeenCalledWith('Test Postgres DB')
+    expect(h.onSelectedTreeNode).toHaveBeenCalledWith(encodedPath)
     expect(h.onConnectionSelect).not.toHaveBeenCalled()
     expect(h.onConnectionToggle).not.toHaveBeenCalled()
   })
 })
+
 
 describe('TreeNodeItem — database / schema node', () => {
   const dbNode: TreeNode = {
@@ -274,12 +277,17 @@ describe('TreeNodeItem — Tables category node', () => {
     children: [CHILD],
   }
 
-  it('single click selects without opening or expanding', () => {
+  it('single click opens the Tables tab without expanding children', () => {
     const h = mount(categoryNode, { parentPath: 'conn/appdb' })
     clickRowOnce()
     expect(h.onSelectedTreeNode).toHaveBeenCalledWith('conn/appdb/Tables')
+    expect(h.onTablesCategoryClick).toHaveBeenCalledWith(
+      'conn/appdb/Tables',
+      'appdb',
+      undefined,
+      undefined,
+    )
     expect(h.onTreeNodeClick).not.toHaveBeenCalled()
-    expect(h.onTablesCategoryClick).not.toHaveBeenCalled()
     expect(h.onToggleTreeNode).not.toHaveBeenCalled()
   })
 
@@ -316,12 +324,17 @@ describe('TreeNodeItem — Tables category node', () => {
     expect(h.onToggleTreeNode).not.toHaveBeenCalled()
   })
 
-  it('Space selects without opening or expanding', () => {
+  it('Space opens the Tables tab without expanding children', () => {
     const h = mount(categoryNode, { parentPath: 'conn/appdb' })
     act(() => fireEvent.keyDown(row(), { key: ' ' }))
     expect(h.onSelectedTreeNode).toHaveBeenCalledWith('conn/appdb/Tables')
+    expect(h.onTablesCategoryClick).toHaveBeenCalledWith(
+      'conn/appdb/Tables',
+      'appdb',
+      undefined,
+      undefined,
+    )
     expect(h.onTreeNodeClick).not.toHaveBeenCalled()
-    expect(h.onTablesCategoryClick).not.toHaveBeenCalled()
     expect(h.onToggleTreeNode).not.toHaveBeenCalled()
   })
 })

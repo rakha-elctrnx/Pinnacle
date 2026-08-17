@@ -47,6 +47,7 @@ import {
   quoteIdentifierForEngine,
 } from '../../sql/logic/sqlIdentifier'
 import { openNewConnectionWindow } from '../services/newConnectionWindowService'
+import { buildPath, encodePathSegment } from '../utils/treeNavigation'
 
 /**
  * ResizeHandle — a thin draggable divider between two panels.
@@ -156,6 +157,7 @@ export function DataExplorerLayout() {
   // Single orchestrator instance for the whole app shell.
   const orchestrator = useDataExplorerOrchestrator()
 
+  const sidebarOpen = useShellLayout((s) => s.sidebarOpen)
   const sidebarWidth = useShellLayout((s) => s.sidebarWidth)
   const inspectorOpen = useShellLayout((s) => s.inspectorOpen)
   const inspectorWidth = useShellLayout((s) => s.inspectorWidth)
@@ -180,6 +182,7 @@ export function DataExplorerLayout() {
   return (
     <DataExplorerContextProvider value={orchestrator}>
       <DataExplorerLayoutChrome
+        sidebarOpen={sidebarOpen}
         sidebarWidth={sidebarWidth}
         inspectorOpen={inspectorOpen}
         inspectorWidth={inspectorWidth}
@@ -210,12 +213,14 @@ export function DataExplorerLayout() {
  * workspace is active.
  */
 function DataExplorerLayoutChrome({
+  sidebarOpen,
   sidebarWidth,
   inspectorOpen,
   inspectorWidth,
   onSidebarResize,
   onInspectorResize,
 }: {
+  sidebarOpen: boolean
   sidebarWidth: number
   inspectorOpen: boolean
   inspectorWidth: number
@@ -607,15 +612,21 @@ function DataExplorerLayoutChrome({
 
         {/* Body: persistent ConnectionSidebar + PageWorkspace + Inspector overlay */}
         <div className="relative flex flex-1 min-h-0 overflow-hidden">
-          {/* Connection sidebar — always visible, fixed-width column */}
+          {/* Connection sidebar — collapsible left panel */}
           <aside
-            style={{ width: sidebarWidth }}
-            className="shrink-0 overflow-hidden border border-border-default bg-bg-base rounded-2xl"
+            aria-hidden={!sidebarOpen}
+            inert={!sidebarOpen}
+            style={{ width: sidebarOpen ? sidebarWidth : 0 }}
+            className={[
+              'h-full overflow-hidden border bg-bg-base rounded-2xl shrink-0',
+              'transition-[width] duration-300 ease-in-out',
+              sidebarOpen ? 'border-border-default' : 'border-none',
+            ].join(' ')}
           >
             <ConnectionSidebar />
           </aside>
 
-          <ResizeHandle onResize={onSidebarResize} />
+          {sidebarOpen && <ResizeHandle onResize={onSidebarResize} />}
 
           {/* Central page workspace — fills remaining space and is the
               scroll container for routed pages. */}
@@ -901,10 +912,10 @@ function DataExplorerLayoutChrome({
                               ? folders.find((f) => f.id === profile.folderId)
                               : undefined
                           const basePath = connFolder
-                            ? `${connFolder.name}/${connName}`
-                            : connName
+                            ? buildPath(connFolder.name, connName)
+                            : encodePathSegment(connName)
                           const dbPath = basePath
-                            ? `${basePath}/${contextMenu.databaseName}`
+                            ? buildPath(basePath, contextMenu.databaseName)
                             : ''
                           const isOpen = dbPath
                             ? expandedTreePaths.includes(dbPath)
@@ -1031,13 +1042,14 @@ function DataExplorerLayoutChrome({
                                 ? folders.find((f) => f.id === profile.folderId)
                                 : undefined
                             const basePath = connFolder
-                              ? `${connFolder.name}/${connName}`
-                              : connName
-                            const dbPath = basePath
-                              ? `${basePath}/${contextMenu.databaseName}`
-                              : ''
-                            const schemaPath = dbPath
-                              ? `${dbPath}/${contextMenu.schemaName}`
+                              ? buildPath(connFolder.name, connName)
+                              : encodePathSegment(connName)
+                            const dbPath =
+                              basePath && contextMenu.databaseName
+                                ? buildPath(basePath, contextMenu.databaseName)
+                                : ''
+                            const schemaPath = dbPath && contextMenu.schemaName
+                              ? buildPath(dbPath, contextMenu.schemaName)
                               : ''
                             const isOpen = schemaPath
                               ? expandedTreePaths.includes(schemaPath)

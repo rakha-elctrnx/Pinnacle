@@ -9,6 +9,39 @@
 
 import type { TreeNode } from '../types/shared'
 
+/** Encode a single path segment to safely handle special characters like '/' */
+export function encodePathSegment(segment: string): string {
+  return encodeURIComponent(segment)
+}
+
+/** Decode a single path segment */
+export function decodePathSegment(segment: string): string {
+  return decodeURIComponent(segment)
+}
+
+/** Build a path from parent path and a new segment, encoding the segment */
+export function buildPath(parentPath: string, segment: string): string {
+  const encoded = encodePathSegment(segment)
+  return parentPath ? `${parentPath}/${encoded}` : encoded
+}
+
+/** Split a full path into its encoded segments */
+export function splitPath(path: string): string[] {
+  return path.split('/')
+}
+
+/** Get the parent path from an encoded path */
+export function getParentPath(path: string): string | null {
+  const lastSlash = path.lastIndexOf('/')
+  return lastSlash > 0 ? path.substring(0, lastSlash) : null
+}
+
+/** Get the last segment of a path (decoded) */
+export function getLastSegment(path: string): string {
+  const segments = splitPath(path)
+  return decodePathSegment(segments[segments.length - 1])
+}
+
 /** Flat entry representing a node visible in the rendered tree order. */
 export interface VisibleNode {
   path: string
@@ -29,7 +62,7 @@ export function getVisibleNodes(
 ): VisibleNode[] {
   const result: VisibleNode[] = []
   for (const node of treeNodes) {
-    const nodePath = parentPath ? `${parentPath}/${node.label}` : node.label
+    const nodePath = buildPath(parentPath, node.label)
     result.push({ path: nodePath, node, depth })
     if (node.children && expandedPaths.includes(nodePath)) {
       result.push(
@@ -58,12 +91,6 @@ export function getPreviousNode(
   const idx = visibleNodes.findIndex((n) => n.path === currentPath)
   if (idx <= 0) return null
   return visibleNodes[idx - 1].path
-}
-
-/** Extract the parent path from a node path string. Returns null for root nodes. */
-export function getParentPath(nodePath: string): string | null {
-  const lastSlash = nodePath.lastIndexOf('/')
-  return lastSlash > 0 ? nodePath.substring(0, lastSlash) : null
 }
 
 /** Return the path of the first node in the visible list. */

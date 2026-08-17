@@ -1,6 +1,6 @@
 import { ChevronRight } from 'lucide-react'
 import { useDataExplorerContext } from '../../context/DataExplorerContext'
-
+import { decodePathSegment } from '../../utils/treeNavigation'
 /**
  * Footer — application-level bottom bar.
  *
@@ -41,7 +41,7 @@ export function Footer() {
     segments.push(hasGroupInStore ? groupLabel : '—')
     segments.push(selectedConnection.name)
     if (selectedTreeNode) {
-      const parts = selectedTreeNode.split('/').filter(Boolean)
+      const parts = selectedTreeNode.split('/').map(decodePathSegment)
       if (parts.length > 2 && parts[1] === selectedConnection.name) {
         // Full tree path — skip group + connection (already added above)
         segments.push(...parts.slice(2))

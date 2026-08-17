@@ -346,6 +346,24 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
     expect(mockCtx.store.refreshConnectionData).not.toHaveBeenCalled()
   })
 
+  it('does not scroll the sidebar when focus or selection changes', async () => {
+    seedTree()
+    mockCtx.store.focusedNodePath = 'Production'
+    render(<Harness />)
+
+    const scrollIntoView = vi.mocked(Element.prototype.scrollIntoView)
+    scrollIntoView.mockClear()
+
+    mockCtx.store.focusedNodePath = 'connB'
+    mockCtx.store.selectedTreeNode = 'connB'
+    mockCtx.notify?.()
+
+    await waitFor(() => {
+      expect(document.activeElement?.getAttribute('data-node-path')).toBe('connB')
+    })
+    expect(scrollIntoView).not.toHaveBeenCalled()
+  })
+
   it('plain F10 without shift does not open the context menu', async () => {
     seedTree()
     mockCtx.store.focusedNodePath = 'connB'

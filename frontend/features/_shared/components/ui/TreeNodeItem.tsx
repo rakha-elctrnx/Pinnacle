@@ -28,7 +28,8 @@ import type {
 } from '../../types/domain'
 import { databaseTypeOptions } from '../../constants'
 import { CenteredLoadingState } from './CenteredLoadingState'
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, memo } from 'react'
+import { buildPath, encodePathSegment } from '../../utils/treeNavigation'
 
 interface ExplorerDataContext {
   treeDataMap: Record<string, ExplorerTreeData>
@@ -93,41 +94,7 @@ function getCategoryIcon(label: string) {
   }
 }
 
-export function TreeNodeItem({
-  node,
-  depth,
-  parentPath,
-  selectedTreeNode,
-  expandedTreePaths,
-  onTreeNodeClick,
-  onSelectedTreeNode,
-  onToggleTreeNode,
-  onFetchDatabaseDetails,
-  onQueryNavigate,
-  onTablesCategoryClick,
-  onConnectionSelect,
-  onGroupToggle,
-  onConnectionToggle,
-  onTableNodeContextMenu,
-  onIndexNodeContextMenu,
-  onConnectionContextMenu,
-  onViewNodeContextMenu,
-  onDatabaseNodeContextMenu,
-  onSchemaNodeContextMenu,
-  onTablesCategoryContextMenu,
-  parentConnectionId,
-  groupedConnections,
-  explorerData,
-  elasticIndicesError,
-  elasticLoading,
-  handleRetryElasticIndices,
-  focusedNodePath,
-  setFocusedNodePath,
-  folders,
-  onRenameFolder,
-  onDeleteFolder,
-  onMoveConnectionToFolder,
-}: {
+type TreeNodeItemProps = {
   node: TreeNode
   depth: number
   parentConnectionId?: string
@@ -195,8 +162,44 @@ export function TreeNodeItem({
     connectionId: string,
     folderId: string | null,
   ) => void
-}) {
-  const nodePath = parentPath ? `${parentPath}/${node.label}` : node.label
+}
+
+function TreeNodeItemBase({
+  node,
+  depth,
+  parentPath,
+  selectedTreeNode,
+  expandedTreePaths,
+  onTreeNodeClick,
+  onSelectedTreeNode,
+  onToggleTreeNode,
+  onFetchDatabaseDetails,
+  onQueryNavigate,
+  onTablesCategoryClick,
+  onConnectionSelect,
+  onGroupToggle,
+  onConnectionToggle,
+  onTableNodeContextMenu,
+  onIndexNodeContextMenu,
+  onConnectionContextMenu,
+  onViewNodeContextMenu,
+  onDatabaseNodeContextMenu,
+  onSchemaNodeContextMenu,
+  onTablesCategoryContextMenu,
+  parentConnectionId,
+  groupedConnections,
+  explorerData,
+  elasticIndicesError,
+  elasticLoading,
+  handleRetryElasticIndices,
+  focusedNodePath,
+  setFocusedNodePath,
+  folders,
+  onRenameFolder,
+  onDeleteFolder,
+  onMoveConnectionToFolder,
+}: TreeNodeItemProps) {
+  const nodePath = parentPath ? buildPath(parentPath, node.label) : encodePathSegment(node.label)
   const hasChildren = node.children !== undefined
   const isExpanded = expandedTreePaths.includes(nodePath)
   const isGroupNode = node.nodeType === 'group'
@@ -273,7 +276,7 @@ export function TreeNodeItem({
       onRenameFolder(folderId, renameValue.trim())
     }
     setIsRenaming(false)
-  }, [getFolderId, onRenameFolder, renameValue])
+  }, [getFolderId, onRenameFolder, renameValue, setIsRenaming])
 
   // ── Drag & Drop handlers with threshold and click suppression ─
   const isDraggingRef = useRef(false)
@@ -527,8 +530,17 @@ export function TreeNodeItem({
       // Queries category: select + open query list
       onSelectedTreeNode(nodePath)
       onQueryNavigate?.()
+    } else if (node.label === 'Tables') {
+      // Tables category: select + open tables list
+      onSelectedTreeNode(nodePath)
+      onTablesCategoryClick?.(
+        nodePath,
+        node.databaseName,
+        node.schemaName,
+        node.connectionId ?? parentConnectionId,
+      )
     } else if (isCategoryNode(node.label)) {
-      // Categories select only. Their primary action handles navigation;
+      // Other categories select only. Their primary action handles navigation;
       // expansion is reserved for the chevron.
       onSelectedTreeNode(nodePath)
     } else {
@@ -623,6 +635,10 @@ export function TreeNodeItem({
 
   return (
     <div
+      className="flex flex-col w-full focus-visible:outline-none"
+    >
+      {/* Row Header / Label bar */}
+      <div
       id={`treeitem-${nodePath.replace(/\//g, '-')}`}
       role="treeitem"
       aria-level={depth + 1}
@@ -689,10 +705,7 @@ export function TreeNodeItem({
           onIndexNodeContextMenu(e, contextMenuMeta)
         }
       }}
-      className="flex flex-col w-full focus-visible:outline-none"
-    >
-      {/* Row Header / Label bar */}
-      <div
+        data-tree-row
         className={[
           'group flex w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-xs overflow-hidden cursor-pointer transition-all duration-150 focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none',
           isGroupNode
@@ -931,3 +944,166 @@ export function TreeNodeItem({
     </div>
   )
 }
+
+/**
+ * Value comparison for tree nodes. `node` objects are rebuilt by
+ * `buildUnifiedTree` on every tree mutation, so reference equality is not
+ * enough: compare scalar identity plus a one-level structural signature of
+ * children. Deeper subtrees re-render through the same comparison applied at
+ * each level, so lazy-loaded children propagate exactly when they change.
+ */
+function nodesEqual(a: TreeNode, b: TreeNode): boolean {
+  if (a === b) return true
+  if (a.label !== b.label) return false
+  if (a.nodeType !== b.nodeType) return false
+  if (a.connectionId !== b.connectionId) return false
+  if (a.databaseName !== b.databaseName) return false
+  if (a.schemaName !== b.schemaName) return false
+  const aHasChildren = a.children !== undefined
+  const bHasChildren = b.children !== undefined
+  if (aHasChildren !== bHasChildren) return false
+  if (!aHasChildren) return true
+  if (a.children!.length !== b.children!.length) return false
+  for (let i = 0; i < a.children!.length; i += 1) {
+    const ac = a.children![i]
+    const bc = b.children![i]
+    if (ac.label !== bc.label) return false
+    if (ac.nodeType !== bc.nodeType) return false
+    if (ac.connectionId !== bc.connectionId) return false
+    if (ac.databaseName !== bc.databaseName) return false
+    if (ac.schemaName !== bc.schemaName) return false
+    const acHasChildren = ac.children !== undefined
+    const bcHasChildren = bc.children !== undefined
+    if (acHasChildren !== bcHasChildren) return false
+    if (acHasChildren && ac.children!.length !== bc.children!.length) return false
+  }
+  return true
+}
+
+/**
+ * Custom props comparator for the memoized TreeNodeItem.
+ *
+ * The sidebar passes the same shared tree-state props (focusedNodePath,
+ * selectedTreeNode, expandedTreePaths) to every node, and rebuilds `node`
+ * objects on every tree mutation. A shallow reference comparison would
+ * therefore re-render the whole tree on each focus/selection/expansion
+ * change. Instead compare:
+ *   - per-node derived flags (focused / selected / active / expanded),
+ *   - per-connection flags (loading spinner, inline error banner),
+ *   - node content by value,
+ *   - callback references (parents must memoize with useCallback).
+ */
+function areTreeNodePropsEqual(
+  prev: TreeNodeItemProps,
+  next: TreeNodeItemProps,
+): boolean {
+  // Structural props that directly shape this node's output.
+  if (prev.depth !== next.depth) return false
+  if (prev.parentPath !== next.parentPath) return false
+  if (prev.parentConnectionId !== next.parentConnectionId) return false
+
+  // Handler props — must be reference-stable in parents.
+  if (prev.onTreeNodeClick !== next.onTreeNodeClick) return false
+  if (prev.onSelectedTreeNode !== next.onSelectedTreeNode) return false
+  if (prev.onToggleTreeNode !== next.onToggleTreeNode) return false
+  if (prev.onFetchDatabaseDetails !== next.onFetchDatabaseDetails) return false
+  if (prev.onQueryNavigate !== next.onQueryNavigate) return false
+  if (prev.onTablesCategoryClick !== next.onTablesCategoryClick) return false
+  if (prev.onConnectionSelect !== next.onConnectionSelect) return false
+  if (prev.onGroupToggle !== next.onGroupToggle) return false
+  if (prev.onConnectionToggle !== next.onConnectionToggle) return false
+  if (prev.onTableNodeContextMenu !== next.onTableNodeContextMenu) return false
+  if (prev.onIndexNodeContextMenu !== next.onIndexNodeContextMenu) return false
+  if (prev.onConnectionContextMenu !== next.onConnectionContextMenu) return false
+  if (prev.onViewNodeContextMenu !== next.onViewNodeContextMenu) return false
+  if (prev.onDatabaseNodeContextMenu !== next.onDatabaseNodeContextMenu) return false
+  if (prev.onSchemaNodeContextMenu !== next.onSchemaNodeContextMenu) return false
+  if (prev.onTablesCategoryContextMenu !== next.onTablesCategoryContextMenu)
+    return false
+  if (prev.handleRetryElasticIndices !== next.handleRetryElasticIndices)
+    return false
+  if (prev.setFocusedNodePath !== next.setFocusedNodePath) return false
+  if (prev.onRenameFolder !== next.onRenameFolder) return false
+  if (prev.onDeleteFolder !== next.onDeleteFolder) return false
+  if (prev.onMoveConnectionToFolder !== next.onMoveConnectionToFolder)
+    return false
+
+  // Per-node flags derived from the shared tree-state props — the core
+  // optimization: a focus/selection/expansion change only flips flags for the
+  // affected node(s), so only those re-render.
+  const prevNodePath = prev.parentPath
+    ? buildPath(prev.parentPath, prev.node.label)
+    : encodePathSegment(prev.node.label)
+  const nextNodePath = next.parentPath
+    ? buildPath(next.parentPath, next.node.label)
+    : encodePathSegment(next.node.label)
+  if (
+    prev.expandedTreePaths.includes(prevNodePath) !==
+    next.expandedTreePaths.includes(nextNodePath)
+  ) {
+    return false
+  }
+  if (
+    (prev.focusedNodePath === prevNodePath) !==
+    (next.focusedNodePath === nextNodePath)
+  ) {
+    return false
+  }
+  if (
+    (prev.selectedTreeNode === prevNodePath) !==
+    (next.selectedTreeNode === nextNodePath)
+  ) {
+    return false
+  }
+  const prevActive =
+    !!prev.selectedTreeNode && prev.selectedTreeNode.startsWith(prevNodePath)
+  const nextActive =
+    !!next.selectedTreeNode && next.selectedTreeNode.startsWith(nextNodePath)
+  if (prevActive !== nextActive) return false
+
+  // Per-connection flags: loading spinner and inline error banner.
+  const prevConnId = prev.node.connectionId ?? prev.parentConnectionId ?? ''
+  const nextConnId = next.node.connectionId ?? next.parentConnectionId ?? ''
+  if (
+    prev.elasticIndicesError?.[prevConnId] !==
+    next.elasticIndicesError?.[nextConnId]
+  ) {
+    return false
+  }
+  if (
+    !!prev.elasticLoading?.[prevConnId] !==
+    !!next.elasticLoading?.[nextConnId]
+  ) {
+    return false
+  }
+  if (
+    !!prev.explorerData?.treeLoading?.[prevConnId] !==
+    !!next.explorerData?.treeLoading?.[nextConnId]
+  ) {
+    return false
+  }
+
+  // Node content (rebuilt objects → compare by value).
+  if (!nodesEqual(prev.node, next.node)) return false
+
+  // Connection nodes: the icon derives from the connection profile inside
+  // groupedConnections, so re-render when that grouping changes identity.
+  if (
+    prev.node.nodeType === 'connection' ||
+    next.node.nodeType === 'connection'
+  ) {
+    if (prev.groupedConnections !== next.groupedConnections) return false
+  }
+
+  // Group nodes: count badge + folder menu availability.
+  if (prev.node.nodeType === 'group' || next.node.nodeType === 'group') {
+    if (prev.folders !== next.folders) return false
+    const prevCount = prev.groupedConnections?.[prev.node.label]?.length ?? 0
+    const nextCount = next.groupedConnections?.[next.node.label]?.length ?? 0
+    if (prevCount !== nextCount) return false
+  }
+
+  return true
+}
+
+export const TreeNodeItem = memo(TreeNodeItemBase, areTreeNodePropsEqual)

@@ -54,6 +54,7 @@ import {
 } from '../connection-management/service'
 import { hasCapability, defaultConnectorRegistry } from '../connector-runtime'
 import { hasCapabilityWithAdapter } from '../connector-runtime/adapters'
+import { buildPath, decodePathSegment, encodePathSegment } from '../utils/treeNavigation'
 
 interface OpenedTableTab {
   id: string
@@ -70,6 +71,25 @@ function isElasticsearchLike(type: string): boolean {
     hasCapability(defaultConnectorRegistry, type, 'run-query') &&
     type === 'elasticsearch'
   )
+}
+
+/** Map sidebar label to elastic panel key */
+const ELASTIC_LABEL_TO_PANEL: Record<string, ElasticPanel> = {
+  Cluster: 'cluster',
+  Indices: 'indices',
+  'Query Console': 'query',
+}
+
+const ELASTIC_PANEL_TO_ROUTE: Record<string, string> = {
+  cluster: 'cluster',
+  indices: 'indices',
+  query: 'query',
+}
+
+const ELASTIC_PANEL_TO_PAGE_TYPE: Record<string, string> = {
+  cluster: 'elastic-cluster',
+  indices: 'elastic-indices',
+  query: 'elastic-query',
 }
 
 // ── Recent export history (localStorage) ────────────────────────
@@ -600,19 +620,28 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
 
   // ── Handlers ─────────────────────────────────────────────────────
 
-  const openCreateConnection = () => {
+  // Handlers are passed through context into the sidebar and then into every
+  // memoized TreeNodeItem. They must be reference-stable so the memo's custom
+  // comparator can skip re-rendering unaffected nodes on focus/selection/
+  // expansion changes.
+  const openCreateConnection = useCallback(() => {
     setEditingId(null)
     setIsAddModalOpen(true)
     setConnectionModalNonce((n) => n + 1)
-  }
+  }, [])
 
-  const handleConnectionSelectionChange = (id: string | null) => {
-    setSelectedConnectionId(id)
-    setOpenedTableTabs([])
-    setActiveTableTabId(null)
-    setSelectedTreeNode(null)
-    explorerData.setSelectedTable(null)
-  }
+  const handleConnectionSelectionChange = useCallback(
+    (id: string | null) => {
+      setSelectedConnectionId(id)
+      setOpenedTableTabs([])
+      setActiveTableTabId(null)
+      setSelectedTreeNode(null)
+      explorerData.setSelectedTable(null)
+    },
+    // explorerData is memoized in useExplorerData, so its identity only changes
+    // when tree data actually changes (which requires re-render anyway).
+    [explorerData],
+  )
 
   // Open a connection reached via URL/search (not a sidebar tree click):
   // expand its tree node + fetch data. Sidebar clicks expand via
@@ -622,12 +651,13 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     const profile = items.find((item) => item.id === id)
     if (!profile) return
     const group = profile.tags[0] || 'Ungrouped'
-    const connectionPath = `${group}/${profile.name}`
+    const groupPath = encodePathSegment(group)
+    const connectionPath = buildPath(groupPath, profile.name)
 
     setExpandedTreePaths((prev) => {
       if (prev.includes(connectionPath)) return prev
       const next = prev.slice()
-      if (!next.includes(group)) next.push(group)
+      if (!next.includes(groupPath)) next.push(groupPath)
       next.push(connectionPath)
       return next
     })
@@ -784,81 +814,70 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
   }
 
   // ── Folder CRUD handlers ──────────────────────────────────────
-  const handleCreateFolder = (name: string): string => {
-    return folderCreate(name)
-  }
+  const handleCreateFolder = useCallback(
+    (name: string): string => {
+      return folderCreate(name)
+    },
+    [folderCreate],
+  )
 
-  const handleRenameFolder = (id: string, name: string) => {
-    folderRename(id, name)
-  }
+  const handleRenameFolder = useCallback(
+    (id: string, name: string) => {
+      folderRename(id, name)
+    },
+    [folderRename],
+  )
+  const handleDeleteFolder = useCallback(
+    (id: string) => {
+      // Move all connections in this folder to ungrouped
+      const connsToMove = items.filter((c) => c.folderId === id)
+      for (const conn of connsToMove) {
+        upsert({ ...conn, folderId: null })
+      }
+      folderRemove(id)
+    },
+    [items, upsert, folderRemove],
+  )
 
-  const handleDeleteFolder = (id: string) => {
-    // Move all connections in this folder to ungrouped
-    const connsToMove = items.filter((c) => c.folderId === id)
-    for (const conn of connsToMove) {
-      upsert({ ...conn, folderId: null })
-    }
-    folderRemove(id)
-  }
-
-  const handleMoveConnectionToFolder = (
-    connectionId: string,
-    folderId: string | null,
-  ) => {
-    const conn = items.find((c) => c.id === connectionId)
-    if (!conn) return
-    upsert({ ...conn, folderId })
-  }
-
-  const handleToggleTreeNode = (path: string) => {
+  const handleMoveConnectionToFolder = useCallback(
+    (connectionId: string, folderId: string | null) => {
+      const conn = items.find((c) => c.id === connectionId)
+      if (!conn) return
+      upsert({ ...conn, folderId })
+    },
+    [items, upsert],
+  )
+  const handleToggleTreeNode = useCallback((path: string) => {
     setExpandedTreePaths((prev) =>
       prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path],
     )
-  }
+  }, [])
 
-  const handleFetchDatabaseDetails = (
-    dbName: string,
-    targetConnectionId?: string,
-  ) => {
-    const connId = targetConnectionId ?? selectedConnection?.id
-    if (!connId) return
+  const handleFetchDatabaseDetails = useCallback(
+    (dbName: string, targetConnectionId?: string) => {
+      const connId = targetConnectionId ?? selectedConnection?.id
+      if (!connId) return
 
-    const conn =
-      items.find((c) => c.id === connId) ??
-      (selectedConnection?.id === connId ? selectedConnection : undefined)
-    if (!conn) return
+      const conn =
+        items.find((c) => c.id === connId) ??
+        (selectedConnection?.id === connId ? selectedConnection : undefined)
+      if (!conn) return
 
-    const treeData = explorerData.treeDataMap[connId]
-    const db = treeData?.databases.find((d) => d.name === dbName)
-    if (db && !db.loaded) {
-      explorerData.fetchDatabaseDetails(connId, conn, dbName)
-    }
-  }
-
-  /** Map sidebar label to elastic panel key */
-  const ELASTIC_LABEL_TO_PANEL: Record<string, ElasticPanel> = {
-    Cluster: 'cluster',
-    Indices: 'indices',
-    'Query Console': 'query',
-  }
-
-  const ELASTIC_PANEL_TO_ROUTE: Record<string, string> = {
-    cluster: 'cluster',
-    indices: 'indices',
-    query: 'query',
-  }
-
-  const ELASTIC_PANEL_TO_PAGE_TYPE: Record<string, string> = {
-    cluster: 'elastic-cluster',
-    indices: 'elastic-indices',
-    query: 'elastic-query',
-  }
-  const wrappedHandleTreeNodeClick = async (
-    nodeLabel: string,
-    databaseName?: string,
-    nodePath?: string,
-    schemaName?: string,
-  ) => {
+      const treeData = explorerData.treeDataMap[connId]
+      const db = treeData?.databases.find((d) => d.name === dbName)
+      if (db && !db.loaded) {
+        explorerData.fetchDatabaseDetails(connId, conn, dbName)
+      }
+    },
+    [selectedConnection, items, explorerData],
+  )
+  const wrappedHandleTreeNodeClick = useCallback(
+    async (
+      nodeLabel: string,
+      databaseName?: string,
+      nodePath?: string,
+      schemaName?: string,
+    ) => {
     // Use capability check instead of raw `type === 'postgresql' || type === 'mysql'`
     const isTablesNode = nodePath?.endsWith('/Tables')
     const isViewsNode = nodePath?.endsWith('/Views')
@@ -889,6 +908,8 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     // Handle elasticsearch sidebar navigation — use capability check
     // Derive connection from node path (user may click index child without selecting connection)
     const esPathName = nodePath?.split('/')[1]
+      ? decodePathSegment(nodePath.split('/')[1])
+      : undefined
     const esConn =
       selectedConnection && isElasticsearchLike(selectedConnection.type)
         ? selectedConnection
@@ -939,7 +960,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     // Resolve target connection (fallback to nodePath matching if selectedConnection isn't set yet)
     let conn = selectedConnection
     if (!conn && nodePath) {
-      const parts = nodePath.split('/')
+      const parts = nodePath.split('/').map(decodePathSegment)
       // nodePath might be "Ungrouped/PostgresConn/db/public/Tables/users" or "PostgresConn/db/Tables/users"
       for (const part of parts) {
         const found = items.find((item) => item.name === part)
@@ -1028,7 +1049,16 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       })
       navigate(navigateRoute)
     }
-  }
+    },
+    [
+      selectedConnection,
+      items,
+      explorerData,
+      queryExecution,
+      openedTableTabs,
+      navigate,
+    ],
+  )
 
   const handleCloseTableTab = (tabId: string) => {
     // Find the table name from the internal tab to remove the global tab

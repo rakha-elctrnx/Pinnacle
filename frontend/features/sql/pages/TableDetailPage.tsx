@@ -19,6 +19,7 @@ import { TableToolbar } from '../components/table-detail/TableToolbar'
 import { TableFilterBar } from '../components/table-detail/TableFilterBar'
 import { TableGrid } from '../components/table-detail/TableGrid'
 import { TablePaginationFooter } from '../components/table-detail/TablePaginationFooter'
+import { buildPath } from '../../_shared/utils/treeNavigation'
 
 export function TableDetailPage() {
   const { connectionId, tableName } = useParams<{
@@ -280,7 +281,11 @@ export function TableDetailPage() {
       selectedConnection.type === 'postgresql'
         ? selectedSchema || 'public'
         : db || ''
-    const path = [db, schema, 'Tables', safeTableName].filter(Boolean).join('/')
+    // Build the tree path with URI-encoded segments so names containing
+    // slashes or special characters never collide with the '/' delimiter.
+    let path = buildPath(db || '', 'Tables')
+    if (schema) path = buildPath(buildPath(db || '', schema), 'Tables')
+    path = buildPath(path, safeTableName)
     setSelectedTreeNode(path)
   }, [
     safeTableName,
