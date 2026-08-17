@@ -106,3 +106,11 @@ export function getLastVisibleNode(visibleNodes: VisibleNode[]): string | null {
     ? visibleNodes[visibleNodes.length - 1].path
     : null
 }
+
+/** Resolve the ES documents route for an index on a connection. */
+export function elasticIndexRoute(
+  connectionId: string,
+  indexName: string,
+): string {
+  return `/elasticsearch/${connectionId}/indices/${encodeURIComponent(indexName)}`
+}

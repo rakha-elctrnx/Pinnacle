@@ -693,7 +693,15 @@ function TreeNodeItemBase({
           onSchemaNodeContextMenu(e, contextMenuMeta)
         } else if (
           isCategoryNode(node.label) &&
-          node.label === 'Tables' &&
+          node.label === 'Indices' &&
+          onTablesCategoryContextMenu
+        ) {
+          e.preventDefault()
+          e.stopPropagation()
+          onTablesCategoryContextMenu(e, contextMenuMeta)
+        } else if (
+          isCategoryNode(node.label) &&
+          (node.label === 'Tables' || node.label === 'Views') &&
           onTablesCategoryContextMenu
         ) {
           e.preventDefault()

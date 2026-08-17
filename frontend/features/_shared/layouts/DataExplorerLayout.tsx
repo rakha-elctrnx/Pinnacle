@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Scissors,
   FileDown,
+  FileText,
   SquareTerminal,
   TableProperties,
   Trash2,
@@ -40,6 +41,10 @@ import {
   type ContextMenuItem,
 } from '../components/ui/ContextMenu'
 import { CreateDatabaseModal } from '../../sql/components/shared/CreateDatabaseModal'
+import { DeleteTableModal } from '../../sql/components/shared/DeleteTableModal'
+import { DataOperationModal } from '../../sql/components/export/DataOperationModal'
+import { ExportDataModal } from '../../sql/components/export/ExportDataModal'
+import { executeSql } from '../../sql/clients/sql'
 import { DeleteConnectionModal } from '../components/modals/DeleteConnectionModal'
 import { getConnPayloadWithPassword, isSqlConnectionType } from '../utils'
 import {
@@ -260,6 +265,17 @@ function DataExplorerLayoutChrome({
     handleRequestDeleteTableFromMenu,
     handleRequestDataOperationFromMenu,
     handleRequestExportFromMenu,
+    deleteTableTarget,
+    handleCloseDeleteTableModal,
+    dataOperationTarget,
+    handleCloseDataOperationModal,
+    exportModalTarget,
+    exportEstimate,
+    exportJob,
+    recentExports,
+    handleSubmitExport,
+    handleUseRecentExport,
+    handleCloseExportModal,
     folders,
     handleCreateFolder,
     handleMoveConnectionToFolder,
@@ -600,6 +616,19 @@ function DataExplorerLayoutChrome({
   const isSqlite = contextProfile?.type === 'sqlite'
   const isEs = contextProfile?.type === 'elasticsearch'
 
+  // SQL table-operation modal connections — resolve each target's own
+  // connection so delete/empty/truncate/export run against the right-clicked
+  // node's database/schema regardless of the currently active route.
+  const deleteTableConnection = deleteTableTarget
+    ? items.find((c) => c.id === deleteTableTarget.connectionId)
+    : undefined
+  const dataOperationConnection = dataOperationTarget
+    ? items.find((c) => c.id === dataOperationTarget.connectionId)
+    : undefined
+  const exportTargetConnection = exportModalTarget
+    ? items.find((c) => c.id === exportModalTarget.connectionId)
+    : undefined
+
   return (
     <>
       <div
@@ -738,6 +767,8 @@ function DataExplorerLayoutChrome({
                                 contextMenu.itemId,
                                 contextMenu.tableName!,
                                 'empty',
+                                contextMenu.databaseName,
+                                contextMenu.schemaName,
                               )
                             },
                             disabled: !isConnected,
@@ -754,6 +785,8 @@ function DataExplorerLayoutChrome({
                                 contextMenu.itemId,
                                 contextMenu.tableName!,
                                 'truncate',
+                                contextMenu.databaseName,
+                                contextMenu.schemaName,
                               )
                             },
                             disabled: !isConnected,
@@ -769,6 +802,8 @@ function DataExplorerLayoutChrome({
                               handleRequestExportFromMenu(
                                 contextMenu.itemId,
                                 contextMenu.tableName!,
+                                contextMenu.databaseName,
+                                contextMenu.schemaName,
                               )
                             },
                             disabled: !isConnected,
@@ -784,6 +819,8 @@ function DataExplorerLayoutChrome({
                               handleRequestDeleteTableFromMenu(
                                 contextMenu.itemId,
                                 contextMenu.tableName!,
+                                contextMenu.databaseName,
+                                contextMenu.schemaName,
                               )
                             },
                             dangerous: true,
@@ -895,7 +932,45 @@ function DataExplorerLayoutChrome({
                         },
                       } as ContextMenuItem,
                     ]
-                  : // ── Database-level actions ───────────────────────
+                  : // ── Views-category actions (right-click "Views" node) ──
+                    contextMenu.categoryName === 'Views'
+                    ? [
+                        {
+                          label: 'New Query',
+                          icon: <SquareTerminal size={14} />,
+                          action: () => {
+                            const connId = contextMenu.itemId
+                            const dbName = contextMenu.databaseName!
+                            const profile = contextProfile
+                            if (!profile) return
+                            if (selectedConnection?.id !== connId) {
+                              handleConnectionSelectionChange(connId)
+                            }
+                            queryExecution.onQueryDatabaseChange(dbName)
+                            const qId = queryExecution.createQueryId()
+                            const route = `/sql/${connId}/query/${qId}`
+                            useTabStore.getState().openTab({
+                              id: `${connId}:query:${qId}`,
+                              label: `Query_${qId}`,
+                              type: profile.type,
+                              pageType: 'query',
+                              route,
+                              connectionId: connId,
+                            })
+                            navigate(route)
+                          },
+                          disabled: !isConnected,
+                        } as ContextMenuItem,
+                        { divider: true } as ContextMenuItem,
+                        {
+                          label: 'Refresh',
+                          icon: <RefreshCw size={14} />,
+                          action: () => {
+                            handleRefreshConnection(contextMenu.itemId)
+                          },
+                        } as ContextMenuItem,
+                      ]
+                    : // ── Database-level actions ───────────────────────
                     contextMenu.databaseName &&
                     !contextMenu.schemaName &&
                     !contextMenu.viewName &&
@@ -939,6 +1014,7 @@ function DataExplorerLayoutChrome({
                                       handleToggleTreeNode(dbPath)
                                       handleFetchDatabaseDetails(
                                         contextMenu.databaseName!,
+                                        contextMenu.itemId,
                                       )
                                     }
                                   },
@@ -1355,13 +1431,33 @@ function DataExplorerLayoutChrome({
               ...(contextMenu.indexName && isEs
                 ? [
                     {
+                      label: 'View Documents',
+                      icon: <FileText size={14} />,
+                      action: () => {
+                        const connId = contextMenu.itemId
+                        if (!connId) return
+                        const indexName = contextMenu.indexName!
+                        const route = `/elasticsearch/${connId}/indices/${encodeURIComponent(indexName)}`
+                        const openTab = useTabStore.getState().openTab
+                        openTab({
+                          id: `${connId}:index:${indexName}`,
+                          label: indexName,
+                          type: contextProfile?.type ?? 'elasticsearch',
+                          pageType: 'elastic-index',
+                          route,
+                          connectionId: connId,
+                        })
+                        navigate(route)
+                      },
+                    } as ContextMenuItem,
+                    {
                       label: 'View Mapping',
                       icon: <Braces size={14} />,
                       action: () => {
                         const connId = contextMenu.itemId
                         if (!connId) return
                         const indexName = contextMenu.indexName!
-                        const route = `/elasticsearch/${connId}/indices/${indexName}/mappings`
+                        const route = `/elasticsearch/${connId}/indices/${encodeURIComponent(indexName)}/mappings`
                         const openTab = useTabStore.getState().openTab
                         openTab({
                           id: `${connId}:index-mapping`,
@@ -1374,8 +1470,48 @@ function DataExplorerLayoutChrome({
                         navigate(route)
                       },
                     } as ContextMenuItem,
+                    { divider: true } as ContextMenuItem,
+                    {
+                      label: 'Refresh',
+                      icon: <RefreshCw size={14} />,
+                      action: () => {
+                        handleRefreshConnection(contextMenu.itemId)
+                      },
+                    } as ContextMenuItem,
                   ]
-                : []),
+                : // ── Elasticsearch Indices category ──────────────
+                  contextMenu.categoryName === 'Indices' &&
+                  contextMenu.indexName === undefined
+                  ? [
+                      {
+                        label: 'View Indices',
+                        icon: <Database size={14} />,
+                        action: () => {
+                          const connId = contextMenu.itemId
+                          if (!connId) return
+                          const route = `/elasticsearch/${connId}/indices`
+                          const openTab = useTabStore.getState().openTab
+                          openTab({
+                            id: `${connId}:indices`,
+                            label: 'Indices',
+                            type: contextProfile?.type ?? 'elasticsearch',
+                            pageType: 'elastic-indices',
+                            route,
+                            connectionId: connId,
+                          })
+                          navigate(route)
+                        },
+                      } as ContextMenuItem,
+                      { divider: true } as ContextMenuItem,
+                      {
+                        label: 'Refresh',
+                        icon: <RefreshCw size={14} />,
+                        action: () => {
+                          handleRefreshConnection(contextMenu.itemId)
+                        },
+                      } as ContextMenuItem,
+                    ]
+                  : []),
             ]}
             onClose={() => setContextMenu(null)}
           />
@@ -1395,6 +1531,75 @@ function DataExplorerLayoutChrome({
         <CreateDatabaseModal
           target={createDatabaseTarget}
           onClose={handleCloseCreateDatabaseModal}
+        />
+      )}
+
+      {deleteTableTarget &&
+        deleteTableConnection &&
+        isSqlConnectionType(deleteTableConnection.type) && (
+          <DeleteTableModal
+            target={deleteTableTarget}
+            onDelete={async (tableName, cascade) => {
+              const schemaName =
+                deleteTableConnection.type === 'postgresql'
+                  ? deleteTableTarget.schema
+                  : deleteTableTarget.database
+              const basePayload = await getConnPayloadWithPassword(
+                deleteTableConnection,
+                schemaName,
+              )
+              const payload = {
+                ...basePayload,
+                database: deleteTableTarget.database,
+              }
+              const sql =
+                deleteTableConnection.type === 'postgresql'
+                  ? `DROP TABLE IF EXISTS "${deleteTableTarget.schema}"."${tableName}"${cascade ? ' CASCADE' : ''}`
+                  : `DROP TABLE IF EXISTS \`${tableName}\`${cascade ? ' CASCADE' : ''}`
+              await executeSql({ connection: payload, sql })
+            }}
+            onClose={handleCloseDeleteTableModal}
+          />
+        )}
+
+      {dataOperationTarget &&
+        dataOperationConnection &&
+        isSqlConnectionType(dataOperationConnection.type) && (
+          <DataOperationModal
+            target={dataOperationTarget}
+            onExecute={async (target) => {
+              const schemaName =
+                dataOperationConnection.type === 'postgresql'
+                  ? target.schema
+                  : target.database
+              const basePayload = await getConnPayloadWithPassword(
+                dataOperationConnection,
+                schemaName,
+              )
+              const payload = { ...basePayload, database: target.database }
+              const qualifiedName =
+                dataOperationConnection.type === 'postgresql'
+                  ? `"${target.schema}"."${target.tableName}"`
+                  : `\`${target.tableName}\``
+              const sql =
+                target.operation === 'truncate'
+                  ? `TRUNCATE TABLE ${qualifiedName}`
+                  : `DELETE FROM ${qualifiedName}`
+              await executeSql({ connection: payload, sql })
+            }}
+            onClose={handleCloseDataOperationModal}
+          />
+        )}
+
+      {exportModalTarget && exportTargetConnection && (
+        <ExportDataModal
+          target={exportModalTarget}
+          estimate={exportEstimate}
+          job={exportJob}
+          recentExports={recentExports}
+          onSubmit={handleSubmitExport}
+          onUseRecent={handleUseRecentExport}
+          onClose={handleCloseExportModal}
         />
       )}
     </>

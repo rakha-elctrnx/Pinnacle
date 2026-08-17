@@ -198,6 +198,8 @@ export interface DataExplorerOrchestratorResult {
   handleRequestDeleteTableFromMenu: (
     connectionId: string,
     tableName: string,
+    databaseName?: string,
+    schemaName?: string,
   ) => void
   handleCloseDeleteTableModal: () => void
   dataOperationTarget: DataOperationTarget | null
@@ -209,6 +211,8 @@ export interface DataExplorerOrchestratorResult {
     connectionId: string,
     tableName: string,
     operation: 'empty' | 'truncate',
+    databaseName?: string,
+    schemaName?: string,
   ) => void
   handleCloseDataOperationModal: () => void
   setExpandedConnectionId: (id: string | null) => void
@@ -217,8 +221,13 @@ export interface DataExplorerOrchestratorResult {
   exportEstimate: TableExportEstimate
   exportJob: TableExportJob
   recentExports: RecentTableExport[]
+  handleRequestExportFromMenu: (
+    connectionId: string,
+    tableName: string,
+    databaseName?: string,
+    schemaName?: string,
+  ) => void
   handleRequestExport: (tableName: string) => void
-  handleRequestExportFromMenu: (connectionId: string, tableName: string) => void
   handleSubmitExport: (
     target: TableExportTarget,
     options: TableExportOptions,
@@ -1216,17 +1225,20 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     handleRequestDeleteTableFromMenu: (
       connectionId: string,
       tableName: string,
+      databaseName?: string,
+      schemaName?: string,
     ) => {
       const conn = items.find((item) => item.id === connectionId)
       if (!conn) return
-      const databaseName = conn.database ?? ''
-      const schemaName = conn.type === 'postgresql' ? 'public' : databaseName
+      const resolvedDatabase = databaseName ?? conn.database ?? ''
+      const resolvedSchema =
+        conn.type === 'postgresql' ? (schemaName ?? 'public') : resolvedDatabase
       setDeleteTableTarget({
         connectionId: conn.id,
         connectionName: conn.name,
         connectionType: conn.type,
-        database: databaseName,
-        schema: schemaName,
+        database: resolvedDatabase,
+        schema: resolvedSchema,
         tableName,
       })
     },
@@ -1263,17 +1275,20 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       connectionId: string,
       tableName: string,
       operation: 'empty' | 'truncate',
+      databaseName?: string,
+      schemaName?: string,
     ) => {
       const conn = items.find((item) => item.id === connectionId)
       if (!conn) return
-      const databaseName = conn.database ?? ''
-      const schemaName = conn.type === 'postgresql' ? 'public' : databaseName
+      const resolvedDatabase = databaseName ?? conn.database ?? ''
+      const resolvedSchema =
+        conn.type === 'postgresql' ? (schemaName ?? 'public') : resolvedDatabase
       setDataOperationTarget({
         connectionId: conn.id,
         connectionName: conn.name,
         connectionType: conn.type,
-        database: databaseName,
-        schema: schemaName,
+        database: resolvedDatabase,
+        schema: resolvedSchema,
         tableName,
         operation,
       })
@@ -1323,17 +1338,23 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       })
     },
 
-    handleRequestExportFromMenu: (connectionId: string, tableName: string) => {
+    handleRequestExportFromMenu: (
+      connectionId: string,
+      tableName: string,
+      databaseName?: string,
+      schemaName?: string,
+    ) => {
       const conn = items.find((item) => item.id === connectionId)
       if (!conn) return
-      const databaseName = conn.database ?? ''
-      const schemaName = conn.type === 'postgresql' ? 'public' : databaseName
+      const resolvedDatabase = databaseName ?? conn.database ?? ''
+      const resolvedSchema =
+        conn.type === 'postgresql' ? (schemaName ?? 'public') : resolvedDatabase
       setExportModalTarget({
         connectionId: conn.id,
         connectionName: conn.name,
         connectionType: conn.type,
-        database: databaseName,
-        schema: schemaName,
+        database: resolvedDatabase,
+        schema: resolvedSchema,
         tableName,
       })
       setExportEstimate({

@@ -64,6 +64,26 @@ describe('Sidebar context menu — resolves the clicked node, not the active con
           nodeType: 'category',
           children: [],
         }
+      case 'viewsCategory':
+        return {
+          label: 'Views',
+          ...base,
+          schemaName: 'public',
+          nodeType: 'category',
+          children: [],
+        }
+      case 'indicesCategory':
+        return {
+          label: 'Indices',
+          connectionId: nonActiveConnectionId,
+          nodeType: 'category',
+          children: [],
+        }
+      case 'esIndex':
+        return {
+          label: 'products',
+          connectionId: nonActiveConnectionId,
+        }
       default:
         throw new Error(`unknown node fixture: ${type}`)
     }
@@ -91,6 +111,18 @@ describe('Sidebar context menu — resolves the clicked node, not the active con
         return {
           parentPath: `${nonActiveConnectionId}/mydb/public`,
           depth: 3,
+        }
+      case 'viewsCategory':
+        return {
+          parentPath: `${nonActiveConnectionId}/mydb/public`,
+          depth: 3,
+        }
+      case 'indicesCategory':
+        return { parentPath: nonActiveConnectionId, depth: 1 }
+      case 'esIndex':
+        return {
+          parentPath: `${nonActiveConnectionId}/Indices`,
+          depth: 2,
         }
       default:
         return { parentPath: '', depth: 0 }
@@ -194,6 +226,24 @@ describe('Sidebar context menu — resolves the clicked node, not the active con
       'conn-2/mydb/public/Tables',
       'onTablesCategoryContextMenu',
       { categoryName: 'Tables', databaseName: 'mydb', schemaName: 'public' },
+    ],
+    [
+      'viewsCategory',
+      'conn-2/mydb/public/Views',
+      'onTablesCategoryContextMenu',
+      { categoryName: 'Views', databaseName: 'mydb', schemaName: 'public' },
+    ],
+    [
+      'indicesCategory',
+      'conn-2/Indices',
+      'onTablesCategoryContextMenu',
+      { categoryName: 'Indices' },
+    ],
+    [
+      'esIndex',
+      'conn-2/Indices/products',
+      'onIndexNodeContextMenu',
+      { indexName: 'products' },
     ],
   ] as const)(
     'right-clicking the %s node passes conn-2 (not conn-1) via meta',

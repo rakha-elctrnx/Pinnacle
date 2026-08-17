@@ -2,24 +2,18 @@ import { useEffect, useMemo } from 'react'
 import { useParams, Outlet, Navigate, useLocation } from 'react-router-dom'
 import { useTabStore } from '../../_shared/store/tabStore'
 import { useDataExplorerContext } from '../../_shared/context/DataExplorerContext'
-import { DeleteTableModal } from '../components/shared/DeleteTableModal'
-import { ExportDataModal } from '../components/export/ExportDataModal'
-import { DataOperationModal } from '../components/export/DataOperationModal'
 import { ConnectionStatusBadge } from '../components/shared/ConnectionStatusBadge'
-import {
-  isSqlConnectionType,
-  getConnPayloadWithPassword,
-} from '../../_shared/utils'
 
 /**
  * SqlLayout — per-connection context provider for the SQL feature.
  *
  * Route: `/sql/:connectionId/*`
  *
- * Provides connection context, mounts the four SQL-specific modals, and
- * syncs the selected connection with the URL. The sub-navigation bar
- * (Tables/Query tabs) was removed — all page-level tabs are now managed
- * by the global `TabBar` in `PageWorkspace`.
+ * Provides connection context and syncs the selected connection with the
+ * URL. The SQL table-operation modals (delete/empty/truncate/export) are
+ * mounted globally in DataExplorerLayout so context-menu actions work from
+ * any route. The sub-navigation bar (Tables/Query tabs) was removed — all
+ * page-level tabs are now managed by the global `TabBar` in `PageWorkspace`.
  *
  * Child pages (TablesPage, TableDetailPage, QueryPage) are rendered via
  * `<Outlet />`.
@@ -33,20 +27,6 @@ export function SqlLayout() {
     selectedConnection,
     openConnectionFromUrl,
     handleConnectionSelectionChange,
-    queryExecution,
-    explorerData,
-    // Modal state + handlers
-    deleteTableTarget,
-    handleCloseDeleteTableModal,
-    dataOperationTarget,
-    handleCloseDataOperationModal,
-    exportModalTarget,
-    exportEstimate,
-    exportJob,
-    recentExports,
-    handleSubmitExport,
-    handleUseRecentExport,
-    handleCloseExportModal,
   } = useDataExplorerContext()
 
   // Find the connection by ID from the URL.
@@ -88,13 +68,6 @@ export function SqlLayout() {
     }
   }, [location.pathname, connectionId])
 
-  const currentDatabase =
-    queryExecution.queryDatabase ||
-    explorerData.selectedDatabase ||
-    connection?.database ||
-    ''
-  const currentSchema =
-    queryExecution.querySchema || explorerData.selectedSchema || 'public'
 
   // No connectionId in the URL (visiting /sql directly) — show empty state.
   // This is placed after all hooks to satisfy the rules-of-hooks rule.
@@ -121,75 +94,6 @@ export function SqlLayout() {
       <div className="flex-1 min-h-0 overflow-hidden">
         <Outlet />
       </div>
-
-      {/* ── SQL-specific modals (per ADR Gap 2) ── */}
-      {deleteTableTarget && (
-        <DeleteTableModal
-          target={deleteTableTarget}
-          onDelete={async (tableName, cascade) => {
-            if (!isSqlConnectionType(connection.type)) return
-            const databaseName = currentDatabase
-            const schemaName =
-              connection.type === 'postgresql'
-                ? currentSchema
-                : (databaseName ?? '')
-            const basePayload = await getConnPayloadWithPassword(
-              connection,
-              schemaName,
-            )
-            const payload = { ...basePayload, database: databaseName }
-            const { executeSql } = await import('../clients/sql')
-            const sql =
-              connection.type === 'postgresql'
-                ? `DROP TABLE IF EXISTS "${schemaName}"."${tableName}"${cascade ? ' CASCADE' : ''}`
-                : `DROP TABLE IF EXISTS \`${tableName}\`${cascade ? ' CASCADE' : ''}`
-            await executeSql({ connection: payload, sql })
-          }}
-          onClose={handleCloseDeleteTableModal}
-        />
-      )}
-
-      {dataOperationTarget && (
-        <DataOperationModal
-          target={dataOperationTarget}
-          onExecute={async (target) => {
-            if (!isSqlConnectionType(connection.type)) return
-            const databaseName = currentDatabase
-            const schemaName =
-              connection.type === 'postgresql'
-                ? currentSchema
-                : (databaseName ?? '')
-            const basePayload = await getConnPayloadWithPassword(
-              connection,
-              schemaName,
-            )
-            const payload = { ...basePayload, database: databaseName }
-            const { executeSql } = await import('../clients/sql')
-            const qualifiedName =
-              connection.type === 'postgresql'
-                ? `"${schemaName}"."${target.tableName}"`
-                : `\`${target.tableName}\``
-            const sql =
-              target.operation === 'truncate'
-                ? `TRUNCATE TABLE ${qualifiedName}`
-                : `DELETE FROM ${qualifiedName}`
-            await executeSql({ connection: payload, sql })
-          }}
-          onClose={handleCloseDataOperationModal}
-        />
-      )}
-
-      {exportModalTarget && (
-        <ExportDataModal
-          target={exportModalTarget}
-          estimate={exportEstimate}
-          job={exportJob}
-          recentExports={recentExports}
-          onSubmit={handleSubmitExport}
-          onUseRecent={handleUseRecentExport}
-          onClose={handleCloseExportModal}
-        />
-      )}
     </div>
   )
 }
