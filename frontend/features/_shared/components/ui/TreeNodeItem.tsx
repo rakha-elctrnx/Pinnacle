@@ -524,8 +524,11 @@ function TreeNodeItemBase({
       // Folder: select/focus only
       onSelectedTreeNode(nodePath)
     } else if (isConnectionNode) {
-      // Connection: select/focus only; double-click or Enter opens it.
       onSelectedTreeNode(nodePath)
+      if (node.connectionId) {
+        onConnectionSelect?.(nodePath, node.connectionId)
+      }
+      handleToggleExpand()
     } else if (node.label === 'Queries') {
       // Queries category: select + open query list
       onSelectedTreeNode(nodePath)
@@ -543,11 +546,20 @@ function TreeNodeItemBase({
       // Other categories select only. Their primary action handles navigation;
       // expansion is reserved for the chevron.
       onSelectedTreeNode(nodePath)
-    } else {
-      // Database, schema, leaf table/view/index: select only
+    } else if (isDatabaseNode || isSchemaNode) {
       onSelectedTreeNode(nodePath)
+      handleToggleExpand()
+    } else {
+      onSelectedTreeNode(nodePath)
+      if (node.nodeType === 'item' || isTableItem || isViewItem || isIndexItem) {
+        onTreeNodeClick(
+          node.label,
+          node.databaseName,
+          nodePath,
+          node.schemaName,
+        )
+      }
     }
-
     clickTimeoutRef.current = null
   }
 
@@ -625,8 +637,15 @@ function TreeNodeItemBase({
         nodePath,
         node.schemaName,
       )
-    } else {
+    } else if (isDatabaseNode || isConnectionNode || isGroupNode || isSchemaNode) {
       handleToggleExpand()
+    } else {
+      onTreeNodeClick(
+        node.label,
+        node.databaseName,
+        nodePath,
+        node.schemaName,
+      )
     }
   }
 

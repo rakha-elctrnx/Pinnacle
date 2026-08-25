@@ -154,6 +154,176 @@ impl From<russh::keys::Error> for AppError {
     }
 }
 
+// ── MongoDB error normalization ─────────────────────────────────────
+//
+// Driver/server errors are mapped to stable, sanitized messages. The raw
+// driver text is NEVER interpolated (it can embed URIs/credentials); only the
+// server code plus a fixed category message reach the frontend. Fixable
+// states the UI branches on: duplicate key (11000), document validation (121),
+// unauthorized (13), namespace missing (26), namespace exists (48),
+// max-time expiry (50).
+
+/// Stable MongoDB error categories surfaced to the UI.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct MongoErrorPayload {
+    /// Server error code when known (e.g. 11000), else None.
+    pub code: Option<i32>,
+    /// Stable sanitized message for this category.
+    pub message: String,
+}
+
+impl MongoErrorPayload {
+    pub fn to_app_error(&self) -> AppError {
+        AppError::Database(self.message.clone())
+    }
+}
+
+/// Map a MongoDB driver/server error to a sanitized payload.
+pub fn sanitize_mongo_error(err: &mongodb::error::Error) -> MongoErrorPayload {
+    use mongodb::error::ErrorKind;
+
+    // Command errors carry a server code; write failures carry one too
+    // (either the write-concern failure or an individual write error).
+    let server_code = match err.kind.as_ref() {
+        ErrorKind::Command(command) => Some(command.code),
+        ErrorKind::Write(mongodb::error::WriteFailure::WriteConcernError(wc)) => Some(wc.code),
+        ErrorKind::Write(mongodb::error::WriteFailure::WriteError(we)) => Some(we.code),
+        _ => None,
+    };
+
+    // Authentication failures: code 18 (AuthenticationFailed) or the driver's
+    // explicit Authentication kind.
+    if matches!(err.kind.as_ref(), ErrorKind::Authentication { .. }) {
+        return MongoErrorPayload {
+            code: server_code.or(Some(18)),
+            message: MSG_MONGO_AUTH_FAILED.to_string(),
+        };
+    }
+
+    if let Some(code) = server_code {
+        let message = match code {
+            11000 => "Duplicate key: a document with the same unique value already exists.",
+            121 => "Document failed collection validation. Adjust the document or the validator.",
+            13 => "Not authorized for this operation. Check user roles on this database.",
+            26 => "Namespace not found. The database or collection does not exist.",
+            48 => "A collection with this name already exists.",
+            50 => "Operation exceeded maxTimeMS and was aborted.",
+            _ => MSG_MONGO_SERVER,
+        };
+        return MongoErrorPayload {
+            code: Some(code),
+            message: message.to_string(),
+        };
+    }
+
+    // No server code — classify by error kind. The driver text is never
+    // surfaced, only its category.
+    match err.kind.as_ref() {
+        ErrorKind::DnsResolve { message, .. } => {
+            if message.contains("SRV") || message.contains("_mongodb") {
+                MongoErrorPayload {
+                    code: None,
+                    message: MSG_MONGO_SRV.to_string(),
+                }
+            } else {
+                MongoErrorPayload {
+                    code: None,
+                    message: MSG_MONGO_DNS.to_string(),
+                }
+            }
+        }
+        ErrorKind::InvalidTlsConfig { .. } => MongoErrorPayload {
+            code: None,
+            message: MSG_MONGO_TLS.to_string(),
+        },
+        ErrorKind::InvalidArgument { .. } => MongoErrorPayload {
+            code: None,
+            message: MSG_INVALID_CONFIG.to_string(),
+        },
+        ErrorKind::Io(_) | ErrorKind::ConnectionPoolCleared { .. } => MongoErrorPayload {
+            code: None,
+            message: MSG_CONN_RESET.to_string(),
+        },
+        _ => {
+            // ServerSelection and anything else: distinguish TLS handshake
+            // failures hiding in the source chain, then fall back to
+            // unreachable/generic.
+            if is_tls_source(err) {
+                return MongoErrorPayload {
+                    code: None,
+                    message: MSG_MONGO_TLS.to_string(),
+                };
+            }
+            let text = err.to_string();
+            if text.contains("timed out") || text.contains("timeout") {
+                return MongoErrorPayload {
+                    code: None,
+                    message: MSG_TIMEOUT.to_string(),
+                };
+            }
+            if matches!(err.kind.as_ref(), ErrorKind::ServerSelection { .. }) {
+                return MongoErrorPayload {
+                    code: None,
+                    message: MSG_MONGO_UNREACHABLE.to_string(),
+                };
+            }
+            MongoErrorPayload {
+                code: None,
+                message: MSG_MONGO_GENERIC.to_string(),
+            }
+        }
+    }
+}
+
+fn is_tls_source(err: &mongodb::error::Error) -> bool {
+    // The driver's nested `source` field is private; walk the public
+    // `std::error::Error::source` chain instead (works because Error impls
+    // thiserror's Error trait, exposing its boxed source).
+    let mut cur: Option<&dyn std::error::Error> = Some(err);
+    while let Some(e) = cur {
+        let t = e.to_string();
+        if t.contains("certificate")
+            || t.contains("tls")
+            || t.contains("TLS")
+            || t.contains("handshake")
+            || t.contains("unknown ca")
+            || t.contains("UnknownIssuer")
+        {
+            return true;
+        }
+        cur = e.source();
+    }
+    false
+}
+
+const MSG_MONGO_AUTH_FAILED: &str =
+    "MongoDB authentication failed. Re-check username and password.";
+const MSG_MONGO_DNS: &str =
+    "DNS lookup failed. Verify the hostname of the MongoDB deployment.";
+const MSG_MONGO_SRV: &str =
+    "SRV lookup failed. Verify the mongodb+srv hostname and DNS SRV records.";
+const MSG_MONGO_UNREACHABLE: &str =
+    "Could not reach any MongoDB server. Verify host, port, and network access.";
+const MSG_MONGO_TLS: &str =
+    "TLS handshake failed. Check certificates and TLS settings.";
+const MSG_MONGO_SERVER: &str =
+    "The MongoDB operation failed on the server. Review the request and retry.";
+const MSG_MONGO_GENERIC: &str =
+    "The MongoDB operation failed. Review the connection settings and retry.";
+
+impl From<&mongodb::error::Error> for AppError {
+    fn from(err: &mongodb::error::Error) -> Self {
+        sanitize_mongo_error(err).to_app_error()
+    }
+}
+
+impl From<mongodb::error::Error> for AppError {
+    fn from(err: mongodb::error::Error) -> Self {
+        sanitize_mongo_error(&err).to_app_error()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

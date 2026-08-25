@@ -130,6 +130,7 @@ pub async fn begin(
 #[cfg(test)]
 mod ssh_forwarding_tests {
     use super::*;
+    use crate::domain::query::SshConfig;
 
     /// Capture what `begin` forwards to `pool::get_or_create`.
     ///
@@ -170,23 +171,19 @@ mod ssh_forwarding_tests {
             r#type: "postgresql".into(),
             host: "db.internal".into(),
             port: 5432,
-            username: "svc".into(),
-            password: String::new(),
+            username: "app".into(),
             database: "appdb".into(),
             ssl: false,
-            schema: String::new(),
-            ssh: Some(crate::domain::query::SshConfig {
+            schema: "public".into(),
+            ssh: Some(SshConfig {
                 host: "bastion.internal".into(),
                 port: 22,
-                username: "tunnel-user".into(),
+                username: "git".into(),
                 auth_method: "privateKey".into(),
                 private_key_path: Some("/keys/id_ed25519".into()),
             }),
-            connection_id: connection_id.map(str::to_string),
-            ssl_config: None,
-            pool_size: None,
-            idle_timeout_secs: None,
-            statement_timeout_ms: None,
+            connection_id: connection_id.map(String::from),
+            ..Default::default()
         }
     }
 

@@ -33,7 +33,7 @@ const mockCtx = vi.hoisted(() => {
       | ((id: string, p: ConnectionProfile) => void)
       | null,
     fetchDatabaseDetails: null as
-      | ((id: string, p: ConnectionProfile, db: string) => void)
+      | ((dbName: string, connectionId?: string) => void)
       | null,
   }
   return {
@@ -62,8 +62,8 @@ vi.mock('../../../context/DataExplorerContext', () => ({
           : [...mockCtx.store.expandedTreePaths, path]
       mockCtx.notify?.()
     },
-    handleFetchDatabaseDetails: (id: string, p: ConnectionProfile, db: string) => {
-      mockCtx.store.fetchDatabaseDetails?.(id, p, db)
+    handleFetchDatabaseDetails: (dbName: string, connectionId?: string) => {
+      mockCtx.store.fetchDatabaseDetails?.(dbName, connectionId)
     },
     handleRetryElasticIndices: vi.fn(),
     setExpandedConnectionId: vi.fn(),
@@ -87,12 +87,43 @@ vi.mock('../../../context/DataExplorerContext', () => ({
         // nodes from treeDataMap so children render when a connection expands.
         const treeData = mockCtx.store.treeDataMap[conn.id]
         if (!treeData) return []
-        return treeData.databases.map((db): TreeNode => ({
-          label: db.name,
-          nodeType: 'database',
-          connectionId: conn.id,
-          databaseName: db.name,
-        }))
+        return treeData.databases.map((db): TreeNode => {
+          if (conn.type === 'mongodb') {
+            const collections = db.schemas[0]?.tables || []
+            const views = db.schemas[0]?.views || []
+            const children: TreeNode[] = [
+              ...collections.map(
+                (c): TreeNode => ({
+                  label: c,
+                  nodeType: 'item',
+                  connectionId: conn.id,
+                  databaseName: db.name,
+                }),
+              ),
+              ...views.map(
+                (v): TreeNode => ({
+                  label: `${v} (view)`,
+                  nodeType: 'item',
+                  connectionId: conn.id,
+                  databaseName: db.name,
+                }),
+              ),
+            ]
+            return {
+              label: db.name,
+              nodeType: 'database',
+              connectionId: conn.id,
+              databaseName: db.name,
+              children: db.loaded ? children : undefined,
+            }
+          }
+          return {
+            label: db.name,
+            nodeType: 'database',
+            connectionId: conn.id,
+            databaseName: db.name,
+          }
+        })
       },
       fetchDatabaseDetails: vi.fn(
         (_id: string, _p: ConnectionProfile, _db: string) => {
@@ -134,13 +165,14 @@ function makeProfile(
   id: string,
   name: string,
   folderId: string | null,
+  type: ConnectionProfile['type'] = 'postgresql',
 ): ConnectionProfile {
   return {
     id,
     name,
-    type: 'postgresql',
+    type,
     host: 'localhost',
-    port: 5432,
+    port: type === 'mongodb' ? 27017 : 5432,
     username: 'user',
     database: 'db',
     ssl: false,
@@ -320,6 +352,83 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
 
     expect(mockCtx.store.refreshConnectionData).toHaveBeenCalledTimes(1)
     expect(mockCtx.store.fetchDatabaseDetails).not.toHaveBeenCalled()
+  })
+
+  it('single-clicking a Mongo database node expands it and fetches database details', async () => {
+    const mongo = makeProfile('mongo-1', 'Local Mongo', null, 'mongodb')
+    mockCtx.store.groupedConnections = { __ungrouped__: [mongo] }
+    mockCtx.store.selectedConnection = mongo
+    mockCtx.store.expandedTreePaths = ['Local%20Mongo']
+    mockCtx.store.treeDataMap = {
+      'mongo-1': {
+        databases: [{ name: 'testdb', schemas: [], loaded: false }],
+      },
+    }
+    mockCtx.store.fetchDatabaseDetails = vi.fn()
+
+    render(<Harness />)
+    const dbNode = document.querySelector(
+      '[data-node-path="Local%20Mongo/testdb"]',
+    ) as HTMLElement
+
+    fireEvent.click(dbNode)
+
+    await waitFor(() => {
+      expect(mockCtx.store.expandedTreePaths).toContain('Local%20Mongo/testdb')
+    })
+    expect(mockCtx.store.fetchDatabaseDetails).toHaveBeenCalledWith(
+      'testdb',
+      'mongo-1',
+    )
+  })
+
+  it('renders dynamic Mongo collections when database is loaded without static placeholder nodes', async () => {
+    const mongoGrouped = makeProfile('mongo-2', 'Grouped Mongo', 'FolderA', 'mongodb')
+    const folder: Folder = { id: 'f1', name: 'FolderA' }
+    mockCtx.store.folders = [folder]
+    mockCtx.store.groupedConnections = { FolderA: [mongoGrouped] }
+    mockCtx.store.selectedConnection = mongoGrouped
+    mockCtx.store.expandedTreePaths = ['FolderA', 'FolderA/Grouped%20Mongo', 'FolderA/Grouped%20Mongo/admin']
+    mockCtx.store.treeDataMap = {
+      'mongo-2': {
+        databases: [
+          {
+            name: 'admin',
+            schemas: [{ name: 'admin', tables: ['users', 'logs'], views: ['active_users'] }],
+            loaded: true,
+          },
+        ],
+      },
+    }
+
+    render(<Harness />)
+
+    expect(document.querySelector('[data-node-path="FolderA/Grouped%20Mongo/admin/users"]')).not.toBeNull()
+    expect(document.querySelector('[data-node-path="FolderA/Grouped%20Mongo/admin/active_users%20(view)"]')).not.toBeNull()
+    expect(document.querySelector('[aria-label="Databases"]')).toBeNull()
+    expect(document.querySelector('[aria-label="Collections"]')).toBeNull()
+  })
+  it('single-clicking a MongoDB connection expands and loads its databases', async () => {
+    const mongo = makeProfile('mongo-1', 'Local Mongo', null, 'mongodb')
+    mockCtx.store.groupedConnections = { __ungrouped__: [mongo] }
+    mockCtx.store.selectedConnection = mongo
+    mockCtx.store.treeDataMap = {}
+    mockCtx.store.refreshConnectionData = vi.fn()
+
+    render(<Harness />)
+    const node = document.querySelector(
+      '[data-node-path="Local%20Mongo"]',
+    ) as HTMLElement
+
+    fireEvent.click(node)
+
+    await waitFor(() => {
+      expect(mockCtx.store.expandedTreePaths).toContain('Local%20Mongo')
+    })
+    expect(mockCtx.store.refreshConnectionData).toHaveBeenCalledWith(
+      'mongo-1',
+      mongo,
+    )
   })
 
   it('ArrowRight on a SQL connection with cached databases fetches the first DB details', async () => {

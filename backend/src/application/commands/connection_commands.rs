@@ -38,9 +38,26 @@ pub async fn save_connection(
     request: SaveConnectionRequest,
 ) -> AppResult<ConnectionResponse> {
     let data = app_data(&app)?;
+    let mut metadata = request.metadata;
+
+    if metadata.r#type == ConnectionType::Mongodb {
+        if let Some(uri) = &request.connection_uri {
+            let parsed = crate::infrastructure::connectors::mongodb::parse_uri_sync(uri)?;
+            metadata.host = parsed.host;
+            metadata.port = parsed.port;
+            metadata.database = parsed.database;
+            if metadata.username.is_empty() && !parsed.username.is_empty() {
+                metadata.username = parsed.username;
+            }
+            if metadata.mongo_config.is_none() {
+                metadata.mongo_config = Some(parsed.mongo_config);
+            }
+        }
+    }
+
     store::save_connection_with_secrets(
         &data,
-        &request.metadata,
+        &metadata,
         request.password.as_deref(),
         request.ssh_password.as_deref(),
         request.key_passphrase.as_deref(),
@@ -49,16 +66,15 @@ pub async fn save_connection(
 
     // Keep keyring as secondary store for migrated entries; ignore errors.
     if let Some(password) = &request.password {
-        let _ = keyring::save_password(&request.metadata.id, password).await;
+        let _ = keyring::save_password(&metadata.id, password).await;
     }
     if let Some(ssh_password) = &request.ssh_password {
-        let _ = keyring::save_ssh_password(&request.metadata.id, ssh_password).await;
+        let _ = keyring::save_ssh_password(&metadata.id, ssh_password).await;
     }
     if let Some(key_passphrase) = &request.key_passphrase {
-        let _ = keyring::save_key_passphrase(&request.metadata.id, key_passphrase).await;
+        let _ = keyring::save_key_passphrase(&metadata.id, key_passphrase).await;
     }
-
-    Ok(request.metadata.into())
+    Ok(metadata.into())
 }
 
 /// List all connections

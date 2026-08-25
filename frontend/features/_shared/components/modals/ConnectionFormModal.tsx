@@ -352,7 +352,17 @@ export function ConnectionFormModal({
           message: result.message,
         })
       }
-      // ELSE IF NOT IMPLEMENTED, SHOW GENERIC SUCCESS (for types without deep test)
+      else if (newType === 'mongodb') {
+        const { mongoTestConnection } = await import(
+          '../../../mongodb/clients/mongodb'
+        )
+        const result = await mongoTestConnection(payload)
+        setTestConnectionResult({
+          kind: result.ok ? 'success' : 'error',
+          message: result.message,
+        })
+      }
+      // ELSE IF NOT IMPLEMENTED, SHOW GENERIC SUCCESS
       else {
         setTestConnectionResult({
           kind: 'success',

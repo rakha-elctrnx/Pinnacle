@@ -36,7 +36,7 @@ pub struct CommitTableChangesResult {
 
 // ── Original types ─────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectionPayload {
     pub r#type: String,
@@ -69,6 +69,9 @@ pub struct ConnectionPayload {
     /// Optional statement timeout (milliseconds). `None` => no explicit timeout.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub statement_timeout_ms: Option<u64>,
+    /// Optional MongoDB-specific options.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mongo_config: Option<crate::domain::mongodb::MongoConnectionOptions>,
 }
 
 /// SSL/TLS configuration for SQL connections (mirrors

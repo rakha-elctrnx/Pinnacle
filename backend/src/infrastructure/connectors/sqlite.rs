@@ -671,11 +671,7 @@ mod tests {
             ssl: false,
             schema: String::new(),
             ssh: None,
-            connection_id: None,
-            ssl_config: None,
-            pool_size: None,
-            idle_timeout_secs: None,
-            statement_timeout_ms: None,
+            ..Default::default()
         }
     }
 

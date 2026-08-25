@@ -15,6 +15,7 @@ export type TabPageType =
   | 'elastic-indices'
   | 'elastic-query'
   | 'elastic-mappings'
+  | 'mongo-collection'
 
 export interface Tab {
   /** Unique identifier — connection id for connection tabs, composite key for sub-pages. */

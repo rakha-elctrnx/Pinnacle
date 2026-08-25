@@ -70,12 +70,7 @@ function getStaticTreeNodes(
         { label: 'Queries', children: [] },
       ]
     case 'mongodb':
-      return [
-        { label: 'Tables', children: [] },
-        { label: 'Views', children: [] },
-        { label: 'Indexes', children: [] },
-        { label: 'Queries', children: [] },
-      ]
+      return []
     case 'elasticsearch':
       return [
         { label: 'Cluster', children: [] },
@@ -134,14 +129,16 @@ function buildUnifiedTree(
         children: [],
       }
 
-      const sqlTreeNodes = isSqlConnectionType(profile.type)
-        ? explorerData.getTreeNodesForConnection(profile)
-        : []
+      const dynamicTreeNodes =
+        isSqlConnectionType(profile.type) || profile.type === 'mongodb'
+          ? explorerData.getTreeNodesForConnection(profile)
+          : []
       const connectionIndices = elasticIndices?.[profile.id]
-      const staticTreeNodes = isSqlConnectionType(profile.type)
-        ? []
-        : getStaticTreeNodes(profile.type, connectionIndices)
-      const treeNodes = sqlTreeNodes.length > 0 ? sqlTreeNodes : staticTreeNodes
+      const staticTreeNodes =
+        isSqlConnectionType(profile.type) || profile.type === 'mongodb'
+          ? []
+          : getStaticTreeNodes(profile.type, connectionIndices)
+      const treeNodes = dynamicTreeNodes.length > 0 ? dynamicTreeNodes : staticTreeNodes
 
       const connectionPath = buildPath(folder.name, profile.name)
       if (expandedTreePaths.includes(connectionPath)) {
@@ -165,14 +162,16 @@ function buildUnifiedTree(
         children: [],
       }
 
-      const sqlTreeNodes = isSqlConnectionType(profile.type)
-        ? explorerData.getTreeNodesForConnection(profile)
-        : []
+      const dynamicTreeNodes =
+        isSqlConnectionType(profile.type) || profile.type === 'mongodb'
+          ? explorerData.getTreeNodesForConnection(profile)
+          : []
       const connectionIndices = elasticIndices?.[profile.id]
-      const staticTreeNodes = isSqlConnectionType(profile.type)
-        ? []
-        : getStaticTreeNodes(profile.type, connectionIndices)
-      const treeNodes = sqlTreeNodes.length > 0 ? sqlTreeNodes : staticTreeNodes
+      const staticTreeNodes =
+        isSqlConnectionType(profile.type) || profile.type === 'mongodb'
+          ? []
+          : getStaticTreeNodes(profile.type, connectionIndices)
+      const treeNodes = dynamicTreeNodes.length > 0 ? dynamicTreeNodes : staticTreeNodes
 
       // For ungrouped connections, the path is the encoded profile name
       const connectionPath = encodePathSegment(profile.name)
@@ -607,13 +606,17 @@ export function ConnectionSidebar() {
         const profile = Object.values(groupedConnections ?? {})
           .flat()
           .find((p) => p.id === connectionId)
-        if (profile && isSqlConnectionType(profile.type)) {
+        if (
+          profile &&
+          (isSqlConnectionType(profile.type) || profile.type === 'mongodb')
+        ) {
           const treeData = explorerData.treeDataMap[connectionId]
           if (!treeData) {
-            // No data at all — fetch the database list first
             explorerData.refreshConnectionData(connectionId, profile)
-          } else if (treeData.databases?.[0]) {
-            // Database list exists — fetch details for the first database
+          } else if (
+            isSqlConnectionType(profile.type) &&
+            treeData.databases?.[0]
+          ) {
             handleFetchDatabaseDetails(treeData.databases[0].name, connectionId)
           }
         } else if (profile && isElasticsearchType(profile.type)) {

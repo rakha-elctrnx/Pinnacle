@@ -560,7 +560,7 @@ export function useExplorerData({
   // Fetch all database names for a connection
   const fetchTreeData = useCallback(
     async (connId: string, conn: ConnectionProfile) => {
-      if (!isSqlConnectionType(conn.type)) return
+      if (!isSqlConnectionType(conn.type) && conn.type !== 'mongodb') return
       if (inflightTreeFetches.current.has(connId)) return
       inflightTreeFetches.current.add(connId)
       setTreeLoading((prev) => ({ ...prev, [connId]: true }))
@@ -569,7 +569,15 @@ export function useExplorerData({
 
         let databaseNames: string[] = []
 
-        if (conn.type === 'postgresql') {
+        if (conn.type === 'mongodb') {
+          const { mongodbAdapter } = await import('../../_shared/connector-runtime/adapters/mongodb-adapter')
+          const navResult = await mongodbAdapter.loadNavigationTree(payload)
+          setTreeDataMap((prev) => ({
+            ...prev,
+            [connId]: navResult,
+          }))
+          return
+        } else if (conn.type === 'postgresql') {
           const dbRes = await executeSql({
             connection: payload,
             sql: `SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname`,
@@ -583,7 +591,6 @@ export function useExplorerData({
           const dbNameKey = dbRes.columns[0] || 'Database'
           databaseNames = dbRes.rows.map((r) => String(r[dbNameKey] || ''))
         }
-
         const databases: TreeDatabase[] = databaseNames.map((name) => ({
           name,
           schemas: [],
@@ -879,7 +886,7 @@ export function useExplorerData({
     if (
       expandedConnectionId &&
       selectedConnection &&
-      isSqlConnectionType(selectedConnection.type)
+      (isSqlConnectionType(selectedConnection.type) || selectedConnection.type === 'mongodb')
     ) {
       const existing = treeDataMap[expandedConnectionId]
       if (!existing) {
@@ -891,18 +898,48 @@ export function useExplorerData({
 
   const getTreeNodesForConnection = useCallback(
     (conn: ConnectionProfile): TreeNode[] => {
-      if (!isSqlConnectionType(conn.type)) return []
+      if (!isSqlConnectionType(conn.type) && conn.type !== 'mongodb') return []
 
       const treeData = treeDataMap[conn.id]
       if (!treeData) return []
 
       return treeData.databases.map((db): TreeNode => {
-        if (!db.loaded) {
+        if (!db.loaded && conn.type !== 'mongodb') {
           return {
             label: db.name,
             nodeType: 'database',
             connectionId: conn.id,
             databaseName: db.name,
+          }
+        }
+
+        if (conn.type === 'mongodb') {
+          const collections = db.schemas[0]?.tables || []
+          const views = db.schemas[0]?.views || []
+          const children: TreeNode[] = [
+            ...collections.map(
+              (c): TreeNode => ({
+                label: c,
+                nodeType: 'item',
+                connectionId: conn.id,
+                databaseName: db.name,
+              }),
+            ),
+            ...views.map(
+              (v): TreeNode => ({
+                label: `${v} (view)`,
+                nodeType: 'item',
+                connectionId: conn.id,
+                databaseName: db.name,
+              }),
+            ),
+          ]
+          return {
+            label: db.name,
+            nodeType: 'database',
+            connectionId: conn.id,
+            databaseName: db.name,
+            children: db.loaded ? children : undefined,
           }
         }
 

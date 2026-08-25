@@ -137,12 +137,8 @@ mod tests {
             database: "db".into(),
             ssl,
             schema: String::new(),
-            ssh: None,
-            connection_id: None,
             ssl_config,
-            pool_size: None,
-            idle_timeout_secs: None,
-            statement_timeout_ms: None,
+            ..Default::default()
         }
     }
 

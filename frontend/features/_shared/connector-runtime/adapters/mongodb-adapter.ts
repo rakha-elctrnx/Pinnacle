@@ -1,16 +1,3 @@
-/**
- * MongoDB Adapter — connector implementation with progressive capability.
- *
- * Phase 3: Onboarding awal MongoDB via registry.
- * - Full capability: test-connection
- * - Progressive (stub): load-navigation-tree, open-entity, run-query
- * - N/A: get-default-context (MongoDB tidak punya schema/database konsep seperti SQL)
- *
- * Progressive capability memungkinkan connector baru dikenali oleh registry
- * sebelum seluruh feature penuh diimplementasikan.
- */
-
-import { invoke } from '@tauri-apps/api/core'
 import { normalizeError } from '../error-norm'
 import type {
   ConnectorAdapter,
@@ -20,32 +7,14 @@ import type {
   QueryExecutionResult,
 } from './adapter-types'
 import type { ConnectionPayload } from '../../services/tauriClient'
-
-/**
- * Coba panggil Tauri command MongoDB test connection.
- * Jika command tidak tersedia (bln backend belum diimplementasi),
- * fallback ke simulated test.
- */
-async function tryMongoTestConnection(
-  payload: ConnectionPayload,
-): Promise<{ ok: boolean; message: string }> {
-  try {
-    const result = await invoke<{ ok: boolean; message: string }>(
-      'mongo_test_connection',
-      { payload },
-    )
-    return result
-  } catch {
-    // Backend command belum tersedia — simulated check
-    return {
-      ok: payload.host.length > 0 && payload.port > 0,
-      message:
-        payload.host.length > 0 && payload.port > 0
-          ? 'Connection test simulated (backend pending)'
-          : 'Invalid connection parameters',
-    }
-  }
-}
+import {
+  mongoTestConnection,
+  mongoListDatabases,
+  mongoListCollections,
+  mongoFindDocuments,
+  mongoGetCollectionStats,
+  mongoListIndexes,
+} from '../../../mongodb/clients/mongodb'
 
 export const mongodbAdapter: ConnectorAdapter = {
   label: 'MongoDB',
@@ -54,7 +23,7 @@ export const mongodbAdapter: ConnectorAdapter = {
     payload: ConnectionPayload,
   ): Promise<TestConnectionResult> {
     try {
-      const result = await tryMongoTestConnection(payload)
+      const result = await mongoTestConnection(payload)
       if (result.ok) {
         return {
           kind: 'success',
@@ -78,24 +47,51 @@ export const mongodbAdapter: ConnectorAdapter = {
   async loadNavigationTree(
     payload: ConnectionPayload,
   ): Promise<NavigationTreeResult> {
-    void payload
-    // Progressive: stub — akan diimplementasi di fase lanjutan
-    return {
-      databases: [
-        {
-          name: 'mongodb',
-          schemas: [
-            {
-              name: 'default',
-              tables: [],
-              views: [],
-              functions: [],
-            },
-          ],
-          loaded: false,
-        },
-      ],
-      flatTables: [],
+    try {
+      const dbs = await mongoListDatabases(payload)
+      const databases = await Promise.all(
+        dbs.map(async (db) => {
+          try {
+            const collections = await mongoListCollections({
+              connection: payload,
+              database: db.name,
+            })
+            const tables = collections
+              .filter((c) => c.collectionType !== 'view')
+              .map((c) => c.name)
+            const views = collections
+              .filter((c) => c.collectionType === 'view')
+              .map((c) => c.name)
+            return {
+              name: db.name,
+              schemas: [
+                {
+                  name: db.name,
+                  tables,
+                  views,
+                  functions: [],
+                },
+              ],
+              loaded: true,
+            }
+          } catch {
+            return {
+              name: db.name,
+              schemas: [],
+              loaded: false,
+            }
+          }
+        })
+      )
+      const flatTables = databases.flatMap((db) =>
+        db.schemas.flatMap((s) => [...s.tables, ...s.views])
+      )
+      return {
+        databases,
+        flatTables,
+      }
+    } catch (err) {
+      throw normalizeError(err)
     }
   },
 
@@ -103,15 +99,49 @@ export const mongodbAdapter: ConnectorAdapter = {
     payload: ConnectionPayload,
     entityName: string,
   ): Promise<EntityDetailResult> {
-    void payload
-    void entityName
-    // Progressive: stub — akan diimplementasi di fase lanjutan
-    return {
-      stats: null,
-      structure: [],
-      indexes: [],
-      columns: [],
-      rows: [],
+    try {
+      const parts = entityName.split('.')
+      const database = parts.length > 1 ? parts[0] : payload.database || 'admin'
+      const collection = parts.length > 1 ? parts.slice(1).join('.') : entityName
+
+      const nsPayload = { connection: payload, database, collection }
+
+      const [stats, indexes, findRes] = await Promise.all([
+        mongoGetCollectionStats(nsPayload).catch(() => null),
+        mongoListIndexes(nsPayload).catch(() => []),
+        mongoFindDocuments({ ...nsPayload, offset: 0, pageSize: 50 }).catch(() => null),
+      ])
+
+      const rawRows = findRes?.documents || []
+      const rows = rawRows.map((doc) =>
+        Object.fromEntries(
+          Object.entries(doc).map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : String(v)])
+        )
+      )
+
+      const sampleDoc = rawRows[0] || {}
+      const keys = Object.keys(sampleDoc)
+      const columns = keys
+      const structure = keys.map((key) => ({
+        name: key,
+        type: typeof sampleDoc[key],
+      }))
+
+      return {
+        stats: stats
+          ? {
+              count: String(stats.count),
+              sizeBytes: String(stats.sizeBytes),
+              totalIndexSizeBytes: String(stats.totalIndexSizeBytes),
+            }
+          : null,
+        structure,
+        indexes: indexes.map((idx) => idx.name),
+        columns,
+        rows,
+      }
+    } catch (err) {
+      throw normalizeError(err)
     }
   },
 
@@ -119,14 +149,33 @@ export const mongodbAdapter: ConnectorAdapter = {
     payload: ConnectionPayload,
     query: string,
   ): Promise<QueryExecutionResult> {
-    void payload
-    void query
-    // Progressive: stub — akan diimplementasi di fase lanjutan
-    return {
-      columns: [],
-      rows: [],
-      rowsAffected: 0,
-      elapsedMs: 0,
+    try {
+      const filter = query.trim().length > 0 ? JSON.parse(query) : {}
+      const database = payload.database || 'admin'
+      const collection = 'system.js'
+      const findRes = await mongoFindDocuments({
+        connection: payload,
+        database,
+        collection,
+        filter,
+        offset: 0,
+        pageSize: 50,
+      })
+      const rawRows = findRes.documents
+      const rows = rawRows.map((doc) =>
+        Object.fromEntries(
+          Object.entries(doc).map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : String(v)])
+        )
+      )
+      const columns = rawRows.length > 0 ? Object.keys(rawRows[0]) : []
+      return {
+        rows,
+        columns,
+        elapsedMs: findRes.elapsedMs,
+        rowsAffected: rows.length,
+      }
+    } catch (err) {
+      throw normalizeError(err)
     }
   },
 
@@ -134,11 +183,10 @@ export const mongodbAdapter: ConnectorAdapter = {
     database: string
     schema: string
   } {
-    void payload
-    // MongoDB tidak punya konsep schema seperti SQL
+    const database = payload.database || 'admin'
     return {
-      database: 'mongodb',
-      schema: 'default',
+      database,
+      schema: database,
     }
   },
 }

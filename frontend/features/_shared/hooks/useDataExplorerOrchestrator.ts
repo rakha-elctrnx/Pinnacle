@@ -966,6 +966,31 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
         return
       }
     }
+    const mongoConn =
+      selectedConnection && selectedConnection.type === 'mongodb'
+        ? selectedConnection
+        : (nodePath
+            ? items.find(
+                (item) =>
+                  item.type === 'mongodb' &&
+                  nodePath.split('/').map(decodePathSegment).includes(item.name),
+              )
+            : null) ?? selectedConnection
+    if (mongoConn && mongoConn.type === 'mongodb') {
+      const dbName = databaseName || mongoConn.database || 'admin'
+      const globalTabId = `${mongoConn.id}:mongo:${dbName}:${nodeLabel}`
+      useTabStore.getState().openTab({
+        id: globalTabId,
+        label: nodeLabel,
+        type: 'mongodb',
+        pageType: 'mongo-collection',
+        route: `/mongodb/${mongoConn.id}/databases/${encodeURIComponent(dbName)}/collections/${encodeURIComponent(nodeLabel.replace(' (view)', ''))}`,
+        connectionId: mongoConn.id,
+        treePath: nodePath,
+      })
+      navigate(`/mongodb/${mongoConn.id}/databases/${encodeURIComponent(dbName)}/collections/${encodeURIComponent(nodeLabel.replace(' (view)', ''))}`)
+      return
+    }
     // Resolve target connection (fallback to nodePath matching if selectedConnection isn't set yet)
     let conn = selectedConnection
     if (!conn && nodePath) {

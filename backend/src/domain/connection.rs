@@ -153,6 +153,12 @@ pub struct ConnectionMetadata {
     /// Optional statement timeout (milliseconds). `None` => no explicit timeout.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub statement_timeout_ms: Option<u64>,
+    /// Optional MongoDB-specific options (scheme, hosts, auth source, TLS…).
+    /// Secrets are never stored here — only the DB password/SSH secrets live
+    /// in the credential store. Absent on legacy profiles; the MongoDB
+    /// connector derives a single-host target from `host`/`port` then.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mongo_config: Option<crate::domain::mongodb::MongoConnectionOptions>,
 }
 
 #[allow(dead_code)]
@@ -187,6 +193,7 @@ impl ConnectionMetadata {
             pool_size: None,
             idle_timeout_secs: None,
             statement_timeout_ms: None,
+            mongo_config: None,
         }
     }
 
@@ -206,15 +213,17 @@ impl ConnectionMetadata {
 #[serde(rename_all = "camelCase")]
 pub struct SaveConnectionRequest {
     pub metadata: ConnectionMetadata,
+    #[serde(default)]
     pub password: Option<String>,
-    /// SSH password for tunnel auth (when ssh.auth_method == "password").
-    /// Stored separately in the credential store, never serialized into metadata.
     #[serde(default)]
     pub ssh_password: Option<String>,
-    /// Passphrase for an encrypted SSH private key (when ssh.auth_method == "privateKey").
-    /// Stored separately in the credential store, never serialized into metadata.
     #[serde(default)]
     pub key_passphrase: Option<String>,
+    /// Transient MongoDB connection URI (`mongodb://` / `mongodb+srv://`).
+    /// Parsed and sanitized by the backend during save; never persisted or
+    /// returned. Explicit metadata username/password override URI userinfo.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connection_uri: Option<String>,
 }
 
 /// Response containing connection metadata (without password)

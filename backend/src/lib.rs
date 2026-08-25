@@ -38,6 +38,7 @@ use application::commands::connection_commands::{
     get_ssh_password, has_connection_password, list_connections, save_connection,
     update_connection,
 };
+use application::commands::mongodb_commands::*;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -138,6 +139,31 @@ pub fn run() {
             redis_test_connection,
             redis_show_all_databases,
             redis_execute_command,
+            // MONGODB COMMANDS
+            mongo_parse_uri,
+            mongo_test_connection,
+            mongo_list_databases,
+            mongo_create_database,
+            mongo_drop_database,
+            mongo_list_collections,
+            mongo_create_collection,
+            mongo_rename_collection,
+            mongo_drop_collection,
+            mongo_find_documents,
+            mongo_insert_document,
+            mongo_update_document,
+            mongo_delete_document,
+            mongo_aggregate,
+            mongo_explain,
+            mongo_get_collection_stats,
+            mongo_analyze_schema,
+            mongo_list_indexes,
+            mongo_create_index,
+            mongo_drop_index,
+            mongo_set_index_hidden,
+            mongo_get_validation,
+            mongo_set_validation,
+            mongo_export,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -15,6 +15,16 @@ import { IndexDocumentsPage } from '../features/elasticsearch/pages/IndexDocumen
 import { QueryConsolePage } from '../features/elasticsearch/pages/QueryConsolePage'
 import { IndexMappingsPage } from '../features/elasticsearch/pages/IndexMappingsPage'
 import { NewConnectionPage } from '../features/_shared/pages/window'
+import { MongoLayout } from '../features/mongodb/layouts/MongoLayout'
+import { MongoConnectionWelcomePage } from '../features/mongodb/pages/MongoConnectionWelcomePage'
+import {
+  MongoAggregationsPage,
+  MongoCollectionWorkspacePage,
+  MongoDocumentsPage,
+  MongoIndexesPage,
+  MongoSchemaPage,
+  MongoValidationPage,
+} from '../features/mongodb/pages/MongoCollectionWorkspacePage'
 import { TableDesignerPage } from '../features/sql/pages/window/TableDesignerPage'
 
 /**
@@ -98,6 +108,32 @@ export const router = createBrowserRouter([
                 element: <IndexMappingsPage />,
               },
               { path: 'query', element: <QueryConsolePage /> },
+            ],
+          },
+        ],
+      },
+      {
+        path: 'mongodb',
+        element: <MongoLayout />,
+        children: [
+          {
+            path: ':connectionId',
+            children: [
+              { index: true, element: <MongoConnectionWelcomePage /> },
+              {
+                path: 'databases/:databaseName/collections/:collectionName',
+                element: <MongoCollectionWorkspacePage />,
+                children: [
+                  { index: true, element: <MongoDocumentsPage /> },
+                  {
+                    path: 'aggregations',
+                    element: <MongoAggregationsPage />,
+                  },
+                  { path: 'schema', element: <MongoSchemaPage /> },
+                  { path: 'indexes', element: <MongoIndexesPage /> },
+                  { path: 'validation', element: <MongoValidationPage /> },
+                ],
+              },
             ],
           },
         ],
