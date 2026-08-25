@@ -118,6 +118,9 @@ export function useTableGridSelectionAndActions({
   // ── Cell Mouse selection dragging handlers ─────────────────────────────
   const handleCellMouseDown = useCallback(
     (rowIndex: number, columnId: string, e: React.MouseEvent) => {
+      // Ignore right-click mousedown so existing multi-cell selection is not reset
+      if (e.button === 2) return
+
       const isMeta = e.metaKey || e.ctrlKey
       const isShift = e.shiftKey
 
@@ -157,6 +160,9 @@ export function useTableGridSelectionAndActions({
   // ── Gutter click row selection handler ─────────────────────────────────
   const handleGutterMouseDown = useCallback(
     (rowIndex: number, e: React.MouseEvent) => {
+      // Ignore right-click mousedown so existing selection is not reset before contextmenu fires
+      if (e.button === 2) return
+
       const isMeta = e.metaKey || e.ctrlKey
       const isShift = e.shiftKey
 
@@ -198,7 +204,7 @@ export function useTableGridSelectionAndActions({
 
   // ── Selection helper getters ───────────────────────────────────────────
   const getSelectedRows = useCallback((): Record<string, unknown>[] => {
-    if (selectedCells.size > 0 && activeCell) {
+    if (selectedCells.size > 0) {
       const rowIndices = new Set<number>()
       for (const key of selectedCells) {
         rowIndices.add(Number(key.split(':')[0]))
@@ -212,41 +218,58 @@ export function useTableGridSelectionAndActions({
       contextRowIndexRef.current < displayRows.length
       ? [displayRows[contextRowIndexRef.current]]
       : []
-  }, [selectedCells, activeCell, displayRows])
+  }, [selectedCells, displayRows])
+
+  const getSelectedGridData = useCallback(() => {
+    if (selectedCells.size === 0) {
+      const rows = getSelectedRows()
+      return { rows, columns: realTableColumns }
+    }
+    const rowIndices = [...new Set([...selectedCells].map((k) => Number(k.split(':')[0])))]
+      .filter((i) => i >= 0 && i < displayRows.length)
+      .sort((a, b) => a - b)
+    const selectedCols = realTableColumns.filter((col) =>
+      [...selectedCells].some((k) => k.split(':')[1] === col),
+    )
+    const activeColumns = selectedCols.length > 0 ? selectedCols : realTableColumns
+    const rows = rowIndices.map((i) => displayRows[i])
+    return { rows, columns: activeColumns }
+  }, [selectedCells, getSelectedRows, displayRows, realTableColumns])
 
   // ── Context menu action handlers ─────────────────────────────────────────
   const handleContextCopy = useCallback(async () => {
-    const rows = getSelectedRows()
+    const { rows, columns } = getSelectedGridData()
     if (rows.length === 0) return
-    const tsv = formatTSV(rows, realTableColumns)
+    const tsv = formatTSV(rows, columns)
     await copyToClipboard(tsv)
-  }, [getSelectedRows, realTableColumns])
+  }, [getSelectedGridData])
 
   const handleContextCopyWithHeaders = useCallback(async () => {
-    const rows = getSelectedRows()
+    const { rows, columns } = getSelectedGridData()
     if (rows.length === 0) return
-    const tsv = formatTSVWithHeaders(rows, realTableColumns)
+    const tsv = formatTSVWithHeaders(rows, columns)
     await copyToClipboard(tsv)
-  }, [getSelectedRows, realTableColumns])
+  }, [getSelectedGridData])
 
   const handleContextCopyAsSQL = useCallback(async () => {
-    const rows = getSelectedRows()
+    const { rows, columns } = getSelectedGridData()
     if (rows.length === 0) return
     const sql = generateInsertSQL(
       rows,
-      realTableColumns,
+      columns,
       tableName ?? 'table',
       dbType,
     )
     await copyToClipboard(sql)
-  }, [getSelectedRows, realTableColumns, tableName, dbType])
+  }, [getSelectedGridData, tableName, dbType])
 
   const handleContextCopyAsCSV = useCallback(async () => {
-    const rows = getSelectedRows()
+    const { rows, columns } = getSelectedGridData()
     if (rows.length === 0) return
-    const csv = formatCSVWithHeaders(rows, realTableColumns)
+    const csv = formatCSVWithHeaders(rows, columns)
     await copyToClipboard(csv)
-  }, [getSelectedRows, realTableColumns])
+  }, [getSelectedGridData])
+
 
   const handleContextPaste = useCallback(async () => {
     const text = await readFromClipboard()

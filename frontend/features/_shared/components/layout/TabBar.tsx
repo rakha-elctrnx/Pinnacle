@@ -23,6 +23,10 @@ function TabIcon({ tab }: { tab: Tab }) {
   }
 }
 
+function middleTruncate(text: string, maxLength = 24, startChars = 10, endChars = 10): string {
+  if (text.length <= maxLength) return text
+  return `${text.slice(0, startChars)}...${text.slice(-endChars)}`
+}
 export function TabBar() {
   const tabs = useTabStore((s) => s.tabs)
   const activeTabId = useTabStore((s) => s.activeTabId)
@@ -52,6 +56,15 @@ export function TabBar() {
       el.removeEventListener('scroll', check)
     }
   }, [tabs.length])
+
+  // Auto-scroll active tab into view when active tab or tabs list changes
+  useEffect(() => {
+    if (!scrollRef.current || !activeTabId) return
+    const activeEl = scrollRef.current.querySelector<HTMLElement>(`[data-tab-id="${activeTabId}"]`)
+    if (activeEl) {
+      activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+    }
+  }, [activeTabId, tabs])
 
   const reorderTabsRef = useRef(useTabStore.getState().reorderTabs)
   useEffect(() => {
@@ -236,7 +249,7 @@ export function TabBar() {
           return (
             <div
               key={tab.id}
-              role="tab"
+              data-tab-id={tab.id}
               aria-selected={isActive}
               tabIndex={0}
               onPointerDown={(e) => handlePointerDown(e, index)}
@@ -247,33 +260,33 @@ export function TabBar() {
                   handleTabClick(tab)
                 }
               }}
-              className={`group/tab relative flex h-8 shrink-0 cursor-pointer active:cursor-grabbing items-center gap-2 px-3 text-caption transition-colors ${
+              className={`group/tab relative flex h-7 shrink-0 cursor-pointer active:cursor-grabbing items-center gap-1 px-2 text-caption transition-colors ${
                 isActive
                   ? 'bg-bg-base text-text-primary bg-primary/10 dark:bg-white/5'
                   : 'text-text-muted hover:text-text-secondary'
               }`}
             >
               <TabIcon tab={tab} />
-              <span className="max-w-30 truncate">{tab.label}</span>
+              <span className="max-w-32 truncate" title={tab.label}>
+                {middleTruncate(tab.label)}
+              </span>
               {tab.pendingCount != null && tab.pendingCount > 0 && (
-                <span className="z-10 inline-block h-[8px] w-[8px] rounded-full absolute right-3.5 group-hover/tab:invisible bg-primary shrink-0" />
+                <span className="inline-block h-[6px] w-[6px] rounded-full group-hover/tab:hidden bg-primary shrink-0" />
               )}
-              <X
-                size={11}
+              <button
+                type="button"
                 data-close-btn
-                className={`shrink-0 rounded-sm ${
+                aria-label="Close tab"
+                className={`p-0.5 transition-all shrink-0 ${
                   isActive
-                    ? 'opacity-40 hover:bg-bg-hover hover:opacity-100'
-                    : 'opacity-0 group-hover/tab:opacity-80 hover:opacity-100!'
+                    ? 'text-text-muted hover:text-text-primary opacity-60 hover:opacity-100'
+                    : 'text-text-muted hover:text-text-primary opacity-0 group-hover/tab:opacity-75 hover:opacity-100!'
                 }`}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => handleClose(e, tab)}
-              />
-              {/* <span
-                className={`absolute bottom-0 left-0 right-0 h-0.5 bg-primary transition-all duration-200 ease-out ${
-                  isActive ? 'scale-x-100 opacity-100' : 'scale-x-0 opacity-0'
-                }`}
-              /> */}
+              >
+                <X size={13} className="shrink-0 stroke-[2.5]" />
+              </button>
             </div>
           )
         })}

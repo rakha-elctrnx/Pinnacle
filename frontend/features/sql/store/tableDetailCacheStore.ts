@@ -1,11 +1,16 @@
 /**
  * useTableDetailCacheStore — per-tab persistence for TableDetailPage UI-state
- * (pagination, filters, sort).
+ * (pagination, filters, sort) and query result caching.
  *
  * Zustand store, session-only (never persisted to disk). Keyed by tabId
  * (`${connectionId}:table:${tableName}`). When a tab is switched away, the
  * page component unmounts and its local `useState` is lost — this cache
  * survives the remount so filters / sort / pagination remain intact.
+ *
+ * Query results (rows, columns, count, structure) are cached per unique
+ * combination of tabId and query parameters (page, pageSize, whereClause,
+ * orderByClause) to avoid redundant SQL execution when switching between tabs
+ * with unchanged parameters.
  *
  * Removed when a tab is closed (see TabBar closeTab → remove).
  */
@@ -27,7 +32,19 @@ export interface CacheFilterCondition {
 }
 
 /** Snapshot of filter/sort/pagination state for one table-detail tab. */
+/** Snapshot of result data for a specific query configuration. */
+export interface TableQueryResultCache {
+  queryKey: string
+  rows: Record<string, string>[]
+  columns: string[]
+  totalRowCount: number
+  structure: Record<string, string>[]
+  indexes: unknown[]
+}
+
+/** Snapshot of filter/sort/pagination state and cached results for one table-detail tab. */
 export interface TableDetailCacheEntry {
+  // UI state
   page: number
   pageSize: number
   filters: CacheFilterCondition[]
@@ -37,6 +54,8 @@ export interface TableDetailCacheEntry {
   sortDirection: 'asc' | 'desc'
   filterPanelOpen: boolean
   newFilter: Partial<CacheFilterCondition>
+  // Query result cache
+  resultCache: TableQueryResultCache | null
 }
 
 // ---------------------------------------------------------------------------
@@ -70,6 +89,7 @@ const DEFAULTS: TableDetailCacheEntry = {
   sortDirection: 'asc',
   filterPanelOpen: false,
   newFilter: { column: '', operator: '=', value: '' },
+  resultCache: null,
 }
 
 // ---------------------------------------------------------------------------

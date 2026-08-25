@@ -39,6 +39,7 @@ interface UseTableOperationsProps {
     pageSize?: number,
     whereClause?: string,
     orderByClause?: string,
+    options?: { invalidateMeta?: boolean; bypassCache?: boolean },
   ) => Promise<boolean>
   restoreActiveCellFocus: () => void
   /** Called before explicit Refresh fetches — drops cached table metadata. */
@@ -71,6 +72,7 @@ export function useTableOperations({
   const clearAll = useTableEditStore((s) => s.clearAll)
   const undo = useTableEditStore((s) => s.undo)
   const redo = useTableEditStore((s) => s.redo)
+  const selectSingle = useTableSelectionStore((s) => s.selectSingle)
   const pendingEdits = useTableEditStore((s) => s.pendingEdits)
   const pendingInserts = useTableEditStore((s) => s.pendingInserts)
   const pendingDeletes = useTableEditStore((s) => s.pendingDeletes)
@@ -117,7 +119,8 @@ export function useTableOperations({
       if (!rowId) return false
       const hasEdits = pendingEdits[rowId] && pendingEdits[rowId].length > 0
       const isBeingEdited = detailDrawerRow?.row?.__rowId === rowId
-      return hasEdits || isBeingEdited
+      const isNewestInsert = pendingInserts.length > 0 && pendingInserts[pendingInserts.length - 1].__rowId === rowId
+      return hasEdits || isBeingEdited || isNewestInsert
     })
     return [...filtered, ...activeInserts]
   }, [
@@ -184,22 +187,20 @@ export function useTableOperations({
     }
     const newRowId = stageInsert(template)
     const draft = { ...template, __rowId: newRowId }
+    const newRowIndex = displayRows.length
+    selectSingle({ rowIndex: newRowIndex, columnId: realTableColumns[0] })
     setDetailDrawerRow({
       row: draft as Record<string, unknown>,
-      rowIndex: displayRows.length,
+      rowIndex: newRowIndex,
       rowId: newRowId,
     })
     setToast({
       kind: 'success',
       message: 'New row ready — fill fields below to display it in the table',
     })
-  }, [primaryKeyColumns, realTableColumns, editableColumnMetaMap, stageInsert, displayRows.length])
+  }, [primaryKeyColumns, realTableColumns, editableColumnMetaMap, stageInsert, selectSingle, displayRows.length])
 
   const handleDeleteRow = useCallback(() => {
-    if (primaryKeyColumns.length === 0) {
-      setToast({ kind: 'error', message: 'Read-only: this table has no primary key' })
-      return
-    }
     const cells = useTableSelectionStore.getState().selectedCells
     const actCell = useTableSelectionStore.getState().activeCell
     const stageDeleteForRow = (row: TableRow | undefined, idx: number) => {
@@ -239,6 +240,7 @@ export function useTableOperations({
         pageSize,
         appliedWhereClause,
         appliedOrderByClause,
+        { invalidateMeta: true, bypassCache: true },
       )
     }
   }, [
@@ -263,6 +265,7 @@ export function useTableOperations({
         pageSize,
         appliedWhereClause,
         appliedOrderByClause,
+        { invalidateMeta: true, bypassCache: true },
       )
     }
   }, [
@@ -372,6 +375,7 @@ export function useTableOperations({
         pageSize,
         appliedWhereClause,
         appliedOrderByClause,
+        { bypassCache: true },
       )
       setToast({
         kind: 'success',

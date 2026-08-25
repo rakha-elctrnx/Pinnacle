@@ -4,6 +4,8 @@ import {
   sqlGetAllColumns,
   sqlGetAllForeignKeys,
 } from '../clients/sql'
+import { useTableDetailCacheStore } from '../store/tableDetailCacheStore'
+import type { TableQueryResultCache } from '../store/tableDetailCacheStore'
 import type { ConnectionPayload } from '../../_shared/services/tauriClient'
 import type { ConnectionProfile } from '../../_shared/types/domain'
 import type { SchemaColumn, SchemaForeignKey } from '../types/sql'
@@ -88,6 +90,8 @@ export interface FetchTableDataDeps {
   setTotalRowCount: (count: number) => void
   setRealTableStructure: (structure: Record<string, string>[]) => void
   setRealTableStats: (stats: TableStats) => void
+  getTabCache?: (tabId: string) => { resultCache: TableQueryResultCache | null } | undefined
+  setTabCache?: (tabId: string, snapshot: { resultCache: TableQueryResultCache }) => void
 }
 
 /**
@@ -105,16 +109,42 @@ export async function fetchTableDataCore(
   pageSize: number | undefined,
   whereClause: string | undefined,
   orderByClause: string | undefined,
-  options: { invalidateMeta?: boolean } | undefined,
+  options: { invalidateMeta?: boolean; bypassCache?: boolean } | undefined,
   deps: FetchTableDataDeps,
 ): Promise<void> {
   if (!isSqlConnectionType(conn.type)) return
   const { seqRef, metaCache } = deps
   const seq = ++seqRef.current
+  const p = Math.max(1, page ?? 1)
+  const ps = Math.max(1, pageSize ?? 100)
+  const where = whereClause ?? ''
+  const order = orderByClause ?? ''
+  const targetDb = dbName || conn.database
+  const tabId = `${conn.id}:table:${table}`
+  const cacheKey = `${conn.id}::${targetDb}::${schema}::${table}::${p}::${ps}::${where}::${order}`
+
+  if (!options?.bypassCache && !options?.invalidateMeta && deps.getTabCache) {
+    const cachedTab = deps.getTabCache(tabId)
+    if (cachedTab?.resultCache && cachedTab.resultCache.queryKey === cacheKey) {
+      const hit = cachedTab.resultCache
+      deps.setRealTableColumns(hit.columns)
+      deps.setRealTableRows(hit.rows)
+      deps.setTotalRowCount(hit.totalRowCount)
+      deps.setRealTableStructure(hit.structure)
+      deps.setRealTableIndexes((hit.indexes as TableIndex[]) ?? [])
+      deps.setRealTableStats({
+        rows: String(hit.totalRowCount),
+        columns: String(hit.columns.length),
+        size: '-',
+        indexes: String(hit.indexes ? hit.indexes.length : '-'),
+      })
+      deps.setTableDataLoading(false)
+      return
+    }
+  }
+
   deps.setTableDataLoading(true)
   try {
-    const p = Math.max(1, page ?? 1)
-    const ps = Math.max(1, pageSize ?? 100)
     const offset = (p - 1) * ps
     const dbType = (conn.type === 'postgresql'
       ? 'postgresql'
@@ -125,7 +155,7 @@ export async function fetchTableDataCore(
     if (seq !== seqRef.current) return
     const payload = {
       ...basePayload,
-      database: dbName || conn.database,
+      database: targetDb,
     }
     const fromClause =
       dbType === 'postgresql'
@@ -140,6 +170,7 @@ export async function fetchTableDataCore(
     // ── Wave 1: indexes — needed to know PK order before building ORDER BY.
     let pkColumns: string[]
     let indexRows: Record<string, unknown>[]
+    let loadedIndexes: TableIndex[] = []
     if (initialMeta) {
       pkColumns = initialMeta.primaryKeyColumns
       indexRows = []
@@ -149,7 +180,7 @@ export async function fetchTableDataCore(
       if (!initialMeta.hasPrimaryKey) {
         deps.setRealTableIndexes([])
       } else {
-        deps.setRealTableIndexes([
+        loadedIndexes = [
           {
             schemaName: schema,
             tableName: table,
@@ -160,7 +191,8 @@ export async function fetchTableDataCore(
             isPrimary: true,
             indexType: null,
           },
-        ])
+        ]
+        deps.setRealTableIndexes(loadedIndexes)
       }
     } else {
       const indexRes = await deps.execute({
@@ -171,10 +203,10 @@ export async function fetchTableDataCore(
             : getQueryIndexMySQL(table),
       })
       if (seq !== seqRef.current) return
-      const indexes = mapQueryIndexesToTableIndexes(indexRes.rows)
-      deps.setRealTableIndexes(indexes)
+      loadedIndexes = mapQueryIndexesToTableIndexes(indexRes.rows)
+      deps.setRealTableIndexes(loadedIndexes)
       pkColumns =
-        indexes.find((idx) => idx.isPrimary && idx.tableName === table)
+        loadedIndexes.find((idx) => idx.isPrimary && idx.tableName === table)
           ?.columnName ?? []
       indexRows = indexRes.rows
     }
@@ -211,8 +243,18 @@ export async function fetchTableDataCore(
     deps.setRealTableColumns(dataRes.columns)
     deps.setRealTableRows(dataRes.rows)
     deps.setTotalRowCount(Number(countRes.rows[0]?.count ?? 0))
-    if (structRes) {
-      deps.setRealTableStructure(structRes.rows)
+    const structureRows = structRes ? structRes.rows : []
+    if (deps.setTabCache) {
+      deps.setTabCache(tabId, {
+        resultCache: {
+          queryKey: cacheKey,
+          rows: dataRes.rows,
+          columns: dataRes.columns,
+          totalRowCount: Number(countRes.rows[0]?.count ?? 0),
+          structure: structureRows,
+          indexes: loadedIndexes,
+        },
+      })
     }
 
     if (!initialMeta) {
@@ -704,7 +746,7 @@ export function useExplorerData({
       pageSize?: number,
       whereClause?: string,
       orderByClause?: string,
-      options?: { invalidateMeta?: boolean },
+      options?: { invalidateMeta?: boolean; bypassCache?: boolean },
     ) =>
       fetchTableDataCore(conn, schema, table, dbName, page, pageSize, whereClause, orderByClause, options, {
         seqRef: tableRequestSeqRef,
@@ -718,6 +760,8 @@ export function useExplorerData({
         setTotalRowCount,
         setRealTableStructure,
         setRealTableStats,
+        getTabCache: (id) => useTableDetailCacheStore.getState().get(id),
+        setTabCache: (id, snapshot) => useTableDetailCacheStore.getState().set(id, snapshot),
       }),
     [],
   )
@@ -1047,7 +1091,7 @@ export function useExplorerData({
       pageSize?: number,
       whereClause?: string,
       orderByClause?: string,
-      options?: { invalidateMeta?: boolean },
+      options?: { invalidateMeta?: boolean; bypassCache?: boolean },
     ) => {
       if (selectedConnection && isSqlConnectionType(selectedConnection.type)) {
         const treeData = treeDataMap[selectedConnection.id]

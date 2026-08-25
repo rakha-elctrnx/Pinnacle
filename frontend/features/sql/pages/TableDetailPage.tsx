@@ -18,6 +18,7 @@ import { TableToolbar } from '../components/table-detail/TableToolbar'
 import { TableFilterBar } from '../components/table-detail/TableFilterBar'
 import { TableGrid } from '../components/table-detail/TableGrid'
 import { TablePaginationFooter } from '../components/table-detail/TablePaginationFooter'
+import { LoadingModalDialog } from '../components/table-detail/LoadingModalDialog'
 import { buildPath } from '../../_shared/utils/treeNavigation'
 
 export function TableDetailPage() {
@@ -460,33 +461,34 @@ export function TableDetailPage() {
         </div>
       )}
 
-      {/* ── Loading: in-grid overlay (grid always mounted) ─────────────── */}
-      <TableGrid
-        scrollContainerRef={scrollContainerRef}
-        drawerAnimState={drawerAnimState}
-        drawerWidth={drawerWidth}
-        isResizingDetailDrawer={isResizingDetailDrawer}
-        tableName={safeTableName}
-        tableWidth={tableWidth}
-        realTableColumns={realTableColumns}
-        boundedWidths={boundedWidths}
-        table={table}
-        tableColumnsMeta={tableColumnsMeta}
-        activeCell={activeCell}
-        selectedCells={selectedCells}
-        pendingDeletes={pendingDeletes}
-        pendingEdits={pendingEdits}
-        primaryKeyColumns={primaryKeyColumns}
-        isLoading={tableDataLoading}
-        handleCellMouseDown={handleCellMouseDown}
-        handleCellMouseEnter={handleCellMouseEnter}
-        handleCellMouseUp={handleCellMouseUp}
-        handleGutterMouseDown={handleGutterMouseDown}
-        setContextMenu={setContextMenu}
-        contextRowIndexRef={contextRowIndexRef}
-      />
-
-      {/* ── Pagination footer (mounted even while refetching) ──────────── */}
+      {/* ── Grid Container & Loading Overlay ───────────────────────────── */}
+      <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
+        <TableGrid
+          scrollContainerRef={scrollContainerRef}
+          drawerAnimState={drawerAnimState}
+          drawerWidth={drawerWidth}
+          isResizingDetailDrawer={isResizingDetailDrawer}
+          tableName={safeTableName}
+          tableWidth={tableWidth}
+          realTableColumns={realTableColumns}
+          boundedWidths={boundedWidths}
+          table={table}
+          tableColumnsMeta={tableColumnsMeta}
+          activeCell={activeCell}
+          selectedCells={selectedCells}
+          pendingDeletes={pendingDeletes}
+          pendingEdits={pendingEdits}
+          primaryKeyColumns={primaryKeyColumns}
+          isLoading={tableDataLoading}
+          handleCellMouseDown={handleCellMouseDown}
+          handleCellMouseEnter={handleCellMouseEnter}
+          handleCellMouseUp={handleCellMouseUp}
+          handleGutterMouseDown={handleGutterMouseDown}
+          setContextMenu={setContextMenu}
+          contextRowIndexRef={contextRowIndexRef}
+        />
+        <LoadingModalDialog open={tableDataLoading} />
+      </div>
       <TablePaginationFooter
         page={page}
         pageSize={pageSize}
@@ -530,6 +532,8 @@ export function TableDetailPage() {
         <GridContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
+          selectedCount={selectedCells.size}
+          isSingleCell={selectedCells.size === 1}
           onClose={() => setContextMenu(null)}
           onCopyRow={handleContextCopy}
           onCopyWithHeaders={handleContextCopyWithHeaders}
@@ -542,6 +546,7 @@ export function TableDetailPage() {
           onViewDetails={handleViewDetails}
         />
       )}
+
 
       {/* ── Generate SQL modal ────────────────────────────────────────── */}
       <GenerateSqlModal

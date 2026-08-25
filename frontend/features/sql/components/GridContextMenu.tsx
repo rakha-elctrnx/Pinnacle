@@ -39,6 +39,9 @@ import {
 export interface GridContextMenuProps {
   x: number
   y: number
+  selectedCount?: number
+  isSingleCell?: boolean
+  isRowSelection?: boolean
   onClose: () => void
   onCopyRow: () => void
   onCopyWithHeaders: () => void
@@ -50,12 +53,14 @@ export interface GridContextMenuProps {
   onGenerateSQL: () => void
   onViewDetails: () => void
 }
-
 // ── Component ──────────────────────────────────────────────────────
 
 export function GridContextMenu({
   x,
   y,
+  selectedCount = 1,
+  isSingleCell = false,
+  isRowSelection = false,
   onClose,
   onCopyRow,
   onCopyWithHeaders,
@@ -67,6 +72,12 @@ export function GridContextMenu({
   onGenerateSQL,
   onViewDetails,
 }: GridContextMenuProps) {
+  const copyLabel = isSingleCell
+    ? 'Copy Value'
+    : isRowSelection || selectedCount > 1
+      ? 'Copy'
+      : 'Copy Row'
+
   const items = useMemo<ContextMenuItem[]>(
     () => [
       {
@@ -77,7 +88,7 @@ export function GridContextMenu({
         dividerAfter: true,
       },
       {
-        label: 'Copy Row',
+        label: copyLabel,
         shortcut: 'Ctrl+C',
         icon: <ClipboardCopy size={14} />,
         action: onCopyRow,
@@ -127,6 +138,7 @@ export function GridContextMenu({
       },
     ],
     [
+      copyLabel,
       onViewDetails,
       onCopyRow,
       onCopyWithHeaders,
@@ -134,8 +146,8 @@ export function GridContextMenu({
       onCopyAsCSV,
       onPaste,
       onSetToNull,
-      onDeleteRows,
       onGenerateSQL,
+      onDeleteRows,
     ],
   )
 

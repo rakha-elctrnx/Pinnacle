@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { flexRender, type Table as TanStackTable } from '@tanstack/react-table'
-import { CenteredLoadingState } from '../../../_shared/components/ui/CenteredLoadingState'
 import type {
   CSSProperties,
   RefObject,
@@ -117,11 +116,6 @@ export function TableGrid({
           : 'margin-right 150ms ease-out',
       }}
     >
-      {isLoading && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-bg-base/60">
-          <CenteredLoadingState loading label="Loading table data..." />
-        </div>
-      )}
       <table
         role="grid"
         aria-label={`Table data for ${tableName}`}
@@ -232,6 +226,12 @@ export function TableGrid({
                 onContextMenu={(e) => {
                   e.preventDefault()
                   contextRowIndexRef.current = rowIndex
+                  const hasSelectedCellInRow = [...selectedCells].some(
+                    (k) => Number(k.split(':')[0]) === rowIndex,
+                  )
+                  if (!hasSelectedCellInRow) {
+                    handleGutterMouseDown(rowIndex, e)
+                  }
                   setContextMenu({ x: e.clientX, y: e.clientY })
                 }}
               >
@@ -340,6 +340,12 @@ export function TableGrid({
                         e.preventDefault()
                         e.stopPropagation()
                         contextRowIndexRef.current = rowIndex
+                        const isCellSelected = selectedCells.has(
+                          cellKey(rowIndex, columnId),
+                        )
+                        if (!isCellSelected) {
+                          handleCellMouseDown(rowIndex, columnId, e)
+                        }
                         setContextMenu({ x: e.clientX, y: e.clientY })
                       }}
                     >
