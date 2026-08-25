@@ -2,12 +2,12 @@
  * useTableDetailCacheStore — per-tab persistence for TableDetailPage UI-state
  * (pagination, filters, sort).
  *
- * Zustand store, session-only. Keyed by tabId
+ * Zustand store, session-only (never persisted to disk). Keyed by tabId
  * (`${connectionId}:table:${tableName}`). When a tab is switched away, the
  * page component unmounts and its local `useState` is lost — this cache
  * survives the remount so filters / sort / pagination remain intact.
  *
- * Cleared when a tab is closed (see TabBar closeTab → clear).
+ * Removed when a tab is closed (see TabBar closeTab → remove).
  */
 
 import { create } from 'zustand'
@@ -53,7 +53,7 @@ interface TableDetailCacheState {
   set: (tabId: string, snapshot: Partial<TableDetailCacheEntry>) => void
 
   /** Drop an entry (called when a tab is closed). */
-  clear: (tabId: string) => void
+  remove: (tabId: string) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -93,8 +93,9 @@ export const useTableDetailCacheStore = create<TableDetailCacheState>(
         },
       })),
 
-    clear: (tabId) =>
+    remove: (tabId) =>
       set((state) => {
+        if (!(tabId in state.cache)) return state
         const next = { ...state.cache }
         delete next[tabId]
         return { cache: next }

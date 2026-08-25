@@ -68,7 +68,7 @@ export function TabBar() {
 
   function handleClose(e: React.MouseEvent, tab: Tab) {
     e.stopPropagation()
-    useTableDetailCacheStore.getState().clear(tab.id)
+    useTableDetailCacheStore.getState().remove(tab.id)
     closeTab(tab.id)
 
     const state = useTabStore.getState()

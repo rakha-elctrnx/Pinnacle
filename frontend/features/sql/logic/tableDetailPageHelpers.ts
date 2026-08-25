@@ -3,6 +3,7 @@ import type {
   FilterCondition,
   TableRow,
 } from '../types/tableDetail'
+import { parseDelimitedText } from '../utils/clipboard'
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -62,7 +63,12 @@ export function buildSqlForCondition(
     // Escape single quotes by doubling them
     return `'${val.replace(/'/g, "''")}'`
   }
-
+  // LIKE wildcards are matched literally: escape %, _, and \ in user input,
+  // then declare the explicit escape character per dialect.
+  const escapeLikePattern = (val: string) =>
+    val.replace(/([%_\\])/g, '\\$1')
+  const likeOperator = dbType === 'postgresql' ? 'ILIKE' : 'LIKE'
+  const likeEscapeClause = "ESCAPE '\\\\'"
   const escapedColumn = escapeColumn(column)
 
   switch (operator) {
@@ -71,17 +77,11 @@ export function buildSqlForCondition(
     case '!=':
       return `${escapedColumn} != ${escapeValue(value)}`
     case 'contains':
-      return dbType === 'postgresql'
-        ? `${escapedColumn} ILIKE ${escapeValue(`%${value}%`)}`
-        : `${escapedColumn} LIKE ${escapeValue(`%${value}%`)}`
+      return `${escapedColumn} ${likeOperator} ${escapeValue(`%${escapeLikePattern(value)}%`)} ${likeEscapeClause}`
     case 'starts_with':
-      return dbType === 'postgresql'
-        ? `${escapedColumn} ILIKE ${escapeValue(`${value}%`)}`
-        : `${escapedColumn} LIKE ${escapeValue(`${value}%`)}`
+      return `${escapedColumn} ${likeOperator} ${escapeValue(`${escapeLikePattern(value)}%`)} ${likeEscapeClause}`
     case 'ends_with':
-      return dbType === 'postgresql'
-        ? `${escapedColumn} ILIKE ${escapeValue(`%${value}`)}`
-        : `${escapedColumn} LIKE ${escapeValue(`%${value}`)}`
+      return `${escapedColumn} ${likeOperator} ${escapeValue(`%${escapeLikePattern(value)}`)} ${likeEscapeClause}`
     case '>':
       return `${escapedColumn} > ${escapeValue(value)}`
     case '>=':
@@ -95,11 +95,11 @@ export function buildSqlForCondition(
     case 'is_not_null':
       return `${escapedColumn} IS NOT NULL`
     case 'in': {
-      // Parse comma-separated values for IN clause
-      const values = value
-        .split(',')
-        .map((v) => escapeValue(v.trim()))
-        .join(', ')
+      // Character-level parse so quoted commas survive ("a,b" stays one item).
+      const items = parseDelimitedText(value).rows[0] ?? []
+      const nonEmpty = items.filter((v) => v.trim() !== '')
+      if (nonEmpty.length === 0) return '1=1'
+      const values = nonEmpty.map((v) => escapeValue(v.trim())).join(', ')
       return `${escapedColumn} IN (${values})`
     }
     default:
@@ -177,12 +177,37 @@ export function getPinnedLeftOffset(
   }, ROW_GUTTER_WIDTH)
 }
 
-/** Build a stable row ID: try first PK column, fall back to `${tableName}-${index}`. */
+/**
+ * Extract the ordered composite primary key values for a row.
+ * Returns null when no primary key is declared or any key value is
+ * null/undefined/empty-string — such rows cannot be safely mutated.
+ */
+export function getRowKey(
+  row: TableRow,
+  primaryKeyColumns: string[],
+): string[] | null {
+  if (primaryKeyColumns.length === 0) return null
+
+  const keyValues: string[] = []
+  for (const column of primaryKeyColumns) {
+    const value = row[column]
+    if (value == null || value === '') return null
+    keyValues.push(typeof value === 'object' ? JSON.stringify(value) : String(value))
+  }
+  return keyValues
+}
+
+/**
+ * Build a stable row ID from the composite primary key snapshot:
+ * - insert rows keep their synthetic `__insert__` id;
+ * - rows with a complete key get `${tableName}:pk:${JSON.stringify(keyValues)}`;
+ * - otherwise `${tableName}:readonly:${index}` (render-only, never mutable).
+ */
 export function buildRowId(
   row: TableRow,
   index: number,
   tableName: string | undefined,
-  pkColumn?: string,
+  primaryKeyColumns?: string[],
 ): string {
   // Insert rows carry a synthetic __rowId — return it directly
   // to guarantee uniqueness and avoid collision with persistent row IDs.
@@ -191,13 +216,11 @@ export function buildRowId(
     return candidateId
   }
 
-  if (pkColumn) {
-    const pkValue = row[pkColumn]
-    if (pkValue != null && pkValue !== '') {
-      return `${tableName ?? 'tbl'}-${String(pkValue)}`
-    }
+  const keyValues = primaryKeyColumns ? getRowKey(row, primaryKeyColumns) : null
+  if (keyValues) {
+    return `${tableName ?? 'tbl'}:pk:${JSON.stringify(keyValues)}`
   }
-  return `${tableName ?? 'tbl'}-${index}`
+  return `${tableName ?? 'tbl'}:readonly:${index}`
 }
 
 /**

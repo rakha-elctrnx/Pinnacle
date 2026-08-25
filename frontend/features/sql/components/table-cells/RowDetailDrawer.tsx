@@ -23,10 +23,13 @@ import Editor from '@monaco-editor/react'
 import {
   useTableEditStore,
   validateCellValue,
+  normalizeCellValue,
+  valuesEqual,
   type EditableColumnMeta,
 } from '../../store/tableEditStore'
 import { useTableSelectionStore } from '../../store/tableSelectionStore'
 import { ActionButton } from '../../../_shared/components/ui/ActionButton'
+import { buildRowId, getRowKey } from '../../logic/tableDetailPageHelpers'
 import { useTheme } from '../../../../app/theme'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -39,6 +42,10 @@ export interface ColumnMeta {
   isPrimaryKey?: boolean
   primaryKey?: boolean
   columnKey?: string
+  /** True when the column accepts SQL NULL. */
+  isNullable?: boolean
+  /** Maximum length for character columns; null when unbounded/NA. */
+  maxLength?: number | null
 }
 
 export interface RowDetailDrawerProps {
@@ -48,7 +55,11 @@ export interface RowDetailDrawerProps {
   columnsMeta: ColumnMeta[]
   rowIndex: number
   tableName?: string
-  pkColumn?: string
+  primaryKeyColumns?: string[]
+  /** Identity captured by the opener at snapshot time. */
+  rowId?: string
+  /** True when the table has no primary key — disables all field editing. */
+  readOnly?: boolean
   drawerWidth: number
   setDrawerWidth: (width: number) => void
   isResizing: boolean
@@ -57,24 +68,6 @@ export interface RowDetailDrawerProps {
   onClose: () => void
 }
 
-const buildRowId = (
-  row: Record<string, unknown>,
-  index: number,
-  tableName: string | undefined,
-  pkColumn?: string,
-): string => {
-  const candidateId = (row as Record<string, unknown>)['__rowId']
-  if (typeof candidateId === 'string' && candidateId.startsWith('__insert__')) {
-    return candidateId
-  }
-  if (pkColumn) {
-    const pkValue = row[pkColumn]
-    if (pkValue != null && pkValue !== '') {
-      return `${tableName ?? 'tbl'}-${String(pkValue)}`
-    }
-  }
-  return `${tableName ?? 'tbl'}-${index}`
-}
 function getEditorLanguage(dataType: string | undefined): string {
   if (!dataType) return 'plaintext'
   const dt = dataType.toUpperCase()
@@ -93,7 +86,9 @@ export function RowDetailDrawer({
   columnsMeta,
   rowIndex,
   tableName,
-  pkColumn,
+  primaryKeyColumns,
+  rowId: capturedRowId,
+  readOnly = false,
   drawerWidth,
   setDrawerWidth,
   setIsResizing,
@@ -209,16 +204,10 @@ export function RowDetailDrawer({
   const [activeTab, setActiveTab] = useState<'record' | 'value'>('record')
   const [focusedField, setFocusedField] = useState<string | null>(null)
 
-  // ── Edit store ──────────────────────────────────────────────────────
-  const rowId = row ? buildRowId(row, rowIndex, tableName, pkColumn) : ''
-  const pendingEdits = useTableEditStore((s) => s.pendingEdits)
-  const stageEdit = useTableEditStore((s) => s.stageEdit)
-  const rowEdits = rowId ? pendingEdits[rowId] : undefined
 
   // ── Selection store ─────────────────────────────────────────────────
   const activeCell = useTableSelectionStore((s) => s.activeCell)
   const selectSingle = useTableSelectionStore((s) => s.selectSingle)
-
   // ── Column metadata lookup ──────────────────────────────────────────
   const metaMap = useCallback(
     (col: string): ColumnMeta | undefined =>
@@ -226,19 +215,36 @@ export function RowDetailDrawer({
     [columnsMeta],
   )
 
-  // ── EditableColumnMeta lookup for validation ────────────────────────
   const editableMetaMap = useMemo(() => {
     const map: Record<string, EditableColumnMeta> = {}
     for (const col of columnsMeta) {
       map[col.columnName] = {
         columnName: col.columnName,
         dataType: col.dataType ?? '',
-        isNullable: true,
-        maxLength: null,
+        isNullable: col.isNullable ?? true,
+        maxLength: col.maxLength ?? null,
       }
     }
     return map
   }, [columnsMeta])
+
+  // ── Edit store ──────────────────────────────────────────────────────
+  // Identity comes from the opener's captured snapshot; fall back to a
+  // recompute only when an older caller did not pass rowId.
+  const rowId =
+    capturedRowId ??
+    (row ? buildRowId(row, rowIndex, tableName, primaryKeyColumns) : '')
+  const pendingEdits = useTableEditStore((s) => s.pendingEdits)
+  const stageEdit = useTableEditStore((s) => s.stageEdit)
+  const rowEdits = rowId ? pendingEdits[rowId] : undefined
+
+  // A row is read-only in the drawer when the table has no primary key or
+  // when this row's composite key is incomplete.
+  const isReadOnly =
+    readOnly ||
+    !row ||
+    ((row as Record<string, unknown>).__rowId === undefined &&
+      getRowKey(row, primaryKeyColumns ?? []) === null)
 
   // ── Get effective value for a field ─────────────────────────────────
   const getEffectiveValue = useCallback(
@@ -319,51 +325,54 @@ export function RowDetailDrawer({
 
   const handleInputChange = useCallback(
     (field: string, rawValue: string) => {
+      if (isReadOnly) return // read-only rows/tables cannot be mutated
       const meta = editableMetaMap[field]
       const originalValue = getOriginalValue(field)
 
-      // Type-aware conversion
-      let newValue: unknown = rawValue
-      if (rawValue === '' && meta?.isNullable) {
-        newValue = null
-      } else if (
-        meta?.dataType &&
-        ['BOOLEAN', 'BOOL'].includes(meta.dataType.toUpperCase())
-      ) {
-        if (rawValue === 'true') newValue = true
-        else if (rawValue === 'false') newValue = false
-        else if (rawValue === '') newValue = null
-      }
+      // Normalize (empty→null when nullable, boolean literals→booleans,
+      // otherwise preserve the input string) then validate before staging.
+      const newValue = normalizeCellValue(rawValue, meta)
+      if (validateCellValue(newValue, meta)) return
 
-      stageEdit(rowId, field, originalValue, newValue)
+      stageEdit(rowId, field, originalValue, newValue, { coalesceUndo: true })
     },
-    [rowId, editableMetaMap, getOriginalValue, stageEdit],
+    [isReadOnly, rowId, editableMetaMap, getOriginalValue, stageEdit],
   )
 
   // ── Monaco Editor for Value tab ─────────────────────────────────────
   const editorRef = useRef<unknown>(null)
 
   const handleEditorMount = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Monaco editor instance type from @monaco-editor/react
-    (editorInstance: any) => {
+    (editorInstance: unknown) => {
+      interface MonacoEditorLike {
+        focus: () => void
+      }
       editorRef.current = editorInstance
-      editorInstance.focus()
+      ;(editorInstance as MonacoEditorLike).focus()
     },
     [],
   )
 
   const handleMonacoChange = useCallback(
     (val: string | undefined) => {
-      if (!focusedField || !row) return
+      if (!focusedField || !row || isReadOnly) return
       const meta = editableMetaMap[focusedField]
       const originalValue = getOriginalValue(focusedField)
-      let newValue: unknown = val ?? ''
-      if (newValue === '' && meta?.isNullable) {
-        newValue = null
-      }
-      stageEdit(rowId, focusedField, originalValue, newValue)
+      const newValue = normalizeCellValue(val ?? '', meta)
+      if (validateCellValue(newValue, meta)) return
+      stageEdit(rowId, focusedField, originalValue, newValue, {
+        coalesceUndo: true,
+      })
     },
-    [focusedField, row, rowId, editableMetaMap, getOriginalValue, stageEdit],
+    [
+      isReadOnly,
+      focusedField,
+      row,
+      rowId,
+      editableMetaMap,
+      getOriginalValue,
+      stageEdit,
+    ],
   )
 
   const monacoValue = useMemo(() => {
@@ -395,21 +404,32 @@ export function RowDetailDrawer({
   }, [focusedField, getEffectiveValue, metaMap])
 
   // ── Escape key closes the drawer ────────────────────────────────────
+  // Gated on the open/entering animation so listeners attach only while
+  // the drawer is actually presented; Escape that was already handled by an
+  // input (stopPropagation in EditableCell) never reaches document.
   useEffect(() => {
-    if (!open) return
+    if (!open || animState === 'closed' || animState === 'exiting') return
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation()
-        handleClose()
+      if (e.key !== 'Escape') return
+      if (e.defaultPrevented) return // already handled by an input editor
+      if (
+        e.target instanceof HTMLElement &&
+        (e.target.tagName === 'INPUT' ||
+          e.target.tagName === 'TEXTAREA' ||
+          e.target.isContentEditable)
+      ) {
+        return // let the field-level handler deal with it first
       }
+      e.stopPropagation()
+      handleClose()
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [open, handleClose])
+  }, [open, animState, handleClose])
 
   // ── Document click: close on outside click, but not table cells ─────
   useEffect(() => {
-    if (!open) return
+    if (!open || animState === 'closed' || animState === 'exiting') return
     const handleDocumentClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement
 
@@ -431,7 +451,7 @@ export function RowDetailDrawer({
     document.addEventListener('click', handleDocumentClick, true)
     return () =>
       document.removeEventListener('click', handleDocumentClick, true)
-  }, [open, handleClose])
+  }, [open, animState, handleClose])
 
   if (animState === 'closed') return null
 
@@ -514,7 +534,10 @@ export function RowDetailDrawer({
                 const isPK = meta?.isPrimaryKey === true
                 const effectiveValue = getEffectiveValue(col)
                 const existingEdit = rowEdits?.find((e) => e.field === col)
-                const isDirty = existingEdit !== undefined
+                // Dirty only when the staged value differs from the original.
+                const isDirty =
+                  existingEdit !== undefined &&
+                  !valuesEqual(existingEdit.newValue, row[col])
                 const isFocused = focusedField === col
                 const valStr =
                   effectiveValue === null || effectiveValue === undefined
@@ -579,11 +602,13 @@ export function RowDetailDrawer({
                       <select
                         id={`drawer-field-${col}`}
                         value={valStr}
+                        disabled={isReadOnly}
                         onFocus={() => handleInputFocus(col)}
                         onChange={(e) => handleInputChange(col, e.target.value)}
                         className={[
                           'w-full rounded border px-2 py-1.5 text-xs outline-none transition-all',
                           'bg-bg-base border-border-default focus:border-primary focus:ring-1 focus:ring-primary',
+                          isReadOnly ? 'cursor-not-allowed opacity-60' : '',
                           isDirty
                             ? 'bg-yellow-50 dark:bg-yellow-950/25 border-yellow-500/40 focus:border-yellow-500 focus:ring-yellow-500'
                             : '',
@@ -600,16 +625,19 @@ export function RowDetailDrawer({
                         id={`drawer-field-${col}`}
                         type="text"
                         value={valStr}
+                        disabled={isReadOnly}
                         onFocus={() => handleInputFocus(col)}
                         onChange={(e) => handleInputChange(col, e.target.value)}
                         className={[
                           'w-full rounded border px-2 py-1.5 text-xs outline-none transition-all',
                           'bg-bg-base border-border-default focus:border-primary focus:ring-1 focus:ring-primary',
+                          isReadOnly ? 'cursor-not-allowed opacity-60' : '',
                           isDirty
                             ? 'bg-yellow-50 dark:bg-yellow-950/25 border-yellow-500/40 focus:border-yellow-500 focus:ring-yellow-500'
                             : '',
                         ].join(' ')}
                         placeholder={isNullable ? 'NULL' : ''}
+                        readOnly={isReadOnly}
                       />
                     )}
                   </div>
@@ -638,7 +666,7 @@ export function RowDetailDrawer({
                 language={getEditorLanguage(metaMap(focusedField)?.dataType)}
                 theme={theme === 'dark' ? 'vs-dark' : 'light'}
                 value={monacoValue}
-                onChange={handleMonacoChange}
+                onChange={isReadOnly ? undefined : handleMonacoChange}
                 onMount={handleEditorMount}
                 options={{
                   minimap: { enabled: false },
@@ -647,6 +675,7 @@ export function RowDetailDrawer({
                   lineNumbers: 'on',
                   scrollBeyondLastLine: false,
                   automaticLayout: true,
+                  readOnly: isReadOnly,
                 }}
               />
             </div>

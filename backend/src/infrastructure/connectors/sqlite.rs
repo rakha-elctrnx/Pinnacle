@@ -332,6 +332,7 @@ pub async fn get_all_columns(
                 is_nullable: col.notnull == 0,
                 default_value: col.dflt_value,
                 data_type_name: col.r#type,
+                max_length: None,
             });
         }
     }
@@ -440,6 +441,50 @@ pub async fn execute_ddl(
 
 // ── Commit Table Changes ─────────────────────────────────────────
 
+/// Validate a commit payload BEFORE opening any transaction.
+/// Mirrors the shared validation in `sql.rs` so all three drivers
+/// reject the same malformed payloads with the same stable messages.
+fn validate_commit_payload(
+    payload: &crate::domain::query::CommitTableChangesPayload,
+    schema_column_names: Vec<&str>,
+) -> AppResult<()> {
+    if payload.primary_key_columns.is_empty() {
+        return Err(AppError::InvalidInput(
+            "Table changes require a primary key".to_string(),
+        ));
+    }
+    let key_lists = payload
+        .updates
+        .iter()
+        .map(|u| &u.key.values)
+        .chain(payload.deletes.iter().map(|k| &k.values));
+    for values in key_lists {
+        if values.len() != payload.primary_key_columns.len() {
+            return Err(AppError::InvalidInput(
+                "Row key does not match the table primary key".to_string(),
+            ));
+        }
+    }
+    for col in &payload.primary_key_columns {
+        if !schema_column_names.contains(&col.as_str()) {
+            return Err(AppError::InvalidInput(
+                "Primary key metadata is stale; refresh the table and retry".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Build a composite WHERE conjunction over all primary key columns in
+/// declared order, using SQLite's text cast for stable comparisons.
+fn build_key_where_clause(primary_key_columns: &[String]) -> String {
+    primary_key_columns
+        .iter()
+        .map(|col| format!("CAST({} AS TEXT) = ?", super::sqlite::quote_identifier(col)))
+        .collect::<Vec<String>>()
+        .join(" AND ")
+}
+
 pub async fn commit_table_changes(
     payload: &crate::domain::query::CommitTableChangesPayload,
 ) -> AppResult<crate::domain::query::CommitTableChangesResult> {
@@ -451,18 +496,12 @@ pub async fn commit_table_changes(
     let mut conn = sqlx::SqliteConnection::connect_with(&options).await?;
 
     let schema_info = get_table_schema(&payload.connection, &payload.table_name).await?;
-    let column_names: Vec<String> = schema_info
-        .columns
-        .iter()
-        .map(|c| c.name.clone())
-        .collect();
-
-    if !column_names.contains(&payload.primary_key_column) {
+    if let Err(err) = validate_commit_payload(
+        payload,
+        schema_info.columns.iter().map(|c| c.name.as_str()).collect(),
+    ) {
         conn.close().await?;
-        return Err(AppError::InvalidInput(format!(
-            "Primary key column '{}' not found in table schema. The table structure may have changed. Please refresh.",
-            payload.primary_key_column
-        )));
+        return Err(err);
     }
 
     let fq_table = if schema_info.schema.is_empty() {
@@ -474,8 +513,6 @@ pub async fn commit_table_changes(
             quote_identifier(&schema_info.table_name)
         )
     };
-
-    let pk_quoted = quote_identifier(&payload.primary_key_column);
 
     let mut inserted_rows: u64 = 0;
     let mut updated_rows: u64 = 0;
@@ -544,10 +581,10 @@ pub async fn commit_table_changes(
             .collect();
 
         let sql = format!(
-            "UPDATE {} SET {} WHERE CAST({} AS TEXT) = ?",
+            "UPDATE {} SET {} WHERE {}",
             fq_table,
             set_clauses.join(", "),
-            pk_quoted,
+            build_key_where_clause(&payload.primary_key_columns),
         );
         let mut query = sqlx::query(&sql);
         for col in &cols {
@@ -576,23 +613,28 @@ pub async fn commit_table_changes(
                 }
             };
         }
-        query = query.bind(&update.row_id);
+        for value in &update.key.values {
+            query = query.bind(value);
+        }
 
         query.execute(&mut conn).await.map_err(|e| {
-            AppError::Database(format!("UPDATE failed: {} (row values: {:?})", e, update))
+            AppError::Database(format!("UPDATE failed (row key {:?}): {}", update.key.values, e))
         })?;
         updated_rows += 1;
     }
 
-    for delete in &payload.deletes {
+    for key in &payload.deletes {
         let sql = format!(
-            "DELETE FROM {} WHERE CAST({} AS TEXT) = ?",
+            "DELETE FROM {} WHERE {}",
             fq_table,
-            pk_quoted,
+            build_key_where_clause(&payload.primary_key_columns),
         );
-
-        sqlx::query(&sql).bind(&delete).execute(&mut conn).await.map_err(|e| {
-            AppError::Database(format!("DELETE failed: {} (row_id: {})", e, delete))
+        let mut query = sqlx::query(&sql);
+        for value in &key.values {
+            query = query.bind(value);
+        }
+        query.execute(&mut conn).await.map_err(|e| {
+            AppError::Database(format!("DELETE failed (row key {:?}): {}", key.values, e))
         })?;
         deleted_rows += 1;
     }

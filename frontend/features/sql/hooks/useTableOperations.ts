@@ -10,13 +10,12 @@ import { useTableSelectionStore } from '../store/tableSelectionStore'
 import { useTableDetailCacheStore } from '../store/tableDetailCacheStore'
 import { useCommitTableChanges } from '../hooks/useCommitTableChanges'
 import type { TableRow, ColumnMetadata } from '../types/tableDetail'
-import { buildRowId, DEFAULT_PAGE_SIZE } from '../logic/tableDetailPageHelpers'
-import { getConnPayloadWithPassword } from '../../_shared/utils'
 import {
-  formatCSVWithHeaders,
-  formatJSON,
-  copyToClipboard,
-} from '../utils/clipboard'
+  buildRowId,
+  getRowKey,
+  DEFAULT_PAGE_SIZE,
+} from '../logic/tableDetailPageHelpers'
+import { getConnPayloadWithPassword } from '../../_shared/utils'
 import type { ConnectionProfile } from '../../_shared/types/domain'
 import type { DrawerAnimState } from '../components/table-cells/RowDetailDrawer'
 import type { EditableColumnMeta } from '../store/tableEditStore'
@@ -28,7 +27,7 @@ interface UseTableOperationsProps {
   selectedSchema: string
   selectedDatabase: string
   tableColumnsMeta: ColumnMetadata[]
-  pkColumn: string | undefined
+  primaryKeyColumns: string[]
   realTableColumns: string[]
   realTableRows: Record<string, string>[]
   appliedWhereClause: string
@@ -42,6 +41,8 @@ interface UseTableOperationsProps {
     orderByClause?: string,
   ) => Promise<boolean>
   restoreActiveCellFocus: () => void
+  /** Called before explicit Refresh fetches — drops cached table metadata. */
+  onBeforeRefresh?: () => void
   tabId: string
 }
 
@@ -52,13 +53,14 @@ export function useTableOperations({
   selectedSchema,
   selectedDatabase,
   tableColumnsMeta,
-  pkColumn,
+  primaryKeyColumns,
   realTableColumns,
   realTableRows,
   appliedWhereClause,
   appliedOrderByClause,
   handleTreeNodeClick,
   restoreActiveCellFocus,
+  onBeforeRefresh,
   tabId,
 }: UseTableOperationsProps) {
   const cacheEntry = useTableDetailCacheStore.getState().get(tabId)
@@ -90,10 +92,10 @@ export function useTableOperations({
   const [confirmRefreshOpen, setConfirmRefreshOpen] = useState(false)
   const [confirmRevertOpen, setConfirmRevertOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
-  const [exportOpen, setExportOpen] = useState(false)
   const [detailDrawerRow, setDetailDrawerRow] = useState<{
     row: Record<string, unknown>
     rowIndex: number
+    rowId: string
   } | null>(null)
   const [drawerWidth, setDrawerWidth] = useState(340)
   const [isResizingDetailDrawer, setIsResizingDetailDrawer] = useState(false)
@@ -107,7 +109,7 @@ export function useTableOperations({
   // ── Build the data array: real rows (minus staged deletes) + staged inserts ──
   const displayRows = useMemo<TableRow[]>(() => {
     const filtered = realTableRows.filter((_row, index) => {
-      const rowId = buildRowId(_row, index, tableName, pkColumn)
+      const rowId = buildRowId(_row, index, tableName, primaryKeyColumns)
       return !pendingDeletes.includes(rowId)
     })
     const activeInserts = pendingInserts.filter((draft) => {
@@ -124,7 +126,7 @@ export function useTableOperations({
     pendingInserts,
     pendingEdits,
     tableName,
-    pkColumn,
+    primaryKeyColumns,
     detailDrawerRow,
   ])
 
@@ -137,8 +139,8 @@ export function useTableOperations({
       map[col.columnName] = {
         columnName: col.columnName,
         dataType: col.dataType ?? '',
-        isNullable: true,
-        maxLength: null,
+        isNullable: col.isNullable ?? true,
+        maxLength: col.maxLength ?? null,
       }
     }
     return map
@@ -167,6 +169,10 @@ export function useTableOperations({
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleAddRow = useCallback(() => {
+    if (primaryKeyColumns.length === 0) {
+      setToast({ kind: 'error', message: 'Read-only: this table has no primary key' })
+      return
+    }
     if (realTableColumns.length === 0) {
       setToast({ kind: 'error', message: 'No columns available to add a row' })
       return
@@ -181,37 +187,43 @@ export function useTableOperations({
     setDetailDrawerRow({
       row: draft as Record<string, unknown>,
       rowIndex: displayRows.length,
+      rowId: newRowId,
     })
     setToast({
       kind: 'success',
       message: 'New row ready — fill fields below to display it in the table',
     })
-  }, [realTableColumns, editableColumnMetaMap, stageInsert, displayRows.length])
+  }, [primaryKeyColumns, realTableColumns, editableColumnMetaMap, stageInsert, displayRows.length])
 
   const handleDeleteRow = useCallback(() => {
+    if (primaryKeyColumns.length === 0) {
+      setToast({ kind: 'error', message: 'Read-only: this table has no primary key' })
+      return
+    }
     const cells = useTableSelectionStore.getState().selectedCells
     const actCell = useTableSelectionStore.getState().activeCell
+    const stageDeleteForRow = (row: TableRow | undefined, idx: number) => {
+      if (!row) return
+      // Rows without a usable key are read-only — skip silently.
+      const keyValues = getRowKey(row, primaryKeyColumns)
+      if (!keyValues && !(row as Record<string, unknown>).__rowId) return
+      stageDelete(buildRowId(row, idx, tableName, primaryKeyColumns))
+    }
     if (cells.size > 0 && actCell) {
       const rowIndices = new Set<number>()
       for (const key of cells) {
         rowIndices.add(Number(key.split(':')[0]))
       }
       for (const idx of rowIndices) {
-        const row = displayRows[idx]
-        if (!row) continue
-        const rowId = buildRowId(row, idx, tableName, pkColumn)
-        stageDelete(rowId)
+        stageDeleteForRow(displayRows[idx], idx)
       }
       resetSelection()
       return
     }
     if (!actCell) return
-    const row = displayRows[actCell.rowIndex]
-    if (!row) return
-    const rowId = buildRowId(row, actCell.rowIndex, tableName, pkColumn)
-    stageDelete(rowId)
+    stageDeleteForRow(displayRows[actCell.rowIndex], actCell.rowIndex)
     resetSelection()
-  }, [displayRows, tableName, pkColumn, stageDelete, resetSelection])
+  }, [primaryKeyColumns, displayRows, tableName, stageDelete, resetSelection])
 
   const handleRefresh = useCallback(() => {
     if (!tableName) return
@@ -219,6 +231,7 @@ export function useTableOperations({
     if (pendingTotal > 0) {
       setConfirmRefreshOpen(true)
     } else {
+      onBeforeRefresh?.()
       handleTreeNodeClick(
         tableName,
         undefined,
@@ -231,6 +244,7 @@ export function useTableOperations({
   }, [
     tableName,
     handleTreeNodeClick,
+    onBeforeRefresh,
     pageSize,
     appliedWhereClause,
     appliedOrderByClause,
@@ -241,6 +255,7 @@ export function useTableOperations({
     clearAll()
     resetInsertCounter()
     if (tableName) {
+      onBeforeRefresh?.()
       handleTreeNodeClick(
         tableName,
         undefined,
@@ -254,6 +269,7 @@ export function useTableOperations({
     tableName,
     handleTreeNodeClick,
     clearAll,
+    onBeforeRefresh,
     pageSize,
     appliedWhereClause,
     appliedOrderByClause,
@@ -264,9 +280,13 @@ export function useTableOperations({
   }, [])
 
   const handleCommit = useCallback(async () => {
-    if (!tableName || !connectionId || !selectedConnection || !pkColumn) return
+    if (!tableName || !connectionId || !selectedConnection) return
     const pendingTotal = pendingChangeCount(useTableEditStore.getState())
     if (pendingTotal === 0) return
+    if (primaryKeyColumns.length === 0) {
+      setToast({ kind: 'error', message: 'Read-only: this table has no primary key' })
+      return
+    }
 
     try {
       const payload = await getConnPayloadWithPassword(
@@ -275,7 +295,6 @@ export function useTableOperations({
       )
       payload.database =
         selectedDatabase || selectedConnection.database || payload.database
-      const pkMapped = pkColumn
 
       const currentPendingEdits = useTableEditStore.getState().pendingEdits
       const currentPendingInserts = useTableEditStore.getState().pendingInserts
@@ -294,26 +313,45 @@ export function useTableOperations({
         return merged
       })
 
-      // Build updates
-      const updates = Object.entries(currentPendingEdits)
-        .filter(([rowId]) => !rowId.startsWith('__insert__'))
-        .map(([rowId, edits]) => {
-          const changes: Record<string, unknown> = {}
-          for (const edit of edits) {
-            changes[edit.field] = edit.newValue
-          }
-          const pkValue = rowId.startsWith(`${tableName}-`)
-            ? rowId.slice(`${tableName}-`.length)
-            : rowId
-          return { rowId: pkValue, changes }
-        })
+      // Resolve a staged rowId back to its display row snapshot. Keys are
+      // ALWAYS rebuilt from the snapshot — never parsed out of the row ID.
+      const resolveRow = (rowId: string): TableRow | undefined => {
+        const realIdx = realTableRows.findIndex(
+          (row, idx) =>
+            buildRowId(row, idx, tableName, primaryKeyColumns) === rowId,
+        )
+        if (realIdx >= 0) return realTableRows[realIdx]
+        const draft = currentPendingInserts.find((d) => d.__rowId === rowId)
+        if (draft) return draft as unknown as TableRow
+        return undefined
+      }
 
-      // Build deletes
-      const deletes = currentPendingDeletes.map((rowId) => {
-        return rowId.startsWith(`${tableName}-`)
-          ? rowId.slice(`${tableName}-`.length)
-          : rowId
-      })
+      // Build updates from row snapshots; skip unresolvable or keyless rows.
+      const updates: {
+        key: { values: string[] }
+        changes: Record<string, unknown>
+      }[] = []
+      for (const [rowId, edits] of Object.entries(currentPendingEdits)) {
+        if (rowId.startsWith('__insert__')) continue
+        const changes: Record<string, unknown> = {}
+        for (const edit of edits) {
+          changes[edit.field] = edit.newValue
+        }
+        const row = resolveRow(rowId)
+        const keyValues = row ? getRowKey(row, primaryKeyColumns) : null
+        if (!keyValues) continue
+        updates.push({ key: { values: keyValues }, changes })
+      }
+
+      // Build deletes from row snapshots; skip unresolvable or keyless rows.
+      const deletes: { values: string[] }[] = []
+      for (const rowId of currentPendingDeletes) {
+        if (rowId.startsWith('__insert__')) continue
+        const row = resolveRow(rowId)
+        const keyValues = row ? getRowKey(row, primaryKeyColumns) : null
+        if (!keyValues) continue
+        deletes.push({ values: keyValues })
+      }
 
       await commitMutation.mutateAsync({
         connection: payload,
@@ -321,7 +359,7 @@ export function useTableOperations({
         inserts,
         updates,
         deletes,
-        primaryKeyColumn: pkMapped,
+        primaryKeyColumns,
       })
 
       const committedCount = pendingTotal
@@ -351,7 +389,8 @@ export function useTableOperations({
     selectedConnection,
     selectedSchema,
     selectedDatabase,
-    pkColumn,
+    primaryKeyColumns,
+    realTableRows,
     commitMutation,
     clearAll,
     handleTreeNodeClick,
@@ -388,27 +427,6 @@ export function useTableOperations({
     restoreActiveCellFocus()
   }, [redo, restoreActiveCellFocus])
 
-  const handleExportCSV = useCallback(async () => {
-    if (realTableRows.length === 0) {
-      setToast({ kind: 'error', message: 'No data to export' })
-      return
-    }
-    const csv = formatCSVWithHeaders(realTableRows, realTableColumns)
-    await copyToClipboard(csv)
-    setToast({ kind: 'success', message: 'Copied CSV to clipboard' })
-    setExportOpen(false)
-  }, [realTableRows, realTableColumns])
-
-  const handleExportJSON = useCallback(async () => {
-    if (realTableRows.length === 0) {
-      setToast({ kind: 'error', message: 'No data to export' })
-      return
-    }
-    const json = formatJSON(realTableRows, realTableColumns)
-    await copyToClipboard(json)
-    setToast({ kind: 'success', message: 'Copied JSON to clipboard' })
-    setExportOpen(false)
-  }, [realTableRows, realTableColumns])
 
   return {
     displayRows,
@@ -422,8 +440,6 @@ export function useTableOperations({
     confirmRevertOpen,
     shortcutsOpen,
     setShortcutsOpen,
-    exportOpen,
-    setExportOpen,
     detailDrawerRow,
     setDetailDrawerRow,
     drawerWidth,
@@ -455,8 +471,6 @@ export function useTableOperations({
     handleCancelRevert,
     handleUndo,
     handleRedo,
-    handleExportCSV,
-    handleExportJSON,
     editableColumnMetaMap,
   }
 }

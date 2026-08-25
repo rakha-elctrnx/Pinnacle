@@ -3,13 +3,17 @@ import type { SslConfig } from '../../_shared/types/domain'
 
 // ── Commit Table Changes (task-011c) ─────────────────────────────
 
+export interface RowKey {
+  values: string[]
+}
+
 export interface CommitTableChangesPayload {
   connection: ConnectionPayload
   tableName: string
   inserts: Record<string, unknown>[]
-  updates: { rowId: string; changes: Record<string, unknown> }[]
-  deletes: string[]
-  primaryKeyColumn: string
+  updates: { key: RowKey; changes: Record<string, unknown> }[]
+  deletes: RowKey[]
+  primaryKeyColumns: string[]
 }
 
 export interface CommitTableChangesResult {
@@ -84,6 +88,8 @@ export interface SchemaColumn {
   isNullable: boolean
   defaultValue: string | null
   dataTypeName: string
+  /** Maximum length for character columns (varchar(n) etc.); null otherwise. */
+  maxLength: number | null
 }
 
 // ── View Types ──────────────────────────────────────────────────

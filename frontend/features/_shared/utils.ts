@@ -1,3 +1,4 @@
+import { getConnectionPassword } from './services/tauriClient'
 import type { ConnectionType } from './types/domain'
 import type { SqlConnectionType } from './types/shared'
 import type { ConnectionProfile } from './types/domain'
@@ -62,21 +63,30 @@ export function getConnPayload(conn: ConnectionProfile, schema?: string) {
 }
 
 // Get connection payload WITH password fetched from keyring
-// Use this when you need to actually execute queries against a connection
+// Use this when you need to actually execute queries against a connection.
+//
+// Keyring failures REJECT with a stable, actionable message. We never return
+// an empty password (that would surface a confusing auth error against the
+// database) and we never log the connection id or raw keyring error — both
+// could aid credential probing.
+export const KEYRING_RECOVERY_MESSAGE =
+  'Failed to retrieve stored password. Re-save the connection credentials and retry.'
+
 export async function getConnPayloadWithPassword(
   conn: ConnectionProfile,
   schema?: string,
 ) {
-  const { getConnectionPassword } = await import('./services/tauriClient')
-  const password = conn.passwordRef
-    ? await getConnectionPassword(conn.id).catch((err) => {
-        console.warn(
-          `[keyring] Failed to retrieve password for connection ${conn.id}:`,
-          err,
-        )
-        return ''
-      })
-    : ''
+  let password = ''
+  if (conn.passwordRef) {
+    try {
+      password = await getConnectionPassword(conn.id)
+    } catch {
+      throw new Error(KEYRING_RECOVERY_MESSAGE)
+    }
+    if (!password) {
+      throw new Error(KEYRING_RECOVERY_MESSAGE)
+    }
+  }
   return {
     ...getConnPayload(conn, schema),
     password,

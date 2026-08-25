@@ -19,9 +19,114 @@ pub enum AppError {
     Ssh(String),
 }
 
+// ── Database error sanitizer ────────────────────────────────────────
+//
+// Raw driver errors (sqlx) can embed connection URLs (`postgres://user:
+// secret@host/db`), usernames, passwords, host names, and driver internals.
+// Everything that reaches the frontend must instead be one of the stable,
+// actionable category messages below. The sanitizer NEVER interpolates
+// driver-supplied text into its output, so no credential material can leak
+// by construction.
+
+const MSG_INVALID_CONFIG: &str = "Invalid database connection settings.";
+const MSG_AUTH_FAILED: &str =
+    "Authentication failed. Re-check the database username and password.";
+const MSG_CONN_REFUSED: &str =
+    "Connection refused. Could not reach the database server; verify host and port.";
+const MSG_CONN_RESET: &str = "Connection reset by the database server. Please retry.";
+const MSG_IO: &str = "io error while communicating with the database.";
+const MSG_TIMEOUT: &str = "Database operation timed out.";
+const MSG_POOL_CLOSED: &str = "The database connection pool is closed. Reconnect and retry.";
+const MSG_WORKER_CRASHED: &str = "A background database worker crashed. Please retry.";
+const MSG_UNIQUE_VIOLATION: &str = "A record with the same unique value already exists.";
+const MSG_NOT_NULL_VIOLATION: &str = "A required value is missing for a NOT NULL column.";
+const MSG_FOREIGN_KEY_VIOLATION: &str =
+    "This operation is blocked by a foreign key constraint on a related table.";
+const MSG_CHECK_VIOLATION: &str = "This operation violates a check constraint on this table.";
+const MSG_QUERY_FAILED: &str = "The database operation failed. Review the statement and retry.";
+
+// NOTE: MSG_CONN_REFUSED, MSG_CONN_RESET, MSG_IO and MSG_TIMEOUT intentionally
+// retain the phrases ("connection refused", "connection reset", "io error",
+// "timed out") that `infrastructure::connectors::pool::is_transient` matches
+// on, so automatic pool retry semantics survive sanitization unchanged.
+
+/// Convert a raw [`sqlx::Error`] into a frontend-safe [`AppError`].
+///
+/// Stable categories: authentication · connection refused/unavailable ·
+/// timeout · constraint violation · generic database/query failure.
+pub fn sanitize_sqlx_error(err: &sqlx::Error) -> AppError {
+    use sqlx::error::ErrorKind;
+
+    match err {
+        sqlx::Error::Configuration(_) => AppError::InvalidInput(MSG_INVALID_CONFIG.to_string()),
+        sqlx::Error::Database(db) => {
+            let state = db.code().map(|c| c.to_string()).unwrap_or_default();
+            let message = db.message();
+            let auth_failed = matches!(state.as_str(), "28P01" | "28000")
+                || {
+                    let m = message.to_lowercase();
+                    m.contains("password authentication failed")
+                        || m.contains("authentication failed")
+                        || m.contains("access denied")
+                };
+            if auth_failed {
+                return AppError::Database(MSG_AUTH_FAILED.to_string());
+            }
+            match db.kind() {
+                ErrorKind::UniqueViolation => {
+                    AppError::Database(MSG_UNIQUE_VIOLATION.to_string())
+                }
+                ErrorKind::NotNullViolation => {
+                    AppError::Database(MSG_NOT_NULL_VIOLATION.to_string())
+                }
+                ErrorKind::ForeignKeyViolation => {
+                    AppError::Database(MSG_FOREIGN_KEY_VIOLATION.to_string())
+                }
+                ErrorKind::CheckViolation => AppError::Database(MSG_CHECK_VIOLATION.to_string()),
+                ErrorKind::Other => classify_db_message(message),
+                _ => AppError::Database(MSG_QUERY_FAILED.to_string()),
+            }
+        }
+        sqlx::Error::Io(source) => match source.kind() {
+            std::io::ErrorKind::ConnectionRefused => {
+                AppError::Database(MSG_CONN_REFUSED.to_string())
+            }
+            std::io::ErrorKind::TimedOut => AppError::Database(MSG_TIMEOUT.to_string()),
+            _ => AppError::Database(MSG_IO.to_string()),
+        },
+        sqlx::Error::PoolTimedOut => AppError::Database(MSG_TIMEOUT.to_string()),
+        sqlx::Error::PoolClosed => AppError::Database(MSG_POOL_CLOSED.to_string()),
+        sqlx::Error::WorkerCrashed => AppError::Database(MSG_WORKER_CRASHED.to_string()),
+        _ => AppError::Database(MSG_QUERY_FAILED.to_string()),
+    }
+}
+
+/// Keyword classifier for `ErrorKind::Other` database errors whose driver
+/// text must not be surfaced. Only the stable category survives.
+fn classify_db_message(message: &str) -> AppError {
+    let m = message.to_lowercase();
+    if m.contains("connection refused")
+        || m.contains("error connecting to server")
+        || m.contains("could not connect")
+        || m.contains("no such host")
+    {
+        AppError::Database(MSG_CONN_REFUSED.to_string())
+    } else if m.contains("timed out") || m.contains("timeout") {
+        AppError::Database(MSG_TIMEOUT.to_string())
+    } else if m.contains("connection reset")
+        || m.contains("broken pipe")
+        || m.contains("server has gone away")
+        || m.contains("unexpected eof")
+    {
+        AppError::Database(MSG_CONN_RESET.to_string())
+    } else {
+        AppError::Database(MSG_QUERY_FAILED.to_string())
+    }
+}
+
 impl From<sqlx::Error> for AppError {
     fn from(value: sqlx::Error) -> Self {
-        Self::Database(value.to_string())
+        sanitize_sqlx_error(&value)
     }
 }
 
@@ -46,5 +151,199 @@ impl From<russh::Error> for AppError {
 impl From<russh::keys::Error> for AppError {
     fn from(value: russh::keys::Error) -> Self {
         Self::Ssh(value.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::borrow::Cow;
+    /// Minimal `DatabaseError` mock so sanitizer tests can exercise the
+    #[derive(Debug)]
+    struct MockDbError {
+        message: String,
+        code: &'static str,
+        kind_name: &'static str,
+    }
+
+    impl std::fmt::Display for MockDbError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}", self.message)
+        }
+    }
+
+    impl std::error::Error for MockDbError {}
+
+    impl sqlx::error::DatabaseError for MockDbError {
+        fn message(&self) -> &str {
+            &self.message
+        }
+
+        fn code(&self) -> Option<Cow<'_, str>> {
+            Some(Cow::Borrowed(self.code))
+        }
+
+        fn kind(&self) -> sqlx::error::ErrorKind {
+            match self.kind_name {
+                "unique" => sqlx::error::ErrorKind::UniqueViolation,
+                "not_null" => sqlx::error::ErrorKind::NotNullViolation,
+                "foreign_key" => sqlx::error::ErrorKind::ForeignKeyViolation,
+                "check" => sqlx::error::ErrorKind::CheckViolation,
+                _ => sqlx::error::ErrorKind::Other,
+            }
+        }
+
+        fn as_error(&self) -> &(dyn std::error::Error + Send + Sync + 'static) {
+            self
+        }
+
+        fn as_error_mut(&mut self) -> &mut (dyn std::error::Error + Send + Sync + 'static) {
+            self
+        }
+
+        fn into_error(self: Box<Self>) -> Box<dyn std::error::Error + Send + Sync + 'static> {
+            self
+        }
+    }
+
+    fn db_error(code: &'static str, kind: &'static str, message: &str) -> sqlx::Error {
+        sqlx::Error::Database(Box::new(MockDbError {
+            message: message.to_string(),
+            code,
+            kind_name: kind,
+        }))
+    }
+
+    /// Extract the sanitized body of a Database-category AppError.
+    fn database_body(err: AppError) -> String {
+        match err {
+            AppError::Database(body) => body,
+            other => panic!("expected AppError::Database, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn sanitize_pg_auth_state_to_stable_auth_message() {
+        let err = db_error(
+            "28P01",
+            "other",
+            "password authentication failed for user \"topsecret\" at postgres://user:pw@db.host/db",
+        );
+        let body = database_body(sanitize_sqlx_error(&err));
+        assert!(body.contains("Authentication failed"));
+        assert!(!body.contains("topsecret"));
+        assert!(!body.contains("postgres://"));
+        assert!(!body.contains("db.host"));
+    }
+
+    #[test]
+    fn sanitize_mysql_access_denied_to_stable_auth_message() {
+        let err = db_error(
+            "28000",
+            "other",
+            "Access denied for user 'root'@'10.1.2.3' (using password: YES)",
+        );
+        let body = database_body(sanitize_sqlx_error(&err));
+        assert!(body.contains("Authentication failed"));
+        assert!(!body.contains("root"));
+        assert!(!body.contains("10.1.2.3"));
+    }
+
+    #[test]
+    fn sanitize_unique_violation_hides_row_values() {
+        let err = db_error(
+            "23505",
+            "unique",
+            "duplicate key value violates unique constraint \"users_email_key\"\nDETAIL: Key (email)=(secret@example.com) already exists.",
+        );
+        let body = database_body(sanitize_sqlx_error(&err));
+        assert!(body.contains("same unique value already exists"));
+        assert!(!body.contains("secret@example.com"));
+        assert!(!body.contains("users_email_key"));
+    }
+
+    #[test]
+    fn sanitize_not_null_and_fk_and_check_categories() {
+        let not_null = db_error("23502", "not_null", "null value in column x");
+        assert!(database_body(sanitize_sqlx_error(&not_null)).contains("NOT NULL"));
+
+        let fk = db_error("23503", "foreign_key", "violates foreign key constraint");
+        assert!(database_body(sanitize_sqlx_error(&fk)).contains("foreign key constraint"));
+
+        let check = db_error("23514", "check", "violates check constraint");
+        assert!(database_body(sanitize_sqlx_error(&check)).contains("check constraint"));
+    }
+
+    #[test]
+    fn sanitize_io_connection_refused_strips_sample_postgres_url() {
+        let err = sqlx::Error::Io(std::io::Error::new(
+            std::io::ErrorKind::ConnectionRefused,
+            "error connecting to server at postgres://user:secret@db.host:5432/appdb: Connection refused",
+        ));
+        let body = database_body(sanitize_sqlx_error(&err));
+        assert!(body.contains("Connection refused"));
+        // Retry-compat phrase preserved for pool::is_transient.
+        assert!(body.to_lowercase().contains("connection refused"));
+        assert!(!body.contains("user:secret"));
+        assert!(!body.contains("postgres://"));
+        assert!(!body.contains("db.host"));
+    }
+
+    #[test]
+    fn sanitize_io_generic_error_strips_sample_mysql_url() {
+        let err = sqlx::Error::Io(std::io::Error::other(
+            "Can't reach server mysql://admin:hunter2@127.0.0.1:3306/shop",
+        ));
+        let body = database_body(sanitize_sqlx_error(&err));
+        assert!(body.to_lowercase().starts_with("io error"));
+        assert!(!body.contains("admin"));
+        assert!(!body.contains("hunter2"));
+        assert!(!body.contains("mysql://"));
+        assert!(!body.contains("127.0.0.1"));
+    }
+
+    #[test]
+    fn sanitize_pool_timeout_keeps_retry_trigger_phrase() {
+        let body = database_body(sanitize_sqlx_error(&sqlx::Error::PoolTimedOut));
+        assert!(body.to_lowercase().contains("timed out"));
+    }
+
+    #[test]
+    fn sanitize_generic_db_error_drops_driver_text_and_urls() {
+        let err = db_error(
+            "XX000",
+            "other",
+            "internal detail postgres://svc:hunter2@private-host/prod crashed",
+        );
+        let body = database_body(sanitize_sqlx_error(&err));
+        assert!(body.contains("database operation failed"));
+        assert!(!body.contains("postgres://"));
+        assert!(!body.contains("hunter2"));
+        assert!(!body.contains("private-host"));
+    }
+
+    #[test]
+    fn sanitize_classifies_connect_phase_message_as_connection_refused() {
+        let err = db_error(
+            "08006",
+            "other",
+            "error connecting to server 10.0.0.9:5432 (behind tunnel)",
+        );
+        let body = database_body(sanitize_sqlx_error(&err));
+        assert!(body.contains("Connection refused"));
+        assert!(!body.contains("10.0.0.9"));
+    }
+
+    #[test]
+    fn from_sqlx_error_uses_sanitizer_not_raw_display() {
+        let err: AppError = sqlx::Error::Io(std::io::Error::new(
+            std::io::ErrorKind::ConnectionRefused,
+            "boom postgres://user:secret@host/db",
+        ))
+        .into();
+        let rendered = err.to_string();
+        assert!(!rendered.contains("postgres://"));
+        assert!(!rendered.contains("user:secret"));
+        assert!(rendered.contains("Connection refused"));
     }
 }

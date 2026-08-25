@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTabStore } from '../../_shared/store/tabStore'
 import { useDataExplorerContext } from '../../_shared/context/DataExplorerContext'
-import { CenteredLoadingState } from '../../_shared/components/ui/CenteredLoadingState'
 import { useTableFiltersAndSort } from '../hooks/useTableFiltersAndSort'
 import { useTableOperations } from '../hooks/useTableOperations'
 import { useTableColumns } from '../hooks/useTableColumns'
@@ -42,9 +41,11 @@ export function TableDetailPage() {
       tableDataLoading,
       schemaColumnsByTable,
       totalRowCount,
+      invalidateTableMeta,
     },
     selectedConnection,
     setSelectedTreeNode,
+    handleRequestExport: contextHandleRequestExport,
   } = useDataExplorerContext()
 
   // ── Edit store actions ───────────────────────────────────────────────────
@@ -65,14 +66,21 @@ export function TableDetailPage() {
     return schemaColumnsByTable[safeTableName] || []
   }, [safeTableName, schemaColumnsByTable])
 
-  const pkColumn = useMemo<string | undefined>(() => {
+  const primaryKeyColumns = useMemo<string[]>(() => {
     const pkIndex = realTableIndexes.find(
       (idx) => idx.isPrimary && idx.tableName === safeTableName,
     )
-    return pkIndex?.columnName[0]
+    return pkIndex?.columnName ?? []
   }, [realTableIndexes, safeTableName])
 
-  const hasPrimaryKey = pkColumn !== undefined
+  const readOnly = primaryKeyColumns.length === 0
+  // The index query for the active table has completed at least once this
+  // session. Until then a no-PK verdict is only provisional — the fetch may
+  // still be in flight — so the read-only explanation waits for it.
+  const realTableIndexesLoaded = useMemo(
+    () => realTableIndexes.some((idx) => idx.tableName === safeTableName),
+    [realTableIndexes, safeTableName],
+  )
 
   // Restore focus to the active cell after commit/revert/undo/redo.
   const restoreActiveCellFocus = useCallback(() => {
@@ -106,6 +114,11 @@ export function TableDetailPage() {
     handleClearAllFilters,
     handleSortColumn,
   } = useTableFiltersAndSort({
+    onQueryStateChange: () => {
+      setPage(1)
+      resetSelection()
+      setDetailDrawerRow(null)
+    },
     tabId,
     dbType: selectedConnection?.type as 'postgresql' | 'mysql' | undefined,
     tableColumnsMeta,
@@ -132,8 +145,6 @@ export function TableDetailPage() {
     confirmRevertOpen,
     shortcutsOpen,
     setShortcutsOpen,
-    exportOpen,
-    setExportOpen,
     detailDrawerRow,
     setDetailDrawerRow,
     drawerWidth,
@@ -162,8 +173,6 @@ export function TableDetailPage() {
     handleCancelRevert,
     handleUndo,
     handleRedo,
-    handleExportCSV,
-    handleExportJSON,
     editableColumnMetaMap,
   } = useTableOperations({
     connectionId,
@@ -172,13 +181,14 @@ export function TableDetailPage() {
     selectedSchema,
     selectedDatabase,
     tableColumnsMeta,
-    pkColumn,
+    primaryKeyColumns,
     realTableColumns,
     realTableRows,
     appliedWhereClause,
     appliedOrderByClause,
     handleTreeNodeClick,
     restoreActiveCellFocus,
+    onBeforeRefresh: invalidateTableMeta,
     tabId,
   })
 
@@ -194,7 +204,8 @@ export function TableDetailPage() {
     handleColumnFilterClick,
     displayRows,
     editableColumnMetaMap,
-    pkColumn,
+    primaryKeyColumns,
+    readOnly,
   })
 
   // ── Keyboard & Mouse event selection orchestration hook ──────────────────
@@ -225,7 +236,7 @@ export function TableDetailPage() {
     tableName: safeTableName,
     realTableColumns,
     displayRows,
-    pkColumn,
+    primaryKeyColumns,
     tableColumnsMeta,
     stageEdit,
     stageInsert,
@@ -311,7 +322,8 @@ export function TableDetailPage() {
     setDetailDrawerRow,
   ])
 
-  // Refetch data when page or pageSize changes (skip on mount).
+  // Refetch on page/pageSize changes and reset selection/drawer — index-keyed
+  // selection must never act on newly loaded rows.
   const prevPageRef = useRef(page)
   const prevPageSizeRef = useRef(pageSize)
   useEffect(() => {
@@ -319,6 +331,8 @@ export function TableDetailPage() {
       return
     prevPageRef.current = page
     prevPageSizeRef.current = pageSize
+    resetSelection()
+    setDetailDrawerRow(null)
     handleTreeNodeClick(
       safeTableName,
       undefined,
@@ -334,6 +348,8 @@ export function TableDetailPage() {
     handleTreeNodeClick,
     appliedWhereClause,
     appliedOrderByClause,
+    resetSelection,
+    setDetailDrawerRow,
   ])
 
   // Sync pending change count to the tab badge in TabBar.
@@ -380,14 +396,13 @@ export function TableDetailPage() {
         handleRedo={handleRedo}
         totalPending={totalPending}
         isCommitPending={commitMutation.isPending}
-        hasPrimaryKey={hasPrimaryKey}
+        readOnly={readOnly}
+        showReadOnlyNotice={readOnly && !tableDataLoading && realTableIndexesLoaded}
         handleCommit={handleCommit}
         handleRevert={handleRevert}
         setShortcutsOpen={setShortcutsOpen}
-        exportOpen={exportOpen}
-        setExportOpen={setExportOpen}
-        handleExportCSV={handleExportCSV}
-        handleExportJSON={handleExportJSON}
+        tableName={safeTableName}
+        onExportData={contextHandleRequestExport}
       />
 
       <TableFilterBar
@@ -418,6 +433,7 @@ export function TableDetailPage() {
         {toast
           ? `. ${toast.kind === 'success' ? 'Success' : 'Error'}: ${toast.message}`
           : ''}
+        {readOnly ? '. Read-only: this table has no primary key' : ''}
       </div>
 
       {/* ── Toast (visual) ─────────────────────────────────────────── */}
@@ -444,52 +460,41 @@ export function TableDetailPage() {
         </div>
       )}
 
-      {/* ── Loading overlay ──────────────────────────────────────────────── */}
-      {tableDataLoading && (
-        <CenteredLoadingState
-          loading={tableDataLoading}
-          label="Loading table data..."
-        />
-      )}
+      {/* ── Loading: in-grid overlay (grid always mounted) ─────────────── */}
+      <TableGrid
+        scrollContainerRef={scrollContainerRef}
+        drawerAnimState={drawerAnimState}
+        drawerWidth={drawerWidth}
+        isResizingDetailDrawer={isResizingDetailDrawer}
+        tableName={safeTableName}
+        tableWidth={tableWidth}
+        realTableColumns={realTableColumns}
+        boundedWidths={boundedWidths}
+        table={table}
+        tableColumnsMeta={tableColumnsMeta}
+        activeCell={activeCell}
+        selectedCells={selectedCells}
+        pendingDeletes={pendingDeletes}
+        pendingEdits={pendingEdits}
+        primaryKeyColumns={primaryKeyColumns}
+        isLoading={tableDataLoading}
+        handleCellMouseDown={handleCellMouseDown}
+        handleCellMouseEnter={handleCellMouseEnter}
+        handleCellMouseUp={handleCellMouseUp}
+        handleGutterMouseDown={handleGutterMouseDown}
+        setContextMenu={setContextMenu}
+        contextRowIndexRef={contextRowIndexRef}
+      />
 
-      {/* ── Data table ────────────────────────────────────────────────────── */}
-      {!tableDataLoading && (
-        <TableGrid
-          scrollContainerRef={scrollContainerRef}
-          drawerAnimState={drawerAnimState}
-          drawerWidth={drawerWidth}
-          isResizingDetailDrawer={isResizingDetailDrawer}
-          tableName={safeTableName}
-          tableWidth={tableWidth}
-          realTableColumns={realTableColumns}
-          boundedWidths={boundedWidths}
-          table={table}
-          tableColumnsMeta={tableColumnsMeta}
-          activeCell={activeCell}
-          selectedCells={selectedCells}
-          pendingDeletes={pendingDeletes}
-          pendingEdits={pendingEdits}
-          pkColumn={pkColumn}
-          handleCellMouseDown={handleCellMouseDown}
-          handleCellMouseEnter={handleCellMouseEnter}
-          handleCellMouseUp={handleCellMouseUp}
-          handleGutterMouseDown={handleGutterMouseDown}
-          setContextMenu={setContextMenu}
-          contextRowIndexRef={contextRowIndexRef}
-        />
-      )}
-
-      {/* ── Pagination footer ─────────────────────────────────────────── */}
-      {!tableDataLoading && (
-        <TablePaginationFooter
-          page={page}
-          pageSize={pageSize}
-          setPage={setPage}
-          setPageSize={setPageSize}
-          totalRowCount={totalRowCount}
-          totalPending={totalPending}
-        />
-      )}
+      {/* ── Pagination footer (mounted even while refetching) ──────────── */}
+      <TablePaginationFooter
+        page={page}
+        pageSize={pageSize}
+        setPage={setPage}
+        setPageSize={setPageSize}
+        totalRowCount={totalRowCount}
+        totalPending={totalPending}
+      />
 
       {/* ── Confirm dialog ─────────────────────────────────────────────── */}
       <ConfirmDialog
@@ -553,7 +558,9 @@ export function TableDetailPage() {
         columnsMeta={tableColumnsMeta}
         rowIndex={detailDrawerRow?.rowIndex ?? 0}
         tableName={safeTableName}
-        pkColumn={pkColumn}
+        primaryKeyColumns={primaryKeyColumns}
+        rowId={detailDrawerRow?.rowId}
+        readOnly={readOnly}
         drawerWidth={drawerWidth}
         setDrawerWidth={setDrawerWidth}
         isResizing={isResizingDetailDrawer}

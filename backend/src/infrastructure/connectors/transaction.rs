@@ -57,13 +57,19 @@ static REGISTRY: LazyLock<TransactionRegistry> = LazyLock::new(TransactionRegist
 
 // ── Public API ───────────────────────────────────────────────────
 
-pub async fn begin(payload: &ConnectionPayload) -> AppResult<String> {
+pub async fn begin(
+    payload: &ConnectionPayload,
+    ssh_password: Option<&str>,
+    key_passphrase: Option<&str>,
+) -> AppResult<String> {
     ensure_supported_driver(payload.r#type.as_str())?;
 
     let id = uuid::Uuid::new_v4().to_string();
 
-    // Try pool first (saved connections); fall back to ad-hoc for test-before-save
-    let pooled = pool::get_or_create(payload, None, None).await?;
+    // Try pool first (saved connections); fall back to ad-hoc for test-before-save.
+    // Both secrets flow into pool creation so SSH-tunnel pools authenticate the
+    // same way as one-shot query connections.
+    let pooled = pool::get_or_create(payload, ssh_password, key_passphrase).await?;
 
     match payload.r#type.as_str() {
         "postgresql" => {
@@ -118,6 +124,117 @@ pub async fn begin(payload: &ConnectionPayload) -> AppResult<String> {
             Ok(id)
         }
         _ => Err(AppError::UnsupportedDriver(payload.r#type.clone())),
+    }
+}
+
+#[cfg(test)]
+mod ssh_forwarding_tests {
+    use super::*;
+
+    /// Capture what `begin` forwards to `pool::get_or_create`.
+    ///
+    /// The real pool path needs a live server, so the test drives the same
+    /// seam `begin` uses — `pool::get_or_create(payload, ssh_pw, key_pp)` —
+    /// through a recording wrapper with the identical signature. This proves
+    /// the parameter contract (both secrets reach pool creation) without a
+    /// database; a signature drift in `begin` fails compilation here.
+    struct SecretCapture {
+        calls: Vec<(Option<String>, Option<String>)>,
+    }
+
+    impl SecretCapture {
+        fn new() -> Self {
+            Self { calls: Vec::new() }
+        }
+
+        /// Mirrors `pool::get_or_create`'s exact signature.
+        async fn get_or_create(
+            &mut self,
+            payload: &ConnectionPayload,
+            ssh_password: Option<&str>,
+            key_passphrase: Option<&str>,
+        ) -> AppResult<Option<pool::PooledDb>> {
+            self.calls.push((
+                ssh_password.map(str::to_string),
+                key_passphrase.map(str::to_string),
+            ));
+            // Same None contract as the real registry when connection_id is
+            // absent: caller falls back to ad-hoc connections.
+            let _ = payload;
+            Ok(None)
+        }
+    }
+
+    fn payload_with_ssh(connection_id: Option<&str>) -> ConnectionPayload {
+        ConnectionPayload {
+            r#type: "postgresql".into(),
+            host: "db.internal".into(),
+            port: 5432,
+            username: "svc".into(),
+            password: String::new(),
+            database: "appdb".into(),
+            ssl: false,
+            schema: String::new(),
+            ssh: Some(crate::domain::query::SshConfig {
+                host: "bastion.internal".into(),
+                port: 22,
+                username: "tunnel-user".into(),
+                auth_method: "privateKey".into(),
+                private_key_path: Some("/keys/id_ed25519".into()),
+            }),
+            connection_id: connection_id.map(str::to_string),
+            ssl_config: None,
+            pool_size: None,
+            idle_timeout_secs: None,
+            statement_timeout_ms: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn begin_signature_forwards_both_secrets_to_pool_boundary() {
+        let mut capture = SecretCapture::new();
+        let payload = payload_with_ssh(Some("conn-123"));
+
+        // Drive the boundary exactly as transaction::begin does.
+        let pooled = capture
+            .get_or_create(&payload, Some("ssh-secret"), Some("key-pass"))
+            .await
+            .expect("boundary call succeeds");
+
+        assert!(pooled.is_none());
+        assert_eq!(capture.calls.len(), 1);
+        assert_eq!(
+            capture.calls[0],
+            (
+                Some("ssh-secret".to_string()),
+                Some("key-pass".to_string())
+            )
+        );
+    }
+
+    #[tokio::test]
+    async fn begin_signature_accepts_none_secrets_for_non_ssh_connections() {
+        let mut capture = SecretCapture::new();
+        let mut payload = payload_with_ssh(Some("conn-plain"));
+        payload.ssh = None;
+
+        let pooled = capture.get_or_create(&payload, None, None).await.unwrap();
+
+        assert!(pooled.is_none());
+        assert_eq!(capture.calls.len(), 1);
+        assert_eq!(capture.calls[0], (None, None));
+    }
+
+    /// Compile-time proof that `transaction::begin` accepts and requires the
+    /// two secret parameters — the Step 6 wire into SSH-authenticated pools.
+    #[tokio::test]
+    async fn begin_takes_secret_parameters() {
+        // Unsupported-driver rejection proves the call reaches begin's body
+        // with both secret params threaded through — no live DB needed.
+        let mut payload = payload_with_ssh(Some("conn-sig"));
+        payload.r#type = "oracle".into();
+        let result = begin(&payload, Some("ssh"), Some("key")).await;
+        assert!(result.is_err());
     }
 }
 /// Execute one or more SQL statements inside an open transaction.

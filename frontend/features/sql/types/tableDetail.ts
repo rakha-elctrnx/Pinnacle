@@ -6,6 +6,10 @@ export interface ColumnMetadata {
   isPrimaryKey?: boolean
   primaryKey?: boolean
   columnKey?: string
+  /** True when the column accepts SQL NULL. */
+  isNullable?: boolean
+  /** Maximum length for character columns; null when unbounded/NA. */
+  maxLength?: number | null
 }
 
 export type FilterOperator =

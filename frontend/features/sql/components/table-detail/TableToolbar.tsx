@@ -10,9 +10,8 @@ import {
   Download,
   X,
 } from 'lucide-react'
-import { ActionButton } from '../../../_shared/components/ui/ActionButton'
-import { Dropdown } from '../../../_shared/components/ui/Dropdown'
 import type { CellPosition } from '../../store/tableSelectionStore'
+import { ActionButton } from '../../../_shared/components/ui/ActionButton'
 
 interface TableToolbarProps {
   filtersLength: number
@@ -28,14 +27,18 @@ interface TableToolbarProps {
   handleRedo: () => void
   totalPending: number
   isCommitPending: boolean
-  hasPrimaryKey: boolean
+  readOnly: boolean
   handleCommit: () => void
   handleRevert: () => void
+  /**
+   * When to render the read-only explanation. Gated by the caller so the
+   * notice appears only once a fetch has confirmed the table lacks a PK —
+   * not speculatively while data/indexes are still loading.
+   */
+  showReadOnlyNotice?: boolean
   setShortcutsOpen: (open: boolean) => void
-  exportOpen: boolean
-  setExportOpen: (open: boolean) => void
-  handleExportCSV: () => void
-  handleExportJSON: () => void
+  tableName: string
+  onExportData: (tableName: string) => void
 }
 
 export function TableToolbar({
@@ -52,14 +55,13 @@ export function TableToolbar({
   handleRedo,
   totalPending,
   isCommitPending,
-  hasPrimaryKey,
+  readOnly,
+  showReadOnlyNotice = false,
   handleCommit,
   handleRevert,
   setShortcutsOpen,
-  exportOpen,
-  setExportOpen,
-  handleExportCSV,
-  handleExportJSON,
+  tableName,
+  onExportData,
 }: TableToolbarProps) {
   return (
     <div className="flex items-center gap-1 border-b border-border-default px-1.5 py-1.5">
@@ -80,15 +82,21 @@ export function TableToolbar({
         icon={<CirclePlus size={14} />}
         aria-label="Add Row"
         variant="accent"
+        disabled={readOnly}
         onClick={handleAddRow}
       />
       <ActionButton
         icon={<CircleMinus size={14} />}
         aria-label="Delete Row"
         variant="danger"
-        disabled={activeCell === null}
+        disabled={readOnly || activeCell === null}
         onClick={handleDeleteRow}
       />
+      {showReadOnlyNotice && (
+        <span className="whitespace-nowrap px-1 text-[11px] italic text-text-muted">
+          Read-only: this table has no primary key
+        </span>
+      )}
       <ActionButton
         icon={<RefreshCw size={14} />}
         aria-label="Refresh"
@@ -114,7 +122,7 @@ export function TableToolbar({
         icon={<Check size={14} />}
         aria-label="Commit changes"
         variant="success"
-        disabled={totalPending === 0 || isCommitPending || !hasPrimaryKey}
+        disabled={totalPending === 0 || isCommitPending || readOnly}
         onClick={handleCommit}
       />
       <ActionButton
@@ -131,39 +139,13 @@ export function TableToolbar({
         onClick={() => setShortcutsOpen(true)}
       />
       <span className="ml-auto" />
-      <div className="relative">
-        <ActionButton
-          icon={<Download size={14} />}
-          aria-label="Export data"
-          variant="default"
-          onClick={() => setExportOpen(true)}
-        />
-        <Dropdown
-          open={exportOpen}
-          onClose={() => setExportOpen(false)}
-          align="right"
-          items={[
-            {
-              label: 'Export as CSV',
-              icon: (
-                <span className="font-mono text-micro text-text-muted">
-                  CSV
-                </span>
-              ),
-              action: handleExportCSV,
-            },
-            {
-              label: 'Export as JSON',
-              icon: (
-                <span className="font-mono text-micro text-text-muted">
-                  JSON
-                </span>
-              ),
-              action: handleExportJSON,
-            },
-          ]}
-        />
-      </div>
+      <ActionButton
+        icon={<Download size={14} />}
+        aria-label="Export data"
+        variant="default"
+        disabled={tableName === ''}
+        onClick={() => onExportData(tableName)}
+      />
     </div>
   )
 }

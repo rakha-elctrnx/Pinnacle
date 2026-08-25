@@ -71,6 +71,7 @@ interface TableEditState {
     field: string,
     oldValue: unknown,
     newValue: unknown,
+    options?: { coalesceUndo?: boolean },
   ) => void
   unstageEdit: (rowId: string, field: string) => void
   stageInsert: (template: InsertDraft) => string
@@ -146,7 +147,41 @@ export function canRedo(state: TableEditState): boolean {
   return state.redoStack.length > 0
 }
 
-// ── Validation ─────────────────────────────────────────────────────
+// ── Normalization & validation ─────────────────────────────────────
+
+/**
+ * Normalize a raw editor value before validation/staging:
+ * - Empty string becomes null only when the column is nullable.
+ * - Accepted boolean literals (`true/false/1/0/yes/no`) become real booleans
+ *   for BOOLEAN columns.
+ * - Everything else is preserved as the input string so BIGINT/DECIMAL
+ *   values never lose precision through Number conversion.
+ */
+export function normalizeCellValue(
+  value: unknown,
+  meta: EditableColumnMeta | undefined,
+): unknown {
+  if (value === null || value === undefined) return value
+
+  const str = typeof value === 'string' ? value : String(value)
+
+  // Empty string → null for nullable columns (non-nullable stays '' so
+  // validateCellValue reports the NOT NULL violation).
+  if (str === '') return meta?.isNullable ? null : str
+
+  // Boolean literals → booleans, only for boolean columns.
+  if (meta?.dataType) {
+    const dt = meta.dataType.toUpperCase()
+    if (dt === 'BOOLEAN' || dt === 'BOOL') {
+      const lower = str.toLowerCase()
+      if (lower === 'true' || lower === '1' || lower === 'yes') return true
+      if (lower === 'false' || lower === '0' || lower === 'no') return false
+    }
+  }
+
+  // Preserve input text — no numeric coercion (BIGINT/DECIMAL precision).
+  return typeof value === 'string' ? value : str
+}
 
 /** Check whether a cell value passes frontend column validation. */
 export function validateCellValue(
@@ -215,6 +250,50 @@ export function validateCellValue(
   return null
 }
 
+/**
+ * Value equality for staged-edit bookkeeping: distinguishes null, strings,
+ * booleans, and numbers, and deep-compares JSON-compatible arrays/objects
+ * through stable JSON serialization (object keys sorted at every depth).
+ * Never falls back to `String()` coercion, which conflates `null`, `'null'`,
+ * `false`, and `'0'`.
+ */
+function stableSerialize(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) {
+    // Arrays keep element order; elements serialize stably.
+    return `[${value.map(stableSerialize).join(',')}]`
+  }
+  const entries = Object.entries(value as Record<string, unknown>).sort(
+    ([a], [b]) => (a < b ? -1 : a > b ? 1 : 0),
+  )
+  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableSerialize(v)}`).join(',')}}`
+}
+
+export function valuesEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+
+  // null and undefined both mean "no value".
+  if (a == null && b == null) return true
+  if (a == null || b == null) return false
+
+  const typeA = typeof a
+  if (typeA !== typeof b) {
+    // Booleans never equal their string forms; numbers only equal numbers.
+    if (typeA === 'boolean' || typeof b === 'boolean') return false
+  }
+
+  if (typeA === 'object' && typeof b === 'object') {
+    try {
+      return stableSerialize(a) === stableSerialize(b)
+    } catch {
+      return false
+    }
+  }
+
+  // Strict primitives comparison — no String() coercion.
+  return a === b
+}
+
 // ── Store ──────────────────────────────────────────────────────────
 
 export const useTableEditStore = create<TableEditState>()((set) => ({
@@ -224,8 +303,9 @@ export const useTableEditStore = create<TableEditState>()((set) => ({
   undoStack: [],
   redoStack: [],
 
-  stageEdit: (rowId, field, oldValue, newValue) =>
+  stageEdit: (rowId, field, oldValue, newValue, options) =>
     set((state) => {
+      const coalesce = options?.coalesceUndo === true
       const edits = [...(state.pendingEdits[rowId] ?? [])]
       const existingIndex = edits.findIndex((e) => e.field === field)
 
@@ -233,7 +313,62 @@ export const useTableEditStore = create<TableEditState>()((set) => ({
       const prevNewValue =
         existingIndex !== -1 ? edits[existingIndex]!.newValue : undefined
 
-      if (String(oldValue) === String(newValue)) {
+      // Coalescing: when the newest undo action is an edit of the same
+      // row+field, replace it in place while keeping its original
+      // prevNewValue — typing in the drawer must not evict history.
+      const undoStack = state.undoStack
+      if (coalesce && undoStack.length > 0) {
+        const newest = undoStack[undoStack.length - 1]!
+        if (
+          newest.type === 'edit' &&
+          newest.rowId === rowId &&
+          newest.field === field
+        ) {
+          const nextUndoStack = undoStack.slice(0, -1)
+
+          if (valuesEqual(oldValue, newValue)) {
+            // Value returned to its original → drop the edit entirely and
+            // keep the original undo action so undo still restores it.
+            if (existingIndex !== -1) {
+              edits.splice(existingIndex, 1)
+            }
+            const newEdits = { ...state.pendingEdits }
+            if (edits.length === 0) {
+              delete newEdits[rowId]
+            } else {
+              newEdits[rowId] = edits
+            }
+            return {
+              pendingEdits: newEdits,
+              undoStack: nextUndoStack,
+              redoStack: [],
+            }
+          }
+
+          if (existingIndex !== -1) {
+            edits[existingIndex] = { field, oldValue, newValue }
+          } else {
+            edits.push({ field, oldValue, newValue })
+          }
+          // Preserve the original prevNewValue from the coalesced action.
+          const coalescedAction: EditAction = {
+            type: 'edit',
+            timestamp: Date.now(),
+            rowId,
+            field,
+            oldValue: newest.oldValue,
+            prevNewValue: newest.prevNewValue,
+            newValue,
+          }
+          return {
+            pendingEdits: { ...state.pendingEdits, [rowId]: edits },
+            undoStack: pushBounded(nextUndoStack, coalescedAction),
+            redoStack: [],
+          }
+        }
+      }
+
+      if (valuesEqual(oldValue, newValue)) {
         // No actual change → remove edit if it existed
         const newEdits = { ...state.pendingEdits }
         if (existingIndex !== -1) {

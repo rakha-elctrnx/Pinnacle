@@ -6,26 +6,37 @@ import {
   formatTSVWithHeaders,
   generateInsertSQL,
   formatCSVWithHeaders,
-  parseTSV,
+  parseDelimitedText,
   mapPasteToColumns,
   copyToClipboard,
   readFromClipboard,
   generateReviewSQL,
 } from '../utils/clipboard'
-import { buildRowId, isPrimaryKeyColumn } from '../logic/tableDetailPageHelpers'
+import {
+  normalizeCellValue,
+  validateCellValue,
+  type EditableColumnMeta,
+} from '../store/tableEditStore'
+import {
+  buildRowId,
+  getRowKey,
+  isPrimaryKeyColumn,
+  getDefaultValueForType,
+} from '../logic/tableDetailPageHelpers'
 import type { TableRow, ColumnMetadata } from '../types/tableDetail'
 
 interface UseTableGridSelectionAndActionsProps {
   tableName: string
   realTableColumns: string[]
   displayRows: TableRow[]
-  pkColumn: string | undefined
+  primaryKeyColumns: string[]
   tableColumnsMeta: ColumnMetadata[]
   stageEdit: (
     rowId: string,
     field: string,
     oldValue: unknown,
     newValue: unknown,
+    options?: { coalesceUndo?: boolean },
   ) => void
   stageInsert: (template: Record<string, unknown>) => string
   stageDelete: (rowId: string) => void
@@ -35,20 +46,34 @@ interface UseTableGridSelectionAndActionsProps {
   handleDeleteRow: () => void
   handleCommit: () => Promise<void>
   pendingInserts: TableRow[]
-  detailDrawerRow: { row: Record<string, unknown>; rowIndex: number } | null
+  detailDrawerRow: {
+    row: Record<string, unknown>
+    rowIndex: number
+    rowId: string
+  } | null
   setDetailDrawerRow: (
-    row: { row: Record<string, unknown>; rowIndex: number } | null,
+    row: {
+      row: Record<string, unknown>
+      rowIndex: number
+      rowId: string
+    } | null,
   ) => void
   drawerAnimState: string
   scrollContainerRef: React.RefObject<HTMLDivElement | null>
   setShortcutsOpen: React.Dispatch<React.SetStateAction<boolean>>
+  /** Dialect for SQL generation and filter escaping. */
+  dbType?: 'postgresql' | 'mysql'
+  /** Surface paste-validation failures to the user. */
+  onToast?: (toast: { kind: 'success' | 'error'; message: string }) => void
+  /** Column metadata for validation during paste (nullable/maxLength). */
+  editableColumnMetaMap?: Record<string, EditableColumnMeta>
 }
 
 export function useTableGridSelectionAndActions({
   tableName,
   realTableColumns,
   displayRows,
-  pkColumn,
+  primaryKeyColumns,
   tableColumnsMeta,
   stageEdit,
   stageInsert,
@@ -64,6 +89,9 @@ export function useTableGridSelectionAndActions({
   drawerAnimState,
   scrollContainerRef,
   setShortcutsOpen,
+  dbType = 'postgresql',
+  onToast,
+  editableColumnMetaMap = {},
 }: UseTableGridSelectionAndActionsProps) {
   // ── Selection store ───────────────────────────────────────────────────
   const selectedCells = useTableSelectionStore((s) => s.selectedCells)
@@ -80,7 +108,6 @@ export function useTableGridSelectionAndActions({
   const dragAnchorRef = useRef<{ rowIndex: number; columnId: string } | null>(
     null,
   )
-  const clearEditStateRef = useRef<() => void>(() => {})
 
   // Keep latest handlers ref to avoid stale closures in keyboard events
   const handleCommitRef = useRef(handleCommit)
@@ -187,14 +214,6 @@ export function useTableGridSelectionAndActions({
       : []
   }, [selectedCells, activeCell, displayRows])
 
-  const getSelectedRowIds = useCallback((): string[] => {
-    const rows = getSelectedRows()
-    return rows.map((row) => {
-      const idx = displayRows.indexOf(row)
-      return buildRowId(row, idx, tableName, pkColumn)
-    })
-  }, [getSelectedRows, displayRows, tableName, pkColumn])
-
   // ── Context menu action handlers ─────────────────────────────────────────
   const handleContextCopy = useCallback(async () => {
     const rows = getSelectedRows()
@@ -213,9 +232,14 @@ export function useTableGridSelectionAndActions({
   const handleContextCopyAsSQL = useCallback(async () => {
     const rows = getSelectedRows()
     if (rows.length === 0) return
-    const sql = generateInsertSQL(rows, realTableColumns, tableName ?? 'table')
+    const sql = generateInsertSQL(
+      rows,
+      realTableColumns,
+      tableName ?? 'table',
+      dbType,
+    )
     await copyToClipboard(sql)
-  }, [getSelectedRows, realTableColumns, tableName])
+  }, [getSelectedRows, realTableColumns, tableName, dbType])
 
   const handleContextCopyAsCSV = useCallback(async () => {
     const rows = getSelectedRows()
@@ -227,44 +251,114 @@ export function useTableGridSelectionAndActions({
   const handleContextPaste = useCallback(async () => {
     const text = await readFromClipboard()
     if (!text) return
-    const parsed = parseTSV(text)
+    const parsed = parseDelimitedText(text)
     if (parsed.rows.length === 0) return
 
-    const startRowIdx = contextRowIndexRef.current
+    // Partial records: only cells physically present in each pasted row.
     const mapped = mapPasteToColumns(parsed.rows, realTableColumns)
 
-    for (let ri = 0; ri < mapped.length; ri++) {
+    const startRowIdx = contextRowIndexRef.current
+
+    // Validate every target cell first; stage nothing when any cell is invalid.
+    interface PlannedEdit {
+      rowId: string
+      field: string
+      oldValue: unknown
+      newValue: unknown
+    }
+    const plannedEdits: PlannedEdit[] = []
+    const plannedInserts: Record<string, unknown>[] = []
+    let failure: { row: number; column: string; error: string } | null = null
+
+    outer: for (let ri = 0; ri < mapped.length; ri++) {
+      const record = mapped[ri]
       const targetIdx = startRowIdx + ri
       if (targetIdx >= displayRows.length) {
-        const template: Record<string, unknown> = { ...mapped[ri] }
-        stageInsert(template)
-      } else {
-        const targetRow = displayRows[targetIdx]
-        const rowId = buildRowId(targetRow, targetIdx, tableName, pkColumn)
+        // Appended row: start from the full default template and overlay
+        // only the pasted cells.
+        const template: Record<string, unknown> = {}
         for (const col of realTableColumns) {
-          const rawValue = mapped[ri][col] ?? ''
-          const newValue = rawValue === '' ? null : rawValue
-          const oldValue = targetRow[col]
-          stageEdit(rowId, col, oldValue, newValue)
+          template[col] =
+            getDefaultValueForType(editableColumnMetaMap[col]?.dataType)
         }
+        for (const [col, rawValue] of Object.entries(record)) {
+          const meta = editableColumnMetaMap[col]
+          const normalized = normalizeCellValue(rawValue, meta)
+          const error = validateCellValue(normalized, meta)
+          if (error) {
+            failure = { row: ri + 1, column: col, error }
+            break outer
+          }
+          template[col] = normalized
+        }
+        plannedInserts.push(template)
+        continue
       }
+
+      // No-PK tables are read-only and rows without a usable key cannot
+      // be mutated — skip them.
+      const targetRow = displayRows[targetIdx]
+      if (primaryKeyColumns.length === 0) continue
+      if (getRowKey(targetRow, primaryKeyColumns) === null) continue
+      const rowId = buildRowId(
+        targetRow,
+        targetIdx,
+        tableName,
+        primaryKeyColumns,
+      )
+      for (const [col, rawValue] of Object.entries(record)) {
+        const meta = editableColumnMetaMap[col]
+        const normalized = normalizeCellValue(rawValue, meta)
+        const error = validateCellValue(normalized, meta)
+        if (error) {
+          failure = { row: ri + 1, column: col, error }
+          break outer
+        }
+        plannedEdits.push({
+          rowId,
+          field: col,
+          oldValue: targetRow[col],
+          newValue: normalized,
+        })
+      }
+    }
+
+    if (failure) {
+      onToast?.({
+        kind: 'error',
+        message: `Paste cancelled — row ${failure.row}, column "${failure.column}": ${failure.error}. Fix the value and paste again.`,
+      })
+      return
+    }
+
+    // All cells valid — apply atomically.
+    for (const edit of plannedEdits) {
+      stageEdit(edit.rowId, edit.field, edit.oldValue, edit.newValue)
+    }
+    for (const template of plannedInserts) {
+      stageInsert(template)
     }
   }, [
     displayRows,
     realTableColumns,
     tableName,
-    pkColumn,
+    primaryKeyColumns,
+    editableColumnMetaMap,
+    onToast,
     stageInsert,
     stageEdit,
   ])
 
   const handleContextSetToNull = useCallback(() => {
+    if (primaryKeyColumns.length === 0) return
     const rows = getSelectedRows()
     if (rows.length === 0) return
     for (let ri = 0; ri < rows.length; ri++) {
       const idx = displayRows.indexOf(rows[ri])
       if (idx < 0) continue
-      const rowId = buildRowId(rows[ri], idx, tableName, pkColumn)
+      // Rows without a usable key are read-only — skip silently.
+      if (getRowKey(rows[ri], primaryKeyColumns) === null) continue
+      const rowId = buildRowId(rows[ri], idx, tableName, primaryKeyColumns)
       for (const col of realTableColumns) {
         stageEdit(rowId, col, rows[ri][col], null)
       }
@@ -274,17 +368,25 @@ export function useTableGridSelectionAndActions({
     displayRows,
     realTableColumns,
     tableName,
-    pkColumn,
+    primaryKeyColumns,
     stageEdit,
   ])
 
   const handleContextDeleteRows = useCallback(() => {
-    const rowIds = getSelectedRowIds()
-    for (const rowId of rowIds) {
+    if (primaryKeyColumns.length === 0) return
+    // Only rows with a usable composite key can be staged for deletion.
+    const rows = getSelectedRows()
+    const deletableIds = rows
+      .filter((row) => getRowKey(row, primaryKeyColumns) !== null)
+      .map((row) => {
+        const idx = displayRows.indexOf(row)
+        return buildRowId(row, idx, tableName, primaryKeyColumns)
+      })
+    for (const rowId of deletableIds) {
       stageDelete(rowId)
     }
     resetSelection()
-  }, [getSelectedRowIds, stageDelete, resetSelection])
+  }, [primaryKeyColumns, getSelectedRows, displayRows, tableName, stageDelete, resetSelection])
 
   const handleContextGenerateSQL = useCallback(() => {
     const rows = getSelectedRows()
@@ -300,21 +402,31 @@ export function useTableGridSelectionAndActions({
       tableName ?? 'table',
       columnInfo,
       'all',
+      dbType,
     )
     setGeneratedSql(sql)
     setSqlModalOpen(true)
-  }, [getSelectedRows, realTableColumns, tableName, tableColumnsMeta])
+  }, [
+    getSelectedRows,
+    realTableColumns,
+    tableName,
+    tableColumnsMeta,
+    dbType,
+  ])
 
   const handleViewDetails = useCallback(() => {
     const rows = getSelectedRows()
     if (rows.length === 0) return
     const idx = displayRows.indexOf(rows[0])
     if (idx < 0) return
+    // Capture identity with the snapshot — the drawer must not recompute
+    // it from a mutable rowIndex later.
     setDetailDrawerRow({
       row: rows[0] as Record<string, unknown>,
       rowIndex: idx,
+      rowId: buildRowId(rows[0], idx, tableName, primaryKeyColumns),
     })
-  }, [getSelectedRows, displayRows, setDetailDrawerRow])
+  }, [getSelectedRows, displayRows, tableName, primaryKeyColumns, setDetailDrawerRow])
 
   // ── Keyboard shortcuts cheatsheet listener ───────────────────────────────
   useEffect(() => {
@@ -354,7 +466,9 @@ export function useTableGridSelectionAndActions({
       }
     },
     onEscape: () => {
-      clearEditStateRef.current?.()
+      // Escape at container level only clears selection; cell-level Escape
+      // (cancel edit) is handled inside EditableCell's own input handler.
+      restoreActiveCellFocus()
     },
     onUndo: () => {
       undo()
@@ -397,12 +511,20 @@ export function useTableGridSelectionAndActions({
     setDetailDrawerRow({
       row: activeRow,
       rowIndex: activeCell.rowIndex,
+      rowId: buildRowId(
+        activeRow,
+        activeCell.rowIndex,
+        tableName,
+        primaryKeyColumns,
+      ),
     })
   }, [
     activeCell,
     detailDrawerRow,
     displayRows,
     drawerAnimState,
+    tableName,
+    primaryKeyColumns,
     setDetailDrawerRow,
   ])
 

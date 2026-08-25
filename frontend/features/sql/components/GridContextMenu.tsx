@@ -4,7 +4,7 @@
  * Thin wrapper around GenericContextMenu that builds grid-specific items.
  *
  * Supports:
- * - Copy Row (TSV), Copy with headers, Copy as SQL, Copy as CSV
+ * - Copy Row (TSV), Copy with headers, Copy as SQL, Copy current selection as CSV
  * - Paste (TSV from clipboard, replaces full row)
  * - Set to NULL, Delete row(s)
  * - Generate SQL (opens modal)
@@ -95,7 +95,7 @@ export function GridContextMenu({
         action: onCopyAsSQL,
       },
       {
-        label: 'Copy as CSV',
+        label: 'Copy current selection as CSV',
         icon: <FileSpreadsheet size={14} />,
         action: onCopyAsCSV,
         dividerAfter: true,

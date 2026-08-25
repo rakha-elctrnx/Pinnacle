@@ -1,5 +1,11 @@
+import { useMemo } from 'react'
 import { flexRender, type Table as TanStackTable } from '@tanstack/react-table'
-import type { CSSProperties, RefObject, MutableRefObject } from 'react'
+import { CenteredLoadingState } from '../../../_shared/components/ui/CenteredLoadingState'
+import type {
+  CSSProperties,
+  RefObject,
+  MutableRefObject,
+} from 'react'
 import type { TableRow, ColumnMetadata } from '../../types/tableDetail'
 import {
   getPinnedLeftOffset,
@@ -25,7 +31,13 @@ interface TableGridProps {
   selectedCells: Set<string>
   pendingDeletes: string[]
   pendingEdits: Record<string, CellEdit[]>
-  pkColumn: string | undefined
+  primaryKeyColumns: string[]
+  /**
+   * True while a page/filter/sort refetch is in flight after the first load.
+   * The grid stays mounted (preserving scroll/focus) with aria-busy, pointer
+   * events disabled, and a centered overlay instead of unmounting to a skeleton.
+   */
+  isLoading?: boolean
   handleCellMouseDown: (
     rowIndex: number,
     columnId: string,
@@ -53,7 +65,8 @@ export function TableGrid({
   selectedCells,
   pendingDeletes,
   pendingEdits,
-  pkColumn,
+  primaryKeyColumns,
+  isLoading = false,
   handleCellMouseDown,
   handleCellMouseEnter,
   handleCellMouseUp,
@@ -61,11 +74,39 @@ export function TableGrid({
   setContextMenu,
   contextRowIndexRef,
 }: TableGridProps) {
+  // Selection bounds + column-index map, computed once per render instead of
+  // inside every cell. Only meaningful when a multi-cell range is selected.
+  const selectionBounds = useMemo(() => {
+    if (selectedCells.size <= 1) return null
+    const colIndexMap = new Map<string, number>()
+    realTableColumns.forEach((c, i) => colIndexMap.set(c, i))
+    let minRow = Infinity
+    let maxRow = -Infinity
+    let minColIdx = Infinity
+    let maxColIdx = -Infinity
+    for (const key of selectedCells) {
+      const [r, c] = key.split(':')
+      const ri = Number(r)
+      const ci = colIndexMap.get(c) ?? -1
+      if (ri < minRow) minRow = ri
+      if (ri > maxRow) maxRow = ri
+      if (ci < minColIdx) minColIdx = ci
+      if (ci > maxColIdx) maxColIdx = ci
+    }
+    return { minRow, maxRow, minColIdx, maxColIdx, colIndexMap }
+  }, [selectedCells, realTableColumns])
+
   return (
     <div
       ref={scrollContainerRef}
-      tabIndex={0}
-      className="scrollbar-thin min-h-0 flex-1 overflow-auto border border-border-default outline-none focus:ring-1 focus:ring-primary [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-text-muted [&::-webkit-scrollbar-track]:bg-bg-muted"
+      tabIndex={isLoading ? -1 : 0}
+      aria-busy={isLoading || undefined}
+      className={[
+        'scrollbar-thin relative min-h-0 flex-1 overflow-auto border border-border-default outline-none focus:ring-1 focus:ring-primary [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-text-muted [&::-webkit-scrollbar-track]:bg-bg-muted',
+        isLoading ? 'pointer-events-none' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       style={{
         marginRight:
           drawerAnimState !== 'closed' && drawerAnimState !== 'exiting'
@@ -76,6 +117,11 @@ export function TableGrid({
           : 'margin-right 150ms ease-out',
       }}
     >
+      {isLoading && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-bg-base/60">
+          <CenteredLoadingState loading label="Loading table data..." />
+        </div>
+      )}
       <table
         role="grid"
         aria-label={`Table data for ${tableName}`}
@@ -153,7 +199,7 @@ export function TableGrid({
               row.original,
               row.index,
               tableName,
-              pkColumn,
+              primaryKeyColumns,
             )
             const isDeletedRow = pendingDeletes.includes(rowId)
             const hasRowEdits = rowId in pendingEdits
@@ -214,6 +260,7 @@ export function TableGrid({
                         aria-label="Pending changes"
                       />
                     )}
+
                     <span>{rowIndex + 1}</span>
                   </div>
                 </td>
@@ -233,31 +280,18 @@ export function TableGrid({
                   const isSelectedCell = selectedCells.has(
                     cellKey(rowIndex, columnId),
                   )
+                  const colIdx = selectionBounds
+                    ? (selectionBounds.colIndexMap.get(columnId) ?? -1)
+                    : -1
+                  const isTop = selectionBounds !== null && rowIndex === selectionBounds.minRow
+                  const isBottom = selectionBounds !== null && rowIndex === selectionBounds.maxRow
+                  const isLeft = selectionBounds !== null && colIdx === selectionBounds.minColIdx
+                  const isRight = selectionBounds !== null && colIdx === selectionBounds.maxColIdx
                   const isDeletedHere = isDeletedRow
                   const isCellDirty = editedFields.has(columnId)
 
                   let selectionBoxShadow = ''
-                  if (isSelectedCell && selectedCells.size > 1) {
-                    let minRow = Infinity,
-                      maxRow = -Infinity
-                    let minColIdx = Infinity,
-                      maxColIdx = -Infinity
-                    const colIndexMap = new Map<string, number>()
-                    realTableColumns.forEach((c, i) => colIndexMap.set(c, i))
-                    for (const key of selectedCells) {
-                      const [r, c] = key.split(':')
-                      const ri = Number(r)
-                      const ci = colIndexMap.get(c) ?? -1
-                      if (ri < minRow) minRow = ri
-                      if (ri > maxRow) maxRow = ri
-                      if (ci < minColIdx) minColIdx = ci
-                      if (ci > maxColIdx) maxColIdx = ci
-                    }
-                    const colIdx = colIndexMap.get(columnId) ?? -1
-                    const isTop = rowIndex === minRow
-                    const isBottom = rowIndex === maxRow
-                    const isLeft = colIdx === minColIdx
-                    const isRight = colIdx === maxColIdx
+                  if (isSelectedCell && selectionBounds) {
                     const shadows: string[] = []
                     if (isTop)
                       shadows.push('inset 0 2px 0 0 var(--color-primary)')

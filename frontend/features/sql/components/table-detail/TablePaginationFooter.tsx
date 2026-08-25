@@ -17,15 +17,21 @@ export function TablePaginationFooter({
   totalRowCount,
   totalPending,
 }: TablePaginationFooterProps) {
+  const totalPages = Math.max(1, Math.ceil(totalRowCount / pageSize))
+  // Effective page — clamped so a stale page past the last page (e.g. right
+  // after deletions shrink the table) still renders coherent controls.
+  const currentPage = Math.min(page, totalPages)
+  const start = totalRowCount === 0 ? 0 : (currentPage - 1) * pageSize + 1
+  const end = Math.min(currentPage * pageSize, totalRowCount)
+  const label =
+    totalRowCount === 0
+      ? 'Showing 0 of 0 records'
+      : `Showing ${start}–${end} of ${totalRowCount} record${totalRowCount !== 1 ? 's' : ''}`
+
   return (
     <div className="flex items-center justify-between border-t border-border-default px-3 py-2">
       <span className="text-micro text-text-muted">
-        {(() => {
-          const start = (page - 1) * pageSize + 1
-          const end = Math.min(page * pageSize, totalRowCount)
-          const label = `Showing ${start}–${end} of ${totalRowCount} record${totalRowCount !== 1 ? 's' : ''}`
-          return totalPending > 0 ? `${label} (${totalPending} pending)` : label
-        })()}
+        {totalPending > 0 ? `${label} (${totalPending} pending)` : label}
       </span>
       <div className="flex items-center gap-2">
         <label className="flex items-center gap-1 text-micro text-text-muted">
@@ -49,18 +55,18 @@ export function TablePaginationFooter({
           <button
             type="button"
             className="rounded px-1.5 py-0.5 text-micro text-text-muted transition-colors hover:bg-bg-muted disabled:opacity-30"
-            disabled={page <= 1}
+            disabled={currentPage <= 1}
             onClick={() => setPage((p) => p - 1)}
           >
             ‹
           </button>
           <span className="text-micro text-text-muted">
-            Page {page} of {Math.ceil(totalRowCount / pageSize)}
+            Page {currentPage} of {totalPages}
           </span>
           <button
             type="button"
             className="rounded px-1.5 py-0.5 text-micro text-text-muted transition-colors hover:bg-bg-muted disabled:opacity-30"
-            disabled={page >= Math.ceil(totalRowCount / pageSize)}
+            disabled={currentPage >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
             ›

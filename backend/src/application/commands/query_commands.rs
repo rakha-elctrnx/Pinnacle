@@ -92,9 +92,14 @@ pub async fn execute_sql(
 
 #[tauri::command]
 pub async fn sql_begin_transaction(
+    app: tauri::AppHandle,
     payload: ConnectionPayload,
 ) -> Result<TransactionHandle, String> {
-    let transaction_id = transaction::begin(&payload).await.map_err(|e| e.to_string())?;
+    let (ssh_pw, key_pp) = resolve_ssh_secrets(&app, &payload).await?;
+    let transaction_id =
+        transaction::begin(&payload, ssh_pw.as_deref(), key_pp.as_deref())
+            .await
+            .map_err(|e| e.to_string())?;
     Ok(TransactionHandle { transaction_id })
 }
 

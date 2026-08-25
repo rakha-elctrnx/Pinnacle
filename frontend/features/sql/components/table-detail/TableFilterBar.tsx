@@ -1,8 +1,84 @@
 import { CirclePlus, Filter, X, ChevronUp, ChevronDown } from 'lucide-react'
 import type { RefObject } from 'react'
 import type { ConnectionProfile } from '../../../_shared/types/domain'
-import type { FilterCondition, FilterOperator } from '../../types/tableDetail'
+import type {
+  ColumnMetadata,
+  FilterCondition,
+  FilterOperator,
+} from '../../types/tableDetail'
 import { buildOrderByClause } from '../../logic/tableDetailPageHelpers'
+
+/** Operator groups per column data-type family. */
+const TEXT_OPERATORS: FilterOperator[] = [
+  '=',
+  '!=',
+  'contains',
+  'starts_with',
+  'ends_with',
+  'is_null',
+  'is_not_null',
+  'in',
+]
+const NUMERIC_DATE_OPERATORS: FilterOperator[] = [
+  '=',
+  '!=',
+  '>',
+  '>=',
+  '<',
+  '<=',
+  'is_null',
+  'is_not_null',
+  'in',
+]
+const BOOLEAN_OPERATORS: FilterOperator[] = [
+  '=',
+  '!=',
+  'is_null',
+  'is_not_null',
+]
+
+/** Human labels for operator values in selects. */
+const OPERATOR_LABELS: Record<FilterOperator, string> = {
+  '=': '=',
+  '!=': '!=',
+  contains: 'contains',
+  starts_with: 'starts with',
+  ends_with: 'ends with',
+  '>': '>',
+  '>=': '>=',
+  '<': '<',
+  '<=': '<=',
+  is_null: 'is null',
+  is_not_null: 'is not null',
+  in: 'in',
+}
+
+/** Classify a column's data type into an operator family. */
+function operatorFamily(
+  dataType: string | undefined,
+): 'boolean' | 'numeric' | 'text' {
+  const dt = (dataType ?? '').toUpperCase()
+  if (dt === 'BOOLEAN' || dt === 'BOOL') return 'boolean'
+  if (/INT|SERIAL|DECIMAL|NUMERIC|FLOAT|DOUBLE|REAL|YEAR/.test(dt)) {
+    return 'numeric'
+  }
+  // date/time comparisons behave like ordered numeric comparisons
+  if (/DATE|TIME/.test(dt)) return 'numeric'
+  return 'text'
+}
+
+function operatorsForColumn(
+  meta: ColumnMetadata | undefined,
+): FilterOperator[] {
+  switch (operatorFamily(meta?.dataType)) {
+    case 'boolean':
+      return BOOLEAN_OPERATORS
+    case 'numeric':
+      return NUMERIC_DATE_OPERATORS
+    default:
+      return TEXT_OPERATORS
+  }
+}
 
 interface TableFilterBarProps {
   filterPanelOpen: boolean
@@ -10,6 +86,7 @@ interface TableFilterBarProps {
   newFilter: Partial<FilterCondition>
   setNewFilter: (nf: Partial<FilterCondition>) => void
   realTableColumns: string[]
+  tableColumnsMeta?: ColumnMetadata[]
   handleAddFilter: () => void
   handleClearAllFilters: () => void
   handleUpdateFilter: (index: number, patch: Partial<FilterCondition>) => void
@@ -30,6 +107,7 @@ export function TableFilterBar({
   newFilter,
   setNewFilter,
   realTableColumns,
+  tableColumnsMeta,
   handleAddFilter,
   handleClearAllFilters,
   handleUpdateFilter,
@@ -43,6 +121,19 @@ export function TableFilterBar({
   handleSortColumn,
   valueInputRef,
 }: TableFilterBarProps) {
+  // Column → allowed operators, resolved once per render from metadata.
+  const operatorsByColumn: Record<string, FilterOperator[]> = {}
+  for (const col of realTableColumns) {
+    const meta = tableColumnsMeta?.find((m) => m.columnName === col)
+    operatorsByColumn[col] = operatorsForColumn(meta)
+  }
+
+  const newFilterOperators =
+    operatorsByColumn[newFilter.column ?? ''] ?? TEXT_OPERATORS
+  const valueHidden = ['is_null', 'is_not_null'].includes(
+    newFilter.operator || '=',
+  )
+
   return (
     <div
       className={`grid transition-[grid-template-rows] duration-200 ease-in-out ${
@@ -81,22 +172,13 @@ export function TableFilterBar({
               }
               disabled={!newFilter.column}
             >
-              <option value="=">=</option>
-              <option value="!=">!=</option>
-              <option value="contains">contains</option>
-              <option value="starts_with">starts with</option>
-              <option value="ends_with">ends with</option>
-              <option value=">">&gt;</option>
-              <option value=">=">&gt;=</option>
-              <option value="<">&lt;</option>
-              <option value="<=">&lt;=</option>
-              <option value="is_null">is null</option>
-              <option value="is_not_null">is not null</option>
-              <option value="in">in</option>
+              {newFilterOperators.map((op) => (
+                <option key={op} value={op}>
+                  {OPERATOR_LABELS[op] ?? op}
+                </option>
+              ))}
             </select>
-            {!['is_null', 'is_not_null'].includes(
-              newFilter.operator || '=',
-            ) && (
+            {!valueHidden && (
               <input
                 ref={valueInputRef}
                 type="text"
@@ -179,18 +261,13 @@ export function TableFilterBar({
                       })
                     }}
                   >
-                    <option value="=">=</option>
-                    <option value="!=">!=</option>
-                    <option value="contains">contains</option>
-                    <option value="starts_with">starts with</option>
-                    <option value="ends_with">ends with</option>
-                    <option value=">">&gt;</option>
-                    <option value=">=">&gt;=</option>
-                    <option value="<">&lt;</option>
-                    <option value="<=">&lt;=</option>
-                    <option value="is_null">is null</option>
-                    <option value="is_not_null">is not null</option>
-                    <option value="in">in</option>
+                    {(operatorsByColumn[filter.column] ?? TEXT_OPERATORS).map(
+                      (op) => (
+                        <option key={op} value={op}>
+                          {OPERATOR_LABELS[op] ?? op}
+                        </option>
+                      ),
+                    )}
                   </select>
                   {!['is_null', 'is_not_null'].includes(filter.operator) && (
                     <input

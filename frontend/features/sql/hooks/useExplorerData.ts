@@ -4,6 +4,7 @@ import {
   sqlGetAllColumns,
   sqlGetAllForeignKeys,
 } from '../clients/sql'
+import type { ConnectionPayload } from '../../_shared/services/tauriClient'
 import type { ConnectionProfile } from '../../_shared/types/domain'
 import type { SchemaColumn, SchemaForeignKey } from '../types/sql'
 import type {
@@ -22,6 +23,228 @@ import {
   sqlString,
   quoteIdentifier,
 } from '../../_shared/utils'
+
+/**
+ * Metadata describing one loaded table: primary-key column order (from
+ * index metadata) and the physical column list. Cached per
+ * connection/database/schema/table so subsequent page/filter/sort requests
+ * can skip the structure/index queries. Cleared by explicit Refresh.
+ */
+export interface TableMetaSnapshot {
+  columns: string[]
+  primaryKeyColumns: string[]
+  /** False when the table has no primary key — read-only, no PK ordering. */
+  hasPrimaryKey: boolean
+}
+
+/**
+ * Build the effective ORDER BY for a page query.
+ *
+ * Every PK-backed table gets deterministic pagination: the quoted PK columns
+ * not already present in the user sort are appended after it as tiebreakers;
+ * with no user sort, all PK columns order ascending. No-PK tables get no
+ * invented ordering — arbitrary JSON/BLOB columns may be unorderable, so
+ * pagination there is explicitly best-effort (empty string returned).
+ */
+export function buildEffectiveOrderBy(
+  orderByClause: string | undefined,
+  primaryKeyColumns: string[],
+  dbType: 'postgresql' | 'mysql',
+): string {
+  const quote = dbType === 'postgresql' ? '"' : '`'
+  const quoteIdent = (
+    id: string,
+  ) => `${quote}${id.replaceAll(quote, quote + quote)}${quote}`
+
+  const pkTerms = primaryKeyColumns.map((c) => `${quoteIdent(c)} ASC`)
+  if (!orderByClause || orderByClause.trim() === '') {
+    return pkTerms.join(', ')
+  }
+  // Append only PK columns the user's sort does not already mention.
+  const lower = orderByClause.toLowerCase()
+  const remaining = primaryKeyColumns.filter(
+    (col) => !lower.includes(col.toLowerCase()),
+  )
+  return [
+    orderByClause.trim(),
+    ...remaining.map((c) => `${quoteIdent(c)} ASC`),
+  ].join(', ')
+}
+
+/**
+ * Dependency bag for fetchTableDataCore — injectable query executor,
+ * credential resolver, request-sequence ref, metadata cache, and state
+ * writers. The hook binds the real implementations; tests bind deferreds.
+ */
+export interface FetchTableDataDeps {
+  seqRef: { current: number }
+  metaCache: Map<string, TableMetaSnapshot>
+  execute: typeof executeSql
+  resolvePayload: (conn: ConnectionProfile) => Promise<ConnectionPayload>
+  setTableDataLoading: (loading: boolean) => void
+  setRealTableIndexes: (indexes: TableIndex[]) => void
+  setRealTableColumns: (columns: string[]) => void
+  setRealTableRows: (rows: Record<string, string>[]) => void
+  setTotalRowCount: (count: number) => void
+  setRealTableStructure: (structure: Record<string, string>[]) => void
+  setRealTableStats: (stats: TableStats) => void
+}
+
+/**
+ * Race-safe table page loader shared by the hook and its tests.
+ * Monotonic request sequence: every state write is gated on the captured
+ * sequence still being the latest, so a slow stale request can never
+ * overwrite newer data or clear the newest request's loading state.
+ */
+export async function fetchTableDataCore(
+  conn: ConnectionProfile,
+  schema: string,
+  table: string,
+  dbName: string | undefined,
+  page: number | undefined,
+  pageSize: number | undefined,
+  whereClause: string | undefined,
+  orderByClause: string | undefined,
+  options: { invalidateMeta?: boolean } | undefined,
+  deps: FetchTableDataDeps,
+): Promise<void> {
+  if (!isSqlConnectionType(conn.type)) return
+  const { seqRef, metaCache } = deps
+  const seq = ++seqRef.current
+  deps.setTableDataLoading(true)
+  try {
+    const p = Math.max(1, page ?? 1)
+    const ps = Math.max(1, pageSize ?? 100)
+    const offset = (p - 1) * ps
+    const dbType = (conn.type === 'postgresql'
+      ? 'postgresql'
+      : 'mysql') as 'postgresql' | 'mysql'
+
+    // Use the specified database or fall back to the connection's default
+    const basePayload = await deps.resolvePayload(conn)
+    if (seq !== seqRef.current) return
+    const payload = {
+      ...basePayload,
+      database: dbName || conn.database,
+    }
+    const fromClause =
+      dbType === 'postgresql'
+        ? `${quoteIdentifier(schema, '"')}.${quoteIdentifier(table, '"')}`
+        : quoteIdentifier(table, '`')
+    const whereSql = whereClause ? ` WHERE ${whereClause}` : ''
+
+    const metaKey = `${conn.id}::${payload.database}::${schema}::${table}`
+    const initialMeta =
+      options?.invalidateMeta ? undefined : metaCache.get(metaKey)
+
+    // ── Wave 1: indexes — needed to know PK order before building ORDER BY.
+    let pkColumns: string[]
+    let indexRows: Record<string, unknown>[]
+    if (initialMeta) {
+      pkColumns = initialMeta.primaryKeyColumns
+      indexRows = []
+      // Warm-cache path: replace whatever indexes are in state (they may
+      // describe the previous table after a tab switch) so PK-derived UI —
+      // read-only notice, key columns — always matches the loaded table.
+      if (!initialMeta.hasPrimaryKey) {
+        deps.setRealTableIndexes([])
+      } else {
+        deps.setRealTableIndexes([
+          {
+            schemaName: schema,
+            tableName: table,
+            columnName: pkColumns,
+            indexName: 'primary',
+            indexDefinition: null,
+            isUnique: true,
+            isPrimary: true,
+            indexType: null,
+          },
+        ])
+      }
+    } else {
+      const indexRes = await deps.execute({
+        connection: payload,
+        sql:
+          dbType === 'postgresql'
+            ? getQueryIndexPostgres(schema, table)
+            : getQueryIndexMySQL(table),
+      })
+      if (seq !== seqRef.current) return
+      const indexes = mapQueryIndexesToTableIndexes(indexRes.rows)
+      deps.setRealTableIndexes(indexes)
+      pkColumns =
+        indexes.find((idx) => idx.isPrimary && idx.tableName === table)
+          ?.columnName ?? []
+      indexRows = indexRes.rows
+    }
+
+    const effectiveOrderBy = buildEffectiveOrderBy(
+      orderByClause,
+      pkColumns,
+      dbType,
+    )
+    const orderBySql = effectiveOrderBy ? ` ORDER BY ${effectiveOrderBy}` : ''
+
+    // ── Wave 2: data + filtered count (+ structure when metadata is cold).
+    const [dataRes, countRes, structRes] = await Promise.all([
+      deps.execute({
+        connection: payload,
+        sql: `SELECT * FROM ${fromClause}${whereSql}${orderBySql} LIMIT ${ps} OFFSET ${offset}`,
+      }),
+      deps.execute({
+        connection: payload,
+        sql: `SELECT COUNT(*) as count FROM ${fromClause}${whereSql}`,
+      }),
+      initialMeta
+        ? Promise.resolve(null)
+        : deps.execute({
+            connection: payload,
+            sql:
+              dbType === 'postgresql'
+                ? `SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema = ${sqlString(schema)} AND table_name = ${sqlString(table)} ORDER BY ordinal_position`
+                : `SHOW COLUMNS FROM ${quoteIdentifier(table, '`')}`,
+          }),
+    ])
+    if (seq !== seqRef.current) return
+
+    deps.setRealTableColumns(dataRes.columns)
+    deps.setRealTableRows(dataRes.rows)
+    deps.setTotalRowCount(Number(countRes.rows[0]?.count ?? 0))
+    if (structRes) {
+      deps.setRealTableStructure(structRes.rows)
+    }
+
+    if (!initialMeta) {
+      const snapshot: TableMetaSnapshot = {
+        columns: dataRes.columns,
+        primaryKeyColumns: pkColumns,
+        hasPrimaryKey: pkColumns.length > 0,
+      }
+      metaCache.set(metaKey, snapshot)
+    }
+
+    deps.setRealTableStats({
+      rows: String(countRes.rows[0]?.count ?? '0'),
+      columns: String(dataRes.columns.length),
+      size: '-',
+      indexes: String(
+        dbType === 'postgresql'
+          ? indexRows.length
+          : new Set(indexRows.map((r) => String(r.Key_name || ''))).size,
+      ),
+    })
+  } catch (error) {
+    console.error('Failed to fetch table data:', error)
+    throw error
+  } finally {
+    // Only the latest request may end the loading window; a stale
+    // failure/settle must not clear the newest request's loading state.
+    if (seq === seqRef.current) {
+      deps.setTableDataLoading(false)
+    }
+  }
+}
 
 interface UseExplorerDataParams {
   expandedConnectionId: string | null
@@ -171,6 +394,7 @@ WHERE
 ORDER BY index_name;`
 }
 
+
 interface UseExplorerDataReturn {
   treeDataMap: Record<string, ExplorerTreeData>
   treeLoading: Record<string, boolean>
@@ -219,6 +443,8 @@ interface UseExplorerDataReturn {
   ) => Promise<void>
   /** Reset all cached/fetched data associated with a specific connection ID. */
   resetConnectionData: (connId: string) => void
+  /** Drop cached table metadata — invoked on explicit Refresh only. */
+  invalidateTableMeta: () => void
 }
 
 export function useExplorerData({
@@ -230,6 +456,14 @@ export function useExplorerData({
     Record<string, ExplorerTreeData>
   >({})
   const [treeLoading, setTreeLoading] = useState<Record<string, boolean>>({})
+  // Monotonic sequence for table-data requests — only the latest request
+  // may write rows/columns/count/schema/indexes/stats or end loading.
+  const tableRequestSeqRef = useRef(0)
+  // Per connection::db::schema::table metadata cache (PK order + columns).
+  // Session-only; cleared via invalidateTableMeta() on explicit Refresh.
+  const tableMetaCacheRef = useRef(
+    new Map<string, TableMetaSnapshot>(),
+  )
   const [loadingDatabaseNames, setLoadingDatabaseNames] = useState<Set<string>>(
     new Set(),
   )
@@ -354,7 +588,6 @@ export function useExplorerData({
     },
     [setConnectionStatuses],
   )
-
   // Fetch schemas/tables for a specific database
   const fetchDatabaseDetails = useCallback(
     async (connId: string, conn: ConnectionProfile, dbName: string) => {
@@ -461,9 +694,8 @@ export function useExplorerData({
     },
     [],
   )
-
   const fetchTableData = useCallback(
-    async (
+    (
       conn: ConnectionProfile,
       schema: string,
       table: string,
@@ -472,76 +704,29 @@ export function useExplorerData({
       pageSize?: number,
       whereClause?: string,
       orderByClause?: string,
-    ) => {
-      if (!isSqlConnectionType(conn.type)) return Promise.resolve()
-      setTableDataLoading(true)
-      try {
-        const p = page ?? 1
-        const ps = pageSize ?? 100
-        const offset = (p - 1) * ps
-
-        // Use the specified database or fall back to the connection's default
-        const basePayload = await getConnPayloadWithPassword(conn)
-        const payload = {
-          ...basePayload,
-          database: dbName || conn.database,
-        }
-        const fromClause =
-          conn.type === 'postgresql'
-            ? `${quoteIdentifier(schema, '"')}.${quoteIdentifier(table, '"')}`
-            : quoteIdentifier(table, '`')
-        const dataRes = await executeSql({
-          connection: payload,
-          sql: `SELECT * FROM ${fromClause}${whereClause ? ' WHERE ' + whereClause : ''}${orderByClause ? ' ORDER BY ' + orderByClause : ''} LIMIT ${ps} OFFSET ${offset}`,
-        })
-        setRealTableColumns(dataRes.columns)
-        setRealTableRows(dataRes.rows)
-
-        // Fetch total row count (cached by DB; runs every time for accuracy)
-        const countRes = await executeSql({
-          connection: payload,
-          sql: `SELECT COUNT(*) as count FROM ${fromClause}${whereClause ? ' WHERE ' + whereClause : ''}`,
-        })
-        setTotalRowCount(Number(countRes.rows[0]?.count ?? 0))
-
-        const structRes = await executeSql({
-          connection: payload,
-          sql:
-            conn.type === 'postgresql'
-              ? `SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema = ${sqlString(schema)} AND table_name = ${sqlString(table)} ORDER BY ordinal_position`
-              : `SHOW COLUMNS FROM ${quoteIdentifier(table, '`')}`,
-        })
-        setRealTableStructure(structRes.rows)
-
-        const indexRes = await executeSql({
-          connection: payload,
-          sql:
-            conn.type === 'postgresql'
-              ? getQueryIndexPostgres(schema, table)
-              : getQueryIndexMySQL(table),
-        })
-        setRealTableIndexes(mapQueryIndexesToTableIndexes(indexRes.rows))
-
-        setRealTableStats({
-          rows: String(countRes.rows[0]?.count ?? '0'),
-          columns: String(dataRes.columns.length),
-          size: '-',
-          indexes: String(
-            conn.type === 'postgresql'
-              ? indexRes.rows.length
-              : new Set(indexRes.rows.map((r) => String(r.Key_name || '')))
-                  .size,
-          ),
-        })
-      } catch (error) {
-        console.error('Failed to fetch table data:', error)
-        throw error
-      } finally {
-        setTableDataLoading(false)
-      }
-    },
+      options?: { invalidateMeta?: boolean },
+    ) =>
+      fetchTableDataCore(conn, schema, table, dbName, page, pageSize, whereClause, orderByClause, options, {
+        seqRef: tableRequestSeqRef,
+        metaCache: tableMetaCacheRef.current,
+        execute: executeSql,
+        resolvePayload: (c) => getConnPayloadWithPassword(c),
+        setTableDataLoading,
+        setRealTableIndexes,
+        setRealTableColumns,
+        setRealTableRows,
+        setTotalRowCount,
+        setRealTableStructure,
+        setRealTableStats,
+      }),
     [],
   )
+
+
+  /** Drop cached table metadata — invoked on explicit Refresh only. */
+  const invalidateTableMeta = useCallback(() => {
+    tableMetaCacheRef.current.clear()
+  }, [])
 
   const fetchSqlTableList = useCallback(
     async (
@@ -606,27 +791,32 @@ export function useExplorerData({
           })),
         )
 
-        // Fetch all foreign keys and columns for the schema (used by ER diagram)
+        // Fetch foreign keys + all columns for the schema (ER diagram, header
+        // data types, autocomplete). Failures are isolated: one endpoint dying
+        // must not wipe the other's data.
+        const schemaPayload = {
+          ...payload,
+          database: databaseName || conn.database,
+          schema:
+            schemaName ||
+            (conn.type === 'postgresql'
+              ? 'public'
+              : databaseName || conn.database),
+        }
+
         try {
-          const basePayload = await getConnPayloadWithPassword(conn, schemaName)
-          const fkPayload = {
-            ...basePayload,
-            database: databaseName || conn.database,
-            schema:
-              schemaName ||
-              (conn.type === 'postgresql'
-                ? 'public'
-                : databaseName || conn.database),
-          }
-          const [fks, cols] = await Promise.all([
-            sqlGetAllForeignKeys(fkPayload),
-            sqlGetAllColumns(fkPayload),
-          ])
+          const fks = await sqlGetAllForeignKeys(schemaPayload)
           setSchemaForeignKeys(fks)
-          setSchemaColumns(cols)
         } catch (fkError) {
-          console.warn('Failed to fetch FK/columns for ER diagram:', fkError)
+          console.warn('Failed to fetch foreign keys for ER diagram:', fkError)
           setSchemaForeignKeys([])
+        }
+
+        try {
+          const cols = await sqlGetAllColumns(schemaPayload)
+          setSchemaColumns(cols)
+        } catch (colError) {
+          console.warn('Failed to fetch columns for ER diagram:', colError)
           setSchemaColumns([])
         }
       } catch (error) {
@@ -846,6 +1036,7 @@ export function useExplorerData({
     setSqlTableList([])
     setSchemaForeignKeys([])
     setSchemaColumns([])
+    tableMetaCacheRef.current.clear()
   }, [])
 
   const handleTreeNodeClick = useCallback(
@@ -856,6 +1047,7 @@ export function useExplorerData({
       pageSize?: number,
       whereClause?: string,
       orderByClause?: string,
+      options?: { invalidateMeta?: boolean },
     ) => {
       if (selectedConnection && isSqlConnectionType(selectedConnection.type)) {
         const treeData = treeDataMap[selectedConnection.id]
@@ -906,6 +1098,7 @@ export function useExplorerData({
             pageSize,
             whereClause,
             orderByClause,
+            options,
           ).then(() => true)
         }
 
@@ -946,6 +1139,7 @@ export function useExplorerData({
       fetchDatabaseDetails,
       refreshConnectionData: fetchTreeData,
       resetConnectionData,
+      invalidateTableMeta,
     }),
     [
       treeDataMap,
@@ -976,6 +1170,7 @@ export function useExplorerData({
       fetchDatabaseDetails,
       fetchTreeData,
       resetConnectionData,
+      invalidateTableMeta,
     ],
   )
 }

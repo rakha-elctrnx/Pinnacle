@@ -1090,6 +1090,7 @@ async fn get_all_columns_pg(
             is_nullable = 'YES' AS is_nullable,
             column_default,
             udt_name as data_type_name,
+            character_maximum_length AS max_length,
             CASE 
                 WHEN data_type = 'ARRAY' THEN substring(udt_name, 2) || '[]'
                 WHEN character_maximum_length IS NOT NULL THEN udt_name || '(' || character_maximum_length || ')'
@@ -1117,6 +1118,9 @@ async fn get_all_columns_pg(
             is_nullable: row.get::<bool, _>("is_nullable"),
             default_value: row.get("column_default"),
             data_type_name: row.get::<Option<String>, _>("data_type_name").unwrap_or_else(|| "unknown".to_string()),
+            max_length: row
+                .get::<Option<i32>, _>("max_length")
+                .map(i64::from),
         })
         .collect();
     Ok(result)
@@ -1132,7 +1136,7 @@ async fn get_all_columns_mysql(
 
     let rows = sqlx::query(
         r#"
-        SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name, COLUMN_TYPE AS data_type, IS_NULLABLE = 'YES' AS is_nullable, COLUMN_DEFAULT AS column_default, DATA_TYPE AS data_type_name
+        SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name, COLUMN_TYPE AS data_type, IS_NULLABLE = 'YES' AS is_nullable, COLUMN_DEFAULT AS column_default, DATA_TYPE AS data_type_name, CHARACTER_MAXIMUM_LENGTH AS max_length
         FROM information_schema.COLUMNS
         WHERE TABLE_SCHEMA = ?
         ORDER BY TABLE_NAME, ORDINAL_POSITION
@@ -1151,6 +1155,7 @@ async fn get_all_columns_mysql(
             is_nullable: row.get::<bool, _>("is_nullable"),
             default_value: row.get("column_default"),
             data_type_name: row.get::<Option<String>, _>("data_type_name").unwrap_or_else(|| "unknown".to_string()),
+            max_length: row.get::<Option<i64>, _>("max_length"),
         })
         .collect();
     Ok(result)
@@ -1387,13 +1392,12 @@ pub async fn drop_table(
 /// Commit batched inserts, updates, and deletes atomically in a SQL transaction.
 ///
 /// Steps:
-/// 1. Re-fetch table schema to detect schema drift
-/// 2. Validate that primary key column still exists
-/// 3. Begin transaction
-/// 4. Execute all INSERT statements
-/// 5. Execute all UPDATE statements (WHERE pk = rowId)
-/// 6. Execute all DELETE statements (WHERE pk = rowId)
-/// 7. Commit on success, rollback on any failure
+/// 1. Validate the payload against a freshly-fetched schema (per driver)
+/// 2. Begin transaction
+/// 3. Execute all INSERT statements
+/// 4. Execute all UPDATE statements (WHERE all key columns match)
+/// 5. Execute all DELETE statements (WHERE all key columns match)
+/// 6. Commit on success, rollback on any failure
 pub async fn commit_table_changes(
     payload: &CommitTableChangesPayload,
     ssh_password: Option<&str>,
@@ -1407,6 +1411,58 @@ pub async fn commit_table_changes(
         "sqlite" => commit_table_changes_sqlite(payload).await,
         _ => Err(AppError::UnsupportedDriver(payload.connection.r#type.clone())),
     }
+}
+
+/// Validate a commit payload BEFORE opening any transaction.
+/// - `primary_key_columns` must be non-empty
+/// - every key arity must match the column count
+/// - every named key column must exist in the refreshed schema
+fn validate_commit_payload(
+    payload: &CommitTableChangesPayload,
+    schema_column_names: Vec<&str>,
+) -> AppResult<()> {
+    if payload.primary_key_columns.is_empty() {
+        return Err(AppError::InvalidInput(
+            "Table changes require a primary key".to_string(),
+        ));
+    }
+    let key_lists = payload
+        .updates
+        .iter()
+        .map(|u| &u.key.values)
+        .chain(payload.deletes.iter().map(|k| &k.values));
+    for values in key_lists {
+        if values.len() != payload.primary_key_columns.len() {
+            return Err(AppError::InvalidInput(
+                "Row key does not match the table primary key".to_string(),
+            ));
+        }
+    }
+    for col in &payload.primary_key_columns {
+        if !schema_column_names.contains(&col.as_str()) {
+            return Err(AppError::InvalidInput(
+                "Primary key metadata is stale; refresh the table and retry".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Build a composite WHERE conjunction over all primary key columns in
+/// declared order. `placeholder` renders each predicate given the column
+/// name and its 1-based placeholder number (`value_offset` counts binds
+/// already emitted before the key binds).
+fn build_key_where_clause(
+    primary_key_columns: &[String],
+    placeholder: impl Fn(&str, usize) -> String,
+    value_offset: usize,
+) -> String {
+    primary_key_columns
+        .iter()
+        .enumerate()
+        .map(|(i, col)| placeholder(col, i + value_offset + 1))
+        .collect::<Vec<String>>()
+        .join(" AND ")
 }
 
 /// PostgreSQL implementation of commit_table_changes.
@@ -1433,15 +1489,7 @@ async fn commit_table_changes_pg(
     // get_pg_table_schema resolves the canonical name AND the correct schema,
     // so we use schema_info.schema for the fully-qualified table name below.
     let schema_info = get_pg_table_schema(&payload.connection, &payload.table_name, ssh_password, key_passphrase).await?;
-    let column_names: Vec<String> = schema_info.columns.iter().map(|c| c.name.clone()).collect();
-
-    // Verify primary key column exists
-    if !column_names.contains(&payload.primary_key_column) {
-        return Err(AppError::InvalidInput(format!(
-            "Primary key column '{}' not found in table schema. The table structure may have changed. Please refresh.",
-            payload.primary_key_column
-        )));
-    }
+    validate_commit_payload(payload, schema_info.columns.iter().map(|c| c.name.as_str()).collect())?;
 
     // ── Build fully-qualified table name using canonical name ─────
     // schema_info.table_name is the canonical name resolved by
@@ -1459,8 +1507,6 @@ async fn commit_table_changes_pg(
             quote_identifier_pg(&schema_info.table_name)
         )
     };
-
-    let pk_quoted = quote_identifier_pg(&payload.primary_key_column);
 
     let mut inserted_rows: u64 = 0;
     let mut updated_rows: u64 = 0;
@@ -1492,7 +1538,8 @@ async fn commit_table_changes_pg(
         }
 
         query.execute(&mut *tx).await.map_err(|e| {
-            AppError::Database(format!("INSERT failed: {} (row values: {:?})", e, insert_row))
+            let _ = &e;
+            AppError::Database(format!("INSERT failed (row values: {:?})", insert_row))
         })?;
         inserted_rows += 1;
     }
@@ -1509,14 +1556,17 @@ async fn commit_table_changes_pg(
             .enumerate()
             .map(|(i, c)| format!("{} = ${}", quote_identifier_pg(c), i + 1))
             .collect();
-        let pk_placeholder = format!("${}", cols.len() + 1);
+        let where_clause = build_key_where_clause(
+            &payload.primary_key_columns,
+            |col, n| format!("{}::text = ${}", quote_identifier_pg(col), n),
+            cols.len() - 1, // key placeholders continue after the SET binds
+        );
 
         let sql = format!(
-            "UPDATE {} SET {} WHERE {}::text = {}",
+            "UPDATE {} SET {} WHERE {}",
             fq_table,
             set_clauses.join(", "),
-            pk_quoted,
-            pk_placeholder,
+            where_clause,
         );
 
         let mut query = sqlx::query(&sql);
@@ -1524,36 +1574,39 @@ async fn commit_table_changes_pg(
             let val = changes.get(*col as &str);
             query = bind_json_value_pg(query, val);
         }
-        query = query.bind(&update.row_id);
+        for value in &update.key.values {
+            query = query.bind(value);
+        }
 
         query.execute(&mut *tx).await.map_err(|e| {
+            let _ = &e;
             AppError::Database(format!(
-                "UPDATE failed for row '{}': {}",
-                update.row_id, e
+                "UPDATE failed for row key {:?}",
+                update.key.values
             ))
         })?;
         updated_rows += 1;
     }
 
     // ── Process DELETEs ───────────────────────────────────────────
-    for row_id in &payload.deletes {
-        if row_id.trim().is_empty() {
-            continue;
-        }
+    for key in &payload.deletes {
         let sql = format!(
-            "DELETE FROM {} WHERE {}::text = $1",
-            fq_table, pk_quoted,
+            "DELETE FROM {} WHERE {}",
+            fq_table,
+            build_key_where_clause(
+                &payload.primary_key_columns,
+                |col, n| format!("{}::text = ${}", quote_identifier_pg(col), n),
+                0,
+            ),
         );
-        sqlx::query(&sql)
-            .bind(row_id)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| {
-                AppError::Database(format!(
-                    "DELETE failed for row '{}': {}",
-                    row_id, e
-                ))
-            })?;
+        let mut query = sqlx::query(&sql);
+        for value in &key.values {
+            query = query.bind(value);
+        }
+        query.execute(&mut *tx).await.map_err(|e| {
+            let _ = &e;
+            AppError::Database(format!("DELETE failed for row key {:?}", key.values))
+        })?;
         deleted_rows += 1;
     }
 
@@ -1617,8 +1670,21 @@ async fn commit_table_changes_mysql(
 
     let mut conn = acquire_mysql_conn(&payload.connection, ssh_password, key_passphrase).await?;
 
-    let fq_table = quote_identifier_mysql(&payload.table_name);
-    let pk_quoted = quote_identifier_mysql(&payload.primary_key_column);
+    // ── Schema drift detection ────────────────────────────────────
+    // Re-fetch columns for the table and validate the payload before any
+    // mutation. get_mysql_table_schema returns the database name in
+    // `schema`, so a db-qualified table name is available when present.
+    let schema_info = get_mysql_table_schema(&payload.connection, &payload.table_name, ssh_password, key_passphrase).await?;
+    validate_commit_payload(payload, schema_info.columns.iter().map(|c| c.name.as_str()).collect())?;
+    let fq_table = if schema_info.schema.is_empty() {
+        quote_identifier_mysql(&payload.table_name)
+    } else {
+        format!(
+            "{}.{}",
+            quote_identifier_mysql(&schema_info.schema),
+            quote_identifier_mysql(&schema_info.table_name)
+        )
+    };
 
     let mut inserted_rows: u64 = 0;
     let mut updated_rows: u64 = 0;
@@ -1650,7 +1716,8 @@ async fn commit_table_changes_mysql(
         }
 
         query.execute(&mut *tx).await.map_err(|e| {
-            AppError::Database(format!("INSERT failed: {} (row values: {:?})", e, insert_row))
+            let _ = &e;
+            AppError::Database(format!("INSERT failed (row values: {:?})", insert_row))
         })?;
         inserted_rows += 1;
     }
@@ -1666,12 +1733,17 @@ async fn commit_table_changes_mysql(
             .iter()
             .map(|c| format!("{} = ?", quote_identifier_mysql(c)))
             .collect();
+        let where_clause = build_key_where_clause(
+            &payload.primary_key_columns,
+            |col, _| format!("CAST({} AS CHAR) = ?", quote_identifier_mysql(col)),
+            cols.len(),
+        );
 
         let sql = format!(
-            "UPDATE {} SET {} WHERE CAST({} AS CHAR) = ?",
+            "UPDATE {} SET {} WHERE {}",
             fq_table,
             set_clauses.join(", "),
-            pk_quoted,
+            where_clause,
         );
 
         let mut query = sqlx::query(&sql);
@@ -1679,33 +1751,39 @@ async fn commit_table_changes_mysql(
             let val = changes.get(*col as &str);
             query = bind_json_value_mysql(query, val);
         }
-        query = query.bind(&update.row_id);
+        for value in &update.key.values {
+            query = query.bind(value);
+        }
 
         query.execute(&mut *tx).await.map_err(|e| {
+            let _ = &e;
             AppError::Database(format!(
-                "UPDATE failed for row '{}': {}",
-                update.row_id, e
+                "UPDATE failed for row key {:?}",
+                update.key.values
             ))
         })?;
         updated_rows += 1;
     }
 
     // ── Process DELETEs ───────────────────────────────────────────
-    for row_id in &payload.deletes {
-        if row_id.trim().is_empty() {
-            continue;
+    for key in &payload.deletes {
+        let sql = format!(
+            "DELETE FROM {} WHERE {}",
+            fq_table,
+            build_key_where_clause(
+                &payload.primary_key_columns,
+                |col, _| format!("CAST({} AS CHAR) = ?", quote_identifier_mysql(col)),
+                0,
+            ),
+        );
+        let mut query = sqlx::query(&sql);
+        for value in &key.values {
+            query = query.bind(value);
         }
-        let sql = format!("DELETE FROM {} WHERE CAST({} AS CHAR) = ?", fq_table, pk_quoted);
-        sqlx::query(&sql)
-            .bind(row_id)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| {
-                AppError::Database(format!(
-                    "DELETE failed for row '{}': {}",
-                    row_id, e
-                ))
-            })?;
+        query.execute(&mut *tx).await.map_err(|e| {
+            let _ = &e;
+            AppError::Database(format!("DELETE failed for row key {:?}", key.values))
+        })?;
         deleted_rows += 1;
     }
 
@@ -1719,7 +1797,6 @@ async fn commit_table_changes_mysql(
     })
 }
 
-/// Bind a serde_json::Value to a MySQL query.
 fn bind_json_value_mysql<'q>(
     query: sqlx::query::Query<'q, sqlx::mysql::MySql, <sqlx::mysql::MySql as sqlx::Database>::Arguments<'q>>,
     val: Option<&serde_json::Value>,
@@ -1802,7 +1879,127 @@ async fn execute_sql_pg(
 }
 #[cfg(test)]
 mod tests {
-    use super::generate_drop_table_sql;
+    // ── Composite row-key contract tests ─────────────────────────────
+    use super::*;
+
+    fn commit_payload() -> CommitTableChangesPayload {
+        CommitTableChangesPayload {
+            connection: ConnectionPayload {
+                r#type: "postgresql".into(),
+                host: String::new(),
+                port: 0,
+                username: String::new(),
+                password: String::new(),
+                database: String::new(),
+                ssl: false,
+                schema: String::new(),
+                ssh: None,
+                connection_id: None,
+                ssl_config: None,
+                pool_size: None,
+                idle_timeout_secs: None,
+                statement_timeout_ms: None,
+            },
+            table_name: "items".into(),
+            inserts: vec![],
+            updates: vec![],
+            deletes: vec![],
+            primary_key_columns: vec!["tenant_id".into(), "item_id".into()],
+        }
+    }
+
+    #[test]
+    fn composite_where_pg_quotes_both_columns_in_order_after_value_binds() {
+        let clause = build_key_where_clause(
+            &commit_payload().primary_key_columns,
+            |col, n| format!("{}::text = ${}", quote_identifier_pg(col), n),
+            1, // two changed-value binds ($1, $2) precede the key binds
+        );
+        assert_eq!(
+            clause,
+            r#""tenant_id"::text = $2 AND "item_id"::text = $3"#
+        );
+    }
+
+    #[test]
+    fn composite_where_pg_delete_starts_at_first_placeholder() {
+        let clause = build_key_where_clause(
+            &["a".to_string(), "b".to_string()],
+            |col, n| format!("{}::text = ${}", quote_identifier_pg(col), n),
+            0,
+        );
+        assert_eq!(clause, r#""a"::text = $1 AND "b"::text = $2"#);
+    }
+
+    #[test]
+    fn composite_where_mysql_casts_both_columns_in_order() {
+        let cols = vec!["tenant_id".to_string(), "item_id".to_string()];
+        let clause = build_key_where_clause(&cols, |col, _| {
+            format!("CAST({} AS CHAR) = ?", quote_identifier_mysql(col))
+        }, 2);
+        assert_eq!(
+            clause,
+            "CAST(`tenant_id` AS CHAR) = ? AND CAST(`item_id` AS CHAR) = ?"
+        );
+    }
+
+    #[test]
+    fn validation_rejects_empty_primary_key_columns() {
+        let mut payload = commit_payload();
+        payload.primary_key_columns.clear();
+        let err = validate_commit_payload(&payload, vec!["tenant_id", "item_id"]).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("Table changes require a primary key"));
+    }
+
+    #[test]
+    fn validation_rejects_wrong_arity_keys_before_transaction() {
+        let mut payload = commit_payload();
+        payload.updates.push(crate::domain::query::RowUpdate {
+            key: crate::domain::query::RowKey {
+                values: vec!["t1".into()], // missing item_id
+            },
+            changes: serde_json::Map::new(),
+        });
+        let err = validate_commit_payload(&payload, vec!["tenant_id", "item_id"]).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("Row key does not match the table primary key"));
+
+        let mut payload = commit_payload();
+        payload.deletes.push(crate::domain::query::RowKey {
+            values: vec![],
+        });
+        let err = validate_commit_payload(&payload, vec!["tenant_id", "item_id"]).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("Row key does not match the table primary key"));
+    }
+
+    #[test]
+    fn validation_rejects_stale_key_column_names() {
+        let payload = commit_payload();
+        let err = validate_commit_payload(&payload, vec!["tenant_id", "renamed_id"]).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("Primary key metadata is stale; refresh the table and retry"));
+    }
+
+    #[test]
+    fn validation_accepts_matching_two_column_keys() {
+        let mut payload = commit_payload();
+        payload.updates.push(crate::domain::query::RowUpdate {
+            key: crate::domain::query::RowKey {
+                values: vec!["t1".into(), "42".into()],
+            },
+            changes: serde_json::Map::new(),
+        });
+        payload.deletes.push(crate::domain::query::RowKey {
+            values: vec!["t1".into(), "43".into()],
+        });
+        assert!(validate_commit_payload(&payload, vec!["tenant_id", "item_id"]).is_ok());
+    }
     #[test]
     fn drop_table_pg_quoting() {
         let sql = generate_drop_table_sql("postgresql", "public", "users", false);

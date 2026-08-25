@@ -17,9 +17,12 @@ import {
   type ChangeEvent,
 } from 'react'
 import type { CellContext } from '@tanstack/react-table'
+
 import {
   useTableEditStore,
   validateCellValue,
+  normalizeCellValue,
+  valuesEqual,
   type EditableColumnMeta,
 } from '../../store/tableEditStore'
 
@@ -51,40 +54,17 @@ const TIMESTAMP_TYPES = new Set([
   'TIME WITH TIME ZONE',
 ])
 
-/** Format timestamp string to readable format */
+/**
+ * Format a timestamp string without changing the wall-clock time it carries.
+ * Normalizes the ISO `T` separator to a space, trims fractional seconds for
+ * display, keeps the source date/time as-is (no UTC conversion), and keeps
+ * any timezone suffix.
+ */
 function formatTimestampValue(ts: string): string {
-  // Try parsing as ISO date first
-  let date: Date | null = null
-
-  // Handle ISO format: 2024-01-15T10:30:45.123Z or 2024-01-15T10:30:45+07:00
-  if (ts.includes('T')) {
-    date = new Date(ts)
-  }
-  // Handle PostgreSQL/MySQL format: 2024-01-15 10:30:45.123456+07 or 2024-01-15 10:30:45
-  else if (ts.match(/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/)) {
-    // Remove timezone and microseconds for parsing
-    const cleanTs = ts
-      .replace(/\.\d+/, '')
-      .replace(/[+-]\d{2}:?\d{2}$/, '')
-      .trim()
-    date = new Date(cleanTs)
-  }
-  // Handle date only: 2024-01-15
-  else if (ts.match(/^\d{4}-\d{2}-\d{2}$/)) {
-    date = new Date(ts)
-  }
-
-  if (date && !isNaN(date.getTime())) {
-    // For DATE type, show only date part
-    if (ts.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return date.toISOString().substring(0, 10) // YYYY-MM-DD
-    }
-    // For time types, show time with date
-    return date.toISOString().replace('T', ' ').substring(0, 19)
-  }
-
-  // If parsing fails, return original
-  return ts
+  let out = ts.trim().replace('T', ' ')
+  // Trim fractional seconds (e.g. .123456) for display only.
+  out = out.replace(/(\s\d{2}:\d{2}:\d{2})\.\d+/, '$1')
+  return out
 }
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -94,6 +74,8 @@ type TableRow = Record<string, unknown>
 export interface EditableCellProps {
   context: CellContext<TableRow, unknown>
   columnMeta: EditableColumnMeta | undefined
+  /** Disables all editing affordances for read-only rows/tables. */
+  readOnly?: boolean
   getRowId: (row: TableRow, index: number) => string
 }
 
@@ -117,11 +99,10 @@ function isBinaryColumn(dataType: string | undefined): boolean {
   return BINARY_TYPES.has(dt) || dt.includes('BLOB') || dt.includes('BINARY')
 }
 
-// ── Component ───────────────────────────────────────────────────────
-
 export function EditableCell({
   context,
   columnMeta,
+  readOnly = false,
   getRowId: getRowIdFn,
 }: EditableCellProps) {
   const { row, column, getValue } = context
@@ -136,7 +117,7 @@ export function EditableCell({
     isTimestamp && rawValue
       ? formatTimestampValue(valueToDisplayString(rawValue))
       : isTimestamp
-        ? '&#8203;'
+        ? '\u200B'
         : null
 
   const isNull = rawValue === null || rawValue === undefined
@@ -157,10 +138,14 @@ export function EditableCell({
   // Find the staged edit for this cell
   const existingEdit = rowEdits?.find((e) => e.field === field)
   const stagedValue = existingEdit?.newValue
-
-  // Show staged value if present, otherwise original value
   const effectiveValue =
     stagedValue !== undefined ? valueToDisplayString(stagedValue) : displayValue
+
+  // Restore grid focus to this cell after the editor closes. The view span
+  // mounts on the next frame, so schedule after commit/cancel.
+  const restoreCellFocus = useCallback(() => {
+    requestAnimationFrame(() => containerRef.current?.focus())
+  }, [])
 
   // ── Binary column detection ───────────────────────────────────────
   const isBinary = isBinaryColumn(columnMeta?.dataType)
@@ -184,6 +169,7 @@ export function EditableCell({
   const enterEditMode = () => {
     if (isDeleted) return
     if (isBinary) return // binary columns are not editable
+    if (readOnly) return // read-only rows/tables cannot enter edit mode
     setEditValue(effectiveValue)
     setValidationError(null)
     setIsEditing(true)
@@ -196,55 +182,53 @@ export function EditableCell({
     const handler = () => {
       if (isDeleted) return
       if (isBinary) return // binary columns are not editable
+      if (readOnly) return // read-only rows/tables cannot enter edit mode
       setEditValue(effectiveValue)
       setValidationError(null)
       setIsEditing(true)
     }
     el.addEventListener('table:enter-edit', handler)
     return () => el.removeEventListener('table:enter-edit', handler)
-  }, [isDeleted, isBinary, effectiveValue])
+  }, [isDeleted, isBinary, readOnly, effectiveValue])
 
-  // Validate and commit edit
+  // Validate, normalize, and commit edit
   const commitEdit = useCallback(() => {
-    let newValue: unknown = editValue
+    const normalized = normalizeCellValue(editValue, columnMeta)
 
-    // If value is empty and column is nullable → treat as null
-    if (editValue === '' && columnMeta?.isNullable) {
-      newValue = null
+    const error = validateCellValue(normalized, columnMeta)
+    if (error) {
+      setValidationError(error)
+      return // don't exit edit mode — invalid values are never staged
     }
 
-    // Validate
-    if (editValue !== '' || !columnMeta?.isNullable) {
-      const error = validateCellValue(newValue, columnMeta)
-      if (error) {
-        setValidationError(error)
-        return // don't exit edit mode
-      }
-    }
-
-    // Compare with original value
-    const originalRaw =
-      rawValue === null || rawValue === undefined
-        ? null
-        : valueToDisplayString(rawValue)
-    const newRaw = newValue === null ? null : valueToDisplayString(newValue)
-
-    if (newRaw !== originalRaw) {
-      stageEdit(rowId, field, rawValue, newValue)
-    } else {
-      // No change — unstage if previously staged
+    if (valuesEqual(rawValue, normalized)) {
+      // No change vs the original DB value — unstage if previously staged.
       unstageEdit(rowId, field)
+    } else {
+      stageEdit(rowId, field, rawValue, normalized)
     }
 
     setIsEditing(false)
     setValidationError(null)
-  }, [editValue, columnMeta, rawValue, rowId, field, stageEdit, unstageEdit])
+    restoreCellFocus()
+  }, [
+    editValue,
+    columnMeta,
+    rawValue,
+    rowId,
+    field,
+    stageEdit,
+    unstageEdit,
+    restoreCellFocus,
+  ])
 
-  // Cancel edit (revert to original)
+  // Cancel edit (revert to original). Plain function — the React Compiler
+  // memoizes it; useCallback on effectiveValue broke compiler preservation.
   const cancelEdit = () => {
     setEditValue(effectiveValue)
     setIsEditing(false)
     setValidationError(null)
+    restoreCellFocus()
   }
 
   // ── Handlers ───────────────────────────────────────────────────────
@@ -257,11 +241,15 @@ export function EditableCell({
     setValidationError(null) // clear error on new input
   }, [])
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    // IME composition in progress — Enter/Escape/Tab confirm the
+    // composition, they must not commit or cancel the cell edit.
+    if (e.nativeEvent.isComposing) return
     if (e.key === 'Enter') {
       e.preventDefault()
       commitEdit()
     } else if (e.key === 'Escape') {
       e.preventDefault()
+      e.stopPropagation() // keep document-level Escape handlers out
       cancelEdit()
     } else if (e.key === 'Tab') {
       e.preventDefault()
@@ -356,6 +344,25 @@ export function EditableCell({
     )
   }
 
+  // ── Rendered when read-only (no-PK table or incomplete row key) ────
+  // Reduced affordance: no pointer/tab handlers, announced as read-only.
+  if (readOnly) {
+    return (
+      <span
+        className="block min-w-0 cursor-default truncate px-2 py-1.5 text-text-muted"
+        title={displayValue || undefined}
+        role="gridcell"
+        aria-readonly="true"
+        aria-label={`${field}: ${isNull ? 'NULL' : displayValue} (read-only)`}
+      >
+        {isNull
+          ? '(null)'
+          : formattedValue ||
+            displayValue || <span className="text-text-muted">{'\u200B'}</span>}
+      </span>
+    )
+  }
+
   return (
     <span
       ref={containerRef as React.RefObject<HTMLSpanElement>}
@@ -378,7 +385,7 @@ export function EditableCell({
         : stagedValue !== undefined
           ? valueToDisplayString(stagedValue)
           : formattedValue ||
-            displayValue || <span className="text-text-muted">&#8203;</span>}
+            displayValue || <span className="text-text-muted">{'\u200B'}</span>}
     </span>
   )
 }

@@ -9,15 +9,21 @@ pub struct CommitTableChangesPayload {
     pub table_name: String,
     pub inserts: Vec<serde_json::Map<String, serde_json::Value>>,
     pub updates: Vec<RowUpdate>,
-    pub deletes: Vec<String>,
-    pub primary_key_column: String,
+    pub deletes: Vec<RowKey>,
+    pub primary_key_columns: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RowUpdate {
-    pub row_id: String,
+    pub key: RowKey,
     pub changes: serde_json::Map<String, serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RowKey {
+    pub values: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -223,6 +229,8 @@ pub struct SchemaColumn {
     pub is_nullable: bool,
     pub default_value: Option<String>,
     pub data_type_name: String,
+    /// Maximum length for character columns (varchar(n) etc.); None otherwise.
+    pub max_length: Option<i64>,
 }
 
 /// Schema-level foreign key info including source table name (used for bulk FK fetch).

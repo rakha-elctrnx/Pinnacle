@@ -11,4 +11,4 @@ pub mod ssh;
 pub mod sql;
 
 mod postgresql;
-mod sqlite;
+pub(crate) mod sqlite;

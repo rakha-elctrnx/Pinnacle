@@ -4,8 +4,8 @@
  * Supports:
  * - TSV copy (Excel-compatible, tab-separated)
  * - CSV copy with proper quoting
- * - SQL statement generation (INSERT / UPDATE / DELETE)
- * - TSV parse for paste
+ * - SQL statement generation (INSERT / UPDATE / DELETE), dialect-aware quoting
+ * - Character-level delimited-text parse for lossless paste
  */
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -37,6 +37,17 @@ function sqlValue(value: unknown): string {
   if (value === null || value === undefined) return 'NULL'
   if (typeof value === 'number') return String(value)
   if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE'
+  // Arrays/objects serialize as JSON before quote escaping so JSON/JSONB
+  // columns round-trip instead of rendering "[object Object]".
+  if (typeof value === 'object') {
+    let json: string
+    try {
+      json = JSON.stringify(value)
+    } catch {
+      json = String(value)
+    }
+    return `'${json.replace(/'/g, "''")}'`
+  }
   // Escape single quotes by doubling them
   return `'${String(value).replace(/'/g, "''")}'`
 }
@@ -121,6 +132,15 @@ export function formatJSON(
   return pretty ? JSON.stringify(filtered, null, 2) : JSON.stringify(filtered)
 }
 
+/** Quote an SQL identifier for the given dialect (backticks for MySQL). */
+function quoteIdentifier(
+  identifier: string,
+  dbType: 'postgresql' | 'mysql' | 'sqlite',
+): string {
+  if (dbType === 'mysql') return `\`${identifier.replace(/`/g, '``')}\``
+  return `"${identifier.replace(/"/g, '""')}"`
+}
+
 /**
  * Generate INSERT statements for the given rows.
  */
@@ -128,15 +148,18 @@ export function generateInsertSQL(
   rows: Record<string, unknown>[],
   columns: string[],
   tableName: string,
+  dbType: 'postgresql' | 'mysql' | 'sqlite' = 'postgresql',
 ): string {
   if (rows.length === 0 || columns.length === 0) return ''
 
-  const colList = columns.map((c) => `"${c}"`).join(', ')
+  const colList = columns
+    .map((c) => quoteIdentifier(c, dbType))
+    .join(', ')
   const values = rows
     .map((row) => `  (${columns.map((col) => sqlValue(row[col])).join(', ')})`)
     .join(',\n')
 
-  return `INSERT INTO "${tableName}" (${colList})\nVALUES\n${values};`
+  return `INSERT INTO ${quoteIdentifier(tableName, dbType)} (${colList})\nVALUES\n${values};`
 }
 
 /**
@@ -148,6 +171,7 @@ export function generateUpdateSQL(
   columns: string[],
   tableName: string,
   columnInfo: ColumnInfo[],
+  dbType: 'postgresql' | 'mysql' | 'sqlite' = 'postgresql',
 ): string {
   const pkColumn = findPrimaryKey(columnInfo)
   if (!pkColumn)
@@ -158,9 +182,12 @@ export function generateUpdateSQL(
       const pkValue = sqlValue(row[pkColumn])
       const setClauses = columns
         .filter((col) => col !== pkColumn)
-        .map((col) => `  "${col}" = ${sqlValue(row[col])}`)
+        .map(
+          (col) =>
+            `  ${quoteIdentifier(col, dbType)} = ${sqlValue(row[col])}`,
+        )
         .join(',\n')
-      return `UPDATE "${tableName}"\nSET\n${setClauses}\nWHERE "${pkColumn}" = ${pkValue};`
+      return `UPDATE ${quoteIdentifier(tableName, dbType)}\nSET\n${setClauses}\nWHERE ${quoteIdentifier(pkColumn, dbType)} = ${pkValue};`
     })
     .join('\n\n')
 }
@@ -172,6 +199,7 @@ export function generateDeleteSQL(
   rows: Record<string, unknown>[],
   columns: ColumnInfo[],
   tableName: string,
+  dbType: 'postgresql' | 'mysql' | 'sqlite' = 'postgresql',
 ): string {
   const pkColumn = findPrimaryKey(columns)
   if (!pkColumn)
@@ -180,7 +208,7 @@ export function generateDeleteSQL(
   return rows
     .map((row) => {
       const pkValue = sqlValue(row[pkColumn])
-      return `DELETE FROM "${tableName}"\nWHERE "${pkColumn}" = ${pkValue};`
+      return `DELETE FROM ${quoteIdentifier(tableName, dbType)}\nWHERE ${quoteIdentifier(pkColumn, dbType)} = ${pkValue};`
     })
     .join('\n\n')
 }
@@ -196,24 +224,25 @@ export function generateReviewSQL(
   tableName: string,
   columnInfo: ColumnInfo[],
   mode: 'insert' | 'update' | 'delete' | 'all' = 'all',
+  dbType: 'postgresql' | 'mysql' | 'sqlite' = 'postgresql',
 ): string {
   const parts: string[] = []
 
   if (mode === 'insert' || mode === 'all') {
     parts.push('-- === INSERT ===')
-    parts.push(generateInsertSQL(rows, columns, tableName))
+    parts.push(generateInsertSQL(rows, columns, tableName, dbType))
     parts.push('')
   }
 
   if (mode === 'update' || mode === 'all') {
     parts.push('-- === UPDATE ===')
-    parts.push(generateUpdateSQL(rows, columns, tableName, columnInfo))
+    parts.push(generateUpdateSQL(rows, columns, tableName, columnInfo, dbType))
     parts.push('')
   }
 
   if (mode === 'delete' || mode === 'all') {
     parts.push('-- === DELETE ===')
-    parts.push(generateDeleteSQL(rows, columnInfo, tableName))
+    parts.push(generateDeleteSQL(rows, columnInfo, tableName, dbType))
   }
 
   return parts.join('\n')
@@ -222,67 +251,113 @@ export function generateReviewSQL(
 // ── Paste parsing ──────────────────────────────────────────────────
 
 export interface ParsedPaste {
-  /** Parsed rows as arrays of strings (TSV parsed) */
+  /** Parsed rows as arrays of cell strings */
   rows: string[][]
-  /** Number of columns detected */
+  /** Number of columns detected (widest row) */
   columnCount: number
 }
 
 /**
- * Parse TSV text from clipboard into rows of cells.
- * Handles both tab-separated and comma-separated (basic) formats.
+ * Character-level delimited-text parser. Auto-detects tab vs comma
+ * (tab wins when the text contains one outside quotes), supports doubled
+ * quote escapes, CRLF/LF line endings, and quoted embedded delimiters and
+ * newlines — without trimming meaningful whitespace from cells.
+ *
+ * Blank records inside quoted fields are preserved; only a single trailing
+ * empty record produced by a terminal newline is ignored.
  */
-export function parseTSV(text: string): ParsedPaste {
-  const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0)
-  if (lines.length === 0) return { rows: [], columnCount: 0 }
+export function parseDelimitedText(text: string): ParsedPaste {
+  const rows: string[][] = []
+  let row: string[] = []
+  let current = ''
+  let inQuotes = false
+  let sawAnyChar = false
 
-  // Detect delimiter: prefer tab if any line has a tab, else comma
-  const hasTab = lines.some((line) => line.includes('\t'))
-  const delimiter = hasTab ? '\t' : ','
-
-  const rows = lines.map((line) => {
-    // Basic CSV-aware splitting for comma mode
-    if (delimiter === ',') {
-      return parseCSVLine(line)
+  // Detect delimiter on the first pass: any tab outside quotes → tab.
+  let delimiter = ','
+  {
+    let scanningQuotes = false
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i]
+      if (ch === '"') {
+        if (
+          scanningQuotes &&
+          text[i + 1] === '"' &&
+          !text.includes('\t', i + 2)
+        ) {
+          // Doubled quote inside quotes — skip both.
+          i++
+        } else {
+          scanningQuotes = !scanningQuotes
+        }
+        continue
+      }
+      if (!scanningQuotes && ch === '\t') {
+        delimiter = '\t'
+        break
+      }
     }
-    return line.split('\t')
-  })
+  }
+
+  const pushCell = () => {
+    row.push(current)
+    current = ''
+  }
+  const pushRecord = () => {
+    pushCell()
+    rows.push(row)
+    row = []
+  }
+
+  for (let i = 0; i < text.length; i++) {
+    sawAnyChar = true
+    const char = text[i]
+
+    if (inQuotes) {
+      if (char === '"') {
+        if (text[i + 1] === '"') {
+          current += '"'
+          i++ // skip escaped quote
+        } else {
+          inQuotes = false // closing quote — not appended
+        }
+      } else {
+        current += char
+      }
+      continue
+    }
+
+    if (char === '"') {
+      inQuotes = true
+      continue
+    }
+    if (char === delimiter) {
+      pushCell()
+      continue
+    }
+    if (char === '\n' || char === '\r') {
+      // Treat CRLF as one record terminator.
+      if (char === '\r' && text[i + 1] === '\n') i++
+      pushRecord()
+      continue
+    }
+    current += char
+  }
+
+  // Flush the final record only when there is trailing content after the
+  // last terminator — this drops exactly one terminal-newline empty record.
+  if (!sawAnyChar) return { rows: [], columnCount: 0 }
+  if (current !== '' || row.length > 0) pushRecord()
 
   const columnCount = Math.max(...rows.map((r) => r.length), 0)
-
   return { rows, columnCount }
 }
 
-/** Simple CSV line parser (handles quoted fields) */
-function parseCSVLine(line: string): string[] {
-  const result: string[] = []
-  let current = ''
-  let inQuotes = false
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i]
-    if (char === '"') {
-      if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
-        current += '"'
-        i++ // skip escaped quote
-      } else {
-        inQuotes = !inQuotes
-      }
-    } else if (char === ',' && !inQuotes) {
-      result.push(current)
-      current = ''
-    } else {
-      current += char
-    }
-  }
-  result.push(current)
-
-  return result.map((cell) => cell.trim())
-}
-
 /**
- * Map parsed paste cells to a record using target column names.
- * Extra cells are dropped; missing cells become empty strings.
+ * Map parsed paste cells to partial records keyed by target column names.
+ * Only cells physically present in each pasted row produce entries — no
+ * synthesized empty strings for missing columns, so callers can distinguish
+ * "cell not provided" from "cell cleared".
  */
 export function mapPasteToColumns(
   pasteRows: string[][],
@@ -290,9 +365,10 @@ export function mapPasteToColumns(
 ): Record<string, string>[] {
   return pasteRows.map((row) => {
     const record: Record<string, string> = {}
-    targetColumns.forEach((col, i) => {
-      record[col] = i < row.length ? row[i] : ''
-    })
+    const width = Math.min(row.length, targetColumns.length)
+    for (let i = 0; i < width; i++) {
+      record[targetColumns[i]!] = row[i]!
+    }
     return record
   })
 }

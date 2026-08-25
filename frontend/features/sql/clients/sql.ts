@@ -1,12 +1,34 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { ConnectionPayload } from '../../_shared/services/tauriClient'
-
 import type {
   TableSchemaInfo,
   DropTableResult,
   CommitTableChangesPayload,
   CommitTableChangesResult,
 } from '../types/sql'
+
+/**
+ * Normalize a raw Tauri invocation failure into an `Error`.
+ *
+ * Backend commands return `Result<T, String>`, so rejections arrive as plain
+ * strings (occasionally objects). Converting once here gives every caller a
+ * consistent `err instanceof Error` contract without changing success types.
+ */
+async function invokeNormalized<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  try {
+    return await invoke<T>(cmd, args)
+  } catch (raw) {
+    if (raw instanceof Error) throw raw
+    if (typeof raw === 'string') throw new Error(raw, { cause: raw })
+    if (typeof raw === 'object' && raw !== null && 'message' in raw) {
+      const msg = raw.message // unknown after `in` — validate before use
+      throw new Error(typeof msg === 'string' ? msg : JSON.stringify(raw), {
+        cause: raw,
+      })
+    }
+    throw new Error(JSON.stringify(raw), { cause: raw })
+  }
+}
 
 export interface SqlQueryPayload {
   connection: ConnectionPayload
@@ -35,7 +57,7 @@ export async function testConnection(
 }
 
 export async function executeSql(payload: SqlQueryPayload) {
-  return invoke<QueryResult>('execute_sql', { payload })
+  return invokeNormalized<QueryResult>('execute_sql', { payload })
 }
 
 // ── Transaction Mode ───────────────────────────────────────────────
@@ -50,7 +72,7 @@ export interface TransactionStepResult {
 }
 
 export async function sqlBeginTransaction(payload: ConnectionPayload) {
-  return invoke<{ transactionId: string }>('sql_begin_transaction', {
+  return invokeNormalized<{ transactionId: string }>('sql_begin_transaction', {
     payload,
   })
 }
@@ -60,7 +82,7 @@ export async function sqlExecuteInTransaction(
   transactionId: string,
   sql: string,
 ) {
-  return invoke<TransactionStepResult>('sql_execute_in_transaction', {
+  return invokeNormalized<TransactionStepResult>('sql_execute_in_transaction', {
     payload,
     transactionId,
     sql,
@@ -71,7 +93,7 @@ export async function sqlCommitTransaction(
   payload: ConnectionPayload,
   transactionId: string,
 ) {
-  return invoke<{ committed: boolean; elapsedMs: number }>(
+  return invokeNormalized<{ committed: boolean; elapsedMs: number }>(
     'sql_commit_transaction',
     {
       payload,
@@ -84,7 +106,7 @@ export async function sqlRollbackTransaction(
   payload: ConnectionPayload,
   transactionId: string,
 ) {
-  return invoke<{ committed: boolean; elapsedMs: number }>(
+  return invokeNormalized<{ committed: boolean; elapsedMs: number }>(
     'sql_rollback_transaction',
     {
       payload,
@@ -104,7 +126,7 @@ export async function sqlGetTableSchema(
   payload: ConnectionPayload,
   tableName: string,
 ) {
-  return invoke<TableSchemaInfo>('sql_get_table_schema', {
+  return invokeNormalized<TableSchemaInfo>('sql_get_table_schema', {
     payload,
     tableName,
   })

@@ -9,6 +9,7 @@ import { useColumnResizer, calculateAutoColumnWidths } from './useColumnResizer'
 import {
   isPrimaryKeyColumn,
   buildRowId,
+  getRowKey,
   MIN_COLUMN_WIDTH,
   MAX_COLUMN_WIDTH,
   ROW_GUTTER_WIDTH,
@@ -33,7 +34,8 @@ interface UseTableColumnsProps {
   handleColumnFilterClick: (column: string) => void
   displayRows: TableRow[]
   editableColumnMetaMap: Record<string, EditableColumnMeta>
-  pkColumn: string | undefined
+  primaryKeyColumns: string[]
+  readOnly: boolean
 }
 
 interface UseTableColumnsReturn {
@@ -55,7 +57,8 @@ export function useTableColumns({
   handleColumnFilterClick,
   displayRows,
   editableColumnMetaMap,
-  pkColumn,
+  primaryKeyColumns,
+  readOnly,
 }: UseTableColumnsProps): UseTableColumnsReturn {
   // ── Column widths auto-calculation ──────────────────────────────────────
   const autoColumnWidths = useMemo(
@@ -215,15 +218,20 @@ export function useTableColumns({
             </div>
           )
         },
-        cell: (context) => (
-          <EditableCell
-            context={context}
-            columnMeta={editableColumnMetaMap[column]}
-            getRowId={(_row, index) =>
-              buildRowId(_row, index, tableName, pkColumn)
-            }
-          />
-        ),
+        cell: (context) => {
+          const rowKeyComplete =
+            getRowKey(context.row.original, primaryKeyColumns) !== null
+          return (
+            <EditableCell
+              context={context}
+              columnMeta={editableColumnMetaMap[column]}
+              readOnly={readOnly || (!context.row.original.__rowId && !rowKeyComplete)}
+              getRowId={(_row, index) =>
+                buildRowId(_row, index, tableName, primaryKeyColumns)
+              }
+            />
+          )
+        },
       })),
     [
       handleDoubleClick,
@@ -237,7 +245,8 @@ export function useTableColumns({
       tableColumnsMeta,
       editableColumnMetaMap,
       tableName,
-      pkColumn,
+      primaryKeyColumns,
+      readOnly,
       displayRows,
     ],
   )
@@ -246,7 +255,7 @@ export function useTableColumns({
     data: displayRows,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getRowId: (_row, index) => buildRowId(_row, index, tableName, pkColumn),
+    getRowId: (_row, index) => buildRowId(_row, index, tableName, primaryKeyColumns),
   })
 
   return {

@@ -9,7 +9,7 @@
  * and attached to the scroll container ref.
  */
 
-import { useCallback, useEffect, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import {
   useTableSelectionStore,
   type CellPosition,
@@ -44,6 +44,7 @@ export function useTableKeyboard({
   onEscape,
   onUndo,
   onRedo,
+  onCommit,
   onDelete,
   onCopy,
   onPaste,
@@ -280,6 +281,14 @@ export function useTableKeyboard({
         return
       }
 
+      // ── Meta/Ctrl+Enter → commit all pending changes ────────────
+      // Handled BEFORE plain Enter/F2 so it can never start editing.
+      if (isMeta && e.key === 'Enter') {
+        e.preventDefault()
+        onCommit?.()
+        return
+      }
+
       // ── Enter / F2 → enter edit mode ────────────────────────────
       if (e.key === 'Enter' || e.key === 'F2') {
         e.preventDefault()
@@ -328,6 +337,7 @@ export function useTableKeyboard({
       selectAll,
       selectSingle,
       clearSelection,
+      onCommit,
       onEnterEditMode,
       onEscape,
       onUndo,
@@ -338,13 +348,24 @@ export function useTableKeyboard({
     ],
   )
 
-  // Register on the container
+  // Keep the latest handler in a ref so the container listener binds once
+  // and reads fresh callbacks/state at dispatch time (no rebind per render).
+  const handleKeyDownRef = useRef(handleKeyDown)
+  useEffect(() => {
+    handleKeyDownRef.current = handleKeyDown
+  })
+
+  // Register on the container — stable listener for the hook's lifetime.
+  const stableListener = useCallback((e: KeyboardEvent) => {
+    handleKeyDownRef.current(e)
+  }, [])
+
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
-    el.addEventListener('keydown', handleKeyDown)
-    return () => el.removeEventListener('keydown', handleKeyDown)
-  }, [containerRef, handleKeyDown])
+    el.addEventListener('keydown', stableListener)
+    return () => el.removeEventListener('keydown', stableListener)
+  }, [containerRef, stableListener])
 }
 
 /** Scroll a cell into view within the container. */
