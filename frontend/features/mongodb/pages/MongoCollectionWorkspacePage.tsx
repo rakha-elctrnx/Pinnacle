@@ -8,7 +8,6 @@ import {
 } from 'react-router-dom'
 import {
   Cpu,
-  Database,
   Download,
   FileText,
   Folder,
@@ -47,7 +46,7 @@ export function MongoCollectionWorkspacePage() {
     collectionName: string
   }>()
   const location = useLocation()
-  const { payload, loading, error, connection } =
+  const { payload, loading, error } =
     useOutletContext<MongoLayoutOutletContext>()
   const [showExportModal, setShowExportModal] = useState(false)
 
@@ -72,31 +71,6 @@ export function MongoCollectionWorkspacePage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-bg-base text-text-primary">
-      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border-default bg-bg-subtle/50 px-3 py-2">
-        <div className="flex min-w-0 items-center gap-2 text-label text-text-secondary">
-          <Database className="h-4 w-4 shrink-0 text-success" />
-          <span className="truncate font-medium text-text-primary">
-            {connection.name}
-          </span>
-          <span aria-hidden="true" className="text-text-muted">
-            /
-          </span>
-          <span className="truncate">{databaseName}</span>
-          <span aria-hidden="true" className="text-text-muted">
-            /
-          </span>
-          <span className="truncate font-medium text-text-primary">
-            {collectionName}
-          </span>
-        </div>
-        <ActionButton
-          icon={<Download size={14} />}
-          aria-label="Export collection"
-          onClick={() => setShowExportModal(true)}
-          disabled={!payload}
-        />
-      </header>
-
       <nav
         aria-label="Collection sections"
         className="flex shrink-0 items-center overflow-x-auto border-b border-border-default bg-bg-base px-2"
@@ -118,6 +92,13 @@ export function MongoCollectionWorkspacePage() {
             {label}
           </NavLink>
         ))}
+        <ActionButton
+          className="ml-auto mr-1 shrink-0"
+          icon={<Download size={14} />}
+          aria-label="Export collection"
+          onClick={() => setShowExportModal(true)}
+          disabled={!payload}
+        />
       </nav>
 
       {error && (
