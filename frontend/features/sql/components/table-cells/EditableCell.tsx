@@ -17,12 +17,14 @@ import {
   type ChangeEvent,
 } from 'react'
 import type { CellContext } from '@tanstack/react-table'
-
+import { Calendar, ChevronLeft, ChevronRight, Eraser } from 'lucide-react'
 import {
   useTableEditStore,
   validateCellValue,
   normalizeCellValue,
   valuesEqual,
+  isTimestampColumn,
+  formatTimestampValue,
   type EditableColumnMeta,
 } from '../../store/tableEditStore'
 
@@ -43,31 +45,326 @@ function valueToDisplayString(val: unknown): string {
   return String(val)
 }
 
-// ── Timestamp formatting ─────────────────────────────────────────────
-
-const TIMESTAMP_TYPES = new Set([
-  'TIMESTAMP',
-  'TIMESTAMPTZ',
-  'DATETIME',
-  'DATE',
-  'TIME',
-  'TIME WITH TIME ZONE',
-])
-
-/**
- * Format a timestamp string without changing the wall-clock time it carries.
- * Normalizes the ISO `T` separator to a space, trims fractional seconds for
- * display, keeps the source date/time as-is (no UTC conversion), and keeps
- * any timezone suffix.
- */
-function formatTimestampValue(ts: string): string {
-  let out = ts.trim().replace('T', ' ')
-  // Trim fractional seconds (e.g. .123456) for display only.
-  out = out.replace(/(\s\d{2}:\d{2}:\d{2})\.\d+/, '$1')
-  return out
+function getPickerMode(
+  dataType: string | undefined,
+): 'date' | 'datetime' | 'time' {
+  if (!dataType) return 'datetime'
+  const dt = dataType.toUpperCase()
+  if (dt === 'DATE') return 'date'
+  if (dt === 'TIME' || dt === 'TIME WITH TIME ZONE') return 'time'
+  return 'datetime'
 }
 
-// ── Types ──────────────────────────────────────────────────────────
+const MONTH_LABELS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
+const WEEKDAY_LABELS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
+
+const YEAR_RANGE = 12
+const pad2 = (n: number): string => String(n).padStart(2, '0')
+
+const TIME_INPUT_CLASS = [
+  'w-full rounded-lg border border-border-default bg-bg-subtle px-2 py-1.5',
+  'text-caption font-mono tabular-nums text-text-primary outline-none transition-colors',
+  'focus:border-primary focus:ring-2 focus:ring-focus-ring',
+  '[&::-webkit-calendar-picker-indicator]:cursor-pointer',
+  '[&::-webkit-calendar-picker-indicator]:opacity-60',
+  'hover:[&::-webkit-calendar-picker-indicator]:opacity-100',
+  'dark:[&::-webkit-calendar-picker-indicator]:invert',
+].join(' ')
+
+/**
+ * MiniCalendar — custom month-grid picker styled with app tokens (the native
+ * browser calendar popup cannot be themed). `value` is the full cell
+ * timestamp; `onChange` receives an updated timestamp preserving
+ * time-of-day and timezone offset.
+ */
+function MiniCalendar({
+  mode,
+  value,
+  onChange,
+}: {
+  mode: 'date' | 'datetime' | 'time'
+  value: string
+  onChange: (ts: string) => void
+}) {
+  const now = new Date()
+
+  const dateMatch = /(\d{4})-(\d{2})-(\d{2})/.exec(value)
+  const selYear = dateMatch ? Number(dateMatch[1]) : now.getUTCFullYear()
+  const selMonth = dateMatch ? Number(dateMatch[2]) - 1 : now.getUTCMonth()
+  const selDay = dateMatch ? Number(dateMatch[3]) : 0
+
+  const timeMatch = /(\d{2}:\d{2})(?::\d{2})?/.exec(value)
+  const timeValue = timeMatch ? timeMatch[1] : ''
+
+  let tz = ' +00:00'
+  const tzMatch = value.match(/([+-]\d{2}:\d{2})$/)
+  if (tzMatch) tz = ` ${tzMatch[1]}`
+
+  // Sync the visible month with the selected date (render-time reset,
+  // same pattern as Dropdown's lastOpen).
+  const viewKey = `${selYear}-${selMonth}`
+  const [lastViewKey, setLastViewKey] = useState(viewKey)
+  const [viewYear, setViewYear] = useState(selYear)
+  const [viewMonth, setViewMonth] = useState(selMonth)
+  if (viewKey !== lastViewKey) {
+    setLastViewKey(viewKey)
+    setViewYear(selYear)
+    setViewMonth(selMonth)
+  }
+
+  const buildTs = (y: number, m: number, d: number): string => {
+    if (mode === 'date') return `${y}-${pad2(m + 1)}-${pad2(d)}`
+    const time = timeValue ? `${timeValue}:00` : '00:00:00'
+    return `${y}-${pad2(m + 1)}-${pad2(d)} ${time}.000000${tz}`
+  }
+
+  const onTimeChange = (t: string): void => {
+    if (!t) return
+    if (mode === 'time') {
+      onChange(t.length === 5 ? `${t}:00` : t)
+      return
+    }
+    const day =
+      dateMatch?.[0] ??
+      `${now.getUTCFullYear()}-${pad2(now.getUTCMonth() + 1)}-${pad2(now.getUTCDate())}`
+    onChange(`${day} ${t}:00.000000${tz}`)
+  }
+
+  if (mode === 'time') {
+    return (
+      <input
+        type="time"
+        value={timeValue}
+        onChange={(e) => onTimeChange(e.target.value)}
+        className={TIME_INPUT_CLASS}
+      />
+    )
+  }
+
+  const lead = (new Date(Date.UTC(viewYear, viewMonth, 1)).getUTCDay() + 6) % 7
+  const daysInMonth = new Date(
+    Date.UTC(viewYear, viewMonth + 1, 0),
+  ).getUTCDate()
+  const todayStr = `${now.getUTCFullYear()}-${pad2(now.getUTCMonth() + 1)}-${pad2(now.getUTCDate())}`
+
+  const stepMonth = (delta: number): void => {
+    const m = viewMonth + delta
+    if (m < 0) {
+      setViewMonth(11)
+      setViewYear(viewYear - 1)
+    } else if (m > 11) {
+      setViewMonth(0)
+      setViewYear(viewYear + 1)
+    } else {
+      setViewMonth(m)
+    }
+  }
+
+  return (
+    <div>
+      {/* Month/Year selector + navigation */}
+      <div className="mb-1 flex items-center gap-0.5">
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => stepMonth(-1)}
+          className="rounded-md p-1 text-text-muted transition-colors hover:bg-bg-muted hover:text-text-primary"
+          title="Bulan sebelumnya"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+        </button>
+
+        <select
+          tabIndex={-1}
+          value={viewMonth}
+          onChange={(e) => setViewMonth(Number(e.target.value))}
+          title="Pilih bulan"
+        >
+          {MONTH_LABELS.map((label, idx) => (
+            <option key={label} value={idx}>
+              {label}
+            </option>
+          ))}
+        </select>
+
+        <select
+          tabIndex={-1}
+          value={viewYear}
+          onChange={(e) => setViewYear(Number(e.target.value))}
+          className="w-16 shrink-0 cursor-pointer appearance-none rounded-md bg-transparent px-1 py-0.5 text-center text-caption font-medium tabular-nums text-text-primary outline-none transition-colors hover:bg-bg-muted focus-visible:ring-2 focus-visible:ring-focus-ring"
+          title="Pilih tahun"
+        >
+          {Array.from({ length: YEAR_RANGE }, (_, i) => selYear - YEAR_RANGE / 2 + i).map(
+            (y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ),
+          )}
+        </select>
+
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => stepMonth(1)}
+          className="rounded-md p-1 text-text-muted transition-colors hover:bg-bg-muted hover:text-text-primary"
+          title="Bulan berikutnya"
+        >
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {/* Weekday header */}
+      <div className="grid grid-cols-7">
+        {WEEKDAY_LABELS.map((d) => (
+          <span
+            key={d}
+            className="text-center text-micro font-medium text-text-muted"
+          >
+            {d}
+          </span>
+        ))}
+      </div>
+
+      {/* Day grid */}
+      <div className="mt-0.5 grid grid-cols-7">
+        {Array.from({ length: lead }).map((_, i) => (
+          <span key={`lead-${i}`} />
+        ))}
+        {Array.from({ length: daysInMonth }).map((_, i) => {
+          const day = i + 1
+          const isSelected =
+            day === selDay && viewYear === selYear && viewMonth === selMonth
+          const isToday =
+            `${viewYear}-${pad2(viewMonth + 1)}-${pad2(day)}` === todayStr
+          return (
+            <button
+              key={day}
+              type="button"
+              tabIndex={-1}
+              onClick={() => onChange(buildTs(viewYear, viewMonth, day))}
+              className={[
+                'mx-auto flex h-6 w-6 items-center justify-center rounded text-caption tabular-nums transition-colors',
+                isSelected
+                  ? 'bg-primary font-medium text-text-inverse'
+                  : isToday
+                    ? 'font-semibold text-primary hover:bg-bg-muted'
+                    : 'text-text-primary hover:bg-bg-muted',
+              ].join(' ')}
+            >
+              {day}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Time (datetime mode) */}
+      {mode === 'datetime' && (
+        <input
+          type="time"
+          value={timeValue}
+          onChange={(e) => onTimeChange(e.target.value)}
+          className={`${TIME_INPUT_CLASS} mt-2`}
+        />
+      )}
+    </div>
+  )
+}
+
+function getPresetTimestamp(
+  preset: 'now' | 'today',
+  currentValStr: string,
+  dataType: string | undefined,
+): string {
+  const now = new Date()
+  const targetDate = new Date(now)
+
+  if (preset === 'today') {
+    targetDate.setUTCHours(0, 0, 0, 0)
+  }
+
+  const dt = (dataType ?? '').toUpperCase()
+  if (dt === 'DATE') {
+    const y = targetDate.getUTCFullYear()
+    const m = String(targetDate.getUTCMonth() + 1).padStart(2, '0')
+    const d = String(targetDate.getUTCDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+
+  if (dt === 'TIME' || dt === 'TIME WITH TIME ZONE') {
+    const h = String(targetDate.getUTCHours()).padStart(2, '0')
+    const min = String(targetDate.getUTCMinutes()).padStart(2, '0')
+    const s = String(targetDate.getUTCSeconds()).padStart(2, '0')
+    return `${h}:${min}:${s}`
+  }
+
+  const year = targetDate.getUTCFullYear()
+  const month = String(targetDate.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(targetDate.getUTCDate()).padStart(2, '0')
+  const hours = String(targetDate.getUTCHours()).padStart(2, '0')
+  const mins = String(targetDate.getUTCMinutes()).padStart(2, '0')
+  const secs = String(targetDate.getUTCSeconds()).padStart(2, '0')
+
+  let tz = ' +00:00'
+  if (currentValStr) {
+    const tzMatch = currentValStr.match(/([+-]\d{2}:\d{2})$/)
+    if (tzMatch) {
+      tz = ` ${tzMatch[1]}`
+    }
+  }
+
+  return `${year}-${month}-${day} ${hours}:${mins}:${secs}.000000${tz}`
+}
+
+/**
+ * Shift the date component of a timestamp by `days` (negative = backward).
+ * Time-of-day and timezone are preserved; falls back to UTC now when the
+ * cell value is empty or unparseable.
+ */
+function shiftDateBy(
+  tsStr: string,
+  days: number,
+  dataType: string | undefined,
+): string {
+  const dt = (dataType ?? '').toUpperCase()
+  const base = /(\d{4})-(\d{2})-(\d{2})/.exec(tsStr)
+  const target = new Date()
+  if (base) {
+    target.setUTCFullYear(Number(base[1]), Number(base[2]) - 1, Number(base[3]))
+    target.setUTCHours(0, 0, 0, 0)
+  }
+
+  target.setUTCDate(target.getUTCDate() + days)
+
+  const y = target.getUTCFullYear()
+  const m = String(target.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(target.getUTCDate()).padStart(2, '0')
+
+  if (dt === 'DATE') return `${y}-${m}-${d}`
+
+  // Preserve the existing time-of-day and timezone from the original value.
+  const timeMatch = /(\d{2}:\d{2}:\d{2})(\.\d+)?/.exec(tsStr)
+  const time = timeMatch ? timeMatch[0] : '00:00:00.000000'
+  let tz = ' +00:00'
+  const tzMatch = tsStr.match(/([+-]\d{2}:\d{2})$/)
+  if (tzMatch) tz = ` ${tzMatch[1]}`
+
+  return `${y}-${m}-${d} ${time}${tz}`
+}
+
 
 type TableRow = Record<string, unknown>
 
@@ -98,7 +395,6 @@ function isBinaryColumn(dataType: string | undefined): boolean {
   const dt = dataType.toUpperCase()
   return BINARY_TYPES.has(dt) || dt.includes('BLOB') || dt.includes('BINARY')
 }
-
 export function EditableCell({
   context,
   columnMeta,
@@ -110,9 +406,7 @@ export function EditableCell({
   const rawValue = getValue()
   const displayValue = valueToDisplayString(rawValue)
   // Format timestamp values
-  const isTimestamp =
-    columnMeta?.dataType &&
-    TIMESTAMP_TYPES.has(columnMeta.dataType.toUpperCase())
+  const isTimestamp = isTimestampColumn(columnMeta?.dataType)
   const formattedValue =
     isTimestamp && rawValue
       ? formatTimestampValue(valueToDisplayString(rawValue))
@@ -139,7 +433,9 @@ export function EditableCell({
   const existingEdit = rowEdits?.find((e) => e.field === field)
   const stagedValue = existingEdit?.newValue
   const effectiveValue =
-    stagedValue !== undefined ? valueToDisplayString(stagedValue) : displayValue
+    stagedValue !== undefined
+      ? valueToDisplayString(stagedValue)
+      : formattedValue || displayValue
 
   // Restore grid focus to this cell after the editor closes. The view span
   // mounts on the next frame, so schedule after commit/cancel.
@@ -153,6 +449,7 @@ export function EditableCell({
   // ── Edit mode state ────────────────────────────────────────────────
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(effectiveValue)
+  const [showPicker, setShowPicker] = useState(false)
   const [validationError, setValidationError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement | HTMLSpanElement>(null)
@@ -173,6 +470,9 @@ export function EditableCell({
     setEditValue(effectiveValue)
     setValidationError(null)
     setIsEditing(true)
+    if (isTimestamp) {
+      setShowPicker(true)
+    }
   }
 
   // Listen for table:enter-edit custom event (dispatched by keyboard hook)
@@ -186,11 +486,13 @@ export function EditableCell({
       setEditValue(effectiveValue)
       setValidationError(null)
       setIsEditing(true)
+      if (isTimestamp) {
+        setShowPicker(true)
+      }
     }
     el.addEventListener('table:enter-edit', handler)
     return () => el.removeEventListener('table:enter-edit', handler)
-  }, [isDeleted, isBinary, readOnly, effectiveValue])
-
+  }, [isDeleted, isBinary, readOnly, effectiveValue, isTimestamp])
   // Validate, normalize, and commit edit
   const commitEdit = useCallback(() => {
     const normalized = normalizeCellValue(editValue, columnMeta)
@@ -209,6 +511,7 @@ export function EditableCell({
     }
 
     setIsEditing(false)
+    setShowPicker(false)
     setValidationError(null)
     restoreCellFocus()
   }, [
@@ -227,10 +530,10 @@ export function EditableCell({
   const cancelEdit = () => {
     setEditValue(effectiveValue)
     setIsEditing(false)
+    setShowPicker(false)
     setValidationError(null)
     restoreCellFocus()
   }
-
   // ── Handlers ───────────────────────────────────────────────────────
   const handleDoubleClick = () => {
     enterEditMode()
@@ -262,13 +565,33 @@ export function EditableCell({
     }
   }
 
-  const handleBlur = useCallback(() => {
-    // Commit on blur (clicking elsewhere saves the edit)
-    if (isEditing) {
-      commitEdit()
-    }
-  }, [isEditing, commitEdit])
+  const handleBlur = useCallback(
+    (e: React.FocusEvent) => {
+      // If focus moves inside container (picker or preset buttons), don't exit edit mode
+      if (containerRef.current?.contains(e.relatedTarget as Node)) {
+        return
+      }
+      if (isEditing) {
+        commitEdit()
+      }
+    },
+    [isEditing, commitEdit],
+  )
 
+  // Click outside to commit edit when timestamp picker is open
+  useEffect(() => {
+    if (!isEditing || !isTimestamp) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        commitEdit()
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isEditing, isTimestamp, commitEdit])
   // ── Global key handler when not editing ────────────────────────────
   const handleGlobalKeyDown = (e: KeyboardEvent<HTMLSpanElement>) => {
     if (isEditing) return
@@ -282,7 +605,7 @@ export function EditableCell({
   const isInvalid = validationError != null
 
   const cellClasses = [
-    'block min-w-0 truncate px-2 py-1.5',
+    'block min-w-0 truncate px-2 py-1.5 font-mono tabular-nums',
     isNull && !isEditing && !stagedValue
       ? 'italic text-text-muted'
       : 'text-text-primary',
@@ -294,10 +617,12 @@ export function EditableCell({
 
   // ── Rendered when editing ─────────────────────────────────────────
   if (isEditing) {
+    const pickerMode = getPickerMode(columnMeta?.dataType)
+
     return (
       <div
         ref={containerRef as React.RefObject<HTMLDivElement>}
-        className="relative"
+        className="relative flex items-center"
       >
         <input
           ref={inputRef}
@@ -307,7 +632,8 @@ export function EditableCell({
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
           className={[
-            'w-full px-2 py-1.5 text-text-primary outline-none',
+            'w-full px-2 py-1.5 font-mono tabular-nums text-text-primary outline-none',
+            isTimestamp ? 'pr-7' : '',
             'bg-bg-base border border-primary',
             isInvalid ? 'border-red-500 ring-1 ring-red-500' : '',
           ]
@@ -315,6 +641,112 @@ export function EditableCell({
             .join(' ')}
           data-cell-editing="true"
         />
+
+        {isTimestamp && (
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => setShowPicker((v) => !v)}
+            className={[
+              'absolute right-1 rounded p-1 transition-colors',
+              showPicker
+                ? 'bg-primary-subtle text-primary'
+                : 'text-text-muted hover:bg-bg-muted hover:text-primary',
+            ].join(' ')}
+            title="Toggle Date/Time Helper"
+          >
+            <Calendar className="h-3.5 w-3.5" />
+          </button>
+        )}
+
+        {isTimestamp && showPicker && (
+          <div
+            tabIndex={-1}
+            className="absolute left-0 top-full z-50 mt-1 w-56 origin-top-left overflow-hidden rounded-xl border border-border-default bg-bg-base p-2 shadow-xl backdrop-blur-sm animate-in fade-in zoom-in-95 duration-100"
+          >
+            {/* Custom calendar */}
+            <MiniCalendar
+              mode={pickerMode}
+              value={editValue}
+              onChange={(ts) => {
+                setEditValue(ts)
+                setValidationError(null)
+              }}
+            />
+
+            {/* Presets — single row */}
+            <div className="mt-1.5 flex items-center gap-1">
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => {
+                  setEditValue(
+                    getPresetTimestamp('now', editValue, columnMeta?.dataType),
+                  )
+                  setValidationError(null)
+                }}
+                className="flex-1 rounded-md bg-bg-subtle px-2 py-1 text-caption text-text-primary transition-colors hover:bg-primary-subtle hover:text-primary"
+              >
+                Now
+              </button>
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => {
+                  setEditValue(
+                    getPresetTimestamp('today', editValue, columnMeta?.dataType),
+                  )
+                  setValidationError(null)
+                }}
+                className="flex-1 rounded-md bg-bg-subtle px-2 py-1 text-caption text-text-primary transition-colors hover:bg-primary-subtle hover:text-primary"
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => {
+                  setEditValue(
+                    shiftDateBy(editValue, -1, columnMeta?.dataType),
+                  )
+                  setValidationError(null)
+                }}
+                className="rounded-md bg-bg-subtle p-1 text-text-muted transition-colors hover:bg-primary-subtle hover:text-primary"
+                title="Sebelumnya (-1 hari)"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => {
+                  setEditValue(shiftDateBy(editValue, +1, columnMeta?.dataType))
+                  setValidationError(null)
+                }}
+                className="rounded-md bg-bg-subtle p-1 text-text-muted transition-colors hover:bg-primary-subtle hover:text-primary"
+                title="Berikutnya (+1 hari)"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            {columnMeta?.isNullable && (
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => {
+                  setEditValue('')
+                  setValidationError(null)
+                }}
+                className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border-default px-2 py-1 text-caption text-text-muted transition-colors hover:border-danger hover:bg-danger-subtle hover:text-danger"
+              >
+                <Eraser className="h-3 w-3" />
+                <span>Set NULL</span>
+              </button>
+            )}
+          </div>
+        )}
+
         {validationError && (
           <div
             role="tooltip"
@@ -326,7 +758,6 @@ export function EditableCell({
       </div>
     )
   }
-
   // ── Rendered when viewing ─────────────────────────────────────────
   // Binary/BLOB columns are read-only — show a [binary] marker.
   if (isBinary) {
@@ -349,8 +780,7 @@ export function EditableCell({
   if (readOnly) {
     return (
       <span
-        className="block min-w-0 cursor-default truncate px-2 py-1.5 text-text-muted"
-        title={displayValue || undefined}
+        className="block min-w-0 cursor-default truncate px-2 py-1.5 font-mono tabular-nums text-text-muted"
         role="gridcell"
         aria-readonly="true"
         aria-label={`${field}: ${isNull ? 'NULL' : displayValue} (read-only)`}

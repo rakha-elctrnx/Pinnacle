@@ -269,6 +269,52 @@ function stableSerialize(value: unknown): string {
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableSerialize(v)}`).join(',')}}`
 }
 
+export const TIMESTAMP_TYPES = new Set([
+  'TIMESTAMP',
+  'TIMESTAMPTZ',
+  'DATETIME',
+  'DATE',
+  'TIME',
+  'TIME WITH TIME ZONE',
+])
+export function isTimestampColumn(dataType: string | undefined): boolean {
+  if (!dataType) return false
+  const dt = dataType.toUpperCase()
+  if (TIMESTAMP_TYPES.has(dt)) return true
+  return (
+    dt.includes('TIMESTAMP') ||
+    dt.includes('DATETIME') ||
+    dt.includes('DATE') ||
+    dt.includes('TIME')
+  )
+}
+/**
+ * Format a timestamp string without changing the wall-clock time it carries.
+ * Normalizes the ISO `T` separator to a space, preserves fractional seconds
+ * for display, keeps the source date/time as-is (no UTC conversion), and
+ * ensures a space before the numeric timezone offset.
+ */
+export function formatTimestampValue(ts: string): string {
+  const out = ts.trim()
+  // Normalize the ISO `T` separator (only in date-time position, e.g.
+  // 2026-08-21T08:15:00) to a space. A literal `T` inside a timezone name
+  // like "UTC" must be left alone.
+  let formatted = out.replace(/^(\d{4}-\d{2}-\d{2})T/, '$1 ')
+  // Ensure fractional seconds are padded to 6 digits (microseconds) if time is present
+  formatted = formatted.replace(
+    /(\d{2}:\d{2}:\d{2})(?:\.(\d+))?/,
+    (_, time, frac) => {
+      const padded = (frac || '').padEnd(6, '0').slice(0, 6)
+      return `${time}.${padded}`
+    },
+  )
+  // Ensure a space before a numeric timezone offset (e.g. +00:00, -05:00).
+  formatted = formatted.replace(/(\d)([+-]\d{2}:\d{2})$/, '$1 $2')
+  // PostgreSQL serializes UTC timestamptz as "... UTC"; render as "+00:00".
+  formatted = formatted.replace(/ UTC$/, ' +00:00')
+  return formatted
+}
+
 export function valuesEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true
 
@@ -288,6 +334,13 @@ export function valuesEqual(a: unknown, b: unknown): boolean {
     } catch {
       return false
     }
+  }
+
+  if (typeof a === 'string' && typeof b === 'string') {
+    if (a === b) return true
+    return (
+      formatTimestampValue(a as string) === formatTimestampValue(b as string)
+    )
   }
 
   // Strict primitives comparison — no String() coercion.

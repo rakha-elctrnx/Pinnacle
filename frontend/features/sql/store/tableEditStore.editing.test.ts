@@ -93,6 +93,33 @@ describe('valuesEqual', () => {
     expect(valuesEqual({ a: 1, b: [1, 2] }, { b: [1, 2], a: 1 })).toBe(true)
     expect(valuesEqual([1, 2], [2, 1])).toBe(false)
   })
+
+  it('treats equivalent timestamp representations as equal', () => {
+    expect(
+      valuesEqual(
+        '2026-08-21 08:15:00.843000 UTC',
+        '2026-08-21 08:15:00.843000 +00:00',
+      ),
+    ).toBe(true)
+    expect(
+      valuesEqual(
+        '2026-08-12 15:41:50.846 +00:00',
+        '2026-08-12 15:41:50.846000 +00:00',
+      ),
+    ).toBe(true)
+    expect(
+      valuesEqual(
+        '2026-08-21T08:15:00.843000+00:00',
+        '2026-08-21 08:15:00.843000 +00:00',
+      ),
+    ).toBe(true)
+    expect(
+      valuesEqual(
+        '2026-08-21 08:15:00.843000 UTC',
+        '2026-08-21 09:15:00.843000 UTC',
+      ),
+    ).toBe(false)
+  })
 })
 
 describe('stageEdit coalesceUndo', () => {

@@ -310,15 +310,15 @@ export function TableGrid({
                       data-cell-row={rowIndex}
                       data-cell-col={columnId}
                       className={[
-                        'overflow-hidden border-b border-r border-border-default p-0 select-none',
-                        stickyLeft == null ? '' : 'sticky z-10 bg-bg-base',
                         isActiveCellHere
-                          ? 'ring-2 ring-inset ring-primary z-5'
-                          : isSelectedCell
-                            ? 'bg-selection-bg'
-                            : isCellDirty && !isInsertedRow
-                              ? 'bg-yellow-100 dark:bg-yellow-900/25'
-                              : '',
+                          ? 'overflow-visible z-30 ring-2 ring-inset ring-primary'
+                          : 'overflow-hidden',
+                        'border-b border-r border-border-default p-0 select-none',
+                        stickyLeft == null ? '' : 'sticky z-10 bg-bg-base',
+                        isSelectedCell ? 'bg-selection-bg' : '',
+                        isCellDirty && !isInsertedRow && !isActiveCellHere
+                          ? 'bg-yellow-100 dark:bg-yellow-900/25'
+                          : '',
                         rowHasActiveCell && !isDeletedHere
                           ? 'text-primary'
                           : '',

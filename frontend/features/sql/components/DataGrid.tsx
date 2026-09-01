@@ -131,7 +131,7 @@ export function DataGrid({
               {columns.map((col) => (
                 <td
                   key={`${rowIndex}-${col}`}
-                  className="overflow-hidden border-b border-r border-border-default px-2 py-1 text-text-primary"
+                  className="overflow-hidden border-b border-r border-border-default px-2 py-1 font-mono tabular-nums text-text-primary"
                 >
                   <span className="block truncate">
                     {String(row[col] ?? '')}
