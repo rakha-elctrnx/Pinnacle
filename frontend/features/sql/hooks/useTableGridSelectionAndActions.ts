@@ -374,7 +374,7 @@ export function useTableGridSelectionAndActions({
 
   const handleContextSetToNull = useCallback(() => {
     if (primaryKeyColumns.length === 0) return
-    const rows = getSelectedRows()
+    const { rows, columns } = getSelectedGridData()
     if (rows.length === 0) return
     for (let ri = 0; ri < rows.length; ri++) {
       const idx = displayRows.indexOf(rows[ri])
@@ -382,16 +382,23 @@ export function useTableGridSelectionAndActions({
       // Rows without a usable key are read-only — skip silently.
       if (getRowKey(rows[ri], primaryKeyColumns) === null) continue
       const rowId = buildRowId(rows[ri], idx, tableName, primaryKeyColumns)
-      for (const col of realTableColumns) {
+      for (const col of columns) {
+        const meta = editableColumnMetaMap[col]
+        // Reject NOT NULL columns — the backend would throw the same error.
+        if (meta && !meta.isNullable) {
+          onToast?.({ kind: 'error', message: `Cannot set "${col}" to NULL — column is NOT NULL` })
+          continue
+        }
         stageEdit(rowId, col, rows[ri][col], null)
       }
     }
   }, [
-    getSelectedRows,
+    getSelectedGridData,
     displayRows,
-    realTableColumns,
     tableName,
     primaryKeyColumns,
+    editableColumnMetaMap,
+    onToast,
     stageEdit,
   ])
 

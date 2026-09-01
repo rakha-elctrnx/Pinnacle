@@ -1559,7 +1559,7 @@ async fn commit_table_changes_pg(
         let where_clause = build_key_where_clause(
             &payload.primary_key_columns,
             |col, n| format!("{}::text = ${}", quote_identifier_pg(col), n),
-            cols.len() - 1, // key placeholders continue after the SET binds
+            cols.len(), // key placeholders continue after the SET binds
         );
 
         let sql = format!(
@@ -1909,11 +1909,11 @@ mod tests {
         let clause = build_key_where_clause(
             &commit_payload().primary_key_columns,
             |col, n| format!("{}::text = ${}", quote_identifier_pg(col), n),
-            1, // two changed-value binds ($1, $2) precede the key binds
+            2, // two changed-value binds ($1, $2) precede the key binds
         );
         assert_eq!(
             clause,
-            r#""tenant_id"::text = $2 AND "item_id"::text = $3"#
+            r#""tenant_id"::text = $3 AND "item_id"::text = $4"#
         );
     }
 
