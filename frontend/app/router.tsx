@@ -14,7 +14,6 @@ import { IndicesPage } from '../features/elasticsearch/pages/IndicesPage'
 import { IndexDocumentsPage } from '../features/elasticsearch/pages/IndexDocumentsPage'
 import { QueryConsolePage } from '../features/elasticsearch/pages/QueryConsolePage'
 import { IndexMappingsPage } from '../features/elasticsearch/pages/IndexMappingsPage'
-import { NewConnectionPage } from '../features/_shared/pages/window'
 import { MongoLayout } from '../features/mongodb/layouts/MongoLayout'
 import { MongoConnectionWelcomePage } from '../features/mongodb/pages/MongoConnectionWelcomePage'
 import {
@@ -51,10 +50,6 @@ import { TableDesignerPage } from '../features/sql/pages/window/TableDesignerPag
  * prompts the user to create or select a connection from the sidebar.
  */
 export const router = createBrowserRouter([
-  {
-    path: '/new-connection',
-    element: <NewConnectionPage />,
-  },
   {
     path: '/table-designer',
     element: <TableDesignerPage />,

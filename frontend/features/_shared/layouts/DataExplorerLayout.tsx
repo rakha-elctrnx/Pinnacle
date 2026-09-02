@@ -45,13 +45,13 @@ import { DeleteTableModal } from '../../sql/components/shared/DeleteTableModal'
 import { DataOperationModal } from '../../sql/components/export/DataOperationModal'
 import { ExportDataModal } from '../../sql/components/export/ExportDataModal'
 import { executeSql } from '../../sql/clients/sql'
+import { ConnectionFormModal } from '../components/modals/ConnectionFormModal'
 import { DeleteConnectionModal } from '../components/modals/DeleteConnectionModal'
 import { getConnPayloadWithPassword, isSqlConnectionType } from '../utils'
 import {
   qualifyIdentifierForEngine,
   quoteIdentifierForEngine,
 } from '../../sql/logic/sqlIdentifier'
-import { openNewConnectionWindow } from '../services/newConnectionWindowService'
 import { buildPath, encodePathSegment } from '../utils/treeNavigation'
 
 /**
@@ -238,7 +238,6 @@ function DataExplorerLayoutChrome({
     contextMenu,
     contextMenuRef,
     isAddModalOpen,
-    connectionModalNonce,
     connectionStatuses,
     openCreateConnection,
     editingId,
@@ -481,91 +480,6 @@ function DataExplorerLayoutChrome({
       navigate,
     ],
   )
-  // explicit open actions (isAddModalOpen / connectionModalNonce) rather
-  // than on every orchestrator re-render.
-  const handleSaveRef = useRef(handleSaveConnection)
-  const handleCloseRef = useRef(handleCloseAddModal)
-  const itemsRef = useRef(items)
-  const editingIdRef = useRef(editingId)
-  const existingGroupsRef = useRef(existingGroups)
-  const foldersRef = useRef(folders)
-
-  // Track whether the connection window is currently open so the effect
-  // can guard against duplicate opens and always run its cleanup.
-  const windowOpenRef = useRef(false)
-  const cleanupRef = useRef<(() => void) | null>(null)
-
-  // Sync refs after every render so the window-open effect always uses
-  // fresh values without being listed as effect dependencies.
-  useEffect(() => {
-    handleSaveRef.current = handleSaveConnection
-    handleCloseRef.current = handleCloseAddModal
-    itemsRef.current = items
-    editingIdRef.current = editingId
-    existingGroupsRef.current = existingGroups
-    foldersRef.current = folders
-  })
-
-  // New connection window bridge — opens native OS window when modal state changes.
-  // Uses a ref-based guard so the window is only opened once per action, and a
-  // synchronous cleanup ref so previous listeners are always torn down before
-  // new ones are registered (avoids the async `.then()` race condition).
-  useEffect(() => {
-    if (!isAddModalOpen) return
-    if (windowOpenRef.current) return
-    windowOpenRef.current = true
-
-    // Tear down any lingering listeners from a previous invocation before
-    // opening the window again.
-    cleanupRef.current?.()
-    cleanupRef.current = null
-
-    const currentEditingId = editingIdRef.current
-    const currentItems = itemsRef.current
-    const existingProfile = currentEditingId
-      ? (currentItems.find((p) => p.id === currentEditingId) ?? null)
-      : null
-
-    const resetWindow = () => {
-      windowOpenRef.current = false
-      cleanupRef.current = null
-    }
-
-    openNewConnectionWindow(
-      {
-        editingId: currentEditingId,
-        existingProfile,
-        existingGroups: existingGroupsRef.current,
-        folders: foldersRef.current,
-        theme:
-          (document.documentElement.getAttribute('data-theme') as
-            | 'light'
-            | 'dark') || 'light',
-      },
-      (profile, password, sshPassword, keyPassphrase) => {
-        resetWindow()
-        handleSaveRef.current(profile, password, sshPassword, keyPassphrase)
-        handleCloseRef.current()
-      },
-      () => {
-        resetWindow()
-        handleCloseRef.current()
-      },
-    ).then((fn) => {
-      // Only store cleanup if we're still the active open session —
-      // a fast re-open may have already moved on.
-      if (windowOpenRef.current) {
-        cleanupRef.current = fn
-      } else {
-        fn()
-      }
-    })
-
-    return () => {
-      cleanupRef.current?.()
-      resetWindow()
-    }
-  }, [isAddModalOpen, connectionModalNonce])
   const handleOpenDesignerForEdit = async (
     connectionId: string,
     tableName: string,
@@ -1518,6 +1432,18 @@ function DataExplorerLayoutChrome({
         </div>
       )}
 
+      {isAddModalOpen && (
+        <ConnectionFormModal
+          editingId={editingId}
+          existingProfile={
+            editingId ? (items.find((p) => p.id === editingId) ?? null) : null
+          }
+          existingGroups={existingGroups}
+          folders={folders}
+          onSave={handleSaveConnection}
+          onClose={handleCloseAddModal}
+        />
+      )}
       {deleteConnectionTarget && (
         <DeleteConnectionModal
           connectionId={deleteConnectionTarget.id}

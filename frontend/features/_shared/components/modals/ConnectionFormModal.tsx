@@ -6,15 +6,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Database,
+  FolderOpen,
   Loader2,
   Plug,
   Plus,
-  Shield,
   Settings,
+  Shield,
   X,
 } from 'lucide-react'
-import { useState, useMemo, useRef, useEffect } from 'react'
-import { FolderOpen } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   ConnectionProfile,
   ConnectionType,
@@ -42,6 +42,7 @@ interface FieldError {
   port?: string
   database?: string
   name?: string
+  workspace?: string
 }
 
 interface ConnectionFormProps {
@@ -69,6 +70,7 @@ export function ConnectionFormModal({
   embedded = false,
 }: ConnectionFormProps) {
   const [step, setStep] = useState<ConnectionStep>(1)
+  const [detailTab, setDetailTab] = useState<'general' | 'advanced'>('general')
   const [newType, setNewType] = useState<ConnectionType>(
     existingProfile?.type ?? 'postgresql',
   )
@@ -96,10 +98,13 @@ export function ConnectionFormModal({
     existingProfile?.sslConfig?.clientKeyPath ?? '',
   )
   const [newSsl, setNewSsl] = useState(existingProfile?.ssl ?? false)
-  const [newFolderId, setNewFolderId] = useState<string | null>(
-    existingProfile?.folderId ?? null,
-  )
-  const [newGroup, setNewGroup] = useState(existingProfile?.tags[0] ?? '')
+  const [newWorkspace, setNewWorkspace] = useState(() => {
+    if (existingProfile?.folderId) {
+      const f = folders.find((folder) => folder.id === existingProfile.folderId)
+      if (f) return f.name
+    }
+    return existingProfile?.tags[0] ?? ''
+  })
   const [groupDropdownOpen, setGroupDropdownOpen] = useState(false)
   const groupInputRef = useRef<HTMLInputElement>(null)
   const groupDropdownRef = useRef<HTMLDivElement>(null)
@@ -155,17 +160,24 @@ export function ConnectionFormModal({
   }, [])
 
   // Filtered groups for the dropdown (unique, non-empty, matching input)
-  const filteredGroups = useMemo(() => {
-    const query = newGroup.trim().toLowerCase()
-    const unique = [...new Set(existingGroups.filter(Boolean))]
-    if (!query) return unique
-    return unique.filter((g) => g.toLowerCase().includes(query))
-  }, [existingGroups, newGroup])
+  // Workspaces list combining existing folders and tags
+  const existingWorkspaces = useMemo(() => {
+    const folderNames = folders.map((f) => f.name)
+    return [...new Set([...folderNames, ...existingGroups])].filter(Boolean)
+  }, [folders, existingGroups])
 
-  const isNewGroupValue =
-    newGroup.trim() !== '' && !existingGroups.includes(newGroup.trim())
+  const filteredWorkspaces = useMemo(() => {
+    const query = newWorkspace.trim().toLowerCase()
+    if (!query) return existingWorkspaces
+    return existingWorkspaces.filter((w) => w.toLowerCase().includes(query))
+  }, [existingWorkspaces, newWorkspace])
 
-  // Inline validation for step 2 fields
+  const isNewWorkspaceValue =
+    newWorkspace.trim() !== '' &&
+    !existingWorkspaces.some(
+      (w) => w.toLowerCase() === newWorkspace.trim().toLowerCase(),
+    )
+  // Inline validation for step 2 fields.
   const validateFields = useMemo(() => {
     const errors: FieldError = {}
     if (step === 2) {
@@ -192,9 +204,12 @@ export function ConnectionFormModal({
       } else if (newInitialDatabase.trim() === '') {
         errors.database = 'Database is required'
       }
+      if (newWorkspace.trim() === '') {
+        errors.workspace = 'Workspace is required'
+      }
     }
     return errors
-  }, [step, newType, newHost, newPort, newInitialDatabase])
+  }, [step, newType, newHost, newPort, newInitialDatabase, newWorkspace])
 
   const isTestPassed = testConnectionResult?.kind === 'success'
   const isSqlType = isSqlConnectionType(newType)
@@ -224,9 +239,9 @@ export function ConnectionFormModal({
       : isSqlType
         ? newSslMode !== 'disable'
         : newSsl
-
   const resetForm = () => {
     setStep(1)
+    setDetailTab('general')
     setNewType('postgresql')
     setNewName('')
     setNewHost('localhost')
@@ -236,10 +251,8 @@ export function ConnectionFormModal({
     setNewPassword('')
     setNewSsl(false)
     setNewSslMode('prefer')
-    setNewCaCertPath('')
-    setNewClientCertPath('')
+    setNewWorkspace('')
     setNewClientKeyPath('')
-    setNewGroup('')
     setGroupDropdownOpen(false)
     setIsTestingConnection(false)
     setTestConnectionResult(null)
@@ -396,8 +409,11 @@ export function ConnectionFormModal({
     const now = new Date().toISOString()
     const parsedPort = Number(newPort)
     const savedId = editingId ?? crypto.randomUUID()
-    const group = newGroup.trim()
-
+    const workspaceName = newWorkspace.trim()
+    const matchedFolder = folders.find(
+      (f) => f.name.toLowerCase() === workspaceName.toLowerCase(),
+    )
+    const folderId = matchedFolder ? matchedFolder.id : null
     const sshConfig = sshEnabled
       ? {
           host: sshHost.trim(),
@@ -430,8 +446,8 @@ export function ConnectionFormModal({
           ? Number(statementTimeoutSecs) * 1000
           : undefined,
         passwordRef: newPassword.length > 0 ? `keyring://${savedId}` : '',
-        tags: group ? [group] : [],
-        folderId: newFolderId,
+        tags: workspaceName ? [workspaceName] : [],
+        folderId,
         favorite: existingProfile?.favorite ?? false,
         createdAt: existingProfile?.createdAt ?? now,
         updatedAt: now,
@@ -447,75 +463,46 @@ export function ConnectionFormModal({
   const selectedOption = databaseTypeOptions.find((o) => o.value === newType)
 
   const inputClasses =
-    'w-full rounded-lg border border-outline-variant bg-surface px-3 py-2.5 text-body text-on-surface placeholder:text-on-surface/50 outline-none transition focus:border-outline focus:ring-2 focus:ring-primary/50'
+    'w-full rounded-lg border border-border-default bg-bg-base px-3 py-2 text-body text-text-primary placeholder:text-text-muted outline-none transition focus:border-border-focus focus:ring-2 focus:ring-focus-ring'
 
   const inputErrorClasses =
-    'w-full rounded-lg border border-red-300 bg-white px-3 py-2.5 text-body text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100'
+    'w-full rounded-lg border border-border-danger bg-bg-base px-3 py-2 text-body text-text-primary placeholder:text-text-muted outline-none transition focus:border-border-danger focus:ring-2 focus:ring-danger-ring'
 
   const content = (
     <section
       className={
         embedded
-          ? 'w-full h-full overflow-hidden bg-surface'
-          : 'w-full max-w-lg overflow-hidden rounded-2xl bg-surface shadow-2xl ring-1 ring-black/5'
+          ? 'flex flex-col w-full h-full overflow-hidden bg-bg-base text-text-primary'
+          : 'flex flex-col w-full max-w-lg max-h-[90vh] overflow-hidden rounded-2xl bg-bg-base border border-border-default text-text-primary shadow-2xl ring-1 ring-black/5'
       }
     >
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-outline-variant px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-surface/40 border border-outline-variant text-primary">
-            <Database size={18} />
+      <header data-tauri-drag-region className="flex shrink-0 items-center justify-between border-b border-border-default px-5 py-3.5">
+        <div data-tauri-drag-region className="flex items-center gap-2.5">
+          <div className="grid h-8 w-8 place-items-center rounded-lg bg-bg-subtle border border-border-default text-primary">
+            <Database size={16} />
           </div>
           <div>
-            <h3 className="text-heading text-on-surface">
+            <h3 className="text-subheading font-semibold text-text-primary">
               {editingId ? 'Edit Connection' : 'New Connection'}
             </h3>
-            <p className="text-caption text-on-surface/70">Step {step} of 2</p>
           </div>
         </div>
         <button
           type="button"
           onClick={handleClose}
-          className="cursor-pointer rounded-lg p-1.5 text-on-surface/70 transition hover:bg-surface/40 hover:text-on-surface"
+          className="cursor-pointer rounded-lg p-1 text-text-muted transition hover:bg-bg-hover hover:text-text-primary"
         >
           <X size={16} />
         </button>
       </header>
-
-      {/* Step Indicator */}
-      <div className="flex items-center gap-2 px-6 pt-4">
-        <div
-          className={`flex items-center gap-1.5 text-label ${step >= 1 ? 'text-primary-container' : 'text-on-surface/70'}`}
-        >
-          <span
-            className={`flex h-5 w-5 items-center justify-center rounded-full text-micro ${step >= 1 ? 'bg-primary-container text-on-primary-container' : 'bg-surface-variant text-on-surface-variant'}`}
-          >
-            1
-          </span>
-          Database Type
-        </div>
-        <div
-          className={`h-px flex-1 ${step >= 2 ? 'bg-primary-container' : 'bg-surface-variant'}`}
-        />
-        <div
-          className={`flex items-center gap-1.5 text-label ${step >= 2 ? 'text-primary-container' : 'text-on-surface/70'}`}
-        >
-          <span
-            className={`flex h-5 w-5 items-center justify-center rounded-full text-micro ${step >= 2 ? 'bg-primary-container text-on-primary-container' : 'bg-surface-variant text-on-surface-variant'}`}
-          >
-            2
-          </span>
-          Connection Details
-        </div>
-      </div>
-
       {/* Step 1: Select Database Type */}
       {step === 1 && (
-        <div className="px-6 py-5">
-          <p className="mb-4 text-body text-on-surface/70">
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-5 py-4">
+          <p className="mb-3 text-caption text-text-muted">
             Choose the database you want to connect to.
           </p>
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-2 gap-2">
             {databaseTypeOptions.map((option) => {
               const active = option.value === newType
               return (
@@ -524,39 +511,39 @@ export function ConnectionFormModal({
                   type="button"
                   onClick={() => handleChangeType(option.value)}
                   className={[
-                    'group flex items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-all',
+                    'group flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-all cursor-pointer',
                     active
-                      ? 'border-primary-container bg-primary-container/80 shadow-sm ring-1 ring-primary-container'
-                      : 'border-surface-variant hover:border-surface-variant hover:bg-surface-variant',
+                      ? 'border-border-focus bg-primary-subtle shadow-xs ring-1 ring-border-focus'
+                      : 'border-border-default bg-bg-base hover:border-border-strong hover:bg-bg-subtle',
                   ].join(' ')}
                 >
                   <span
-                    className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg transition ${
+                    className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg transition ${
                       active
-                        ? 'bg-blue-100/80 shadow-sm'
-                        : 'bg-surface-variant/60 group-hover:bg-surface-container-low'
+                        ? 'bg-primary/10 text-primary shadow-xs'
+                        : 'bg-bg-subtle text-text-secondary group-hover:bg-bg-muted'
                     }`}
                   >
                     {(() => {
                       const Icon = option.Icon
-                      return <Icon size={28} />
+                      return <Icon size={22} />
                     })()}
                   </span>
-                  <span className="min-w-0">
+                  <span className="min-w-0 flex-1">
                     <span
-                      className={`block text-subheading ${active ? 'text-on-primary-container' : 'text-on-surface/70'}`}
+                      className={`block text-label font-medium ${active ? 'text-primary font-semibold' : 'text-text-primary'}`}
                     >
                       {option.label}
                     </span>
-                    <span className="block text-caption text-on-surface/70">
+                    <span className="block text-micro text-text-muted truncate">
                       {option.hint}
                     </span>
                   </span>
                   {active && (
-                    <span className="ml-auto grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary">
+                    <span className="ml-auto grid h-4.5 w-4.5 shrink-0 place-items-center rounded-full bg-primary">
                       <Check
-                        size={12}
-                        className="text-on-primary"
+                        size={11}
+                        className="text-text-inverse"
                         strokeWidth={3}
                       />
                     </span>
@@ -570,253 +557,302 @@ export function ConnectionFormModal({
 
       {/* Step 2: Connection Details + Test */}
       {step === 2 && (
-        <div className="px-6 py-5">
-          {/* Selected type badge */}
-          <div className="mb-4 flex items-center gap-2">
-            <span className="grid h-7 w-7 place-items-center rounded-md border border-surface-variant bg-surface-variant">
-              {selectedOption &&
-                (() => {
-                  const Icon = selectedOption.Icon
-                  return <Icon size={16} />
-                })()}
-            </span>
-            <span className="text-subheading text-on-surface">
-              {selectedOption?.label}
-            </span>
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-5 py-4">
+          {/* Contextual selected type row */}
+          <div className="mb-3 flex items-center justify-between rounded-lg border border-border-default bg-bg-subtle px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="grid h-6 w-6 place-items-center rounded bg-bg-base border border-border-default text-primary">
+                {selectedOption &&
+                  (() => {
+                    const Icon = selectedOption.Icon
+                    return <Icon size={14} />
+                  })()}
+              </span>
+              <span className="text-label font-medium text-text-primary">
+                {selectedOption?.label}
+              </span>
+            </div>
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="ml-auto text-label text-primary-container hover:text-primary cursor-pointer hover:underline"
+              className="text-caption text-primary hover:underline cursor-pointer font-medium"
             >
               Change
             </button>
           </div>
-
+          {/* Navigation Tabs (General vs Advance) */}
+          <div className="mb-3 flex border-b border-border-default">
+            <button
+              type="button"
+              onClick={() => setDetailTab('general')}
+              className={`pb-2 px-3 text-label font-medium border-b-2 transition-colors cursor-pointer ${
+                detailTab === 'general'
+                  ? 'border-primary text-primary font-semibold'
+                  : 'border-transparent text-text-muted hover:text-text-secondary'
+              }`}
+            >
+              General
+            </button>
+            <button
+              type="button"
+              onClick={() => setDetailTab('advanced')}
+              className={`pb-2 px-3 text-label font-medium border-b-2 transition-colors cursor-pointer ${
+                detailTab === 'advanced'
+                  ? 'border-primary text-primary font-semibold'
+                  : 'border-transparent text-text-muted hover:text-text-secondary'
+              }`}
+            >
+              Advanced
+            </button>
+          </div>
           <div className="space-y-3">
-            {/* Name */}
-            <div>
-              <input
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="Connection name"
-                className={fieldErrors.name ? inputErrorClasses : inputClasses}
-              />
-              {fieldErrors.name && (
-                <p className="mt-1 flex items-center gap-1 text-caption text-red-500">
-                  <AlertTriangle size={11} />
-                  {fieldErrors.name}
-                </p>
-              )}
-            </div>
-
-            {/* Host & Port — skipped for SQLite */}
-            {newType !== 'sqlite' && (
-              <div className="flex gap-2">
-                <div className="w-2/3">
+            {detailTab === 'general' ? (
+              <>
+                {/* Name */}
+                <div>
+                  <label className="mb-1 block text-caption text-text-secondary font-medium">
+                    Connection Name <span className="text-danger">*</span>
+                  </label>
                   <input
-                    value={newHost}
-                    onChange={(e) => setNewHost(e.target.value)}
-                    placeholder="Host"
-                    className={
-                      fieldErrors.host
-                        ? `${inputErrorClasses} w-full`
-                        : `${inputClasses} w-full`
-                    }
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    className={fieldErrors.name ? inputErrorClasses : inputClasses}
                   />
-                  {fieldErrors.host && (
-                    <p className="mt-1 flex items-center gap-1 text-caption text-red-500">
+                  {fieldErrors.name && (
+                    <p className="mt-1 flex items-center gap-1 text-caption text-danger">
                       <AlertTriangle size={11} />
-                      {fieldErrors.host}
+                      {fieldErrors.name}
                     </p>
                   )}
                 </div>
-                <div className="w-1/3">
-                  <input
-                    value={newPort}
-                    onChange={(e) => setNewPort(e.target.value)}
-                    placeholder="Port"
-                    className={
-                      fieldErrors.port
-                        ? `${inputErrorClasses} w-full`
-                        : `${inputClasses} w-full`
-                    }
-                  />
-                  {fieldErrors.port && (
-                    <p className="mt-1 flex items-center gap-1 text-caption text-red-500">
-                      <AlertTriangle size={11} />
-                      {fieldErrors.port}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
 
-            {/* Database — "File path" for SQLite with file picker */}
-            <div>
-              <div className="flex gap-2">
-                <input
-                  value={newInitialDatabase}
-                  onChange={(e) => setNewInitialDatabase(e.target.value)}
-                  placeholder={newType === 'sqlite' ? 'File path' : 'Database'}
-                  className={
-                    fieldErrors.database ? inputErrorClasses : inputClasses
-                  }
-                />
-                {newType === 'sqlite' && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const selected = await openDialog({
-                        title: 'Select SQLite database file',
-                        multiple: false,
-                        directory: false,
-                        filters: [
-                          {
-                            name: 'SQLite',
-                            extensions: ['sqlite', 'db', 'sqlite3'],
-                          },
-                          { name: 'All files', extensions: ['*'] },
-                        ],
-                      })
-                      if (typeof selected === 'string') {
-                        setNewInitialDatabase(selected)
-                      }
-                    }}
-                    className="shrink-0 inline-flex items-center justify-center rounded-lg border border-outline-variant bg-surface-variant px-3 py-2.5 text-on-surface transition hover:bg-surface-container-low"
-                    title="Browse for SQLite file"
-                  >
-                    <FolderOpen size={16} />
-                  </button>
-                )}
-              </div>
-              {fieldErrors.database && (
-                <p className="mt-1 flex items-center gap-1 text-caption text-red-500">
-                  <AlertTriangle size={11} />
-                  {fieldErrors.database}
-                </p>
-              )}
-            </div>
-
-            {/* Username & Password — skipped for SQLite */}
-            {newType !== 'sqlite' && (
-              <div className="flex gap-2">
-                <input
-                  value={newUser}
-                  onChange={(e) => setNewUser(e.target.value)}
-                  placeholder="Username"
-                  className={`${inputClasses} flex-1`}
-                />
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Password"
-                  className={`${inputClasses} flex-1`}
-                />
-              </div>
-            )}
-
-            {/* Folder selector */}
-            <div className="flex items-center gap-3">
-              <select
-                value={newFolderId ?? ''}
-                onChange={(e) => setNewFolderId(e.target.value || null)}
-                className={`${inputClasses} flex-1`}
-                title="Folder"
-              >
-                <option value="">No folder (ungrouped)</option>
-                {folders.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Group & SSL */}
-            <div className="flex items-center gap-3">
-              <div className="relative flex-1" ref={groupDropdownRef}>
-                <input
-                  ref={groupInputRef}
-                  value={newGroup}
-                  onChange={(e) => {
-                    setNewGroup(e.target.value)
-                    setGroupDropdownOpen(true)
-                  }}
-                  onFocus={() => setGroupDropdownOpen(true)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') {
-                      setGroupDropdownOpen(false)
-                    }
-                  }}
-                  placeholder="Group"
-                  className={`${inputClasses} pr-8`}
-                  autoComplete="off"
-                />
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => {
-                    setGroupDropdownOpen((prev) => !prev)
-                    if (!groupDropdownOpen) groupInputRef.current?.focus()
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <ChevronDown
-                    size={14}
-                    className={`transition-transform ${groupDropdownOpen ? 'rotate-180' : ''}`}
-                  />
-                </button>
-                {groupDropdownOpen &&
-                  (filteredGroups.length > 0 || isNewGroupValue) && (
-                    <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-40 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-                      {filteredGroups.map((group) => (
-                        <button
-                          key={group}
-                          type="button"
-                          onMouseDown={(e) => {
-                            e.preventDefault()
-                            setNewGroup(group)
-                            setGroupDropdownOpen(false)
-                          }}
-                          className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-body transition hover:bg-blue-50 ${
-                            group === newGroup
-                              ? 'bg-blue-50 text-blue-700'
-                              : 'text-slate-700'
-                          }`}
-                        >
-                          <span className="truncate">{group}</span>
-                          {group === newGroup && (
-                            <Check
-                              size={12}
-                              className="ml-auto shrink-0 text-blue-600"
-                            />
-                          )}
-                        </button>
-                      ))}
-                      {isNewGroupValue && (
-                        <button
-                          type="button"
-                          onMouseDown={(e) => {
-                            e.preventDefault()
-                            setGroupDropdownOpen(false)
-                          }}
-                          className="flex w-full items-center gap-2 border-t border-slate-100 px-3 py-1.5 text-left text-body text-blue-600 transition hover:bg-blue-50"
-                        >
-                          <Plus size={12} className="shrink-0" />
-                          <span className="truncate">
-                            Create "{newGroup.trim()}"
-                          </span>
-                        </button>
+                {/* Host & Port — skipped for SQLite */}
+                {newType !== 'sqlite' && (
+                  <div className="flex gap-2">
+                    <div className="w-2/3">
+                      <label className="mb-1 block text-caption text-text-secondary font-medium">
+                        Host <span className="text-danger">*</span>
+                      </label>
+                      <input
+                        value={newHost}
+                        onChange={(e) => setNewHost(e.target.value)}
+                        className={
+                          fieldErrors.host
+                            ? `${inputErrorClasses} w-full`
+                            : `${inputClasses} w-full`
+                        }
+                      />
+                      {fieldErrors.host && (
+                        <p className="mt-1 flex items-center gap-1 text-caption text-danger">
+                          <AlertTriangle size={11} />
+                          {fieldErrors.host}
+                        </p>
                       )}
                     </div>
+                    <div className="w-1/3">
+                      <label className="mb-1 block text-caption text-text-secondary font-medium">
+                        Port <span className="text-danger">*</span>
+                      </label>
+                      <input
+                        value={newPort}
+                        onChange={(e) => setNewPort(e.target.value)}
+                        className={
+                          fieldErrors.port
+                            ? `${inputErrorClasses} w-full`
+                            : `${inputClasses} w-full`
+                        }
+                      />
+                      {fieldErrors.port && (
+                        <p className="mt-1 flex items-center gap-1 text-caption text-danger">
+                          <AlertTriangle size={11} />
+                          {fieldErrors.port}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Database — "File Path" for SQLite with file picker */}
+                <div>
+                  <label className="mb-1 block text-caption text-text-secondary font-medium">
+                    {newType === 'sqlite' ? 'File Path' : 'Database'}{' '}
+                    <span className="text-danger">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      value={newInitialDatabase}
+                      onChange={(e) => setNewInitialDatabase(e.target.value)}
+                      className={
+                        fieldErrors.database ? inputErrorClasses : inputClasses
+                      }
+                    />
+                    {newType === 'sqlite' && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const selected = await openDialog({
+                            title: 'Select SQLite database file',
+                            multiple: false,
+                            directory: false,
+                            filters: [
+                              {
+                                name: 'SQLite',
+                                extensions: ['sqlite', 'db', 'sqlite3'],
+                              },
+                              { name: 'All files', extensions: ['*'] },
+                            ],
+                          })
+                          if (typeof selected === 'string') {
+                            setNewInitialDatabase(selected)
+                          }
+                        }}
+                        className="shrink-0 inline-flex items-center justify-center rounded-lg border border-border-default bg-bg-subtle px-3 py-2 text-text-primary transition hover:bg-bg-hover cursor-pointer"
+                        title="Browse for SQLite file"
+                      >
+                        <FolderOpen size={16} />
+                      </button>
+                    )}
+                  </div>
+                  {fieldErrors.database && (
+                    <p className="mt-1 flex items-center gap-1 text-caption text-danger">
+                      <AlertTriangle size={11} />
+                      {fieldErrors.database}
+                    </p>
                   )}
-              </div>
+                </div>
+
+                {/* Username & Password — skipped for SQLite */}
+                {newType !== 'sqlite' && (
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="mb-1 block text-caption text-text-secondary font-medium">
+                        Username
+                      </label>
+                      <input
+                        value={newUser}
+                        onChange={(e) => setNewUser(e.target.value)}
+                        className={inputClasses}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="mb-1 block text-caption text-text-secondary font-medium">
+                        Password
+                      </label>
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className={inputClasses}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Workspace section (Single select/tag style) */}
+                <div>
+                  <label className="mb-1 block text-caption text-text-secondary font-medium">
+                    Workspace <span className="text-danger">*</span>
+                  </label>
+                  <div className="relative" ref={groupDropdownRef}>
+                    <input
+                      ref={groupInputRef}
+                      value={newWorkspace}
+                      onChange={(e) => {
+                        setNewWorkspace(e.target.value)
+                        setGroupDropdownOpen(true)
+                      }}
+                      onFocus={() => setGroupDropdownOpen(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          setGroupDropdownOpen(false)
+                        }
+                      }}
+                      className={
+                        fieldErrors.workspace
+                          ? `${inputErrorClasses} pr-8`
+                          : `${inputClasses} pr-8`
+                      }
+                      autoComplete="off"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGroupDropdownOpen((prev) => !prev)
+                        if (!groupDropdownOpen) groupInputRef.current?.focus()
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary cursor-pointer"
+                    >
+                      <ChevronDown
+                        size={14}
+                        className={`transition-transform ${groupDropdownOpen ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+                    {groupDropdownOpen &&
+                      (filteredWorkspaces.length > 0 || isNewWorkspaceValue) && (
+                        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-40 overflow-auto rounded-lg border border-border-default bg-bg-base py-1 shadow-lg backdrop-blur-sm">
+                          {filteredWorkspaces.map((ws) => (
+                            <button
+                              key={ws}
+                              type="button"
+                              onMouseDown={(e) => {
+                                e.preventDefault()
+                                setNewWorkspace(ws)
+                                setGroupDropdownOpen(false)
+                              }}
+                              className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-body transition hover:bg-bg-hover ${
+                                ws === newWorkspace
+                                  ? 'bg-primary-subtle text-primary font-medium'
+                                  : 'text-text-primary'
+                              }`}
+                            >
+                              <span className="truncate">{ws}</span>
+                              {ws === newWorkspace && (
+                                <Check
+                                  size={12}
+                                  className="ml-auto shrink-0 text-primary"
+                                />
+                              )}
+                            </button>
+                          ))}
+                          {isNewWorkspaceValue && (
+                            <button
+                              type="button"
+                              onMouseDown={(e) => {
+                                e.preventDefault()
+                                setGroupDropdownOpen(false)
+                              }}
+                              className="flex w-full items-center gap-2 border-t border-border-default px-3 py-1.5 text-left text-body text-primary transition hover:bg-primary-subtle"
+                            >
+                              <Plus size={12} className="shrink-0" />
+                              <span className="truncate">
+                                Create "{newWorkspace.trim()}"
+                              </span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                  </div>
+                  {fieldErrors.workspace && (
+                    <p className="mt-1 flex items-center gap-1 text-caption text-danger">
+                      <AlertTriangle size={11} />
+                      {fieldErrors.workspace}
+                    </p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+
+            {/* SSL Mode */}
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <label className="text-caption text-text-secondary font-medium">
+                Security & Encryption
+              </label>
               {isSqlType ? (
                 <select
                   value={newSslMode}
                   onChange={(e) => setNewSslMode(e.target.value as SslMode)}
-                  className={`${inputClasses} shrink-0 w-40`}
+                  className={`${inputClasses} w-auto`}
                   title="SSL Mode"
                 >
                   <option value="disable">SSL: Disable</option>
@@ -826,10 +862,10 @@ export function ConnectionFormModal({
                   <option value="verify-full">SSL: Verify-Full</option>
                 </select>
               ) : (
-                <label className="flex shrink-0 cursor-pointer items-center gap-2 text-body text-slate-600">
+                <label className="flex shrink-0 cursor-pointer items-center gap-2 text-caption text-text-secondary select-none">
                   <span
                     className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                      newSsl ? 'bg-primary-container' : 'bg-outline-variant'
+                      newSsl ? 'bg-primary' : 'bg-bg-muted border border-border-default'
                     }`}
                   >
                     <input
@@ -839,27 +875,26 @@ export function ConnectionFormModal({
                       className="sr-only"
                     />
                     <span
-                      className={`inline-block h-3.5 w-3.5 rounded-full bg-on-surface shadow-sm transition-transform ${
+                      className={`inline-block h-3.5 w-3.5 rounded-full bg-text-inverse shadow-xs transition-transform ${
                         newSsl ? 'translate-x-4.5' : 'translate-x-1'
                       }`}
                     />
                   </span>
-                  SSL
+                  SSL Encryption
                 </label>
               )}
             </div>
 
             {/* Certificate file pickers — SQL types in verify-ca / verify-full (mTLS) */}
             {isSqlType && sslNeedsCerts && (
-              <div className="space-y-2 rounded-lg border border-outline-variant bg-surface/40 px-3 py-2.5">
-                <p className="text-caption text-on-surface/70">
+              <div className="space-y-2 rounded-lg border border-border-default bg-bg-subtle px-3 py-2.5">
+                <p className="text-caption text-text-muted">
                   Certificate paths (loaded by the backend at connect time)
                 </p>
                 <div className="flex gap-2">
                   <input
                     value={newCaCertPath}
                     onChange={(e) => setNewCaCertPath(e.target.value)}
-                    placeholder="CA Certificate path"
                     className={`${inputClasses} flex-1`}
                   />
                   <button
@@ -880,7 +915,7 @@ export function ConnectionFormModal({
                       if (typeof selected === 'string')
                         setNewCaCertPath(selected)
                     }}
-                    className="shrink-0 inline-flex items-center justify-center rounded-lg border border-outline-variant bg-surface-variant px-3 py-2.5 text-on-surface transition hover:bg-surface-container-low"
+                    className="shrink-0 inline-flex items-center justify-center rounded-lg border border-border-default bg-bg-base px-3 py-2 text-text-primary transition hover:bg-bg-hover cursor-pointer"
                     title="Browse for CA certificate"
                   >
                     <FolderOpen size={16} />
@@ -890,7 +925,6 @@ export function ConnectionFormModal({
                   <input
                     value={newClientCertPath}
                     onChange={(e) => setNewClientCertPath(e.target.value)}
-                    placeholder="Client Certificate path"
                     className={`${inputClasses} flex-1`}
                   />
                   <button
@@ -911,7 +945,7 @@ export function ConnectionFormModal({
                       if (typeof selected === 'string')
                         setNewClientCertPath(selected)
                     }}
-                    className="shrink-0 inline-flex items-center justify-center rounded-lg border border-outline-variant bg-surface-variant px-3 py-2.5 text-on-surface transition hover:bg-surface-container-low"
+                    className="shrink-0 inline-flex items-center justify-center rounded-lg border border-border-default bg-bg-base px-3 py-2 text-text-primary transition hover:bg-bg-hover cursor-pointer"
                     title="Browse for client certificate"
                   >
                     <FolderOpen size={16} />
@@ -921,7 +955,6 @@ export function ConnectionFormModal({
                   <input
                     value={newClientKeyPath}
                     onChange={(e) => setNewClientKeyPath(e.target.value)}
-                    placeholder="Client Key path"
                     className={`${inputClasses} flex-1`}
                   />
                   <button
@@ -939,7 +972,7 @@ export function ConnectionFormModal({
                       if (typeof selected === 'string')
                         setNewClientKeyPath(selected)
                     }}
-                    className="shrink-0 inline-flex items-center justify-center rounded-lg border border-outline-variant bg-surface-variant px-3 py-2.5 text-on-surface transition hover:bg-surface-container-low"
+                    className="shrink-0 inline-flex items-center justify-center rounded-lg border border-border-default bg-bg-base px-3 py-2 text-text-primary transition hover:bg-bg-hover cursor-pointer"
                     title="Browse for client key"
                   >
                     <FolderOpen size={16} />
@@ -950,22 +983,27 @@ export function ConnectionFormModal({
 
             {/* SSH Tunnel (optional, collapsible) */}
             {newType !== 'sqlite' && (
-              <div className="rounded-lg border border-outline-variant">
+              <div className="rounded-lg border border-border-default bg-bg-base">
                 <button
                   type="button"
                   onClick={() => setSshExpanded((v) => !v)}
-                  className="flex w-full items-center gap-2 px-3 py-2.5 text-body text-on-surface/70 transition hover:bg-surface/40"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-caption font-medium text-text-secondary transition hover:bg-bg-subtle cursor-pointer"
                 >
-                  <Shield size={15} className="shrink-0" />
+                  <Shield size={14} className="shrink-0 text-text-muted" />
                   <span className="flex-1 text-left">SSH Tunnel</span>
+                  {sshEnabled && (
+                    <span className="rounded bg-primary-subtle px-1.5 py-0.5 text-micro text-primary font-medium">
+                      Enabled
+                    </span>
+                  )}
                   <ChevronDown
                     size={14}
-                    className={`transition-transform ${sshExpanded ? 'rotate-180' : ''}`}
+                    className={`text-text-muted transition-transform ${sshExpanded ? 'rotate-180' : ''}`}
                   />
                 </button>
                 {sshExpanded && (
-                  <div className="space-y-3 border-t border-outline-variant px-3 py-3">
-                    <label className="flex items-center gap-2 text-body text-slate-600 select-none cursor-pointer">
+                  <div className="space-y-2.5 border-t border-border-default px-3 py-2.5 bg-bg-subtle/50">
+                    <label className="flex items-center gap-2 text-caption text-text-secondary select-none cursor-pointer">
                       <input
                         type="checkbox"
                         checked={sshEnabled}
@@ -977,82 +1015,111 @@ export function ConnectionFormModal({
                     {sshEnabled && (
                       <>
                         <div className="flex gap-2">
+                          <div className="flex-1">
+                            <label className="mb-1 block text-caption text-text-muted">
+                              SSH Host
+                            </label>
+                            <input
+                              value={sshHost}
+                              onChange={(e) => setSshHost(e.target.value)}
+                              className={inputClasses}
+                            />
+                          </div>
+                          <div className="w-20">
+                            <label className="mb-1 block text-caption text-text-muted">
+                              Port
+                            </label>
+                            <input
+                              value={sshPort}
+                              onChange={(e) => setSshPort(e.target.value)}
+                              className={inputClasses}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-caption text-text-muted">
+                            SSH Username
+                          </label>
                           <input
-                            value={sshHost}
-                            onChange={(e) => setSshHost(e.target.value)}
-                            placeholder="SSH Host"
-                            className={`${inputClasses} flex-1`}
-                          />
-                          <input
-                            value={sshPort}
-                            onChange={(e) => setSshPort(e.target.value)}
-                            placeholder="Port"
-                            className={`${inputClasses} w-24`}
+                            value={sshUser}
+                            onChange={(e) => setSshUser(e.target.value)}
+                            className={inputClasses}
                           />
                         </div>
-                        <input
-                          value={sshUser}
-                          onChange={(e) => setSshUser(e.target.value)}
-                          placeholder="SSH Username"
-                          className={inputClasses}
-                        />
-                        <select
-                          value={sshAuthMethod}
-                          onChange={(e) =>
-                            setSshAuthMethod(e.target.value as SshAuthMethod)
-                          }
-                          className={inputClasses}
-                        >
-                          <option value="password">Password</option>
-                          <option value="privateKey">Private Key</option>
-                          <option value="agent">SSH Agent</option>
-                        </select>
+                        <div>
+                          <label className="mb-1 block text-caption text-text-muted">
+                            Authentication Method
+                          </label>
+                          <select
+                            value={sshAuthMethod}
+                            onChange={(e) =>
+                              setSshAuthMethod(e.target.value as SshAuthMethod)
+                            }
+                            className={inputClasses}
+                          >
+                            <option value="password">Password</option>
+                            <option value="privateKey">Private Key</option>
+                            <option value="agent">SSH Agent</option>
+                          </select>
+                        </div>
                         {sshAuthMethod === 'privateKey' && (
-                          <div className="flex gap-2">
-                            <input
-                              value={sshPrivateKeyPath}
-                              onChange={(e) =>
-                                setSshPrivateKeyPath(e.target.value)
-                              }
-                              placeholder="Private key path"
-                              className={`${inputClasses} flex-1`}
-                            />
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                const selected = await openDialog({
-                                  title: 'Select SSH private key',
-                                  multiple: false,
-                                  directory: false,
-                                })
-                                if (typeof selected === 'string') {
-                                  setSshPrivateKeyPath(selected)
+                          <div>
+                            <label className="mb-1 block text-caption text-text-muted">
+                              Private Key Path
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                value={sshPrivateKeyPath}
+                                onChange={(e) =>
+                                  setSshPrivateKeyPath(e.target.value)
                                 }
-                              }}
-                              className="shrink-0 inline-flex items-center justify-center rounded-lg border border-outline-variant bg-surface-variant px-3 py-2.5 text-on-surface transition hover:bg-surface-container-low"
-                              title="Browse for private key file"
-                            >
-                              <FolderOpen size={16} />
-                            </button>
+                                className={`${inputClasses} flex-1`}
+                              />
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const selected = await openDialog({
+                                    title: 'Select SSH private key',
+                                    multiple: false,
+                                    directory: false,
+                                  })
+                                  if (typeof selected === 'string') {
+                                    setSshPrivateKeyPath(selected)
+                                  }
+                                }}
+                                className="shrink-0 inline-flex items-center justify-center rounded-lg border border-border-default bg-bg-base px-3 py-2 text-text-primary transition hover:bg-bg-hover cursor-pointer"
+                                title="Browse for private key file"
+                              >
+                                <FolderOpen size={16} />
+                              </button>
+                            </div>
                           </div>
                         )}
                         {sshAuthMethod === 'password' && (
-                          <input
-                            type="password"
-                            value={sshPassword}
-                            onChange={(e) => setSshPassword(e.target.value)}
-                            placeholder="SSH Password"
-                            className={inputClasses}
-                          />
+                          <div>
+                            <label className="mb-1 block text-caption text-text-muted">
+                              SSH Password
+                            </label>
+                            <input
+                              type="password"
+                              value={sshPassword}
+                              onChange={(e) => setSshPassword(e.target.value)}
+                              className={inputClasses}
+                            />
+                          </div>
                         )}
                         {sshAuthMethod === 'privateKey' && (
-                          <input
-                            type="password"
-                            value={keyPassphrase}
-                            onChange={(e) => setKeyPassphrase(e.target.value)}
-                            placeholder="Key Passphrase"
-                            className={inputClasses}
-                          />
+                          <div>
+                            <label className="mb-1 block text-caption text-text-muted">
+                              Key Passphrase (optional)
+                            </label>
+                            <input
+                              type="password"
+                              value={keyPassphrase}
+                              onChange={(e) => setKeyPassphrase(e.target.value)}
+                              className={inputClasses}
+                            />
+                          </div>
                         )}
                       </>
                     )}
@@ -1062,24 +1129,24 @@ export function ConnectionFormModal({
             )}
             {/* Advanced (pool config; postgresql + mysql only) */}
             {(newType === 'postgresql' || newType === 'mysql') && (
-              <div className="rounded-lg border border-outline-variant">
+              <div className="rounded-lg border border-border-default bg-bg-base">
                 <button
                   type="button"
                   onClick={() => setAdvancedExpanded((v) => !v)}
-                  className="flex w-full items-center gap-2 px-3 py-2.5 text-body text-on-surface/70 transition hover:bg-surface/40"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-caption font-medium text-text-secondary transition hover:bg-bg-subtle cursor-pointer"
                 >
-                  <Settings size={15} className="shrink-0" />
-                  <span className="flex-1 text-left">Advanced</span>
+                  <Settings size={14} className="shrink-0 text-text-muted" />
+                  <span className="flex-1 text-left">Advanced Settings</span>
                   <ChevronDown
                     size={14}
-                    className={`transition-transform ${advancedExpanded ? 'rotate-180' : ''}`}
+                    className={`text-text-muted transition-transform ${advancedExpanded ? 'rotate-180' : ''}`}
                   />
                 </button>
                 {advancedExpanded && (
-                  <div className="space-y-3 border-t border-outline-variant px-3 py-3">
+                  <div className="space-y-2.5 border-t border-border-default px-3 py-2.5 bg-bg-subtle/50">
                     <div className="flex gap-2">
                       <div className="flex-1">
-                        <label className="mb-1 block text-label text-on-surface/70">
+                        <label className="mb-1 block text-caption text-text-muted">
                           Pool Size
                         </label>
                         <input
@@ -1088,26 +1155,24 @@ export function ConnectionFormModal({
                           max={100}
                           value={poolSize}
                           onChange={(e) => setPoolSize(e.target.value)}
-                          placeholder="10"
                           className={inputClasses}
                         />
                       </div>
                       <div className="flex-1">
-                        <label className="mb-1 block text-label text-on-surface/70">
-                          Statement Timeout (seconds)
+                        <label className="mb-1 block text-caption text-text-muted">
+                          Statement Timeout (s)
                         </label>
                         <input
                           type="number"
                           min={0}
                           value={statementTimeoutSecs}
                           onChange={(e) => setStatementTimeoutSecs(e.target.value)}
-                          placeholder="0 (no limit)"
                           className={inputClasses}
                         />
                       </div>
                       <div className="flex-1">
-                        <label className="mb-1 block text-label text-on-surface/70">
-                          Idle Timeout (seconds)
+                        <label className="mb-1 block text-caption text-text-muted">
+                          Idle Timeout (s)
                         </label>
                         <input
                           type="number"
@@ -1115,7 +1180,6 @@ export function ConnectionFormModal({
                           max={3600}
                           value={idleTimeoutSecs}
                           onChange={(e) => setIdleTimeoutSecs(e.target.value)}
-                          placeholder="300"
                           className={inputClasses}
                         />
                       </div>
@@ -1124,54 +1188,35 @@ export function ConnectionFormModal({
                 )}
               </div>
             )}
+              </>
+            )}
 
-            {/* Test Connection */}
-            <div className="pt-1">
-              <button
-                type="button"
-                onClick={handleTestConnection}
-                disabled={isTestingConnection}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-outline-variant bg-primary px-4 py-2.5 text-subheading text-on-primary transition hover:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-60"
+            {/* Test connection result banner */}
+            {testConnectionResult && (
+              <div
+                className={`mt-2 flex items-start gap-2 rounded-lg border px-3 py-2 text-caption ${
+                  testConnectionResult.kind === 'success'
+                    ? 'border-border-success bg-success-subtle text-success-text'
+                    : 'border-border-danger bg-danger-subtle text-danger'
+                }`}
               >
-                {isTestingConnection ? (
-                  <>
-                    <Loader2 size={15} className="animate-spin" />
-                    Testing connection…
-                  </>
+                {testConnectionResult.kind === 'success' ? (
+                  <Check size={14} className="mt-0.5 shrink-0 text-success-text" />
                 ) : (
-                  <>
-                    <Plug size={15} />
-                    Test Connection
-                  </>
+                  <X size={14} className="mt-0.5 shrink-0 text-danger" />
                 )}
-              </button>
-
-              {testConnectionResult && (
-                <div
-                  className={`mt-2 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-body ${
-                    testConnectionResult.kind === 'success'
-                      ? 'border-success/50 bg-success/20 text-success'
-                      : 'border-error/50 bg-error/20 text-error'
-                  }`}
-                >
-                  {testConnectionResult.kind === 'success' ? (
-                    <Check size={14} className="mt-0.5 shrink-0" />
-                  ) : (
-                    <X size={14} className="mt-0.5 shrink-0" />
-                  )}
-                  <span>{testConnectionResult.message}</span>
-                </div>
-              )}
-            </div>
+                <span>{testConnectionResult.message}</span>
+              </div>
+            )}
 
             {/* Skip test override for new SQL/ES connections */}
             {needsTestGate && !isTestPassed && (
-              <label className="flex items-center gap-2 text-label text-slate-500 select-none cursor-pointer">
+              <label className="flex items-center gap-2 text-caption text-text-muted select-none cursor-pointer">
                 <input
                   type="checkbox"
                   checked={skipTest}
                   onChange={(e) => setSkipTest(e.target.checked)}
-                  className="accent-amber-500"
+                  className="accent-primary"
                 />
                 Skip test and save anyway (not recommended)
               </label>
@@ -1181,14 +1226,14 @@ export function ConnectionFormModal({
       )}
 
       {/* Footer */}
-      <footer className="flex items-center justify-between border-t border-outline-variant px-6 py-4">
+      <footer className="flex shrink-0 items-center justify-between border-t border-border-default px-5 py-3 bg-bg-base">
         <button
           type="button"
           onClick={() => setStep(1)}
           disabled={step === 1}
-          className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-3 py-2 text-subheading text-on-surface-variant transition hover:bg-outline-variant disabled:invisible"
+          className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-2.5 py-1.5 text-label font-medium text-text-secondary transition hover:bg-bg-hover hover:text-text-primary disabled:invisible"
         >
-          <ChevronLeft size={15} />
+          <ChevronLeft size={14} />
           Back
         </button>
 
@@ -1196,21 +1241,42 @@ export function ConnectionFormModal({
           <button
             type="button"
             onClick={() => setStep(2)}
-            className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-primary-container px-5 py-2.5 text-label text-on-primary-container shadow-sm transition hover:bg-primary hover:text-on-primary active:bg-primary-dark active:text-on-primary"
+            className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-label font-medium text-text-inverse shadow-xs transition hover:bg-primary-hover active:bg-primary-hover"
           >
             Continue
-            <ChevronRight size={15} />
+            <ChevronRight size={14} />
           </button>
         ) : (
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!canSave || !newName.trim()}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-5 py-2.5 text-label text-white shadow-sm transition hover:bg-blue-700 active:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Check size={15} />
-            {editingId ? 'Update Connection' : 'Save Connection'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleTestConnection}
+              disabled={isTestingConnection}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-bg-subtle px-3 py-2 text-label font-medium text-text-primary transition hover:bg-bg-hover hover:border-border-strong cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isTestingConnection ? (
+                <>
+                  <Loader2 size={14} className="animate-spin text-primary" />
+                  Testing…
+                </>
+              ) : (
+                <>
+                  <Plug size={14} className="text-text-muted" />
+                  Test Connection
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!canSave || !newName.trim()}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-label font-semibold text-text-inverse shadow-xs transition hover:bg-primary-hover active:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Check size={14} />
+              {editingId ? 'Update' : 'Save'}
+            </button>
+          </div>
         )}
       </footer>
     </section>
@@ -1221,8 +1287,15 @@ export function ConnectionFormModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-shadow/30 p-4 backdrop-blur-sm">
-      {content}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        data-tauri-drag-region
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
+      <div className="relative z-10 w-full max-w-lg">
+        {content}
+      </div>
     </div>
   )
 }

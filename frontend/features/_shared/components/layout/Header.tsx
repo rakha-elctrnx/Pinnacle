@@ -27,6 +27,7 @@ import { getConnectionDefaultRoute } from '../../utils'
 import { filterConnections } from '../../connection-management/service'
 import type { ConnectionType } from '../../types/domain'
 import { ActionButton } from '../ui/ActionButton'
+import { useDataExplorerContext } from '../../context/DataExplorerContext'
 
 interface SearchMenuItem {
   label: string
@@ -48,6 +49,7 @@ export function Header() {
   const toggleInspector = useShellLayout((s) => s.toggleInspector)
   const navigate = useNavigate()
   const connections = useConnectionStore((s) => s.items)
+  const { openCreateConnection } = useDataExplorerContext()
 
   // Local filter state for the search dropdown's connection list.
   const [query, setQuery] = useState('')
@@ -71,7 +73,7 @@ export function Header() {
       label: 'New connection',
       icon: <Plus size={15} />,
       onSelect: () => {
-        navigate('/new-connection')
+        openCreateConnection()
         closeSearchMenu()
       },
     },

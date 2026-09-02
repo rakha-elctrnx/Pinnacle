@@ -38,6 +38,7 @@ export function DeleteConnectionModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div
+        data-tauri-drag-region
         className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
         onClick={phase !== 'loading' ? onClose : undefined}
       />

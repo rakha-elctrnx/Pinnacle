@@ -26,30 +26,6 @@
         "minHeight": 680,
         "resizable": true,
         "fullscreen": false
-      },
-      {
-        "label": "new-connection",
-        "title": "New Connection",
-        "url": "/new-connection",
-        "hiddenTitle": true,
-        "titleBarStyle": "Overlay",
-        "trafficLightPosition": {
-          "x": 14,
-          "y": 14
-        },
-        "width": 520,
-        "height": 680,
-        "minWidth": 520,
-        "minHeight": 680,
-        "resizable": true,
-        "visible": false,
-        "center": true,
-        "decorations": true,
-        "alwaysOnTop": true,
-        "focus": true,
-        "minimizable": false,
-        "fullscreen": false,
-        "parent": "main"
       }
     ],
     "security": {

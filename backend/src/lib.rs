@@ -52,25 +52,11 @@ pub fn run() {
                 )?;
             }
 
-            // Ensure child windows stay hidden on launch.
-            // macOS may show child windows automatically when a parent is visible.
-            if let Some(conn_window) = app.get_webview_window("new-connection") {
-                let _ = conn_window.hide();
-            }
 
             Ok(())
         })
         .on_window_event(|window, event| {
-            // Raise new-connection above main whenever main is clicked/focused.
             if window.label() == "main" {
-                if let tauri::WindowEvent::Focused(true) = event {
-                    if let Some(child) = window.app_handle().get_webview_window("new-connection") {
-                        if child.is_visible().unwrap_or(false) {
-                            let _ = child.show();
-                            let _ = child.set_focus();
-                        }
-                    }
-                }
                 // Drop all SQL connection pools when the main window is destroyed
                 // (app quit). Pools are also dropped via `disconnect_connection`
                 // when the user explicitly disconnects a single connection.
