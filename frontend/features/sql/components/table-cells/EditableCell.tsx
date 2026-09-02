@@ -17,7 +17,13 @@ import {
   type ChangeEvent,
 } from 'react'
 import type { CellContext } from '@tanstack/react-table'
-import { Calendar, ChevronLeft, ChevronRight, Eraser } from 'lucide-react'
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Eraser,
+  Sparkles,
+} from 'lucide-react'
 import {
   useTableEditStore,
   validateCellValue,
@@ -389,11 +395,21 @@ const BINARY_TYPES = new Set([
   'IMAGE',
 ])
 
-/** Returns true when the column data type holds binary data. */
 function isBinaryColumn(dataType: string | undefined): boolean {
   if (!dataType) return false
   const dt = dataType.toUpperCase()
   return BINARY_TYPES.has(dt) || dt.includes('BLOB') || dt.includes('BINARY')
+}
+
+function isBooleanColumn(dataType: string | undefined): boolean {
+  if (!dataType) return false
+  const dt = dataType.toUpperCase()
+  return dt === 'BOOLEAN' || dt === 'BOOL' || dt === 'TINYINT(1)'
+}
+
+function isUuidColumn(dataType: string | undefined): boolean {
+  if (!dataType) return false
+  return dataType.toUpperCase() === 'UUID'
 }
 export function EditableCell({
   context,
@@ -407,6 +423,8 @@ export function EditableCell({
   const displayValue = valueToDisplayString(rawValue)
   // Format timestamp values
   const isTimestamp = isTimestampColumn(columnMeta?.dataType)
+  const isBoolean = isBooleanColumn(columnMeta?.dataType)
+  const isUuid = isUuidColumn(columnMeta?.dataType)
   const formattedValue =
     isTimestamp && rawValue
       ? formatTimestampValue(valueToDisplayString(rawValue))
@@ -470,7 +488,7 @@ export function EditableCell({
     setEditValue(effectiveValue)
     setValidationError(null)
     setIsEditing(true)
-    if (isTimestamp) {
+    if (isTimestamp || isBoolean || isUuid) {
       setShowPicker(true)
     }
   }
@@ -486,13 +504,13 @@ export function EditableCell({
       setEditValue(effectiveValue)
       setValidationError(null)
       setIsEditing(true)
-      if (isTimestamp) {
+      if (isTimestamp || isBoolean || isUuid) {
         setShowPicker(true)
       }
     }
     el.addEventListener('table:enter-edit', handler)
     return () => el.removeEventListener('table:enter-edit', handler)
-  }, [isDeleted, isBinary, readOnly, effectiveValue, isTimestamp])
+  }, [isDeleted, isBinary, readOnly, effectiveValue, isTimestamp, isBoolean, isUuid])
   // Validate, normalize, and commit edit
   const commitEdit = useCallback(() => {
     const normalized = normalizeCellValue(editValue, columnMeta)
@@ -578,9 +596,9 @@ export function EditableCell({
     [isEditing, commitEdit],
   )
 
-  // Click outside to commit edit when timestamp picker is open
+  // Click outside to commit edit while a helper popup is open
   useEffect(() => {
-    if (!isEditing || !isTimestamp) return
+    if (!isEditing || (!isTimestamp && !isBoolean && !isUuid)) return
     const handleClickOutside = (e: MouseEvent) => {
       if (
         containerRef.current &&
@@ -591,7 +609,7 @@ export function EditableCell({
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isEditing, isTimestamp, commitEdit])
+  }, [isEditing, isTimestamp, isBoolean, isUuid, commitEdit])
   // ── Global key handler when not editing ────────────────────────────
   const handleGlobalKeyDown = (e: KeyboardEvent<HTMLSpanElement>) => {
     if (isEditing) return
@@ -619,6 +637,120 @@ export function EditableCell({
   if (isEditing) {
     const pickerMode = getPickerMode(columnMeta?.dataType)
 
+    // Boolean dropdown popup
+    if (isBoolean) {
+      const options: Array<{ label: string; value: string }> = [
+        { label: 'TRUE', value: 'true' },
+        { label: 'FALSE', value: 'false' },
+      ]
+      if (columnMeta?.isNullable) {
+        options.push({ label: 'NULL', value: '' })
+      }
+      return (
+        <div
+          ref={containerRef as React.RefObject<HTMLDivElement>}
+          className="relative flex items-center"
+        >
+          <input
+            ref={inputRef}
+            type="text"
+            value={editValue}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            onBlur={handleBlur}
+            className="w-full px-2 py-1.5 font-mono tabular-nums text-text-primary outline-none bg-bg-base border border-primary"
+            data-cell-editing="true"
+          />
+          <div
+            tabIndex={-1}
+            className="absolute left-0 top-full z-50 mt-1 w-28 rounded-xl border border-border-default bg-bg-base p-1 shadow-xl backdrop-blur-sm animate-in fade-in zoom-in-95 duration-100"
+          >
+            {options.map((opt) => (
+              <button
+                key={opt.label}
+                type="button"
+                tabIndex={-1}
+                onClick={() => {
+                  const normalized = normalizeCellValue(
+                    opt.value,
+                    columnMeta,
+                  )
+                  if (valuesEqual(rawValue, normalized)) {
+                    unstageEdit(rowId, field)
+                  } else {
+                    stageEdit(rowId, field, rawValue, normalized)
+                  }
+                  setIsEditing(false)
+                  setShowPicker(false)
+                  setValidationError(null)
+                  restoreCellFocus()
+                }}
+                className={[
+                  'flex w-full items-center rounded-md px-2 py-1 text-caption transition-colors',
+                  opt.value === ''
+                    ? 'text-text-muted hover:bg-danger-subtle hover:text-danger'
+                    : 'text-text-primary hover:bg-primary-subtle hover:text-primary',
+                ].join(' ')}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // UUID helper popup
+    if (isUuid) {
+      return (
+        <div
+          ref={containerRef as React.RefObject<HTMLDivElement>}
+          className="relative flex items-center"
+        >
+          <input
+            ref={inputRef}
+            type="text"
+            value={editValue}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            onBlur={handleBlur}
+            className="w-full px-2 py-1.5 font-mono tabular-nums text-text-primary outline-none bg-bg-base border border-primary"
+            data-cell-editing="true"
+          />
+          <div
+            tabIndex={-1}
+            className="absolute left-0 top-full z-50 mt-1 w-44 rounded-xl border border-border-default bg-bg-base p-1 shadow-xl backdrop-blur-sm animate-in fade-in zoom-in-95 duration-100"
+          >
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={() => {
+                setEditValue(crypto.randomUUID())
+                setValidationError(null)
+              }}
+              className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-caption text-text-primary transition-colors hover:bg-primary-subtle hover:text-primary"
+            >
+              <Sparkles className="h-3 w-3" />
+              <span>Generate UUID</span>
+            </button>
+            {columnMeta?.isNullable && (
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => {
+                  setEditValue('')
+                  setValidationError(null)
+                }}
+                className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-caption text-text-muted transition-colors hover:bg-danger-subtle hover:text-danger"
+              >
+                <Eraser className="h-3 w-3" />
+                <span>Set NULL</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )
+    }
     return (
       <div
         ref={containerRef as React.RefObject<HTMLDivElement>}
