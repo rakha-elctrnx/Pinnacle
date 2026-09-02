@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
-
+import { formatTimestampValue } from '../store/tableEditStore'
 // ── Constants ──────────────────────────────────────────────────────────────
 
 export const DEFAULT_COL_WIDTH = 150
@@ -9,31 +9,7 @@ export const ESTIMATED_CHAR_WIDTH_PX = 8
 export const COLUMN_HORIZONTAL_PADDING_PX = 32
 
 // Data type categories for sizing
-const BOOLEAN_TYPES = ['BOOLEAN', 'BOOL']
 const DATE_TYPES = ['DATE', 'TIME', 'TIMESTAMP', 'TIMESTAMPTZ', 'DATETIME']
-const NUMERIC_TYPES = [
-  'INT',
-  'INTEGER',
-  'BIGINT',
-  'SMALLINT',
-  'DECIMAL',
-  'NUMERIC',
-  'FLOAT',
-  'DOUBLE',
-  'REAL',
-  'MONEY',
-]
-const TEXT_TYPES = [
-  'VARCHAR',
-  'TEXT',
-  'CHAR',
-  'NVARCHAR',
-  'NCHAR',
-  'CLOB',
-  'BLOB',
-]
-const JSON_TYPES = ['JSON', 'JSONB']
-const UUID_TYPES = ['UUID']
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -134,81 +110,19 @@ export function useColumnResizer({
     ) => {
       if (!columnData || columnData.length === 0) return
 
-      // Calculate header width (column name + data type below it)
-      const dataTypeLength = dataType?.length ?? 0
-      const headerWidth = Math.max(
-        Math.max(columnName.length, dataTypeLength) * ESTIMATED_CHAR_WIDTH_PX +
-          COLUMN_HORIZONTAL_PADDING_PX,
-        MIN_COL_WIDTH,
-      )
-
-      // Calculate content width based on data type
-      let maxWidth = headerWidth
-
-      if (dataType) {
-        const upperType = dataType.toUpperCase()
-
-        // Boolean types: fixed width
-        if (BOOLEAN_TYPES.some((t) => upperType.startsWith(t))) {
-          maxWidth = 80
-        }
-        // Date/time types: fixed width
-        else if (DATE_TYPES.some((t) => upperType.startsWith(t))) {
-          maxWidth = 120
-        }
-        // Numeric types: medium width
-        else if (NUMERIC_TYPES.some((t) => upperType.startsWith(t))) {
-          maxWidth = 120
-        }
-        // JSON types: medium width
-        else if (JSON_TYPES.some((t) => upperType.startsWith(t))) {
-          maxWidth = 140
-        }
-        // UUID types: fixed width
-        else if (UUID_TYPES.some((t) => upperType.startsWith(t))) {
-          maxWidth = 160
-        }
-        // Text types: calculate based on content
-        else if (TEXT_TYPES.some((t) => upperType.startsWith(t))) {
-          const maxContentLength = Math.max(
-            ...columnData.map((row) => {
-              const value = row[columnName]
-              return value == null ? 6 : String(value).length // '(null)' is 6 chars
-            }),
-          )
-          maxWidth = Math.max(
-            headerWidth,
-            maxContentLength * ESTIMATED_CHAR_WIDTH_PX +
-              COLUMN_HORIZONTAL_PADDING_PX,
-          )
-        }
-        // Default: flexible width based on content
-        else {
-          const maxContentLength = Math.max(
-            ...columnData.map((row) => {
-              const value = row[columnName]
-              return value == null ? 6 : String(value).length
-            }),
-          )
-          maxWidth = Math.max(
-            headerWidth,
-            maxContentLength * ESTIMATED_CHAR_WIDTH_PX +
-              COLUMN_HORIZONTAL_PADDING_PX,
-          )
-        }
-      }
+      const targetWidth = calculateColumnWidth(columnName, columnData, dataType)
 
       // Set the width
       setWidths((prev) => {
         const next = [...prev]
-        next[index] = Math.min(MAX_COL_WIDTH, Math.max(MIN_COL_WIDTH, maxWidth))
+        next[index] = targetWidth
         return next
       })
 
       // Mark as user-set
       setUserSetWidths((prev) => {
         const next = [...prev]
-        next[index] = Math.min(MAX_COL_WIDTH, Math.max(MIN_COL_WIDTH, maxWidth))
+        next[index] = targetWidth
         return next
       })
     },
@@ -239,63 +153,38 @@ export interface AutoWidthOptions {
   columnsMetadata: Array<{ columnName: string; dataType: string }>
 }
 
+export function calculateColumnWidth(
+  columnName: string,
+  rows: Record<string, unknown>[],
+  dataType?: string,
+): number {
+  const isTimestamp = dataType
+    ? DATE_TYPES.some((t) => dataType.toUpperCase().startsWith(t))
+    : false
+
+  const maxValueLength = rows.reduce((longest, row) => {
+    const val = row[columnName]
+    if (val == null) return Math.max(longest, 6)
+    const strVal = isTimestamp ? formatTimestampValue(String(val)) : String(val)
+    return Math.max(longest, strVal.length)
+  }, 0)
+
+  const dataTypeLength = dataType?.length ?? 0
+  const maxChars = Math.max(columnName.length, maxValueLength, dataTypeLength)
+
+  const estimatedWidth =
+    maxChars * ESTIMATED_CHAR_WIDTH_PX + COLUMN_HORIZONTAL_PADDING_PX
+
+  return Math.max(MIN_COL_WIDTH, Math.min(MAX_COL_WIDTH, estimatedWidth))
+}
+
 export function calculateAutoColumnWidths({
   columns,
   previewRows,
   columnsMetadata,
 }: AutoWidthOptions): number[] {
   return columns.map((column) => {
-    // Get data type from metadata if available
     const columnMetadata = columnsMetadata.find((c) => c.columnName === column)
-    const dataType = columnMetadata?.dataType
-
-    const maxValueLength = previewRows.reduce((longest, row) => {
-      const valueText = row[column] == null ? '(null)' : String(row[column])
-      return Math.max(longest, valueText.length)
-    }, 0)
-
-    const dataTypeLength = dataType?.length ?? 0
-    const maxChars = Math.max(column.length, maxValueLength, dataTypeLength)
-
-    let estimatedWidth =
-      maxChars * ESTIMATED_CHAR_WIDTH_PX + COLUMN_HORIZONTAL_PADDING_PX
-
-    // Apply data-type specific sizing, but never shrink below header width
-    if (dataType) {
-      const upperType = dataType.toUpperCase()
-      const minWidthForHeader =
-        Math.max(column.length, dataType.length) * ESTIMATED_CHAR_WIDTH_PX +
-        COLUMN_HORIZONTAL_PADDING_PX
-
-      // Boolean types: fixed width
-      if (BOOLEAN_TYPES.some((t) => upperType.startsWith(t))) {
-        estimatedWidth = Math.max(80, minWidthForHeader)
-      }
-      // Date/time types: fixed width
-      else if (DATE_TYPES.some((t) => upperType.startsWith(t))) {
-        estimatedWidth = Math.max(120, minWidthForHeader)
-      }
-      // Numeric types: medium width
-      else if (NUMERIC_TYPES.some((t) => upperType.startsWith(t))) {
-        estimatedWidth = Math.max(120, minWidthForHeader)
-      }
-      // JSON types: medium width
-      else if (JSON_TYPES.some((t) => upperType.startsWith(t))) {
-        estimatedWidth = Math.max(140, minWidthForHeader)
-      }
-      // UUID types: fixed width
-      else if (UUID_TYPES.some((t) => upperType.startsWith(t))) {
-        estimatedWidth = Math.max(160, minWidthForHeader)
-      }
-      // Text types: flexible width, also account for data type label
-      else if (TEXT_TYPES.some((t) => upperType.startsWith(t))) {
-        estimatedWidth = Math.max(
-          minWidthForHeader,
-          maxChars * ESTIMATED_CHAR_WIDTH_PX + COLUMN_HORIZONTAL_PADDING_PX,
-        )
-      }
-    }
-
-    return Math.max(MIN_COL_WIDTH, Math.min(MAX_COL_WIDTH, estimatedWidth))
+    return calculateColumnWidth(column, previewRows, columnMetadata?.dataType)
   })
 }

@@ -5,13 +5,16 @@ import tailwindcss from '@tailwindcss/vite'
 const host = process.env.TAURI_DEV_HOST
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
   server: {
     host: host || false,
     port: 5173,
     strictPort: true,
     hmr: host ? { protocol: 'ws', host, port: 5174 } : undefined,
+    headers: {
+      'Cache-Control': 'no-store',
+    },
   },
+  plugins: [react(), tailwindcss()],
   envPrefix: ['VITE_', 'TAURI_ENV_*'],
   build: {
     target:
