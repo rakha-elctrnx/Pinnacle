@@ -431,6 +431,7 @@ export function ConnectionSidebar() {
       const targetSchema =
         profile.type === 'postgresql' ? schemaName || 'public' : undefined
       handleConnectionSelectionChange(profile.id)
+      setSelectedTreeNode(nodePath)
       queryExecution.onQueryDatabaseChange(targetDatabase)
       queryExecution.onQuerySchemaChange(targetSchema || '')
       await explorerData.fetchSqlTableList(
@@ -447,6 +448,7 @@ export function ConnectionSidebar() {
         pageType: 'table',
         route,
         connectionId: profile.id,
+        treePath: nodePath,
       })
       navigate(route)
     },
@@ -454,6 +456,7 @@ export function ConnectionSidebar() {
       selectedConnection,
       groupedConnections,
       handleConnectionSelectionChange,
+      setSelectedTreeNode,
       queryExecution,
       explorerData,
       navigate,

@@ -117,6 +117,38 @@ vi.mock('../../../context/DataExplorerContext', () => ({
               children: db.loaded ? children : undefined,
             }
           }
+          if (conn.type === 'postgresql' && db.schemas) {
+            const schemaChildren = db.schemas.map((s): TreeNode => ({
+              label: s.name,
+              nodeType: 'schema',
+              connectionId: conn.id,
+              databaseName: db.name,
+              schemaName: s.name,
+              children: [
+                {
+                  label: 'Tables',
+                  nodeType: 'category',
+                  connectionId: conn.id,
+                  databaseName: db.name,
+                  schemaName: s.name,
+                  children: s.tables.map((t) => ({
+                    label: t,
+                    nodeType: 'item',
+                    connectionId: conn.id,
+                    databaseName: db.name,
+                    schemaName: s.name,
+                  })),
+                },
+              ],
+            }))
+            return {
+              label: db.name,
+              nodeType: 'database',
+              connectionId: conn.id,
+              databaseName: db.name,
+              children: db.loaded ? schemaChildren : undefined,
+            }
+          }
           return {
             label: db.name,
             nodeType: 'database',
@@ -125,6 +157,7 @@ vi.mock('../../../context/DataExplorerContext', () => ({
           }
         })
       },
+      fetchSqlTableList: vi.fn(),
       fetchDatabaseDetails: vi.fn(
         (_id: string, _p: ConnectionProfile, _db: string) => {
           mockCtx.store.fetchDatabaseDetails?.(_id, _p, _db)
@@ -135,12 +168,15 @@ vi.mock('../../../context/DataExplorerContext', () => ({
         mockCtx.store.refreshConnectionData?.(_id, _p)
       }),
     },
+    wrappedHandleTreeNodeClick: vi.fn(),
+    queryExecution: {
+      createQueryId: () => 'q1',
+      onQueryDatabaseChange: vi.fn(),
+      onQuerySchemaChange: vi.fn(),
+    },
     elasticIndices: {},
     elasticIndicesError: {},
     elasticLoading: {},
-    wrappedHandleTreeNodeClick: vi.fn(),
-    queryExecution: { createQueryId: () => 'q1' },
-    handleCreateFolder: vi.fn(),
     handleRenameFolder: vi.fn(),
     handleDeleteFolder: vi.fn(),
     handleMoveConnectionToFolder: vi.fn(),
@@ -482,6 +518,37 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
     fireEvent.keyDown(tree, { key: 'F10' })
     await waitFor(() => {
       expect(mockCtx.store.contextMenu).toBeNull()
+    })
+  })
+
+  it('sets selectedTreeNode state when clicking the Tables category node', async () => {
+    const sqlConn = makeProfile('conn-sql', 'SQL Connection', null, 'postgresql')
+    mockCtx.store.groupedConnections = { __ungrouped__: [sqlConn] }
+    mockCtx.store.selectedConnection = sqlConn
+    mockCtx.store.expandedTreePaths = ['SQL%20Connection', 'SQL%20Connection/db', 'SQL%20Connection/db/public']
+    mockCtx.store.treeDataMap = {
+      'conn-sql': {
+        databases: [
+          {
+            name: 'db',
+            loaded: true,
+            schemas: [{ name: 'public', tables: ['users'], views: [], functions: [] }],
+          },
+        ],
+      },
+    }
+
+    render(<Harness />)
+    const tablesNode = document.querySelector(
+      '[data-node-path="SQL%20Connection/db/public/Tables"]',
+    ) as HTMLElement
+    expect(tablesNode).not.toBeNull()
+
+    fireEvent.click(tablesNode)
+    await waitFor(() => {
+      expect(mockCtx.store.selectedTreeNode).toBe(
+        'SQL%20Connection/db/public/Tables',
+      )
     })
   })
 })

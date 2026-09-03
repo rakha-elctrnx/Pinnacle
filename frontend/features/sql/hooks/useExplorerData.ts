@@ -453,6 +453,9 @@ interface UseExplorerDataReturn {
   selectedTable: string | null
   tableDataLoading: boolean
   sqlTableListLoading: boolean
+  /** Connection id the current table-list fetch belongs to (drives the
+   *  sidebar Tables/Views node spinner). Null when idle. */
+  sqlTableListLoadingConn: string | null
   sqlTableList: SqlTableListItem[]
   schemaForeignKeys: SchemaForeignKey[]
   schemaColumns: SchemaColumn[]
@@ -528,8 +531,11 @@ export function useExplorerData({
   const [selectedSchema, setSelectedSchema] = useState<string>('public')
   const [selectedDatabase, setSelectedDatabase] = useState<string>('')
   const [selectedTable, setSelectedTable] = useState<string | null>(null)
-  const [tableDataLoading, setTableDataLoading] = useState(false)
   const [sqlTableListLoading, setSqlTableListLoading] = useState(false)
+  const [sqlTableListLoadingConn, setSqlTableListLoadingConn] = useState<
+    string | null
+  >(null)
+  const [tableDataLoading, setTableDataLoading] = useState(false)
   const [sqlTableList, setSqlTableList] = useState<SqlTableListItem[]>([])
   const [schemaForeignKeys, setSchemaForeignKeys] = useState<
     SchemaForeignKey[]
@@ -787,6 +793,7 @@ export function useExplorerData({
     ) => {
       if (!isSqlConnectionType(conn.type)) return
       setSqlTableListLoading(true)
+      setSqlTableListLoadingConn(conn.id)
 
       // Update selected database and schema to match the table list being fetched
       setSelectedDatabase(databaseName)
@@ -872,10 +879,12 @@ export function useExplorerData({
         }
       } catch (error) {
         console.error('Failed to fetch SQL table list:', error)
-        setSqlTableList([])
+        setSqlTableListLoading(false)
+        setSqlTableListLoadingConn(null)
         setSchemaForeignKeys([])
       } finally {
         setSqlTableListLoading(false)
+        setSqlTableListLoadingConn(null)
       }
     },
     [],
@@ -1207,6 +1216,7 @@ export function useExplorerData({
       selectedTable,
       tableDataLoading,
       sqlTableListLoading,
+      sqlTableListLoadingConn,
       sqlTableList,
       schemaForeignKeys,
       schemaColumns,
@@ -1238,6 +1248,7 @@ export function useExplorerData({
       selectedTable,
       tableDataLoading,
       sqlTableListLoading,
+      sqlTableListLoadingConn,
       sqlTableList,
       schemaForeignKeys,
       schemaColumns,

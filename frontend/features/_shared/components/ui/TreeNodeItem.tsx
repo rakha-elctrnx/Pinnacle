@@ -34,6 +34,7 @@ import { buildPath, encodePathSegment } from '../../utils/treeNavigation'
 interface ExplorerDataContext {
   treeDataMap: Record<string, ExplorerTreeData>
   treeLoading: Record<string, boolean>
+  sqlTableListLoadingConn?: string | null
 }
 
 const CATEGORY_LABELS = [
@@ -477,6 +478,14 @@ function TreeNodeItemBase({
     )
   }
 
+  // Check if category node is loading (only for the 'Tables' node fetching list)
+  const isCategoryLoading = () => {
+    if (node.label !== 'Tables') return false
+    const connId = node.connectionId ?? parentConnectionId
+    if (!connId) return false
+    return explorerData?.sqlTableListLoadingConn === connId
+  }
+
   // Check if connection is active (selected)
   const isConnectionActive = () => {
     if (!isConnectionNode || !node.connectionId || !selectedTreeNode)
@@ -822,7 +831,7 @@ function TreeNodeItemBase({
       )}
 
       {/* Loading indicator on the right */}
-      {isConnectionNode && isConnectionLoading() && (
+      {((isConnectionNode && isConnectionLoading()) || isCategoryLoading()) && (
         <span className="shrink-0 ml-auto">
           <CenteredLoadingState
             loading={true}
@@ -1106,6 +1115,12 @@ function areTreeNodePropsEqual(
   if (
     !!prev.explorerData?.treeLoading?.[prevConnId] !==
     !!next.explorerData?.treeLoading?.[nextConnId]
+  ) {
+    return false
+  }
+  if (
+    (prev.explorerData?.sqlTableListLoadingConn === prevConnId) !==
+    (next.explorerData?.sqlTableListLoadingConn === nextConnId)
   ) {
     return false
   }
