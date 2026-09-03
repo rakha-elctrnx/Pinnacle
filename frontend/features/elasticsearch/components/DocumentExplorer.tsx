@@ -16,7 +16,6 @@ import {
   FileJson,
   Filter,
   Inbox,
-  Plus,
   RefreshCw,
   Save,
   Search,
@@ -25,6 +24,7 @@ import {
   X,
 } from 'lucide-react'
 import Editor from '@monaco-editor/react'
+import { useTheme } from '../../../app/theme'
 import { CenteredLoadingState } from '../../_shared/components/ui/CenteredLoadingState'
 import { ActionButton } from '../../_shared/components/ui/ActionButton'
 import { Dropdown } from '../../_shared/components/ui/Dropdown'
@@ -41,6 +41,22 @@ const MIN_COLUMN_WIDTH = 80
 const MAX_COLUMN_WIDTH = 360
 const DEFAULT_PAGE_SIZE = 50
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
+
+// ── Document drawer ──────────────────────────────────────────────────────────
+
+type DrawerAnimState = 'entering' | 'open' | 'exiting' | 'closed'
+
+const EMPTY_DOC_JSON = '{\n  \n}'
+const DRAWER_DEFAULT_WIDTH = 420
+const DRAWER_MIN_WIDTH = 280
+const DRAWER_MAX_WIDTH = 600
+/** Must match the drawer's `duration-150` exit transition. */
+const DRAWER_EXIT_MS = 160
+
+/** The subset of the Monaco instance the drawer touches. */
+interface MonacoEditorHandle {
+  focus: () => void
+}
 
 // ── Filter Types ─────────────────────────────────────────────────────────────
 
@@ -155,6 +171,7 @@ export function DocumentExplorer({
   onStateChange,
 }: Props) {
   const currentIndex = indexName
+  const { theme } = useTheme()
 
   // ── Document state ─────────────────────────────────────────────────────
   const [documents, setDocuments] = useState<ElasticDocumentHit[]>([])
@@ -190,15 +207,22 @@ export function DocumentExplorer({
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null)
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null)
 
-  // ── Edit / Add state ───────────────────────────────────────────────────
-  const [showAddDoc, setShowAddDoc] = useState(false)
-  const [newDocJson, setNewDocJson] = useState('{\n  \n}')
-  const [editingDoc, setEditingDoc] = useState<ElasticDocumentHit | null>(null)
-  const [editJson, setEditJson] = useState('')
-  const [editError, setEditError] = useState<string | null>(null)
+  // ── Document drawer state (create / edit) ──────────────────────────────
+  // One slide-over drawer on the right edge serves both flows, mirroring the
+  // SQL `RowDetailDrawer` shell with a full-height Monaco editor body.
+  const [drawerMode, setDrawerMode] = useState<'create' | 'edit' | null>(null)
+  const [drawerDoc, setDrawerDoc] = useState<ElasticDocumentHit | null>(null)
+  const [drawerJson, setDrawerJson] = useState(EMPTY_DOC_JSON)
+  const [drawerError, setDrawerError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [panelHeight, setPanelHeight] = useState(250)
-  const resizeRef = useRef<HTMLDivElement | null>(null)
+  const [drawerWidth, setDrawerWidth] = useState(DRAWER_DEFAULT_WIDTH)
+  const [drawerAnimState, setDrawerAnimState] =
+    useState<DrawerAnimState>('closed')
+  const drawerPanelRef = useRef<HTMLDivElement | null>(null)
+  const drawerExitTimerRef = useRef<number | null>(null)
+  const drawerDragRef = useRef<{ startX: number; startWidth: number } | null>(
+    null,
+  )
 
   // ── Confirm dialog state ───────────────────────────────────────────────
   const [confirmDeleteDocId, setConfirmDeleteDocId] = useState<string | null>(
@@ -380,7 +404,7 @@ export function DocumentExplorer({
       setFilterPanelOpen(false)
       setSelectedDocId(null)
       setActiveRowIndex(null)
-      setEditingDoc(null)
+      setDrawerMode(null)
       fetchDocs(indexName, '', 0, pageSize)
     }
   }, [indexName, fetchDocs, pageSize])
@@ -559,72 +583,177 @@ export function DocumentExplorer({
     [],
   )
 
-  const handleRowDoubleClick = useCallback((doc: ElasticDocumentHit) => {
-    setSelectedDocId(doc._id)
-    setEditingDoc(doc)
-    setEditJson(JSON.stringify(doc._source ?? {}, null, 2))
-    setEditError(null)
-  }, [])
+  // ── Document drawer: open / close / save ───────────────────────────────
+  const openDrawer = useCallback(
+    (mode: 'create' | 'edit', doc: ElasticDocumentHit | null) => {
+      setDrawerMode(mode)
+      setDrawerDoc(doc)
+      setDrawerJson(
+        doc ? JSON.stringify(doc._source ?? {}, null, 2) : EMPTY_DOC_JSON,
+      )
+      setDrawerError(null)
+    },
+    [],
+  )
 
-  // ── Add document ───────────────────────────────────────────────────────
-  const handleAddDocument = useCallback(async () => {
-    if (!currentIndex) return
-    try {
-      const body = JSON.parse(newDocJson)
-      await elasticIndexDocument({
-        connection,
-        indexName: currentIndex,
-        document: body,
-      })
-      setShowAddDoc(false)
-      setNewDocJson('{\n  \n}')
-      setToast({ kind: 'success', message: 'Document added successfully' })
-      refetchCurrentPage()
-    } catch (err) {
-      setToast({
-        kind: 'error',
-        message: err instanceof Error ? err.message : String(err),
-      })
-    }
-  }, [currentIndex, newDocJson, connection, refetchCurrentPage])
+  const handleRowDoubleClick = useCallback(
+    (doc: ElasticDocumentHit) => {
+      setSelectedDocId(doc._id)
+      openDrawer('edit', doc)
+    },
+    [openDrawer],
+  )
 
-  // ── Edit / Save document ───────────────────────────────────────────────
   const handleEditSelected = useCallback(() => {
     const doc = documents.find((d) => d._id === selectedDocId)
-    if (!doc) return
-    setEditingDoc(doc)
-    setEditJson(JSON.stringify(doc._source ?? {}, null, 2))
-    setEditError(null)
-  }, [documents, selectedDocId])
+    if (doc) openDrawer('edit', doc)
+  }, [documents, selectedDocId, openDrawer])
 
-  const handleSaveEdit = useCallback(async () => {
-    if (!currentIndex || !editingDoc) return
+  const closeDrawer = useCallback(() => {
+    setDrawerAnimState('exiting')
+    drawerExitTimerRef.current = window.setTimeout(() => {
+      drawerExitTimerRef.current = null
+      setDrawerAnimState('closed')
+      setDrawerMode(null)
+      setDrawerDoc(null)
+      setDrawerJson(EMPTY_DOC_JSON)
+      setDrawerError(null)
+    }, DRAWER_EXIT_MS)
+  }, [])
+
+  const handleSaveDrawer = useCallback(async () => {
+    if (!currentIndex || !drawerMode) return
+    const mode = drawerMode
+    const docId = mode === 'edit' ? drawerDoc?._id : undefined
     try {
-      const body = JSON.parse(editJson)
       setSaving(true)
-      setEditError(null)
+      setDrawerError(null)
       await elasticIndexDocument({
         connection,
         indexName: currentIndex,
-        docId: editingDoc._id,
-        document: body,
+        docId,
+        document: JSON.parse(drawerJson),
       })
-      setEditingDoc(null)
-      setEditJson('')
-      setToast({ kind: 'success', message: 'Document saved successfully' })
+      closeDrawer()
+      setToast({
+        kind: 'success',
+        message:
+          mode === 'create'
+            ? 'Document added successfully'
+            : 'Document saved successfully',
+      })
       refetchCurrentPage()
     } catch (err) {
-      setEditError(err instanceof Error ? err.message : String(err))
+      setDrawerError(err instanceof Error ? err.message : String(err))
     } finally {
       setSaving(false)
     }
-  }, [currentIndex, editingDoc, editJson, connection, refetchCurrentPage])
+  }, [
+    currentIndex,
+    drawerMode,
+    drawerDoc,
+    drawerJson,
+    connection,
+    closeDrawer,
+    refetchCurrentPage,
+  ])
 
-  const handleCloseEdit = useCallback(() => {
-    setEditingDoc(null)
-    setEditJson('')
-    setEditError(null)
+  // ── Drawer animation timeline ──────────────────────────────────────────
+  // The exit timer must be cleared on unmount so a late callback never sets
+  // state on a dead component.
+  useEffect(() => {
+    return () => {
+      if (drawerExitTimerRef.current !== null) {
+        window.clearTimeout(drawerExitTimerRef.current)
+      }
+    }
   }, [])
+
+  // Focus the editor as soon as it mounts so typing works immediately.
+  const handleDrawerEditorMount = useCallback((editor: MonacoEditorHandle) => {
+    editor.focus()
+  }, [])
+
+  // Side effects derived from prop/state changes: the inner state updates are
+  // the only way to drive the enter animation (same tradeoff as RowDetailDrawer).
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (drawerMode === null) return
+    if (drawerAnimState !== 'closed') return
+    setDrawerAnimState('entering')
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setDrawerAnimState('open'))
+    })
+  }, [drawerMode, drawerAnimState])
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // ── Drawer width drag (left edge handle) ───────────────────────────────
+  useEffect(() => {
+    const handleMove = (e: MouseEvent): void => {
+      const drag = drawerDragRef.current
+      if (!drag) return
+      e.preventDefault()
+      const next = drag.startWidth - (e.clientX - drag.startX)
+      setDrawerWidth(
+        Math.max(DRAWER_MIN_WIDTH, Math.min(DRAWER_MAX_WIDTH, next)),
+      )
+    }
+    const handleUp = (): void => {
+      if (!drawerDragRef.current) return
+      drawerDragRef.current = null
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.addEventListener('mousemove', handleMove)
+    document.addEventListener('mouseup', handleUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMove)
+      document.removeEventListener('mouseup', handleUp)
+    }
+  }, [])
+
+  const handleDrawerResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    drawerDragRef.current = { startX: e.clientX, startWidth: drawerWidth }
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }, [drawerWidth])
+
+  // ── Drawer dismissal: Escape + outside click ───────────────────────────
+  useEffect(() => {
+    if (drawerMode === null) return
+    if (drawerAnimState === 'closed' || drawerAnimState === 'exiting') return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      closeDrawer()
+    }
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (drawerPanelRef.current?.contains(target)) return
+      // Column separators and grid cells belong to the explorer, not the
+      // backdrop — clicking them must not dismiss an in-progress edit.
+      if (target.closest('[role="separator"]')) return
+      if (target.closest('[role="grid"], [role="row"]')) return
+      closeDrawer()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('click', handleClick, true)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('click', handleClick, true)
+    }
+  }, [drawerMode, drawerAnimState, closeDrawer])
+
+  const drawerJsonValid = useMemo(() => {
+    try {
+      const parsed: unknown = JSON.parse(drawerJson)
+      return (
+        parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+      )
+    } catch {
+      return false
+    }
+  }, [drawerJson])
 
   // ── Delete document ────────────────────────────────────────────────────
   const handleDeleteDocument = useCallback((docId: string) => {
@@ -725,12 +854,9 @@ export function DocumentExplorer({
   const handleContextEdit = useCallback(() => {
     if (!contextMenu) return
     const doc = documents.find((d) => d._id === contextMenu.docId)
-    if (!doc) return
-    setEditingDoc(doc)
-    setEditJson(JSON.stringify(doc._source ?? {}, null, 2))
-    setEditError(null)
     setContextMenu(null)
-  }, [contextMenu, documents])
+    if (doc) openDrawer('edit', doc)
+  }, [contextMenu, documents, openDrawer])
 
   const handleContextDelete = useCallback(() => {
     if (!contextMenu) return
@@ -738,34 +864,6 @@ export function DocumentExplorer({
     setContextMenu(null)
   }, [contextMenu, handleDeleteDocument])
 
-  // ── Resize handler for edit panel ──────────────────────────────────────
-  const handleResizeMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault()
-      const startY = e.clientY
-      const startHeight = panelHeight
-      const onMouseMove = (ev: MouseEvent) => {
-        const delta = startY - ev.clientY
-        setPanelHeight(
-          Math.max(
-            150,
-            Math.min(window.innerHeight * 0.8, startHeight + delta),
-          ),
-        )
-      }
-      const onMouseUp = () => {
-        document.removeEventListener('mousemove', onMouseMove)
-        document.removeEventListener('mouseup', onMouseUp)
-        document.body.style.cursor = ''
-        document.body.style.userSelect = ''
-      }
-      document.addEventListener('mousemove', onMouseMove)
-      document.addEventListener('mouseup', onMouseUp)
-      document.body.style.cursor = 'row-resize'
-      document.body.style.userSelect = 'none'
-    },
-    [panelHeight],
-  )
 
   // ── No index selected ──────────────────────────────────────────────────
   if (!currentIndex) {
@@ -792,7 +890,7 @@ export function DocumentExplorer({
   const totalPages = Math.ceil(totalHits / pageSize)
 
   return (
-    <section className="flex h-full min-h-0 flex-col overflow-hidden">
+    <section className="relative flex h-full min-h-0 flex-col overflow-hidden">
       {/* ── Toolbar ──────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-1 border-b border-border-default px-1.5 py-1">
         <ActionButton
@@ -824,7 +922,7 @@ export function DocumentExplorer({
           icon={<CirclePlus size={14} />}
           aria-label="Add Document"
           variant="accent"
-          onClick={() => setShowAddDoc(!showAddDoc)}
+          onClick={() => openDrawer('create', null)}
         />
         <ActionButton
           icon={<CircleMinus size={14} />}
@@ -1185,65 +1283,6 @@ export function DocumentExplorer({
         </div>
       </div>
 
-      {/* ── Add Document Panel ─────────────────────────────────────────── */}
-      <div
-        className={`grid transition-[grid-template-rows] duration-200 ease-in-out ${
-          showAddDoc ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
-        }`}
-      >
-        <div className="overflow-hidden">
-          <div className="flex flex-col gap-2 border-b border-border-default bg-bg-subtle px-3 py-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-text-primary">
-                New Document
-              </span>
-              <button
-                type="button"
-                className="rounded p-0.5 text-text-muted hover:text-text-primary"
-                onClick={() => setShowAddDoc(false)}
-              >
-                <X size={14} />
-              </button>
-            </div>
-            <div className="h-48 overflow-hidden rounded-lg border border-border-default bg-bg-base">
-              <Editor
-                language="json"
-                value={newDocJson}
-                onChange={(val) => setNewDocJson(val ?? '{\n  \n}')}
-                theme="vs-dark"
-                options={{
-                  fontSize: 13,
-                  minimap: { enabled: false },
-                  scrollBeyondLastLine: false,
-                  wordWrap: 'on',
-                  automaticLayout: true,
-                  lineNumbers: 'on',
-                  padding: { top: 8 },
-                  tabSize: 2,
-                }}
-              />
-            </div>
-            <div className="flex gap-1.5">
-              <button
-                type="button"
-                onClick={handleAddDocument}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-primary/90 active:bg-primary/80"
-              >
-                <Plus size={12} />
-                Insert
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowAddDoc(false)}
-                className="rounded-lg border border-border-default px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-hover"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* ── Error banner ──────────────────────────────────────────────────── */}
       {error && (
         <div className="flex items-center justify-between gap-2 border-b border-border-danger bg-danger-subtle px-3 py-1.5 text-xs text-danger">
@@ -1470,7 +1509,7 @@ export function DocumentExplorer({
                         <button
                           type="button"
                           className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-primary/90 active:bg-primary/80"
-                          onClick={() => setShowAddDoc(true)}
+                          onClick={() => openDrawer('create', null)}
                         >
                           <CirclePlus size={13} aria-hidden="true" />
                           Add Document
@@ -1621,9 +1660,7 @@ export function DocumentExplorer({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation()
-                        setEditingDoc(doc)
-                        setEditJson(JSON.stringify(doc._source ?? {}, null, 2))
-                        setEditError(null)
+                        openDrawer('edit', doc)
                       }}
                       className="rounded p-1 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
                       title="Edit document"
@@ -1705,77 +1742,124 @@ export function DocumentExplorer({
         </div>
       )}
 
-      {/* ── Document Detail / Edit Panel ──────────────────────────────────── */}
-      {editingDoc && (
-        <div
-          className="flex flex-col border-t border-border-default bg-bg-base"
-          style={{ height: panelHeight }}
-        >
-          {/* Resize handle */}
+      {/* ── Document drawer (create / edit) — right slide-over ───────────── */}
+      {drawerAnimState !== 'closed' && drawerMode !== null && (
+        <div className="pointer-events-none absolute inset-0 z-30 flex justify-end">
+          {/* Resize handle — left edge of the drawer panel */}
           <div
-            ref={resizeRef}
-            onMouseDown={handleResizeMouseDown}
-            className="group flex h-1.5 shrink-0 cursor-row-resize items-center justify-center"
+            onMouseDown={handleDrawerResizeStart}
+            role="separator"
+            aria-label="Resize document drawer"
+            className={[
+              'group/handle pointer-events-auto -ml-1.5 flex shrink-0 cursor-col-resize items-center justify-center transition-opacity duration-150 ease-out',
+              drawerAnimState === 'exiting' ? 'opacity-0' : 'opacity-100',
+            ].join(' ')}
+            style={{ width: 12 }}
           >
-            <div className="h-0.5 w-8 rounded-full bg-border-default transition-colors group-hover:bg-primary" />
-          </div>
-          <div className="flex shrink-0 items-center justify-between border-b border-border-default bg-bg-subtle px-3 py-1.5">
-            <div className="flex items-center gap-2">
-              <FileJson size={13} className="text-primary" />
-              <span className="text-xs font-medium text-text-primary">
-                Document Detail
-              </span>
-              <span className="rounded bg-bg-muted px-1.5 py-0.5 text-[10px] font-mono text-text-muted">
-                _id: {editingDoc._id}
-              </span>
-              {editingDoc._index && (
-                <span className="rounded bg-bg-muted px-1.5 py-0.5 text-[10px] font-mono text-text-muted">
-                  _index: {editingDoc._index}
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={handleSaveEdit}
-                disabled={saving}
-                className="inline-flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs font-medium text-text-inverse transition-colors hover:bg-primary/90 disabled:opacity-50"
-              >
-                <Save size={11} />
-                {saving ? 'Saving...' : 'Save'}
-              </button>
-              <button
-                type="button"
-                onClick={handleCloseEdit}
-                className="rounded-lg p-1 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          </div>
-          {editError && (
-            <div className="border-b border-border-danger bg-danger-subtle px-3 py-1 text-xs text-danger">
-              {editError}
-            </div>
-          )}
-          <div className="min-h-0 flex-1">
-            <Editor
-              language="json"
-              value={editJson}
-              onChange={(val) => setEditJson(val ?? '')}
-              theme="vs-dark"
-              options={{
-                fontSize: 13,
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                wordWrap: 'on',
-                automaticLayout: true,
-                lineNumbers: 'on',
-                padding: { top: 8 },
-                tabSize: 2,
-              }}
+            <span
+              aria-hidden
+              className="h-10 w-0.5 rounded-full bg-border-default/40 transition-all duration-150 group-hover/handle:bg-primary/60 group-hover/handle:w-1"
             />
           </div>
+
+          <aside
+            ref={drawerPanelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={
+              drawerMode === 'create' ? 'New document' : 'Edit document'
+            }
+            tabIndex={-1}
+            className={[
+              'pointer-events-auto flex min-w-0 flex-col overflow-hidden border-l border-border-default bg-bg-base shadow-xl outline-none',
+              'transition-[transform,opacity] duration-150 ease-out',
+              drawerAnimState === 'exiting'
+                ? 'translate-x-full opacity-0'
+                : 'translate-x-0 opacity-100',
+            ].join(' ')}
+            style={{ width: drawerWidth }}
+          >
+            {/* Header: mode title + document identity */}
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border-default bg-bg-subtle/50 pl-3 pr-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <FileJson size={13} className="shrink-0 text-primary" />
+                <span className="shrink-0 text-xs font-medium text-text-primary">
+                  {drawerMode === 'create' ? 'New Document' : 'Document Detail'}
+                </span>
+                {drawerMode === 'edit' && drawerDoc && (
+                  <span className="truncate rounded bg-bg-muted px-1.5 py-0.5 font-mono text-[10px] text-text-muted">
+                    _id: {drawerDoc._id}
+                  </span>
+                )}
+              </div>
+              <ActionButton
+                icon={<X size={15} />}
+                aria-label="Close document drawer"
+                variant="default"
+                onClick={closeDrawer}
+                className="rounded-md p-1"
+              />
+            </div>
+
+            {/* Validation / server error */}
+            {drawerError && (
+              <div className="shrink-0 border-b border-border-danger bg-danger-subtle px-3 py-1.5 text-xs text-danger">
+                {drawerError}
+              </div>
+            )}
+
+            {/* Body: Monaco editor over the whole document */}
+            <div className="relative min-h-0 flex-1">
+              <Editor
+                height="100%"
+                language="json"
+                theme={theme === 'dark' ? 'vs-dark' : 'light'}
+                value={drawerJson}
+                onChange={(val) => setDrawerJson(val ?? '')}
+                onMount={handleDrawerEditorMount}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 12,
+                  wordWrap: 'on',
+                  lineNumbers: 'on',
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  padding: { top: 8 },
+                  tabSize: 2,
+                  formatOnPaste: true,
+                }}
+              />
+            </div>
+
+            {/* Footer: cancel + insert/save */}
+            <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border-default px-3 py-2">
+              <span className="truncate text-micro text-text-muted">
+                {currentIndex}
+              </span>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={closeDrawer}
+                  className="rounded-lg border border-border-default px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-hover"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveDrawer}
+                  disabled={saving || !drawerJsonValid}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-primary/90 active:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Save size={11} />
+                  {saving
+                    ? 'Saving...'
+                    : drawerMode === 'create'
+                      ? 'Insert'
+                      : 'Save'}
+                </button>
+              </div>
+            </div>
+          </aside>
         </div>
       )}
 
