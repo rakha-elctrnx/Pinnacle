@@ -12,3 +12,4 @@ pub mod ssl;
 pub mod store;
 pub mod transaction;
 pub mod ssh;
+pub mod cancel_registry;

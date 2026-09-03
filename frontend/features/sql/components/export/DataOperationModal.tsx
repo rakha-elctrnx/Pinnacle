@@ -80,17 +80,17 @@ export function DataOperationModal({
     }
   }
 
-  const accentBg = 'bg-slate-100'
-  const accentText = 'text-slate-500'
-  const accentBorder = 'border-slate-200'
-  const accentBgLight = 'bg-slate-50'
-  const accentBgLighter = 'bg-slate-50/50'
-  const accentTextBold = 'text-slate-700'
-  const accentTextMid = 'text-slate-500'
-  const btnBg = 'bg-slate-700'
-  const btnHover = 'hover:bg-slate-800'
-  const ringColor = 'focus:ring-slate-500'
-  const checkColor = 'text-slate-600'
+  const accentBg = 'bg-bg-muted'
+  const accentText = 'text-text-secondary'
+  const accentBorder = 'border-border-default'
+  const accentBgLight = 'bg-bg-subtle'
+  const accentBgLighter = 'bg-bg-subtle/50'
+  const accentTextBold = 'text-text-primary'
+  const accentTextMid = 'text-text-secondary'
+  const btnBg = 'bg-text-primary'
+  const btnHover = 'hover:bg-text-primary/90'
+  const ringColor = 'focus:ring-border-focus'
+  const checkColor = 'text-text-secondary'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -101,16 +101,16 @@ export function DataOperationModal({
       />
 
       {/* Modal */}
-      <div className="relative z-10 w-full max-w-lg rounded-xl border border-slate-200 bg-white shadow-2xl">
+      <div className="relative z-10 w-full max-w-lg rounded-xl border border-border-default bg-bg-base shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+        <div className="flex items-center justify-between border-b border-border-default px-5 py-4">
           <div className="flex items-center gap-2.5">
             <span
               className={`flex h-8 w-8 items-center justify-center rounded-lg ${accentBg}`}
             >
               <AlertTriangle size={16} className={accentText} />
             </span>
-            <h2 className="text-sm font-semibold text-slate-800">
+            <h2 className="text-sm font-semibold text-text-primary">
               {meta.title}
             </h2>
           </div>
@@ -118,7 +118,7 @@ export function DataOperationModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+              className="rounded-md p-1 text-text-muted transition-colors hover:bg-bg-subtle hover:text-text-secondary"
             >
               <X size={16} />
             </button>
@@ -142,34 +142,36 @@ export function DataOperationModal({
               </div>
 
               {/* Table identity card */}
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              <div className="rounded-lg border border-border-default bg-bg-subtle p-3">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                   Table to {meta.verb}
                 </p>
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2 text-sm">
-                    <Database size={13} className="shrink-0 text-slate-400" />
-                    <span className="font-medium text-slate-500">
+                    <Database size={13} className="shrink-0 text-text-muted" />
+                    <span className="font-medium text-text-secondary">
                       Connection:
                     </span>
-                    <span className="font-semibold text-slate-800">
+                    <span className="font-semibold text-text-primary">
                       {target.connectionName}
                     </span>
                   </div>
                   {target.schema && (
                     <div className="flex items-center gap-2 text-sm">
                       <span className="w-3.25" />
-                      <span className="font-medium text-slate-500">
+                      <span className="font-medium text-text-secondary">
                         Schema:
                       </span>
-                      <span className="rounded bg-slate-200 px-1.5 py-0.5 font-mono text-xs text-slate-700">
+                      <span className="rounded bg-bg-muted px-1.5 py-0.5 font-mono text-xs text-text-primary">
                         {target.schema}
                       </span>
                     </div>
                   )}
                   <div className="flex items-center gap-2 text-sm">
-                    <Table size={13} className="shrink-0 text-slate-400" />
-                    <span className="font-medium text-slate-500">Table:</span>
+                    <Table size={13} className="shrink-0 text-text-muted" />
+                    <span className="font-medium text-text-secondary">
+                      Table:
+                    </span>
                     <span
                       className={`rounded ${accentBg} px-1.5 py-0.5 font-mono text-xs font-semibold ${accentTextBold}`}
                     >
@@ -188,7 +190,7 @@ export function DataOperationModal({
                     type="checkbox"
                     checked={acknowledged}
                     onChange={(e) => setAcknowledged(e.target.checked)}
-                    className={`mt-0.5 h-4 w-4 rounded border-slate-300 ${checkColor} ${ringColor}`}
+                    className={`mt-0.5 h-4 w-4 rounded border-border-strong ${checkColor} ${ringColor}`}
                   />
                   <span className={`text-sm font-medium ${accentTextBold}`}>
                     I understand that all data in this table will be permanently
@@ -202,7 +204,7 @@ export function DataOperationModal({
           {phase === 'loading' && (
             <div className="flex flex-col items-center gap-3 py-6">
               <Loader2 size={28} className={`animate-spin ${accentText}`} />
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-text-secondary">
                 {meta.loadingText(target.tableName)}
               </p>
             </div>
@@ -210,14 +212,14 @@ export function DataOperationModal({
 
           {phase === 'success' && (
             <div className="flex flex-col items-center gap-3 py-6">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                <Check size={20} className="text-emerald-600" />
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-success-subtle">
+                <Check size={20} className="text-success-text" />
               </span>
               <div className="text-center">
-                <p className="text-sm font-semibold text-slate-800">
+                <p className="text-sm font-semibold text-text-primary">
                   {meta.successTitle}
                 </p>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-text-secondary">
                   {meta.successDetail(target.tableName)}
                 </p>
               </div>
@@ -226,14 +228,14 @@ export function DataOperationModal({
 
           {phase === 'error' && (
             <div className="flex flex-col items-center gap-3 py-4">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-                <X size={20} className="text-red-600" />
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-danger-subtle">
+                <X size={20} className="text-[var(--color-danger)]" />
               </span>
               <div className="text-center">
-                <p className="text-sm font-semibold text-slate-800">
+                <p className="text-sm font-semibold text-text-primary">
                   {meta.errorTitle}
                 </p>
-                <p className="mt-1 max-w-sm text-xs text-red-500">
+                <p className="mt-1 max-w-sm text-xs text-[var(--color-danger)]">
                   {errorMessage}
                 </p>
               </div>
@@ -242,13 +244,13 @@ export function DataOperationModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-3">
+        <div className="flex items-center justify-end gap-2 border-t border-border-default px-5 py-3">
           {phase === 'confirm' && (
             <>
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg border border-slate-200 px-3.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
+                className="rounded-lg border border-border-default px-3.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-subtle"
               >
                 Cancel
               </button>
@@ -267,7 +269,7 @@ export function DataOperationModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg bg-slate-800 px-3.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-slate-700"
+              className="rounded-lg bg-text-primary px-3.5 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-text-primary/90"
             >
               Done
             </button>
@@ -278,7 +280,7 @@ export function DataOperationModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg border border-slate-200 px-3.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
+                className="rounded-lg border border-border-default px-3.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-subtle"
               >
                 Close
               </button>

@@ -81,10 +81,10 @@ export const mongodbAdapter: ConnectorAdapter = {
               loaded: false,
             }
           }
-        })
+        }),
       )
       const flatTables = databases.flatMap((db) =>
-        db.schemas.flatMap((s) => [...s.tables, ...s.views])
+        db.schemas.flatMap((s) => [...s.tables, ...s.views]),
       )
       return {
         databases,
@@ -102,21 +102,27 @@ export const mongodbAdapter: ConnectorAdapter = {
     try {
       const parts = entityName.split('.')
       const database = parts.length > 1 ? parts[0] : payload.database || 'admin'
-      const collection = parts.length > 1 ? parts.slice(1).join('.') : entityName
+      const collection =
+        parts.length > 1 ? parts.slice(1).join('.') : entityName
 
       const nsPayload = { connection: payload, database, collection }
 
       const [stats, indexes, findRes] = await Promise.all([
         mongoGetCollectionStats(nsPayload).catch(() => null),
         mongoListIndexes(nsPayload).catch(() => []),
-        mongoFindDocuments({ ...nsPayload, offset: 0, pageSize: 50 }).catch(() => null),
+        mongoFindDocuments({ ...nsPayload, offset: 0, pageSize: 50 }).catch(
+          () => null,
+        ),
       ])
 
       const rawRows = findRes?.documents || []
       const rows = rawRows.map((doc) =>
         Object.fromEntries(
-          Object.entries(doc).map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : String(v)])
-        )
+          Object.entries(doc).map(([k, v]) => [
+            k,
+            typeof v === 'object' ? JSON.stringify(v) : String(v),
+          ]),
+        ),
       )
 
       const sampleDoc = rawRows[0] || {}
@@ -164,8 +170,11 @@ export const mongodbAdapter: ConnectorAdapter = {
       const rawRows = findRes.documents
       const rows = rawRows.map((doc) =>
         Object.fromEntries(
-          Object.entries(doc).map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : String(v)])
-        )
+          Object.entries(doc).map(([k, v]) => [
+            k,
+            typeof v === 'object' ? JSON.stringify(v) : String(v),
+          ]),
+        ),
       )
       const columns = rawRows.length > 0 ? Object.keys(rawRows[0]) : []
       return {

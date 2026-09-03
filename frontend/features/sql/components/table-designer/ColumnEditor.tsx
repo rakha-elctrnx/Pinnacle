@@ -57,8 +57,8 @@ export function ColumnEditor() {
     <section className="flex flex-col gap-3">
       <header className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-slate-800">Columns</h3>
-          <p className="text-xs text-slate-500">
+          <h3 className="text-sm font-semibold text-text-primary">Columns</h3>
+          <p className="text-xs text-text-secondary">
             Define the column structure of the table. Reorder with up/down
             arrows.
           </p>
@@ -66,23 +66,25 @@ export function ColumnEditor() {
         <button
           type="button"
           onClick={addColumn}
-          className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-700"
+          className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold text-text-inverse transition-colors hover:bg-primary-hover"
         >
           <Plus size={12} /> Add Column
         </button>
       </header>
 
       {pendingModel.columns.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-          <Database size={28} className="mx-auto text-slate-300" />
-          <p className="mt-2 text-sm text-slate-500">No columns yet.</p>
-          <p className="text-xs text-slate-400">Click "Add Column" to begin.</p>
+        <div className="rounded-lg border border-dashed border-border-default bg-bg-subtle p-8 text-center">
+          <Database size={28} className="mx-auto text-text-muted" />
+          <p className="mt-2 text-sm text-text-secondary">No columns yet.</p>
+          <p className="text-xs text-text-muted">
+            Click "Add Column" to begin.
+          </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-lg border border-border-default bg-bg-base">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-left text-[10px] uppercase tracking-wider text-slate-500">
+              <tr className="border-b border-border-default bg-bg-subtle text-left text-[10px] uppercase tracking-wider text-text-secondary">
                 <th className="w-8 px-2 py-2 text-center">#</th>
                 <th className="w-10 px-2 py-2 text-center">Ord</th>
                 <th className="px-2 py-2">Name</th>
@@ -147,16 +149,16 @@ function ColumnRow({
 
   return (
     <tr
-      className={`border-b border-slate-100 ${hasError ? 'bg-red-50/40' : 'hover:bg-slate-50/50'}`}
+      className={`border-b border-border-default ${hasError ? 'bg-danger-subtle/40' : 'hover:bg-bg-subtle/50'}`}
     >
-      <td className="px-2 py-1.5 text-center text-slate-400">{index + 1}</td>
+      <td className="px-2 py-1.5 text-center text-text-muted">{index + 1}</td>
       <td className="px-2 py-1.5">
         <div className="flex flex-col items-center gap-0.5">
           <button
             type="button"
             onClick={onMoveUp}
             disabled={index === 0}
-            className="rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-30"
+            className="rounded p-0.5 text-text-muted hover:bg-bg-hover hover:text-text-primary disabled:opacity-30"
             title="Move up"
           >
             ▲
@@ -165,7 +167,7 @@ function ColumnRow({
             type="button"
             onClick={onMoveDown}
             disabled={index === total - 1}
-            className="rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-30"
+            className="rounded p-0.5 text-text-muted hover:bg-bg-hover hover:text-text-primary disabled:opacity-30"
             title="Move down"
           >
             ▼
@@ -178,10 +180,10 @@ function ColumnRow({
           value={column.name}
           onChange={(e) => onChange({ name: e.target.value })}
           placeholder="column_name"
-          className={`w-full rounded border bg-white px-2 py-1 text-xs outline-none focus:ring-1 ${
+          className={`w-full rounded border bg-bg-base px-2 py-1 text-xs outline-none focus:ring-1 ${
             hasError
-              ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-              : 'border-slate-200 focus:border-blue-300 focus:ring-blue-100'
+              ? 'border-border-danger focus:border-border-danger focus:ring-border-danger/20'
+              : 'border-border-default focus:border-border-focus focus:ring-border-focus/20'
           }`}
         />
       </td>
@@ -210,7 +212,7 @@ function ColumnRow({
                 length: e.target.value ? Number(e.target.value) : null,
               })
             }
-            className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
+            className="w-full rounded border border-border-default bg-bg-base px-2 py-1 text-xs outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus/20"
             placeholder="255"
           />
         ) : needsPrecision ? (
@@ -224,7 +226,7 @@ function ColumnRow({
                   precision: e.target.value ? Number(e.target.value) : null,
                 })
               }
-              className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
+              className="w-full rounded border border-border-default bg-bg-base px-2 py-1 text-xs outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus/20"
               placeholder="10"
             />
             <input
@@ -236,12 +238,12 @@ function ColumnRow({
                   scale: e.target.value ? Number(e.target.value) : null,
                 })
               }
-              className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
+              className="w-full rounded border border-border-default bg-bg-base px-2 py-1 text-xs outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus/20"
               placeholder="0"
             />
           </div>
         ) : (
-          <span className="text-slate-300">—</span>
+          <span className="text-text-muted">—</span>
         )}
       </td>
       <td className="px-2 py-1.5 text-center">
@@ -249,7 +251,7 @@ function ColumnRow({
           type="checkbox"
           checked={column.isNullable}
           onChange={(e) => onChange({ isNullable: e.target.checked })}
-          className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+          className="h-3.5 w-3.5 rounded border-border-default text-primary focus:ring-border-focus"
         />
       </td>
       <td className="px-2 py-1.5">
@@ -258,7 +260,7 @@ function ColumnRow({
           value={column.defaultValue ?? ''}
           onChange={(e) => onChange({ defaultValue: e.target.value || null })}
           placeholder="NULL"
-          className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
+          className="w-full rounded border border-border-default bg-bg-base px-2 py-1 text-xs outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus/20"
         />
       </td>
       <td className="px-2 py-1.5 text-center">
@@ -266,7 +268,7 @@ function ColumnRow({
           type="checkbox"
           checked={column.isAutoIncrement}
           onChange={(e) => onChange({ isAutoIncrement: e.target.checked })}
-          className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+          className="h-3.5 w-3.5 rounded border-border-default text-primary focus:ring-border-focus"
           disabled={!['INT', 'BIGINT', 'SMALLINT'].includes(dataType)}
           title={
             !['INT', 'BIGINT', 'SMALLINT'].includes(dataType)
@@ -281,14 +283,14 @@ function ColumnRow({
           value={column.comment ?? ''}
           onChange={(e) => onChange({ comment: e.target.value || null })}
           placeholder="—"
-          className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
+          className="w-full rounded border border-border-default bg-bg-base px-2 py-1 text-xs outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus/20"
         />
       </td>
       <td className="px-2 py-1.5 text-center">
         <button
           type="button"
           onClick={onRemove}
-          className="rounded p-1 text-red-500 hover:bg-red-50"
+          className="rounded p-1 text-[var(--color-danger)] hover:bg-danger-subtle"
           title="Remove column"
         >
           <X size={12} />

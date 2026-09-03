@@ -35,7 +35,9 @@ export function MongoAggregationsTab({ payload, database, collection }: Props) {
       })
       setResults(res)
     } catch (e) {
-      setError(`Invalid pipeline JSON: ${e instanceof Error ? e.message : String(e)}`)
+      setError(
+        `Invalid pipeline JSON: ${e instanceof Error ? e.message : String(e)}`,
+      )
     } finally {
       setLoading(false)
     }
@@ -46,7 +48,8 @@ export function MongoAggregationsTab({ payload, database, collection }: Props) {
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <label className="text-xs font-semibold text-text-secondary flex items-center gap-1.5">
-            <Code className="w-4 h-4 text-success" /> Pipeline Editor (JSON Array)
+            <Code className="w-4 h-4 text-success" /> Pipeline Editor (JSON
+            Array)
           </label>
           <button
             onClick={handleRunPipeline}
@@ -72,18 +75,25 @@ export function MongoAggregationsTab({ payload, database, collection }: Props) {
       <div className="flex-1 flex flex-col bg-bg-subtle border border-border-default rounded-lg overflow-hidden">
         <div className="p-3 border-b border-border-default flex items-center justify-between">
           <span className="text-xs font-semibold text-text-muted">
-            Results {results ? `(${results.documents.length} docs, ${results.executionTimeMs}ms)` : ''}
+            Results{' '}
+            {results
+              ? `(${results.documents.length} docs, ${results.executionTimeMs}ms)`
+              : ''}
           </span>
         </div>
         <div className="flex-1 overflow-auto p-3 font-mono text-xs">
           {loading ? (
             <div className="text-text-muted">Executing pipeline...</div>
           ) : !results ? (
-            <div className="text-text-muted">Click Execute Pipeline to see results</div>
+            <div className="text-text-muted">
+              Click Execute Pipeline to see results
+            </div>
           ) : results.documents.length === 0 ? (
             <div className="text-text-muted">Pipeline returned 0 documents</div>
           ) : (
-            <pre className="text-success-text">{JSON.stringify(results.documents, null, 2)}</pre>
+            <pre className="text-success-text">
+              {JSON.stringify(results.documents, null, 2)}
+            </pre>
           )}
         </div>
       </div>

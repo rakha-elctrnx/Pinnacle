@@ -7,7 +7,9 @@ import { TablePaginationFooter } from './TablePaginationFooter'
 // vitest.config has no `globals`, so RTL auto-cleanup does not register.
 afterEach(cleanup)
 
-function renderFooter(overrides?: Partial<Parameters<typeof TablePaginationFooter>[0]>) {
+function renderFooter(
+  overrides?: Partial<Parameters<typeof TablePaginationFooter>[0]>,
+) {
   const props: Parameters<typeof TablePaginationFooter>[0] = {
     page: 1,
     pageSize: 50,
@@ -72,7 +74,9 @@ describe('TablePaginationFooter', () => {
 
   it('appends pending count to the record label', () => {
     renderFooter({ page: 1, pageSize: 10, totalRowCount: 25, totalPending: 2 })
-    expect(screen.getByText(/Showing 1–10 of 25 records \(2 pending\)/)).toBeTruthy()
+    expect(
+      screen.getByText(/Showing 1–10 of 25 records \(2 pending\)/),
+    ).toBeTruthy()
   })
 
   it('resets to page 1 when the page size changes', () => {
@@ -80,10 +84,14 @@ describe('TablePaginationFooter', () => {
     const setPage = (p: number | ((prev: number) => number)) => {
       currentPage = typeof p === 'function' ? p(currentPage) : p
     }
-    renderFooter({ page: currentPage, setPage, pageSize: 10, totalRowCount: 500 })
+    renderFooter({
+      page: currentPage,
+      setPage,
+      pageSize: 10,
+      totalRowCount: 500,
+    })
     const rowsSelect = screen.getByRole('combobox') as HTMLSelectElement
     fireEvent.change(rowsSelect, { target: { value: '100' } })
     expect(currentPage).toBe(1)
   })
-
 })

@@ -1,10 +1,6 @@
 import { useMemo } from 'react'
 import { flexRender, type Table as TanStackTable } from '@tanstack/react-table'
-import type {
-  CSSProperties,
-  RefObject,
-  MutableRefObject,
-} from 'react'
+import type { CSSProperties, RefObject, MutableRefObject } from 'react'
 import type { TableRow, ColumnMetadata } from '../../types/tableDetail'
 import {
   getPinnedLeftOffset,
@@ -283,10 +279,18 @@ export function TableGrid({
                   const colIdx = selectionBounds
                     ? (selectionBounds.colIndexMap.get(columnId) ?? -1)
                     : -1
-                  const isTop = selectionBounds !== null && rowIndex === selectionBounds.minRow
-                  const isBottom = selectionBounds !== null && rowIndex === selectionBounds.maxRow
-                  const isLeft = selectionBounds !== null && colIdx === selectionBounds.minColIdx
-                  const isRight = selectionBounds !== null && colIdx === selectionBounds.maxColIdx
+                  const isTop =
+                    selectionBounds !== null &&
+                    rowIndex === selectionBounds.minRow
+                  const isBottom =
+                    selectionBounds !== null &&
+                    rowIndex === selectionBounds.maxRow
+                  const isLeft =
+                    selectionBounds !== null &&
+                    colIdx === selectionBounds.minColIdx
+                  const isRight =
+                    selectionBounds !== null &&
+                    colIdx === selectionBounds.maxColIdx
                   const isDeletedHere = isDeletedRow
                   const isCellDirty = editedFields.has(columnId)
 

@@ -20,11 +20,7 @@ function MenuHost({
   const [open, setOpen] = useState(false)
   return (
     <div>
-      <button
-        type="button"
-        data-testid="trigger"
-        onClick={() => setOpen(true)}
-      >
+      <button type="button" data-testid="trigger" onClick={() => setOpen(true)}>
         Trigger
       </button>
       {open && (
@@ -242,7 +238,6 @@ describe('GenericContextMenu keyboard navigation', () => {
     })
   })
 
-
   it('keeps the menu inert when every item is a divider', async () => {
     const { getByRole } = renderMenu([{ divider: true }, { divider: true }])
     const menu = getByRole('menu')
@@ -336,9 +331,7 @@ describe('GenericContextMenu keyboard navigation', () => {
     const menu = getByRole('menu')
 
     // Open via hover — the path used for real sidebar menus.
-    const parentItem = menu.querySelector(
-      '[role="menuitem"]',
-    ) as HTMLElement
+    const parentItem = menu.querySelector('[role="menuitem"]') as HTMLElement
     fireEvent.mouseEnter(parentItem)
     await waitFor(() => {
       expect(document.querySelectorAll('[role="menu"]').length).toBe(2)

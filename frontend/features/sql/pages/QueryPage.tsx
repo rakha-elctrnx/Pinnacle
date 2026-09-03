@@ -44,6 +44,7 @@ export function QueryPage() {
     queryHistoryByConnection,
     updateActiveQuery,
     handleRunQuery,
+    handleCancelQuery,
     registerEditor,
     onQueryDatabaseChange,
     onQuerySchemaChange,
@@ -108,6 +109,7 @@ export function QueryPage() {
           transactionMode={transactionMode}
           historyOpen={historyOpen}
           onRunQuery={(mode) => void handleRunQuery(mode)}
+          onCancel={() => void handleCancelQuery()}
           onToggleTransactionMode={() => {
             if (transactionMode && activeTransactionId) {
               setConfirmTxExit(true)

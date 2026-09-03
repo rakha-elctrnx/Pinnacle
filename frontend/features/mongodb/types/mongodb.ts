@@ -1,7 +1,12 @@
 import type { ConnectionPayload } from '../../_shared/services/tauriClient'
 
 export type MongoScheme = 'standard' | 'srv'
-export type MongoReadPreference = 'primary' | 'primaryPreferred' | 'secondary' | 'secondaryPreferred' | 'nearest'
+export type MongoReadPreference =
+  | 'primary'
+  | 'primaryPreferred'
+  | 'secondary'
+  | 'secondaryPreferred'
+  | 'nearest'
 
 export interface MongoConnectionOptions {
   scheme?: MongoScheme

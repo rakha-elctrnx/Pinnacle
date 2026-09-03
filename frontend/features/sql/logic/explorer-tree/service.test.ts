@@ -15,7 +15,11 @@ import type { ConnectionProfile } from '../../../_shared/types/domain'
 import type { ExplorerTreeData, TreeNode } from '../../../_shared/types/shared'
 import { buildTreeNodes, resolveTableContext } from './service'
 
-function makeConn(id: string, name: string, type: 'postgresql' | 'mysql'): ConnectionProfile {
+function makeConn(
+  id: string,
+  name: string,
+  type: 'postgresql' | 'mysql',
+): ConnectionProfile {
   return { id, name, type } as ConnectionProfile
 }
 
@@ -45,14 +49,19 @@ function makeMySqlTreeData(): ExplorerTreeData {
       {
         name: 'shop',
         loaded: true,
-        schemas: [{ name: 'shop', tables: ['products'], views: [], functions: [] }],
+        schemas: [
+          { name: 'shop', tables: ['products'], views: [], functions: [] },
+        ],
       },
     ],
     flatTables: ['products'],
   }
 }
 function flattenTree(nodes: TreeNode[]): TreeNode[] {
-  return nodes.flatMap((node) => [node, ...(node.children ? flattenTree(node.children) : [])])
+  return nodes.flatMap((node) => [
+    node,
+    ...(node.children ? flattenTree(node.children) : []),
+  ])
 }
 
 /**
@@ -87,7 +96,9 @@ describe('buildTreeNodes — PostgreSQL (ungrouped)', () => {
   })
 
   it('marks the Tables category node with database and schema identity', () => {
-    const tablesNode = nodes[0].children?.[0].children?.find((c) => c.label === 'Tables')
+    const tablesNode = nodes[0].children?.[0].children?.find(
+      (c) => c.label === 'Tables',
+    )
     expect(tablesNode).toMatchObject({
       nodeType: 'category',
       connectionId: conn.id,
@@ -97,7 +108,9 @@ describe('buildTreeNodes — PostgreSQL (ungrouped)', () => {
   })
 
   it('marks table item nodes with database and schema identity', () => {
-    const tablesNode = nodes[0].children?.[0].children?.find((c) => c.label === 'Tables')
+    const tablesNode = nodes[0].children?.[0].children?.find(
+      (c) => c.label === 'Tables',
+    )
     const usersNode = tablesNode?.children?.find((c) => c.label === 'users')
     expect(usersNode).toMatchObject({
       nodeType: 'item',
@@ -108,7 +121,9 @@ describe('buildTreeNodes — PostgreSQL (ungrouped)', () => {
   })
 
   it('marks the Views category and its items with identity too', () => {
-    const viewsNode = nodes[0].children?.[0].children?.find((c) => c.label === 'Views')
+    const viewsNode = nodes[0].children?.[0].children?.find(
+      (c) => c.label === 'Views',
+    )
     expect(viewsNode).toMatchObject({
       nodeType: 'category',
       connectionId: conn.id,
@@ -149,7 +164,9 @@ describe('buildTreeNodes — MySQL (ungrouped)', () => {
 
   it('marks table item nodes without a schema name', () => {
     const tablesNode = nodes[0].children?.find((c) => c.label === 'Tables')
-    const productsNode = tablesNode?.children?.find((c) => c.label === 'products')
+    const productsNode = tablesNode?.children?.find(
+      (c) => c.label === 'products',
+    )
     expect(productsNode).toMatchObject({
       nodeType: 'item',
       connectionId: conn.id,
@@ -162,7 +179,6 @@ describe('buildTreeNodes — folder invariance (issue #26 core)', () => {
   const connA = makeConn('conn-a', 'ConnA', 'postgresql')
   const connB = makeConn('conn-b', 'ConnB', 'postgresql')
   const treeData = makePgTreeData()
-
 
   it('resolves identical semantic metadata regardless of folder nesting', () => {
     const treeA = buildTreeNodes(treeData, connA)
@@ -201,21 +217,27 @@ describe('buildTreeNodes — folder invariance (issue #26 core)', () => {
 
 describe('resolveTableContext', () => {
   it('resolves a table to its database and schema for postgresql', () => {
-    expect(resolveTableContext(makePgTreeData(), 'postgresql', 'users')).toEqual({
+    expect(
+      resolveTableContext(makePgTreeData(), 'postgresql', 'users'),
+    ).toEqual({
       database: 'app',
       schema: 'public',
     })
   })
 
   it('resolves a table to the database name as schema for mysql', () => {
-    expect(resolveTableContext(makeMySqlTreeData(), 'mysql', 'products')).toEqual({
+    expect(
+      resolveTableContext(makeMySqlTreeData(), 'mysql', 'products'),
+    ).toEqual({
       database: 'shop',
       schema: 'shop',
     })
   })
 
   it('returns null for an unknown table', () => {
-    expect(resolveTableContext(makePgTreeData(), 'postgresql', 'nope')).toBeNull()
+    expect(
+      resolveTableContext(makePgTreeData(), 'postgresql', 'nope'),
+    ).toBeNull()
     expect(resolveTableContext(makeMySqlTreeData(), 'mysql', 'nope')).toBeNull()
   })
 })

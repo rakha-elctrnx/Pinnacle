@@ -27,24 +27,24 @@ interface Props {
 /* ── helpers ─────────────────────────────────────────────────────── */
 
 function healthColor(status: string | undefined): string {
-  if (status === 'green') return 'text-emerald-600'
-  if (status === 'yellow') return 'text-amber-500'
-  if (status === 'red') return 'text-red-500'
-  return 'text-slate-500'
+  if (status === 'green') return 'text-success-text'
+  if (status === 'yellow') return 'text-[var(--color-warning)]'
+  if (status === 'red') return 'text-[var(--color-danger)]'
+  return 'text-text-muted'
 }
 
 function healthBg(status: string | undefined): string {
-  if (status === 'green') return 'bg-emerald-50 border-emerald-200'
-  if (status === 'yellow') return 'bg-amber-50 border-amber-200'
-  if (status === 'red') return 'bg-red-50 border-red-200'
-  return 'bg-slate-50 border-slate-200'
+  if (status === 'green') return 'bg-success-subtle border-border-default'
+  if (status === 'yellow') return 'bg-warning-subtle border-border-default'
+  if (status === 'red') return 'bg-danger-subtle border-border-danger'
+  return 'bg-bg-subtle border-border-default'
 }
 
 function healthDot(status: string | undefined): string {
-  if (status === 'green') return 'bg-emerald-500'
-  if (status === 'yellow') return 'bg-amber-400'
-  if (status === 'red') return 'bg-red-500'
-  return 'bg-slate-400'
+  if (status === 'green') return 'bg-success-text'
+  if (status === 'yellow') return 'bg-[var(--color-warning)]'
+  if (status === 'red') return 'bg-[var(--color-danger)]'
+  return 'bg-bg-hover'
 }
 
 /** Parse a human-readable size string like "1.2mb" or "345kb" into bytes. */
@@ -127,35 +127,35 @@ export function ClusterDashboard({ health, indices }: Props) {
     if (health?.status === 'green') {
       events.push({
         icon: ShieldCheck,
-        color: 'text-emerald-500',
+        color: 'text-success-text',
         text: `Cluster health is ${health.status}`,
       })
     }
     if (health?.relocating_shards && health.relocating_shards > 0) {
       events.push({
         icon: RotateCcw,
-        color: 'text-amber-500',
+        color: 'text-[var(--color-warning)]',
         text: `${health.relocating_shards} shard(s) relocating`,
       })
     }
     if (health?.initializing_shards && health.initializing_shards > 0) {
       events.push({
         icon: AlertCircle,
-        color: 'text-sky-500',
+        color: 'text-primary',
         text: `${health.initializing_shards} shard(s) initializing`,
       })
     }
     if (health?.unassigned_shards && health.unassigned_shards > 0) {
       events.push({
         icon: AlertCircle,
-        color: 'text-red-500',
+        color: 'text-[var(--color-danger)]',
         text: `${health.unassigned_shards} unassigned shard(s)`,
       })
     }
     indices.slice(0, 5).forEach((idx) => {
       events.push({
         icon: Database,
-        color: 'text-slate-500',
+        color: 'text-text-muted',
         text: `Index "${idx.index}" – ${formatDocs(parseInt(idx['docs.count'] ?? '0', 10) || 0)} docs`,
       })
     })
@@ -182,25 +182,25 @@ export function ClusterDashboard({ health, indices }: Props) {
       label: 'Nodes',
       value: health?.number_of_nodes?.toString() ?? '-',
       icon: Server,
-      accent: 'bg-sky-50 text-sky-600',
+      accent: 'bg-primary-subtle text-primary',
     },
     {
       label: 'Indices',
       value: indices.length.toString(),
       icon: Database,
-      accent: 'bg-violet-50 text-violet-600',
+      accent: 'bg-primary-subtle text-primary',
     },
     {
       label: 'Documents',
       value: formatDocs(totalDocs),
       icon: FileText,
-      accent: 'bg-amber-50 text-amber-600',
+      accent: 'bg-warning-subtle text-[var(--color-warning)]',
     },
     {
       label: 'Storage',
       value: formatBytes(totalStorage),
       icon: HardDrive,
-      accent: 'bg-rose-50 text-rose-600',
+      accent: 'bg-danger-subtle text-[var(--color-danger)]',
     },
   ]
 
@@ -209,25 +209,25 @@ export function ClusterDashboard({ health, indices }: Props) {
       label: 'CPU',
       value: '-',
       icon: Cpu,
-      accent: 'bg-emerald-50 text-emerald-600',
+      accent: 'bg-success-subtle text-success-text',
     },
     {
       label: 'Memory',
       value: '-',
       icon: MemoryStick,
-      accent: 'bg-blue-50 text-blue-600',
+      accent: 'bg-primary-subtle text-primary',
     },
     {
       label: 'JVM Heap',
       value: '-',
       icon: Layers,
-      accent: 'bg-orange-50 text-orange-600',
+      accent: 'bg-warning-subtle text-[var(--color-warning)]',
     },
     {
       label: 'Shards',
       value: health?.active_shards?.toLocaleString() ?? '-',
       icon: Activity,
-      accent: 'bg-pink-50 text-pink-600',
+      accent: 'bg-primary-subtle text-primary',
     },
   ]
 
@@ -236,7 +236,7 @@ export function ClusterDashboard({ health, indices }: Props) {
     <div className="p-6 space-y-5 overflow-y-auto h-full">
       {/* header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-heading text-slate-800">Cluster Dashboard</h2>
+        <h2 className="text-heading text-text-primary">Cluster Dashboard</h2>
         {health && (
           <div
             className={`flex items-center gap-2 px-3 py-1 rounded-full border text-body ${healthBg(health.status)}`}
@@ -256,7 +256,7 @@ export function ClusterDashboard({ health, indices }: Props) {
         {row1Cards.map((card) => (
           <div
             key={card.label}
-            className="rounded-xl border border-slate-200 bg-white p-4 flex items-center gap-4"
+            className="rounded-xl border border-border-default bg-bg-base p-4 flex items-center gap-4"
           >
             <div
               className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${card.accent}`}
@@ -264,8 +264,10 @@ export function ClusterDashboard({ health, indices }: Props) {
               <card.icon className="h-5 w-5" />
             </div>
             <div className="flex flex-col">
-              <span className="text-label text-slate-500">{card.label}</span>
-              <span className="text-display text-slate-800">{card.value}</span>
+              <span className="text-label text-text-muted">{card.label}</span>
+              <span className="text-display text-text-primary">
+                {card.value}
+              </span>
             </div>
           </div>
         ))}
@@ -276,7 +278,7 @@ export function ClusterDashboard({ health, indices }: Props) {
         {row2Cards.map((card) => (
           <div
             key={card.label}
-            className="rounded-xl border border-slate-200 bg-white p-4 flex items-center gap-4"
+            className="rounded-xl border border-border-default bg-bg-base p-4 flex items-center gap-4"
           >
             <div
               className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${card.accent}`}
@@ -284,8 +286,10 @@ export function ClusterDashboard({ health, indices }: Props) {
               <card.icon className="h-5 w-5" />
             </div>
             <div className="flex flex-col">
-              <span className="text-label text-slate-500">{card.label}</span>
-              <span className="text-display text-slate-800">{card.value}</span>
+              <span className="text-label text-text-muted">{card.label}</span>
+              <span className="text-display text-text-primary">
+                {card.value}
+              </span>
             </div>
           </div>
         ))}
@@ -294,8 +298,8 @@ export function ClusterDashboard({ health, indices }: Props) {
       {/* ── Row 3: Cluster Health + Storage Growth ── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Cluster Health */}
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <h3 className="text-subheading text-slate-700 mb-4">
+        <div className="rounded-xl border border-border-default bg-bg-base p-5">
+          <h3 className="text-subheading text-text-secondary mb-4">
             Cluster Health
           </h3>
           <div className="flex flex-col items-center justify-center gap-3 py-6">
@@ -306,7 +310,7 @@ export function ClusterDashboard({ health, indices }: Props) {
                 {health?.status?.toUpperCase() ?? '-'}
               </span>
             </div>
-            <span className="text-body text-slate-500">
+            <span className="text-body text-text-muted">
               {health?.status === 'green'
                 ? '100% Healthy'
                 : health?.status === 'yellow'
@@ -318,21 +322,21 @@ export function ClusterDashboard({ health, indices }: Props) {
           </div>
           {/* mini health details */}
           {health && (
-            <div className="grid grid-cols-3 gap-3 border-t border-slate-100 pt-4">
+            <div className="grid grid-cols-3 gap-3 border-t border-border-default pt-4">
               <div className="text-center">
-                <span className="block text-display text-slate-800">
+                <span className="block text-display text-text-primary">
                   {health.active_primary_shards}
                 </span>
                 <span className="text-caption">Primary</span>
               </div>
               <div className="text-center">
-                <span className="block text-display text-slate-800">
+                <span className="block text-display text-text-primary">
                   {health.active_shards}
                 </span>
                 <span className="text-caption">Active</span>
               </div>
               <div className="text-center">
-                <span className="block text-display text-slate-800">
+                <span className="block text-display text-text-primary">
                   {health.unassigned_shards}
                 </span>
                 <span className="text-caption">Unassigned</span>
@@ -342,10 +346,12 @@ export function ClusterDashboard({ health, indices }: Props) {
         </div>
 
         {/* Storage Growth (simple CSS line chart placeholder) */}
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
+        <div className="rounded-xl border border-border-default bg-bg-base p-5">
           <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="h-4 w-4 text-slate-500" />
-            <h3 className="text-subheading text-slate-700">Storage Growth</h3>
+            <TrendingUp className="h-4 w-4 text-text-muted" />
+            <h3 className="text-subheading text-text-secondary">
+              Storage Growth
+            </h3>
           </div>
           <div className="flex items-end justify-between gap-1 h-40 px-2">
             {indices.slice(0, 10).map((idx) => {
@@ -365,11 +371,11 @@ export function ClusterDashboard({ health, indices }: Props) {
                     style={{ height: '120px' }}
                   >
                     <div
-                      className="w-full rounded-t-sm bg-sky-400/70 transition-all"
+                      className="w-full rounded-t-sm bg-primary/70 transition-all"
                       style={{ height: `${pct}%` }}
                     />
                   </div>
-                  <span className="text-micro text-slate-400 truncate max-w-full text-center">
+                  <span className="text-micro text-text-muted truncate max-w-full text-center">
                     {idx.index.length > 8
                       ? idx.index.slice(0, 8) + '…'
                       : idx.index}
@@ -378,7 +384,7 @@ export function ClusterDashboard({ health, indices }: Props) {
               )
             })}
             {indices.length === 0 && (
-              <div className="flex-1 flex items-center justify-center text-body text-slate-400">
+              <div className="flex-1 flex items-center justify-center text-body text-text-muted">
                 No index data
               </div>
             )}
@@ -389,79 +395,85 @@ export function ClusterDashboard({ health, indices }: Props) {
       {/* ── Row 4: Top Indices + Node Distribution ── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Top Indices */}
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <h3 className="text-subheading text-slate-700 mb-4">Top Indices</h3>
+        <div className="rounded-xl border border-border-default bg-bg-base p-5">
+          <h3 className="text-subheading text-text-secondary mb-4">
+            Top Indices
+          </h3>
           <div className="space-y-3">
             {topIndices.map((idx) => {
               const docs = parseInt(idx['docs.count'] ?? '0', 10) || 0
               const pct = (docs / maxDocs) * 100
               return (
                 <div key={idx.uuid} className="flex items-center gap-3">
-                  <span className="w-32 truncate text-body text-slate-700">
+                  <span className="w-32 truncate text-body text-text-secondary">
                     {idx.index}
                   </span>
-                  <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+                  <div className="flex-1 h-2 rounded-full bg-bg-muted overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-violet-500 transition-all"
+                      className="h-full rounded-full bg-primary transition-all"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <span className="w-16 text-right text-caption text-slate-500 tabular-nums">
+                  <span className="w-16 text-right text-caption text-text-muted tabular-nums">
                     {formatDocs(docs)}
                   </span>
                 </div>
               )
             })}
             {topIndices.length === 0 && (
-              <p className="text-body text-slate-400">No indices available</p>
+              <p className="text-body text-text-muted">No indices available</p>
             )}
           </div>
         </div>
 
         {/* Node Distribution */}
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <h3 className="text-subheading text-slate-700 mb-4">
+        <div className="rounded-xl border border-border-default bg-bg-base p-5">
+          <h3 className="text-subheading text-text-secondary mb-4">
             Node Distribution
           </h3>
           <div className="space-y-3">
             {nodeDistribution.map((node) => (
               <div key={node.name} className="flex items-center gap-3">
-                <span className="w-20 text-body text-slate-700">
+                <span className="w-20 text-body text-text-secondary">
                   {node.name}
                 </span>
-                <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+                <div className="flex-1 h-2 rounded-full bg-bg-muted overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-sky-500 transition-all"
+                    className="h-full rounded-full bg-primary transition-all"
                     style={{ width: `${node.pct}%` }}
                   />
                 </div>
-                <span className="w-10 text-right text-caption text-slate-500 tabular-nums">
+                <span className="w-10 text-right text-caption text-text-muted tabular-nums">
                   {node.pct}%
                 </span>
               </div>
             ))}
             {nodeDistribution.length === 0 && (
-              <p className="text-body text-slate-400">No node data available</p>
+              <p className="text-body text-text-muted">
+                No node data available
+              </p>
             )}
           </div>
         </div>
       </div>
 
       {/* ── Row 5: Recent Events ── */}
-      <div className="rounded-xl border border-slate-200 bg-white">
-        <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-100">
-          <Clock className="h-4 w-4 text-slate-500" />
-          <h3 className="text-subheading text-slate-700">Recent Events</h3>
+      <div className="rounded-xl border border-border-default bg-bg-base">
+        <div className="flex items-center gap-2 px-5 py-4 border-b border-border-default">
+          <Clock className="h-4 w-4 text-text-muted" />
+          <h3 className="text-subheading text-text-secondary">Recent Events</h3>
         </div>
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-border-default">
           {recentEvents.map((event, i) => (
             <div key={i} className="flex items-center gap-3 px-5 py-3">
               <event.icon className={`h-4 w-4 shrink-0 ${event.color}`} />
-              <span className="text-body text-slate-700">{event.text}</span>
+              <span className="text-body text-text-secondary">
+                {event.text}
+              </span>
             </div>
           ))}
           {recentEvents.length === 0 && (
-            <div className="px-5 py-6 text-center text-body text-slate-400">
+            <div className="px-5 py-6 text-center text-body text-text-muted">
               No recent events
             </div>
           )}

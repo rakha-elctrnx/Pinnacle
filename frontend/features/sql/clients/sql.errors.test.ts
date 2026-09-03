@@ -23,14 +23,16 @@ afterEach(() => {
 
 describe('SQL client error normalization', () => {
   it('converts a plain-string rejection into an Error', async () => {
-    invokeMock.mockRejectedValue('error connecting to server: connection refused')
-
-    await expect(executeSql({ connection: {} as never, sql: 'SELECT 1' })).rejects.toThrow(
-      Error,
-    )
-    await expect(executeSql({ connection: {} as never, sql: 'SELECT 1' })).rejects.toThrow(
+    invokeMock.mockRejectedValue(
       'error connecting to server: connection refused',
     )
+
+    await expect(
+      executeSql({ connection: {} as never, sql: 'SELECT 1' }),
+    ).rejects.toThrow(Error)
+    await expect(
+      executeSql({ connection: {} as never, sql: 'SELECT 1' }),
+    ).rejects.toThrow('error connecting to server: connection refused')
   })
 
   it('converts an object rejection with a message field into an Error', async () => {
@@ -59,16 +61,18 @@ describe('SQL client error normalization', () => {
     const original = new Error('unchanged')
     invokeMock.mockRejectedValue(original)
 
-    await expect(sqlRollbackTransaction({} as never, 'tx-2')).rejects.toBe(original)
+    await expect(sqlRollbackTransaction({} as never, 'tx-2')).rejects.toBe(
+      original,
+    )
   })
 
   it('leaves successful result types unchanged', async () => {
     const result = { rowsAffected: 3, elapsedMs: 12, columns: ['id'], rows: [] }
     invokeMock.mockResolvedValue(result)
 
-    await expect(executeSql({ connection: {} as never, sql: 'UPDATE t SET x=1' })).resolves.toEqual(
-      result,
-    )
+    await expect(
+      executeSql({ connection: {} as never, sql: 'UPDATE t SET x=1' }),
+    ).resolves.toEqual(result)
     expect(invokeMock).toHaveBeenCalledWith('execute_sql', {
       payload: { connection: {}, sql: 'UPDATE t SET x=1' },
     })

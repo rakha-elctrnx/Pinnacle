@@ -217,15 +217,9 @@ export function useTableFiltersAndSort({
         )
         setAppliedWhereClause(whereClause)
       }
-    notifyQueryStateChange()
+      notifyQueryStateChange()
     },
-    [
-      filters,
-      dbType,
-      tableColumnsMeta,
-      tableName,
-      notifyQueryStateChange,
-    ]
+    [filters, dbType, tableColumnsMeta, tableName, notifyQueryStateChange],
   )
 
   const handleRemoveFilter = useCallback(
@@ -245,15 +239,9 @@ export function useTableFiltersAndSort({
             : ''
         setAppliedWhereClause(whereClause)
       }
-    notifyQueryStateChange()
+      notifyQueryStateChange()
     },
-    [
-      filters,
-      dbType,
-      tableColumnsMeta,
-      tableName,
-      notifyQueryStateChange,
-    ]
+    [filters, dbType, tableColumnsMeta, tableName, notifyQueryStateChange],
   )
 
   const handleClearAllFilters = useCallback(() => {

@@ -2,10 +2,7 @@
 // overwrite newer data or end the newest request's loading window.
 // Run with: pnpm vitest run frontend/features/sql/hooks/useExplorerData.race.test.ts
 import { describe, it, expect, vi } from 'vitest'
-import {
-  fetchTableDataCore,
-  type FetchTableDataDeps,
-} from './useExplorerData'
+import { fetchTableDataCore, type FetchTableDataDeps } from './useExplorerData'
 import type { ConnectionPayload } from '../../_shared/services/tauriClient'
 import type { ConnectionProfile } from '../../_shared/types/domain'
 
@@ -139,12 +136,30 @@ describe('fetchTableDataCore stale-request suppression', () => {
     const h = makeHarness()
 
     const p1 = fetchTableDataCore(
-      CONN, 'public', 'orders', 'db', 1, 50, '', '', undefined, h.deps,
+      CONN,
+      'public',
+      'orders',
+      'db',
+      1,
+      50,
+      '',
+      '',
+      undefined,
+      h.deps,
     )
     // Request 2 starts before request 1's payload resolves → request 1 is
     // stale-gated after its payload await and never issues queries.
     const p2 = fetchTableDataCore(
-      CONN, 'public', 'orders', 'db', 2, 50, '', '', undefined, h.deps,
+      CONN,
+      'public',
+      'orders',
+      'db',
+      2,
+      50,
+      '',
+      '',
+      undefined,
+      h.deps,
     )
 
     // Drain: payload awaits resolve → stale gate → request 2 issues wave 1.
@@ -195,12 +210,30 @@ describe('fetchTableDataCore stale-request suppression', () => {
     try {
       // Request 1 issues its hanging index query…
       const p1 = fetchTableDataCore(
-        CONN, 'public', 'orders', 'db', 1, 50, '', '', undefined, h.deps,
+        CONN,
+        'public',
+        'orders',
+        'db',
+        1,
+        50,
+        '',
+        '',
+        undefined,
+        h.deps,
       )
       await Promise.resolve()
       // …then request 2 supersedes it and completes fully.
       const p2 = fetchTableDataCore(
-        CONN, 'public', 'orders', 'db', 2, 50, '', '', undefined, h.deps,
+        CONN,
+        'public',
+        'orders',
+        'db',
+        2,
+        50,
+        '',
+        '',
+        undefined,
+        h.deps,
       )
       await p2
       expect(h.loadingWrites.at(-1)).toBe(false)

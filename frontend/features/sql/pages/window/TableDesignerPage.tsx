@@ -228,7 +228,7 @@ export function TableDesignerPage() {
         <CustomTitlebar title="Table Designer" />
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-border-default border-t-primary" />
             <p className="text-sm text-text-muted">Loading table schema...</p>
           </div>
         </div>
@@ -243,7 +243,7 @@ export function TableDesignerPage() {
         <CustomTitlebar title="Table Designer" />
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4 px-8 text-center">
-            <div className="grid h-12 w-12 place-items-center rounded-full bg-red-50 text-red-500">
+            <div className="grid h-12 w-12 place-items-center rounded-full bg-danger-subtle text-[var(--color-danger)]">
               <AlertTriangle size={24} />
             </div>
             <div>
@@ -315,7 +315,7 @@ export function TableDesignerPage() {
               placeholder="table_name"
               className={`rounded-md border bg-bg-base px-2 py-1 text-xs font-medium outline-none transition focus:ring-2 ${
                 errors.some((e) => e.code === 'TABLE_NAME_REQUIRED')
-                  ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
+                  ? 'border-border-danger focus:border-border-danger focus:ring-border-danger/20'
                   : 'border-border-default focus:border-primary focus:ring-primary/20'
               }`}
             />
@@ -342,10 +342,13 @@ export function TableDesignerPage() {
 
       {/* ── Validation Errors Banner ────────────────────────── */}
       {hasErrors && (
-        <div className="border-t border-red-200 bg-red-50 px-5 py-2">
+        <div className="border-t border-border-danger bg-danger-subtle px-5 py-2">
           <div className="flex items-center gap-2">
-            <AlertTriangle size={13} className="shrink-0 text-red-500" />
-            <p className="text-xs text-red-700">
+            <AlertTriangle
+              size={13}
+              className="shrink-0 text-[var(--color-danger)]"
+            />
+            <p className="text-xs text-[var(--color-danger)]">
               {errors.length} validation error{errors.length !== 1 ? 's' : ''}{' '}
               found. Fix them before previewing or saving.
             </p>
@@ -357,8 +360,8 @@ export function TableDesignerPage() {
       <footer className="flex items-center justify-between border-t border-border-default bg-bg-subtle/50 px-5 py-3">
         <div>
           {isDirty && (
-            <span className="inline-flex items-center gap-1 text-[11px] text-amber-600">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+            <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-warning)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-warning)]" />
               Unsaved changes
             </span>
           )}
@@ -395,7 +398,10 @@ export function TableDesignerPage() {
         <div className="fixed inset-0 z-60 grid place-items-center bg-slate-900/40">
           <div className="w-full max-w-sm rounded-xl bg-bg-base p-5 shadow-xl ring-1 ring-black/5">
             <div className="flex items-center gap-3 mb-3">
-              <AlertTriangle size={18} className="text-amber-500" />
+              <AlertTriangle
+                size={18}
+                className="text-[var(--color-warning)]"
+              />
               <h3 className="text-sm font-semibold text-text-primary">
                 Discard Unsaved Changes?
               </h3>
@@ -414,7 +420,7 @@ export function TableDesignerPage() {
               <button
                 type="button"
                 onClick={handleDiscard}
-                className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+                className="rounded-lg bg-[var(--color-danger)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-danger)]/90"
               >
                 Discard Changes
               </button>

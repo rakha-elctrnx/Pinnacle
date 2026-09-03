@@ -138,7 +138,8 @@ function buildUnifiedTree(
         isSqlConnectionType(profile.type) || profile.type === 'mongodb'
           ? []
           : getStaticTreeNodes(profile.type, connectionIndices)
-      const treeNodes = dynamicTreeNodes.length > 0 ? dynamicTreeNodes : staticTreeNodes
+      const treeNodes =
+        dynamicTreeNodes.length > 0 ? dynamicTreeNodes : staticTreeNodes
 
       const connectionPath = buildPath(folder.name, profile.name)
       if (expandedTreePaths.includes(connectionPath)) {
@@ -171,7 +172,8 @@ function buildUnifiedTree(
         isSqlConnectionType(profile.type) || profile.type === 'mongodb'
           ? []
           : getStaticTreeNodes(profile.type, connectionIndices)
-      const treeNodes = dynamicTreeNodes.length > 0 ? dynamicTreeNodes : staticTreeNodes
+      const treeNodes =
+        dynamicTreeNodes.length > 0 ? dynamicTreeNodes : staticTreeNodes
 
       // For ungrouped connections, the path is the encoded profile name
       const connectionPath = encodePathSegment(profile.name)
@@ -321,7 +323,10 @@ export function ConnectionSidebar() {
           current.node.children &&
           current.node.children.length > 0
         ) {
-          const childPath = buildPath(focusedNodePath, current.node.children[0].label)
+          const childPath = buildPath(
+            focusedNodePath,
+            current.node.children[0].label,
+          )
           setFocusedNodePath(childPath)
         }
         break
@@ -338,26 +343,25 @@ export function ConnectionSidebar() {
         break
       }
       case 'ContextMenu': // Actual menu/context key
-      case 'F10': // Shift+F10 is the Windows menu key equivalent
-        {
-          if (e.key === 'F10' && !e.shiftKey) break
-          e.preventDefault()
-          const el = treeContainerRef.current?.querySelector<HTMLElement>(
-            `[data-node-path="${CSS.escape(focusedNodePath)}"]`,
+      case 'F10': { // Shift+F10 is the Windows menu key equivalent
+        if (e.key === 'F10' && !e.shiftKey) break
+        e.preventDefault()
+        const el = treeContainerRef.current?.querySelector<HTMLElement>(
+          `[data-node-path="${CSS.escape(focusedNodePath)}"]`,
+        )
+        if (el) {
+          const rect = el.getBoundingClientRect()
+          el.dispatchEvent(
+            new MouseEvent('contextmenu', {
+              bubbles: true,
+              cancelable: true,
+              clientX: rect.left + rect.width / 2,
+              clientY: rect.top + rect.height / 2,
+            }),
           )
-          if (el) {
-            const rect = el.getBoundingClientRect()
-            el.dispatchEvent(
-              new MouseEvent('contextmenu', {
-                bubbles: true,
-                cancelable: true,
-                clientX: rect.left + rect.width / 2,
-                clientY: rect.top + rect.height / 2,
-              }),
-            )
-          }
-          break
         }
+        break
+      }
       case 'Enter':
       case ' ': {
         e.preventDefault()
@@ -692,7 +696,7 @@ export function ConnectionSidebar() {
                 setNewFolderName('')
               }
             }}
-            className="flex shrink-0 items-center justify-center rounded p-1 text-success hover:bg-bg-hover transition-colors"
+            className="flex shrink-0 items-center justify-center rounded p-1 text-success hover:bg-bg-hover transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
           >
             <Check size={14} />
           </button>
@@ -702,7 +706,7 @@ export function ConnectionSidebar() {
               setShowNewFolderInput(false)
               setNewFolderName('')
             }}
-            className="flex shrink-0 items-center justify-center rounded p-1 text-text-muted hover:bg-bg-hover transition-colors"
+            className="flex shrink-0 items-center justify-center rounded p-1 text-text-muted hover:bg-bg-hover transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
           >
             <X size={14} />
           </button>
@@ -735,7 +739,13 @@ export function ConnectionSidebar() {
         >
           {unifiedTree.map((node) => (
             <TreeNodeItem
-              key={node.nodeType === 'group' ? `group:${node.label}` : node.connectionId ? `conn:${node.connectionId}` : node.label}
+              key={
+                node.nodeType === 'group'
+                  ? `group:${node.label}`
+                  : node.connectionId
+                    ? `conn:${node.connectionId}`
+                    : node.label
+              }
               node={node}
               depth={0}
               parentPath=""

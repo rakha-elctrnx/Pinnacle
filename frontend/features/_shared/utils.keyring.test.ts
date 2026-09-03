@@ -7,16 +7,16 @@ const { getConnectionPasswordMock } = vi.hoisted(() => ({
 }))
 
 vi.mock('./services/tauriClient', () => ({
-  getConnectionPassword: (...args: unknown[]) => getConnectionPasswordMock(...args),
+  getConnectionPassword: (...args: unknown[]) =>
+    getConnectionPasswordMock(...args),
 }))
 
-import {
-  getConnPayloadWithPassword,
-  KEYRING_RECOVERY_MESSAGE,
-} from './utils'
+import { getConnPayloadWithPassword, KEYRING_RECOVERY_MESSAGE } from './utils'
 import type { ConnectionProfile } from './types/domain'
 
-function makeProfile(overrides: Partial<ConnectionProfile> = {}): ConnectionProfile {
+function makeProfile(
+  overrides: Partial<ConnectionProfile> = {},
+): ConnectionProfile {
   return {
     id: 'conn-abc-123',
     name: 'Local PG',
@@ -44,7 +44,9 @@ describe('getConnPayloadWithPassword keyring rejection', () => {
   })
 
   it('rejects with the exact user-safe recovery message on keyring failure', async () => {
-    getConnectionPasswordMock.mockRejectedValue(new Error('keyring backend unavailable'))
+    getConnectionPasswordMock.mockRejectedValue(
+      new Error('keyring backend unavailable'),
+    )
 
     await expect(getConnPayloadWithPassword(makeProfile())).rejects.toThrow(
       KEYRING_RECOVERY_MESSAGE,

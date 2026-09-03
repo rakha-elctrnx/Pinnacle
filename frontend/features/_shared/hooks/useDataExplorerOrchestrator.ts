@@ -54,7 +54,11 @@ import {
 } from '../connection-management/service'
 import { hasCapability, defaultConnectorRegistry } from '../connector-runtime'
 import { hasCapabilityWithAdapter } from '../connector-runtime/adapters'
-import { buildPath, decodePathSegment, encodePathSegment } from '../utils/treeNavigation'
+import {
+  buildPath,
+  decodePathSegment,
+  encodePathSegment,
+} from '../utils/treeNavigation'
 
 interface OpenedTableTab {
   id: string
@@ -174,7 +178,10 @@ export interface DataExplorerOrchestratorResult {
     keyPassphrase?: string,
   ) => void
   handleToggleTreeNode: (path: string) => void
-  handleFetchDatabaseDetails: (dbName: string, targetConnectionId?: string) => void
+  handleFetchDatabaseDetails: (
+    dbName: string,
+    targetConnectionId?: string,
+  ) => void
   wrappedHandleTreeNodeClick: (
     nodeLabel: string,
     databaseName?: string,
@@ -887,202 +894,213 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
       nodePath?: string,
       schemaName?: string,
     ) => {
-    // Use capability check instead of raw `type === 'postgresql' || type === 'mysql'`
-    const isTablesNode = nodePath?.endsWith('/Tables')
-    const isViewsNode = nodePath?.endsWith('/Views')
-    if (
-      (isTablesNode || isViewsNode) &&
-      selectedConnection &&
-      hasCapabilityWithAdapter(selectedConnection.type, 'load-navigation-tree')
-    ) {
-      const targetDatabase = databaseName || selectedConnection.database
-      const targetSchema = schemaName
-
-      setSelectedTreeNode(nodePath ?? null)
-      setActiveTableTabId(null)
-
-      if (targetDatabase) {
-        void explorerData.fetchSqlTableList(
-          selectedConnection,
-          targetDatabase,
-          targetSchema,
+      // Use capability check instead of raw `type === 'postgresql' || type === 'mysql'`
+      const isTablesNode = nodePath?.endsWith('/Tables')
+      const isViewsNode = nodePath?.endsWith('/Views')
+      if (
+        (isTablesNode || isViewsNode) &&
+        selectedConnection &&
+        hasCapabilityWithAdapter(
+          selectedConnection.type,
+          'load-navigation-tree',
         )
-        queryExecution.onQueryDatabaseChange(targetDatabase)
-        queryExecution.onQuerySchemaChange(targetSchema || '')
-      }
+      ) {
+        const targetDatabase = databaseName || selectedConnection.database
+        const targetSchema = schemaName
 
-      return
-    }
+        setSelectedTreeNode(nodePath ?? null)
+        setActiveTableTabId(null)
 
-    // Handle elasticsearch sidebar navigation — use capability check
-    // Derive connection from node path (user may click index child without selecting connection)
-    const esPathName = nodePath?.split('/')[1]
-      ? decodePathSegment(nodePath.split('/')[1])
-      : undefined
-    const esConn =
-      selectedConnection && isElasticsearchLike(selectedConnection.type)
-        ? selectedConnection
-        : esPathName
-          ? items.find(
-              (item) =>
-                item.name === esPathName && item.type === 'elasticsearch',
-            )
-          : null
+        if (targetDatabase) {
+          void explorerData.fetchSqlTableList(
+            selectedConnection,
+            targetDatabase,
+            targetSchema,
+          )
+          queryExecution.onQueryDatabaseChange(targetDatabase)
+          queryExecution.onQuerySchemaChange(targetSchema || '')
+        }
 
-    if (esConn && isElasticsearchLike(esConn.type)) {
-      if (nodePath?.includes('/Indices/')) {
-        setSelectedTreeNode(nodePath)
-        // Create global tab for the elastic index with per-index route
-        const globalTabId = `${esConn.id}:index:${nodeLabel}`
-        useTabStore.getState().openTab({
-          id: globalTabId,
-          label: nodeLabel,
-          type: esConn.type,
-          pageType: 'elastic-index',
-          route: `/elasticsearch/${esConn.id}/indices/${nodeLabel}`,
-          connectionId: esConn.id,
-        })
-        navigate(`/elasticsearch/${esConn.id}/indices/${nodeLabel}`)
         return
       }
-      if (ELASTIC_LABEL_TO_PANEL[nodeLabel]) {
-        const panel = ELASTIC_LABEL_TO_PANEL[nodeLabel]
-        setSelectedTreeNode(nodePath || nodeLabel)
 
-        const routeSuffix = ELASTIC_PANEL_TO_ROUTE[panel] || panel
-        const pageType = ELASTIC_PANEL_TO_PAGE_TYPE[panel] || 'elastic-cluster'
-        const route = `/elasticsearch/${esConn.id}/${routeSuffix}`
-        const globalTabId = `${esConn.id}:${panel}`
-        useTabStore.getState().openTab({
-          id: globalTabId,
-          label: nodeLabel,
-          type: esConn.type,
-          pageType: pageType as TabPageType,
-          route,
-          connectionId: esConn.id,
-          treePath: nodePath || undefined,
-        })
-        navigate(route)
-        return
-      }
-    }
-    const mongoConn =
-      selectedConnection && selectedConnection.type === 'mongodb'
-        ? selectedConnection
-        : (nodePath
+      // Handle elasticsearch sidebar navigation — use capability check
+      // Derive connection from node path (user may click index child without selecting connection)
+      const esPathName = nodePath?.split('/')[1]
+        ? decodePathSegment(nodePath.split('/')[1])
+        : undefined
+      const esConn =
+        selectedConnection && isElasticsearchLike(selectedConnection.type)
+          ? selectedConnection
+          : esPathName
             ? items.find(
                 (item) =>
-                  item.type === 'mongodb' &&
-                  nodePath.split('/').map(decodePathSegment).includes(item.name),
+                  item.name === esPathName && item.type === 'elasticsearch',
               )
-            : null) ?? selectedConnection
-    if (mongoConn && mongoConn.type === 'mongodb') {
-      const dbName = databaseName || mongoConn.database || 'admin'
-      const globalTabId = `${mongoConn.id}:mongo:${dbName}:${nodeLabel}`
-      useTabStore.getState().openTab({
-        id: globalTabId,
-        label: nodeLabel,
-        type: 'mongodb',
-        pageType: 'mongo-collection',
-        route: `/mongodb/${mongoConn.id}/databases/${encodeURIComponent(dbName)}/collections/${encodeURIComponent(nodeLabel.replace(' (view)', ''))}`,
-        connectionId: mongoConn.id,
-        treePath: nodePath,
-      })
-      navigate(`/mongodb/${mongoConn.id}/databases/${encodeURIComponent(dbName)}/collections/${encodeURIComponent(nodeLabel.replace(' (view)', ''))}`)
-      return
-    }
-    // Resolve target connection (fallback to nodePath matching if selectedConnection isn't set yet)
-    let conn = selectedConnection
-    if (!conn && nodePath) {
-      const parts = nodePath.split('/').map(decodePathSegment)
-      // nodePath might be "Ungrouped/PostgresConn/db/public/Tables/users" or "PostgresConn/db/Tables/users"
-      for (const part of parts) {
-        const found = items.find((item) => item.name === part)
-        if (found) {
-          conn = found
-          setSelectedConnectionId(found.id)
-          break
+            : null
+
+      if (esConn && isElasticsearchLike(esConn.type)) {
+        if (nodePath?.includes('/Indices/')) {
+          setSelectedTreeNode(nodePath)
+          // Create global tab for the elastic index with per-index route
+          const globalTabId = `${esConn.id}:index:${nodeLabel}`
+          useTabStore.getState().openTab({
+            id: globalTabId,
+            label: nodeLabel,
+            type: esConn.type,
+            pageType: 'elastic-index',
+            route: `/elasticsearch/${esConn.id}/indices/${nodeLabel}`,
+            connectionId: esConn.id,
+          })
+          navigate(`/elasticsearch/${esConn.id}/indices/${nodeLabel}`)
+          return
+        }
+        if (ELASTIC_LABEL_TO_PANEL[nodeLabel]) {
+          const panel = ELASTIC_LABEL_TO_PANEL[nodeLabel]
+          setSelectedTreeNode(nodePath || nodeLabel)
+
+          const routeSuffix = ELASTIC_PANEL_TO_ROUTE[panel] || panel
+          const pageType =
+            ELASTIC_PANEL_TO_PAGE_TYPE[panel] || 'elastic-cluster'
+          const route = `/elasticsearch/${esConn.id}/${routeSuffix}`
+          const globalTabId = `${esConn.id}:${panel}`
+          useTabStore.getState().openTab({
+            id: globalTabId,
+            label: nodeLabel,
+            type: esConn.type,
+            pageType: pageType as TabPageType,
+            route,
+            connectionId: esConn.id,
+            treePath: nodePath || undefined,
+          })
+          navigate(route)
+          return
         }
       }
-    }
-
-    // Set context without fetching — TableDetailPage will fetch via useEffect.
-    // This avoids double-fetch: once here and once in TableDetailPage.
-    const treeData = explorerData.treeDataMap[conn?.id ?? '']
-    if (treeData && conn) {
-      if (conn.type === 'postgresql') {
-        for (const db of treeData.databases) {
-          for (const schema of db.schemas) {
-            if (schema.views.includes(nodeLabel)) {
-              explorerData.setSelectedTable(nodeLabel)
-              explorerData.setSelectedSchema(schema.name)
-              explorerData.setSelectedDatabase(db.name)
-              queryExecution.onQueryDatabaseChange(db.name)
-              queryExecution.onQuerySchemaChange(schema.name)
-              break
-            }
-            if (schema.tables.includes(nodeLabel)) {
-              explorerData.setSelectedTable(nodeLabel)
-              explorerData.setSelectedSchema(schema.name)
-              explorerData.setSelectedDatabase(db.name)
-              queryExecution.onQueryDatabaseChange(db.name)
-              queryExecution.onQuerySchemaChange(schema.name)
-              break
-            }
-          }
-        }
-      } else if (conn.type === 'mysql') {
-        for (const db of treeData.databases) {
-          const views = db.schemas[0]?.views ?? []
-          const tables = db.schemas[0]?.tables ?? []
-          if (views.includes(nodeLabel)) {
-            explorerData.setSelectedTable(nodeLabel)
-            explorerData.setSelectedSchema(db.name)
-            explorerData.setSelectedDatabase(db.name)
-            queryExecution.onQueryDatabaseChange(db.name)
-            queryExecution.onQuerySchemaChange('')
+      const mongoConn =
+        selectedConnection && selectedConnection.type === 'mongodb'
+          ? selectedConnection
+          : ((nodePath
+              ? items.find(
+                  (item) =>
+                    item.type === 'mongodb' &&
+                    nodePath
+                      .split('/')
+                      .map(decodePathSegment)
+                      .includes(item.name),
+                )
+              : null) ?? selectedConnection)
+      if (mongoConn && mongoConn.type === 'mongodb') {
+        const dbName = databaseName || mongoConn.database || 'admin'
+        const globalTabId = `${mongoConn.id}:mongo:${dbName}:${nodeLabel}`
+        useTabStore.getState().openTab({
+          id: globalTabId,
+          label: nodeLabel,
+          type: 'mongodb',
+          pageType: 'mongo-collection',
+          route: `/mongodb/${mongoConn.id}/databases/${encodeURIComponent(dbName)}/collections/${encodeURIComponent(nodeLabel.replace(' (view)', ''))}`,
+          connectionId: mongoConn.id,
+          treePath: nodePath,
+        })
+        navigate(
+          `/mongodb/${mongoConn.id}/databases/${encodeURIComponent(dbName)}/collections/${encodeURIComponent(nodeLabel.replace(' (view)', ''))}`,
+        )
+        return
+      }
+      // Resolve target connection (fallback to nodePath matching if selectedConnection isn't set yet)
+      let conn = selectedConnection
+      if (!conn && nodePath) {
+        const parts = nodePath.split('/').map(decodePathSegment)
+        // nodePath might be "Ungrouped/PostgresConn/db/public/Tables/users" or "PostgresConn/db/Tables/users"
+        for (const part of parts) {
+          const found = items.find((item) => item.name === part)
+          if (found) {
+            conn = found
+            setSelectedConnectionId(found.id)
             break
           }
-          if (tables.includes(nodeLabel)) {
-            explorerData.setSelectedTable(nodeLabel)
-            explorerData.setSelectedSchema(db.name)
-            explorerData.setSelectedDatabase(db.name)
-            queryExecution.onQueryDatabaseChange(db.name)
-            queryExecution.onQuerySchemaChange('')
-            break
+        }
+      }
+
+      // Set context without fetching — TableDetailPage will fetch via useEffect.
+      // This avoids double-fetch: once here and once in TableDetailPage.
+      const treeData = explorerData.treeDataMap[conn?.id ?? '']
+      if (treeData && conn) {
+        if (conn.type === 'postgresql') {
+          for (const db of treeData.databases) {
+            for (const schema of db.schemas) {
+              if (schema.views.includes(nodeLabel)) {
+                explorerData.setSelectedTable(nodeLabel)
+                explorerData.setSelectedSchema(schema.name)
+                explorerData.setSelectedDatabase(db.name)
+                queryExecution.onQueryDatabaseChange(db.name)
+                queryExecution.onQuerySchemaChange(schema.name)
+                break
+              }
+              if (schema.tables.includes(nodeLabel)) {
+                explorerData.setSelectedTable(nodeLabel)
+                explorerData.setSelectedSchema(schema.name)
+                explorerData.setSelectedDatabase(db.name)
+                queryExecution.onQueryDatabaseChange(db.name)
+                queryExecution.onQuerySchemaChange(schema.name)
+                break
+              }
+            }
+          }
+        } else if (conn.type === 'mysql') {
+          for (const db of treeData.databases) {
+            const views = db.schemas[0]?.views ?? []
+            const tables = db.schemas[0]?.tables ?? []
+            if (views.includes(nodeLabel)) {
+              explorerData.setSelectedTable(nodeLabel)
+              explorerData.setSelectedSchema(db.name)
+              explorerData.setSelectedDatabase(db.name)
+              queryExecution.onQueryDatabaseChange(db.name)
+              queryExecution.onQuerySchemaChange('')
+              break
+            }
+            if (tables.includes(nodeLabel)) {
+              explorerData.setSelectedTable(nodeLabel)
+              explorerData.setSelectedSchema(db.name)
+              explorerData.setSelectedDatabase(db.name)
+              queryExecution.onQueryDatabaseChange(db.name)
+              queryExecution.onQuerySchemaChange('')
+              break
+            }
           }
         }
       }
-    }
-    // Open global tab and navigate
-    if (conn) {
-      const globalTabId = `${conn.id}:table:${nodeLabel}`
-      const navigateRoute = `/sql/${conn.id}/tables/${encodeURIComponent(nodeLabel)}`
-      // Check if we already have an internal tab for this table
-      const existingTab = openedTableTabs.find((tab) => tab.label === nodeLabel)
-      if (existingTab) {
-        setActiveTableTabId(existingTab.id)
-      } else {
-        const tabId = crypto.randomUUID()
-        setOpenedTableTabs((prev) => [
-          ...prev,
-          { id: tabId, label: nodeLabel, nodePath },
-        ])
-        setActiveTableTabId(tabId)
-      }
-      setTableInfoTab('data')
+      // Open global tab and navigate
+      if (conn) {
+        const globalTabId = `${conn.id}:table:${nodeLabel}`
+        const navigateRoute = `/sql/${conn.id}/tables/${encodeURIComponent(nodeLabel)}`
+        // Check if we already have an internal tab for this table
+        const existingTab = openedTableTabs.find(
+          (tab) => tab.label === nodeLabel,
+        )
+        if (existingTab) {
+          setActiveTableTabId(existingTab.id)
+        } else {
+          const tabId = crypto.randomUUID()
+          setOpenedTableTabs((prev) => [
+            ...prev,
+            { id: tabId, label: nodeLabel, nodePath },
+          ])
+          setActiveTableTabId(tabId)
+        }
+        setTableInfoTab('data')
 
-      useTabStore.getState().openTab({
-        id: globalTabId,
-        label: nodeLabel,
-        type: conn.type,
-        pageType: 'table',
-        route: navigateRoute,
-        connectionId: conn.id,
-        treePath: nodePath,
-      })
-      navigate(navigateRoute)
-    }
+        useTabStore.getState().openTab({
+          id: globalTabId,
+          label: nodeLabel,
+          type: conn.type,
+          pageType: 'table',
+          route: navigateRoute,
+          connectionId: conn.id,
+          treePath: nodePath,
+        })
+        navigate(navigateRoute)
+      }
     },
     [
       selectedConnection,

@@ -161,14 +161,16 @@ export function MongoLayout() {
           )}
           <div className="min-h-0 flex-1 overflow-hidden">
             <Outlet
-              context={{
-                payload,
-                databases,
-                collections,
-                loading,
-                error,
-                connection,
-              } satisfies MongoLayoutOutletContext}
+              context={
+                {
+                  payload,
+                  databases,
+                  collections,
+                  loading,
+                  error,
+                  connection,
+                } satisfies MongoLayoutOutletContext
+              }
             />
           </div>
         </div>

@@ -54,9 +54,8 @@ export function buildEffectiveOrderBy(
   dbType: 'postgresql' | 'mysql',
 ): string {
   const quote = dbType === 'postgresql' ? '"' : '`'
-  const quoteIdent = (
-    id: string,
-  ) => `${quote}${id.replaceAll(quote, quote + quote)}${quote}`
+  const quoteIdent = (id: string) =>
+    `${quote}${id.replaceAll(quote, quote + quote)}${quote}`
 
   const pkTerms = primaryKeyColumns.map((c) => `${quoteIdent(c)} ASC`)
   if (!orderByClause || orderByClause.trim() === '') {
@@ -90,8 +89,13 @@ export interface FetchTableDataDeps {
   setTotalRowCount: (count: number) => void
   setRealTableStructure: (structure: Record<string, string>[]) => void
   setRealTableStats: (stats: TableStats) => void
-  getTabCache?: (tabId: string) => { resultCache: TableQueryResultCache | null } | undefined
-  setTabCache?: (tabId: string, snapshot: { resultCache: TableQueryResultCache }) => void
+  getTabCache?: (
+    tabId: string,
+  ) => { resultCache: TableQueryResultCache | null } | undefined
+  setTabCache?: (
+    tabId: string,
+    snapshot: { resultCache: TableQueryResultCache },
+  ) => void
 }
 
 /**
@@ -146,9 +150,9 @@ export async function fetchTableDataCore(
   deps.setTableDataLoading(true)
   try {
     const offset = (p - 1) * ps
-    const dbType = (conn.type === 'postgresql'
-      ? 'postgresql'
-      : 'mysql') as 'postgresql' | 'mysql'
+    const dbType = (conn.type === 'postgresql' ? 'postgresql' : 'mysql') as
+      | 'postgresql'
+      | 'mysql'
 
     // Use the specified database or fall back to the connection's default
     const basePayload = await deps.resolvePayload(conn)
@@ -164,8 +168,9 @@ export async function fetchTableDataCore(
     const whereSql = whereClause ? ` WHERE ${whereClause}` : ''
 
     const metaKey = `${conn.id}::${payload.database}::${schema}::${table}`
-    const initialMeta =
-      options?.invalidateMeta ? undefined : metaCache.get(metaKey)
+    const initialMeta = options?.invalidateMeta
+      ? undefined
+      : metaCache.get(metaKey)
 
     // ── Wave 1: indexes — needed to know PK order before building ORDER BY.
     let pkColumns: string[]
@@ -436,7 +441,6 @@ WHERE
 ORDER BY index_name;`
 }
 
-
 interface UseExplorerDataReturn {
   treeDataMap: Record<string, ExplorerTreeData>
   treeLoading: Record<string, boolean>
@@ -506,9 +510,7 @@ export function useExplorerData({
   const tableRequestSeqRef = useRef(0)
   // Per connection::db::schema::table metadata cache (PK order + columns).
   // Session-only; cleared via invalidateTableMeta() on explicit Refresh.
-  const tableMetaCacheRef = useRef(
-    new Map<string, TableMetaSnapshot>(),
-  )
+  const tableMetaCacheRef = useRef(new Map<string, TableMetaSnapshot>())
   const [loadingDatabaseNames, setLoadingDatabaseNames] = useState<Set<string>>(
     new Set(),
   )
@@ -576,7 +578,8 @@ export function useExplorerData({
         let databaseNames: string[] = []
 
         if (conn.type === 'mongodb') {
-          const { mongodbAdapter } = await import('../../_shared/connector-runtime/adapters/mongodb-adapter')
+          const { mongodbAdapter } =
+            await import('../../_shared/connector-runtime/adapters/mongodb-adapter')
           const navResult = await mongodbAdapter.loadNavigationTree(payload)
           setTreeDataMap((prev) => ({
             ...prev,
@@ -761,24 +764,35 @@ export function useExplorerData({
       orderByClause?: string,
       options?: { invalidateMeta?: boolean; bypassCache?: boolean },
     ) =>
-      fetchTableDataCore(conn, schema, table, dbName, page, pageSize, whereClause, orderByClause, options, {
-        seqRef: tableRequestSeqRef,
-        metaCache: tableMetaCacheRef.current,
-        execute: executeSql,
-        resolvePayload: (c) => getConnPayloadWithPassword(c),
-        setTableDataLoading,
-        setRealTableIndexes,
-        setRealTableColumns,
-        setRealTableRows,
-        setTotalRowCount,
-        setRealTableStructure,
-        setRealTableStats,
-        getTabCache: (id) => useTableDetailCacheStore.getState().get(id),
-        setTabCache: (id, snapshot) => useTableDetailCacheStore.getState().set(id, snapshot),
-      }),
+      fetchTableDataCore(
+        conn,
+        schema,
+        table,
+        dbName,
+        page,
+        pageSize,
+        whereClause,
+        orderByClause,
+        options,
+        {
+          seqRef: tableRequestSeqRef,
+          metaCache: tableMetaCacheRef.current,
+          execute: executeSql,
+          resolvePayload: (c) => getConnPayloadWithPassword(c),
+          setTableDataLoading,
+          setRealTableIndexes,
+          setRealTableColumns,
+          setRealTableRows,
+          setTotalRowCount,
+          setRealTableStructure,
+          setRealTableStats,
+          getTabCache: (id) => useTableDetailCacheStore.getState().get(id),
+          setTabCache: (id, snapshot) =>
+            useTableDetailCacheStore.getState().set(id, snapshot),
+        },
+      ),
     [],
   )
-
 
   /** Drop cached table metadata — invoked on explicit Refresh only. */
   const invalidateTableMeta = useCallback(() => {
@@ -895,7 +909,8 @@ export function useExplorerData({
     if (
       expandedConnectionId &&
       selectedConnection &&
-      (isSqlConnectionType(selectedConnection.type) || selectedConnection.type === 'mongodb')
+      (isSqlConnectionType(selectedConnection.type) ||
+        selectedConnection.type === 'mongodb')
     ) {
       const existing = treeDataMap[expandedConnectionId]
       if (!existing) {

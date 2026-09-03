@@ -65,9 +65,7 @@ export function GenericContextMenu({
   const menuItemRefs = useRef<Array<HTMLButtonElement | null>>([])
   const submenuItemRefs = useRef<Array<HTMLButtonElement | null>>([])
   const [pos, setPos] = useState({ top: y, left: x })
-  const [activeIndex, setActiveIndex] = useState(() =>
-    firstActiveIndex(items),
-  )
+  const [activeIndex, setActiveIndex] = useState(() => firstActiveIndex(items))
   const [submenuIndex, setSubmenuIndex] = useState<number | null>(null)
   const [submenuChildIndex, setSubmenuChildIndex] = useState(0)
   const onCloseRef = useRef(onClose)
@@ -179,7 +177,10 @@ export function GenericContextMenu({
             if (interactive.length === 0) return
             setSubmenuChildIndex((prev) => {
               const idx = interactive.findIndex(({ i }) => i === prev)
-              const next = interactive[(idx + delta + interactive.length) % interactive.length]
+              const next =
+                interactive[
+                  (idx + delta + interactive.length) % interactive.length
+                ]
               return next.i
             })
           } else {
@@ -274,7 +275,6 @@ export function GenericContextMenu({
     el?.focus?.()
   }, [activeIndex, submenuIndex, submenuChildIndex])
 
-
   return (
     <div
       ref={menuRef}
@@ -285,7 +285,9 @@ export function GenericContextMenu({
       onKeyDown={handleKeyDown}
       onMouseLeave={(e) => {
         if (submenuIndex !== null) {
-          const subEl = document.querySelector(`[data-submenu="${submenuIndex}"]`)
+          const subEl = document.querySelector(
+            `[data-submenu="${submenuIndex}"]`,
+          )
           if (subEl && subEl.contains(e.relatedTarget as Node)) return
         }
         setActiveIndex(-1)

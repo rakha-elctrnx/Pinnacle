@@ -105,10 +105,7 @@ describe('SQL generation', () => {
   })
 
   it('generateReviewSQL forwards dbType to every statement group', () => {
-    const columnInfo = [
-      { name: 'pk', isPrimaryKey: true },
-      { name: 'v' },
-    ]
+    const columnInfo = [{ name: 'pk', isPrimaryKey: true }, { name: 'v' }]
     const sql = generateReviewSQL(
       [{ pk: 1, v: 'x' }],
       ['pk', 'v'],

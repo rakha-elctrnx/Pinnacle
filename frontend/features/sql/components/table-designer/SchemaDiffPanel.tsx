@@ -79,9 +79,15 @@ function groupByTarget(changes: SchemaChangeItem[]) {
 
 function ChangeItem({ item }: { item: SchemaChangeItem }) {
   const iconMap = {
-    add: { icon: Plus, color: 'text-green-600 bg-green-50' },
-    modify: { icon: Pencil, color: 'text-blue-600 bg-blue-50' },
-    remove: { icon: Trash2, color: 'text-red-600 bg-red-50' },
+    add: {
+      icon: Plus,
+      color: 'text-[var(--color-success-text)] bg-success-subtle',
+    },
+    modify: { icon: Pencil, color: 'text-primary bg-primary-subtle' },
+    remove: {
+      icon: Trash2,
+      color: 'text-[var(--color-danger)] bg-danger-subtle',
+    },
   }
   const { icon: Icon, color } = iconMap[item.type]
 
@@ -89,8 +95,8 @@ function ChangeItem({ item }: { item: SchemaChangeItem }) {
     <div
       className={`rounded-lg border p-2.5 ${
         item.isDestructive
-          ? 'border-red-200 bg-red-50/40'
-          : 'border-slate-200 bg-white'
+          ? 'border-border-danger bg-danger-subtle/40'
+          : 'border-border-default bg-bg-base'
       }`}
     >
       <div className="flex items-start gap-2">

@@ -176,29 +176,20 @@ describe('TreeNodeItem — connection node', () => {
   it('double click connects + expands (onConnectionToggle)', () => {
     const h = mount(connectionNode)
     act(() => fireEvent.doubleClick(row()))
-    expect(h.onConnectionToggle).toHaveBeenCalledWith(
-      encodedPath,
-      'conn-1',
-    )
+    expect(h.onConnectionToggle).toHaveBeenCalledWith(encodedPath, 'conn-1')
   })
 
   it('chevron click toggles connect + expand (onConnectionToggle)', () => {
     const h = mount(connectionNode)
     act(() => fireEvent.click(chevron()))
-    expect(h.onConnectionToggle).toHaveBeenCalledWith(
-      encodedPath,
-      'conn-1',
-    )
+    expect(h.onConnectionToggle).toHaveBeenCalledWith(encodedPath, 'conn-1')
     expect(h.onSelectedTreeNode).not.toHaveBeenCalled()
   })
 
   it('Enter opens + connects (onConnectionToggle)', () => {
     const h = mount(connectionNode)
     act(() => fireEvent.keyDown(row(), { key: 'Enter' }))
-    expect(h.onConnectionToggle).toHaveBeenCalledWith(
-      encodedPath,
-      'conn-1',
-    )
+    expect(h.onConnectionToggle).toHaveBeenCalledWith(encodedPath, 'conn-1')
     expect(h.onSelectedTreeNode).not.toHaveBeenCalled()
   })
 
@@ -210,7 +201,6 @@ describe('TreeNodeItem — connection node', () => {
     expect(h.onConnectionToggle).not.toHaveBeenCalled()
   })
 })
-
 
 describe('TreeNodeItem — database / schema node', () => {
   const dbNode: TreeNode = {

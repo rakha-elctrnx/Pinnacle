@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
-import { mongoTestConnection, mongoListDatabases, mongoFindDocuments } from '../mongodb'
+import {
+  mongoTestConnection,
+  mongoListDatabases,
+  mongoFindDocuments,
+} from '../mongodb'
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(async (command: string) => {

@@ -19,9 +19,7 @@ describe('buildSqlForCondition LIKE literal escaping', () => {
       'postgresql',
       meta,
     )
-    expect(sql).toBe(
-      `"name" ILIKE '%50\\%\\_off\\\\sale%' ESCAPE '\\\\'`,
-    )
+    expect(sql).toBe(`"name" ILIKE '%50\\%\\_off\\\\sale%' ESCAPE '\\\\'`)
   })
 
   it('escapes wildcards for MySQL LIKE too', () => {
@@ -47,10 +45,18 @@ describe('buildSqlForCondition LIKE literal escaping', () => {
 describe('buildSqlForCondition type-aware value handling', () => {
   it('compares numeric columns unquoted and text quoted', () => {
     expect(
-      buildSqlForCondition({ column: 'age', operator: '=', value: '30' }, 'postgresql', meta),
+      buildSqlForCondition(
+        { column: 'age', operator: '=', value: '30' },
+        'postgresql',
+        meta,
+      ),
     ).toBe('"age" = 30')
     expect(
-      buildSqlForCondition({ column: 'name', operator: '=', value: '30' }, 'postgresql', meta),
+      buildSqlForCondition(
+        { column: 'name', operator: '=', value: '30' },
+        'postgresql',
+        meta,
+      ),
     ).toBe(`"name" = '30'`)
   })
 })

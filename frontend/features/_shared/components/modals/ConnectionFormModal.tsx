@@ -364,11 +364,9 @@ export function ConnectionFormModal({
           kind: result.ok ? 'success' : 'error',
           message: result.message,
         })
-      }
-      else if (newType === 'mongodb') {
-        const { mongoTestConnection } = await import(
-          '../../../mongodb/clients/mongodb'
-        )
+      } else if (newType === 'mongodb') {
+        const { mongoTestConnection } =
+          await import('../../../mongodb/clients/mongodb')
         const result = await mongoTestConnection(payload)
         setTestConnectionResult({
           kind: result.ok ? 'success' : 'error',
@@ -477,7 +475,10 @@ export function ConnectionFormModal({
       }
     >
       {/* Header */}
-      <header data-tauri-drag-region className="flex shrink-0 items-center justify-between border-b border-border-default px-5 py-3.5">
+      <header
+        data-tauri-drag-region
+        className="flex shrink-0 items-center justify-between border-b border-border-default px-5 py-3.5"
+      >
         <div data-tauri-drag-region className="flex items-center gap-2.5">
           <div className="grid h-8 w-8 place-items-center rounded-lg bg-bg-subtle border border-border-default text-primary">
             <Database size={16} />
@@ -616,7 +617,9 @@ export function ConnectionFormModal({
                   <input
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    className={fieldErrors.name ? inputErrorClasses : inputClasses}
+                    className={
+                      fieldErrors.name ? inputErrorClasses : inputClasses
+                    }
                   />
                   {fieldErrors.name && (
                     <p className="mt-1 flex items-center gap-1 text-caption text-danger">
@@ -788,7 +791,8 @@ export function ConnectionFormModal({
                       />
                     </button>
                     {groupDropdownOpen &&
-                      (filteredWorkspaces.length > 0 || isNewWorkspaceValue) && (
+                      (filteredWorkspaces.length > 0 ||
+                        isNewWorkspaceValue) && (
                         <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-40 overflow-auto rounded-lg border border-border-default bg-bg-base py-1 shadow-lg backdrop-blur-sm">
                           {filteredWorkspaces.map((ws) => (
                             <button
@@ -842,352 +846,371 @@ export function ConnectionFormModal({
               </>
             ) : (
               <>
-
-            {/* SSL Mode */}
-            <div className="flex items-center justify-between gap-3 pt-1">
-              <label className="text-caption text-text-secondary font-medium">
-                Security & Encryption
-              </label>
-              {isSqlType ? (
-                <select
-                  value={newSslMode}
-                  onChange={(e) => setNewSslMode(e.target.value as SslMode)}
-                  className={`${inputClasses} w-auto`}
-                  title="SSL Mode"
-                >
-                  <option value="disable">SSL: Disable</option>
-                  <option value="prefer">SSL: Prefer</option>
-                  <option value="require">SSL: Require</option>
-                  <option value="verify-ca">SSL: Verify-CA</option>
-                  <option value="verify-full">SSL: Verify-Full</option>
-                </select>
-              ) : (
-                <label className="flex shrink-0 cursor-pointer items-center gap-2 text-caption text-text-secondary select-none">
-                  <span
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                      newSsl ? 'bg-primary' : 'bg-bg-muted border border-border-default'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={newSsl}
-                      onChange={(e) => setNewSsl(e.target.checked)}
-                      className="sr-only"
-                    />
-                    <span
-                      className={`inline-block h-3.5 w-3.5 rounded-full bg-text-inverse shadow-xs transition-transform ${
-                        newSsl ? 'translate-x-4.5' : 'translate-x-1'
-                      }`}
-                    />
-                  </span>
-                  SSL Encryption
-                </label>
-              )}
-            </div>
-
-            {/* Certificate file pickers — SQL types in verify-ca / verify-full (mTLS) */}
-            {isSqlType && sslNeedsCerts && (
-              <div className="space-y-2 rounded-lg border border-border-default bg-bg-subtle px-3 py-2.5">
-                <p className="text-caption text-text-muted">
-                  Certificate paths (loaded by the backend at connect time)
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    value={newCaCertPath}
-                    onChange={(e) => setNewCaCertPath(e.target.value)}
-                    className={`${inputClasses} flex-1`}
-                  />
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const selected = await openDialog({
-                        title: 'Select CA certificate',
-                        multiple: false,
-                        directory: false,
-                        filters: [
-                          {
-                            name: 'CA Certificate',
-                            extensions: ['pem', 'crt', 'ca-bundle'],
-                          },
-                          { name: 'All files', extensions: ['*'] },
-                        ],
-                      })
-                      if (typeof selected === 'string')
-                        setNewCaCertPath(selected)
-                    }}
-                    className="shrink-0 inline-flex items-center justify-center rounded-lg border border-border-default bg-bg-base px-3 py-2 text-text-primary transition hover:bg-bg-hover cursor-pointer"
-                    title="Browse for CA certificate"
-                  >
-                    <FolderOpen size={16} />
-                  </button>
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    value={newClientCertPath}
-                    onChange={(e) => setNewClientCertPath(e.target.value)}
-                    className={`${inputClasses} flex-1`}
-                  />
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const selected = await openDialog({
-                        title: 'Select client certificate',
-                        multiple: false,
-                        directory: false,
-                        filters: [
-                          {
-                            name: 'Client Certificate',
-                            extensions: ['pem', 'crt'],
-                          },
-                          { name: 'All files', extensions: ['*'] },
-                        ],
-                      })
-                      if (typeof selected === 'string')
-                        setNewClientCertPath(selected)
-                    }}
-                    className="shrink-0 inline-flex items-center justify-center rounded-lg border border-border-default bg-bg-base px-3 py-2 text-text-primary transition hover:bg-bg-hover cursor-pointer"
-                    title="Browse for client certificate"
-                  >
-                    <FolderOpen size={16} />
-                  </button>
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    value={newClientKeyPath}
-                    onChange={(e) => setNewClientKeyPath(e.target.value)}
-                    className={`${inputClasses} flex-1`}
-                  />
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const selected = await openDialog({
-                        title: 'Select client key',
-                        multiple: false,
-                        directory: false,
-                        filters: [
-                          { name: 'Client Key', extensions: ['pem', 'key'] },
-                          { name: 'All files', extensions: ['*'] },
-                        ],
-                      })
-                      if (typeof selected === 'string')
-                        setNewClientKeyPath(selected)
-                    }}
-                    className="shrink-0 inline-flex items-center justify-center rounded-lg border border-border-default bg-bg-base px-3 py-2 text-text-primary transition hover:bg-bg-hover cursor-pointer"
-                    title="Browse for client key"
-                  >
-                    <FolderOpen size={16} />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* SSH Tunnel (optional, collapsible) */}
-            {newType !== 'sqlite' && (
-              <div className="rounded-lg border border-border-default bg-bg-base">
-                <button
-                  type="button"
-                  onClick={() => setSshExpanded((v) => !v)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-caption font-medium text-text-secondary transition hover:bg-bg-subtle cursor-pointer"
-                >
-                  <Shield size={14} className="shrink-0 text-text-muted" />
-                  <span className="flex-1 text-left">SSH Tunnel</span>
-                  {sshEnabled && (
-                    <span className="rounded bg-primary-subtle px-1.5 py-0.5 text-micro text-primary font-medium">
-                      Enabled
-                    </span>
-                  )}
-                  <ChevronDown
-                    size={14}
-                    className={`text-text-muted transition-transform ${sshExpanded ? 'rotate-180' : ''}`}
-                  />
-                </button>
-                {sshExpanded && (
-                  <div className="space-y-2.5 border-t border-border-default px-3 py-2.5 bg-bg-subtle/50">
-                    <label className="flex items-center gap-2 text-caption text-text-secondary select-none cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={sshEnabled}
-                        onChange={(e) => setSshEnabled(e.target.checked)}
-                        className="accent-primary"
-                      />
-                      Connect via SSH tunnel
+                {/* SSL Mode */}
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <label className="text-caption text-text-secondary font-medium">
+                    Security & Encryption
+                  </label>
+                  {isSqlType ? (
+                    <select
+                      value={newSslMode}
+                      onChange={(e) => setNewSslMode(e.target.value as SslMode)}
+                      className={`${inputClasses} w-auto`}
+                      title="SSL Mode"
+                    >
+                      <option value="disable">SSL: Disable</option>
+                      <option value="prefer">SSL: Prefer</option>
+                      <option value="require">SSL: Require</option>
+                      <option value="verify-ca">SSL: Verify-CA</option>
+                      <option value="verify-full">SSL: Verify-Full</option>
+                    </select>
+                  ) : (
+                    <label className="flex shrink-0 cursor-pointer items-center gap-2 text-caption text-text-secondary select-none">
+                      <span
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                          newSsl
+                            ? 'bg-primary'
+                            : 'bg-bg-muted border border-border-default'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={newSsl}
+                          onChange={(e) => setNewSsl(e.target.checked)}
+                          className="sr-only"
+                        />
+                        <span
+                          className={`inline-block h-3.5 w-3.5 rounded-full bg-text-inverse shadow-xs transition-transform ${
+                            newSsl ? 'translate-x-4.5' : 'translate-x-1'
+                          }`}
+                        />
+                      </span>
+                      SSL Encryption
                     </label>
-                    {sshEnabled && (
-                      <>
-                        <div className="flex gap-2">
-                          <div className="flex-1">
-                            <label className="mb-1 block text-caption text-text-muted">
-                              SSH Host
-                            </label>
-                            <input
-                              value={sshHost}
-                              onChange={(e) => setSshHost(e.target.value)}
-                              className={inputClasses}
-                            />
-                          </div>
-                          <div className="w-20">
-                            <label className="mb-1 block text-caption text-text-muted">
-                              Port
-                            </label>
-                            <input
-                              value={sshPort}
-                              onChange={(e) => setSshPort(e.target.value)}
-                              className={inputClasses}
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-caption text-text-muted">
-                            SSH Username
-                          </label>
-                          <input
-                            value={sshUser}
-                            onChange={(e) => setSshUser(e.target.value)}
-                            className={inputClasses}
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-caption text-text-muted">
-                            Authentication Method
-                          </label>
-                          <select
-                            value={sshAuthMethod}
-                            onChange={(e) =>
-                              setSshAuthMethod(e.target.value as SshAuthMethod)
-                            }
-                            className={inputClasses}
-                          >
-                            <option value="password">Password</option>
-                            <option value="privateKey">Private Key</option>
-                            <option value="agent">SSH Agent</option>
-                          </select>
-                        </div>
-                        {sshAuthMethod === 'privateKey' && (
-                          <div>
-                            <label className="mb-1 block text-caption text-text-muted">
-                              Private Key Path
-                            </label>
-                            <div className="flex gap-2">
-                              <input
-                                value={sshPrivateKeyPath}
-                                onChange={(e) =>
-                                  setSshPrivateKeyPath(e.target.value)
-                                }
-                                className={`${inputClasses} flex-1`}
-                              />
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  const selected = await openDialog({
-                                    title: 'Select SSH private key',
-                                    multiple: false,
-                                    directory: false,
-                                  })
-                                  if (typeof selected === 'string') {
-                                    setSshPrivateKeyPath(selected)
-                                  }
-                                }}
-                                className="shrink-0 inline-flex items-center justify-center rounded-lg border border-border-default bg-bg-base px-3 py-2 text-text-primary transition hover:bg-bg-hover cursor-pointer"
-                                title="Browse for private key file"
-                              >
-                                <FolderOpen size={16} />
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                        {sshAuthMethod === 'password' && (
-                          <div>
-                            <label className="mb-1 block text-caption text-text-muted">
-                              SSH Password
-                            </label>
-                            <input
-                              type="password"
-                              value={sshPassword}
-                              onChange={(e) => setSshPassword(e.target.value)}
-                              className={inputClasses}
-                            />
-                          </div>
-                        )}
-                        {sshAuthMethod === 'privateKey' && (
-                          <div>
-                            <label className="mb-1 block text-caption text-text-muted">
-                              Key Passphrase (optional)
-                            </label>
-                            <input
-                              type="password"
-                              value={keyPassphrase}
-                              onChange={(e) => setKeyPassphrase(e.target.value)}
-                              className={inputClasses}
-                            />
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-            {/* Advanced (pool config; postgresql + mysql only) */}
-            {(newType === 'postgresql' || newType === 'mysql') && (
-              <div className="rounded-lg border border-border-default bg-bg-base">
-                <button
-                  type="button"
-                  onClick={() => setAdvancedExpanded((v) => !v)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-caption font-medium text-text-secondary transition hover:bg-bg-subtle cursor-pointer"
-                >
-                  <Settings size={14} className="shrink-0 text-text-muted" />
-                  <span className="flex-1 text-left">Advanced Settings</span>
-                  <ChevronDown
-                    size={14}
-                    className={`text-text-muted transition-transform ${advancedExpanded ? 'rotate-180' : ''}`}
-                  />
-                </button>
-                {advancedExpanded && (
-                  <div className="space-y-2.5 border-t border-border-default px-3 py-2.5 bg-bg-subtle/50">
+                  )}
+                </div>
+
+                {/* Certificate file pickers — SQL types in verify-ca / verify-full (mTLS) */}
+                {isSqlType && sslNeedsCerts && (
+                  <div className="space-y-2 rounded-lg border border-border-default bg-bg-subtle px-3 py-2.5">
+                    <p className="text-caption text-text-muted">
+                      Certificate paths (loaded by the backend at connect time)
+                    </p>
                     <div className="flex gap-2">
-                      <div className="flex-1">
-                        <label className="mb-1 block text-caption text-text-muted">
-                          Pool Size
-                        </label>
-                        <input
-                          type="number"
-                          min={1}
-                          max={100}
-                          value={poolSize}
-                          onChange={(e) => setPoolSize(e.target.value)}
-                          className={inputClasses}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <label className="mb-1 block text-caption text-text-muted">
-                          Statement Timeout (s)
-                        </label>
-                        <input
-                          type="number"
-                          min={0}
-                          value={statementTimeoutSecs}
-                          onChange={(e) => setStatementTimeoutSecs(e.target.value)}
-                          className={inputClasses}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <label className="mb-1 block text-caption text-text-muted">
-                          Idle Timeout (s)
-                        </label>
-                        <input
-                          type="number"
-                          min={30}
-                          max={3600}
-                          value={idleTimeoutSecs}
-                          onChange={(e) => setIdleTimeoutSecs(e.target.value)}
-                          className={inputClasses}
-                        />
-                      </div>
+                      <input
+                        value={newCaCertPath}
+                        onChange={(e) => setNewCaCertPath(e.target.value)}
+                        className={`${inputClasses} flex-1`}
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const selected = await openDialog({
+                            title: 'Select CA certificate',
+                            multiple: false,
+                            directory: false,
+                            filters: [
+                              {
+                                name: 'CA Certificate',
+                                extensions: ['pem', 'crt', 'ca-bundle'],
+                              },
+                              { name: 'All files', extensions: ['*'] },
+                            ],
+                          })
+                          if (typeof selected === 'string')
+                            setNewCaCertPath(selected)
+                        }}
+                        className="shrink-0 inline-flex items-center justify-center rounded-lg border border-border-default bg-bg-base px-3 py-2 text-text-primary transition hover:bg-bg-hover cursor-pointer"
+                        title="Browse for CA certificate"
+                      >
+                        <FolderOpen size={16} />
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        value={newClientCertPath}
+                        onChange={(e) => setNewClientCertPath(e.target.value)}
+                        className={`${inputClasses} flex-1`}
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const selected = await openDialog({
+                            title: 'Select client certificate',
+                            multiple: false,
+                            directory: false,
+                            filters: [
+                              {
+                                name: 'Client Certificate',
+                                extensions: ['pem', 'crt'],
+                              },
+                              { name: 'All files', extensions: ['*'] },
+                            ],
+                          })
+                          if (typeof selected === 'string')
+                            setNewClientCertPath(selected)
+                        }}
+                        className="shrink-0 inline-flex items-center justify-center rounded-lg border border-border-default bg-bg-base px-3 py-2 text-text-primary transition hover:bg-bg-hover cursor-pointer"
+                        title="Browse for client certificate"
+                      >
+                        <FolderOpen size={16} />
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        value={newClientKeyPath}
+                        onChange={(e) => setNewClientKeyPath(e.target.value)}
+                        className={`${inputClasses} flex-1`}
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const selected = await openDialog({
+                            title: 'Select client key',
+                            multiple: false,
+                            directory: false,
+                            filters: [
+                              {
+                                name: 'Client Key',
+                                extensions: ['pem', 'key'],
+                              },
+                              { name: 'All files', extensions: ['*'] },
+                            ],
+                          })
+                          if (typeof selected === 'string')
+                            setNewClientKeyPath(selected)
+                        }}
+                        className="shrink-0 inline-flex items-center justify-center rounded-lg border border-border-default bg-bg-base px-3 py-2 text-text-primary transition hover:bg-bg-hover cursor-pointer"
+                        title="Browse for client key"
+                      >
+                        <FolderOpen size={16} />
+                      </button>
                     </div>
                   </div>
                 )}
-              </div>
-            )}
+
+                {/* SSH Tunnel (optional, collapsible) */}
+                {newType !== 'sqlite' && (
+                  <div className="rounded-lg border border-border-default bg-bg-base">
+                    <button
+                      type="button"
+                      onClick={() => setSshExpanded((v) => !v)}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-caption font-medium text-text-secondary transition hover:bg-bg-subtle cursor-pointer"
+                    >
+                      <Shield size={14} className="shrink-0 text-text-muted" />
+                      <span className="flex-1 text-left">SSH Tunnel</span>
+                      {sshEnabled && (
+                        <span className="rounded bg-primary-subtle px-1.5 py-0.5 text-micro text-primary font-medium">
+                          Enabled
+                        </span>
+                      )}
+                      <ChevronDown
+                        size={14}
+                        className={`text-text-muted transition-transform ${sshExpanded ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+                    {sshExpanded && (
+                      <div className="space-y-2.5 border-t border-border-default px-3 py-2.5 bg-bg-subtle/50">
+                        <label className="flex items-center gap-2 text-caption text-text-secondary select-none cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={sshEnabled}
+                            onChange={(e) => setSshEnabled(e.target.checked)}
+                            className="accent-primary"
+                          />
+                          Connect via SSH tunnel
+                        </label>
+                        {sshEnabled && (
+                          <>
+                            <div className="flex gap-2">
+                              <div className="flex-1">
+                                <label className="mb-1 block text-caption text-text-muted">
+                                  SSH Host
+                                </label>
+                                <input
+                                  value={sshHost}
+                                  onChange={(e) => setSshHost(e.target.value)}
+                                  className={inputClasses}
+                                />
+                              </div>
+                              <div className="w-20">
+                                <label className="mb-1 block text-caption text-text-muted">
+                                  Port
+                                </label>
+                                <input
+                                  value={sshPort}
+                                  onChange={(e) => setSshPort(e.target.value)}
+                                  className={inputClasses}
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-caption text-text-muted">
+                                SSH Username
+                              </label>
+                              <input
+                                value={sshUser}
+                                onChange={(e) => setSshUser(e.target.value)}
+                                className={inputClasses}
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-caption text-text-muted">
+                                Authentication Method
+                              </label>
+                              <select
+                                value={sshAuthMethod}
+                                onChange={(e) =>
+                                  setSshAuthMethod(
+                                    e.target.value as SshAuthMethod,
+                                  )
+                                }
+                                className={inputClasses}
+                              >
+                                <option value="password">Password</option>
+                                <option value="privateKey">Private Key</option>
+                                <option value="agent">SSH Agent</option>
+                              </select>
+                            </div>
+                            {sshAuthMethod === 'privateKey' && (
+                              <div>
+                                <label className="mb-1 block text-caption text-text-muted">
+                                  Private Key Path
+                                </label>
+                                <div className="flex gap-2">
+                                  <input
+                                    value={sshPrivateKeyPath}
+                                    onChange={(e) =>
+                                      setSshPrivateKeyPath(e.target.value)
+                                    }
+                                    className={`${inputClasses} flex-1`}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      const selected = await openDialog({
+                                        title: 'Select SSH private key',
+                                        multiple: false,
+                                        directory: false,
+                                      })
+                                      if (typeof selected === 'string') {
+                                        setSshPrivateKeyPath(selected)
+                                      }
+                                    }}
+                                    className="shrink-0 inline-flex items-center justify-center rounded-lg border border-border-default bg-bg-base px-3 py-2 text-text-primary transition hover:bg-bg-hover cursor-pointer"
+                                    title="Browse for private key file"
+                                  >
+                                    <FolderOpen size={16} />
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                            {sshAuthMethod === 'password' && (
+                              <div>
+                                <label className="mb-1 block text-caption text-text-muted">
+                                  SSH Password
+                                </label>
+                                <input
+                                  type="password"
+                                  value={sshPassword}
+                                  onChange={(e) =>
+                                    setSshPassword(e.target.value)
+                                  }
+                                  className={inputClasses}
+                                />
+                              </div>
+                            )}
+                            {sshAuthMethod === 'privateKey' && (
+                              <div>
+                                <label className="mb-1 block text-caption text-text-muted">
+                                  Key Passphrase (optional)
+                                </label>
+                                <input
+                                  type="password"
+                                  value={keyPassphrase}
+                                  onChange={(e) =>
+                                    setKeyPassphrase(e.target.value)
+                                  }
+                                  className={inputClasses}
+                                />
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Advanced (pool config; postgresql + mysql only) */}
+                {(newType === 'postgresql' || newType === 'mysql') && (
+                  <div className="rounded-lg border border-border-default bg-bg-base">
+                    <button
+                      type="button"
+                      onClick={() => setAdvancedExpanded((v) => !v)}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-caption font-medium text-text-secondary transition hover:bg-bg-subtle cursor-pointer"
+                    >
+                      <Settings
+                        size={14}
+                        className="shrink-0 text-text-muted"
+                      />
+                      <span className="flex-1 text-left">
+                        Advanced Settings
+                      </span>
+                      <ChevronDown
+                        size={14}
+                        className={`text-text-muted transition-transform ${advancedExpanded ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+                    {advancedExpanded && (
+                      <div className="space-y-2.5 border-t border-border-default px-3 py-2.5 bg-bg-subtle/50">
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <label className="mb-1 block text-caption text-text-muted">
+                              Pool Size
+                            </label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={100}
+                              value={poolSize}
+                              onChange={(e) => setPoolSize(e.target.value)}
+                              className={inputClasses}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <label className="mb-1 block text-caption text-text-muted">
+                              Statement Timeout (s)
+                            </label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={statementTimeoutSecs}
+                              onChange={(e) =>
+                                setStatementTimeoutSecs(e.target.value)
+                              }
+                              className={inputClasses}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <label className="mb-1 block text-caption text-text-muted">
+                              Idle Timeout (s)
+                            </label>
+                            <input
+                              type="number"
+                              min={30}
+                              max={3600}
+                              value={idleTimeoutSecs}
+                              onChange={(e) =>
+                                setIdleTimeoutSecs(e.target.value)
+                              }
+                              className={inputClasses}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             )}
 
@@ -1201,7 +1224,10 @@ export function ConnectionFormModal({
                 }`}
               >
                 {testConnectionResult.kind === 'success' ? (
-                  <Check size={14} className="mt-0.5 shrink-0 text-success-text" />
+                  <Check
+                    size={14}
+                    className="mt-0.5 shrink-0 text-success-text"
+                  />
                 ) : (
                   <X size={14} className="mt-0.5 shrink-0 text-danger" />
                 )}
@@ -1293,9 +1319,7 @@ export function ConnectionFormModal({
         className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-lg">
-        {content}
-      </div>
+      <div className="relative z-10 w-full max-w-lg">{content}</div>
     </div>
   )
 }

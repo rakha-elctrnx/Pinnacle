@@ -39,139 +39,139 @@ export async function mongoParseUri(uri: string): Promise<MongoParsedUri> {
 }
 
 export async function mongoTestConnection(
-  payload: ConnectionPayload
+  payload: ConnectionPayload,
 ): Promise<MongoTestConnectionResult> {
   return invoke<MongoTestConnectionResult>('mongo_test_connection', { payload })
 }
 
 export async function mongoListDatabases(
-  payload: ConnectionPayload
+  payload: ConnectionPayload,
 ): Promise<MongoDatabaseInfo[]> {
   return invoke<MongoDatabaseInfo[]>('mongo_list_databases', { payload })
 }
 
 export async function mongoCreateDatabase(
-  payload: MongoDatabasePayload
+  payload: MongoDatabasePayload,
 ): Promise<void> {
   return invoke<void>('mongo_create_database', { payload })
 }
 
 export async function mongoDropDatabase(
-  payload: MongoDatabasePayload
+  payload: MongoDatabasePayload,
 ): Promise<void> {
   return invoke<void>('mongo_drop_database', { payload })
 }
 
 export async function mongoListCollections(
-  payload: MongoDatabasePayload
+  payload: MongoDatabasePayload,
 ): Promise<MongoCollectionInfo[]> {
   return invoke<MongoCollectionInfo[]>('mongo_list_collections', { payload })
 }
 
 export async function mongoCreateCollection(
-  payload: MongoCreateCollectionPayload
+  payload: MongoCreateCollectionPayload,
 ): Promise<void> {
   return invoke<void>('mongo_create_collection', { payload })
 }
 
 export async function mongoRenameCollection(
-  payload: MongoRenameCollectionPayload
+  payload: MongoRenameCollectionPayload,
 ): Promise<void> {
   return invoke<void>('mongo_rename_collection', { payload })
 }
 
 export async function mongoDropCollection(
-  payload: MongoDropCollectionPayload
+  payload: MongoDropCollectionPayload,
 ): Promise<void> {
   return invoke<void>('mongo_drop_collection', { payload })
 }
 
 export async function mongoFindDocuments(
-  payload: MongoFindPayload
+  payload: MongoFindPayload,
 ): Promise<MongoFindResult> {
   return invoke<MongoFindResult>('mongo_find_documents', { payload })
 }
 
 export async function mongoInsertDocument(
-  payload: MongoInsertPayload
+  payload: MongoInsertPayload,
 ): Promise<MongoMutationResult> {
   return invoke<MongoMutationResult>('mongo_insert_document', { payload })
 }
 
 export async function mongoUpdateDocument(
-  payload: MongoReplacePayload
+  payload: MongoReplacePayload,
 ): Promise<MongoMutationResult> {
   return invoke<MongoMutationResult>('mongo_update_document', { payload })
 }
 
 export async function mongoDeleteDocument(
-  payload: MongoDeletePayload
+  payload: MongoDeletePayload,
 ): Promise<MongoMutationResult> {
   return invoke<MongoMutationResult>('mongo_delete_document', { payload })
 }
 
 export async function mongoAggregate(
-  payload: MongoAggregatePayload
+  payload: MongoAggregatePayload,
 ): Promise<MongoDocumentListResult> {
   return invoke<MongoDocumentListResult>('mongo_aggregate', { payload })
 }
 
 export async function mongoExplain(
-  payload: MongoExplainPayload
+  payload: MongoExplainPayload,
 ): Promise<MongoExplainResult> {
   return invoke<MongoExplainResult>('mongo_explain', { payload })
 }
 
 export async function mongoGetCollectionStats(
-  payload: MongoNamespacePayload
+  payload: MongoNamespacePayload,
 ): Promise<MongoCollectionStats> {
   return invoke<MongoCollectionStats>('mongo_get_collection_stats', { payload })
 }
 
 export async function mongoAnalyzeSchema(
-  payload: MongoSampleSchemaPayload
+  payload: MongoSampleSchemaPayload,
 ): Promise<MongoSampleSchemaResult> {
   return invoke<MongoSampleSchemaResult>('mongo_analyze_schema', { payload })
 }
 
 export async function mongoListIndexes(
-  payload: MongoNamespacePayload
+  payload: MongoNamespacePayload,
 ): Promise<MongoIndexInfo[]> {
   return invoke<MongoIndexInfo[]>('mongo_list_indexes', { payload })
 }
 
 export async function mongoCreateIndex(
-  payload: MongoCreateIndexPayload
+  payload: MongoCreateIndexPayload,
 ): Promise<MongoCreatedName> {
   return invoke<MongoCreatedName>('mongo_create_index', { payload })
 }
 
 export async function mongoDropIndex(
-  payload: MongoDropIndexPayload
+  payload: MongoDropIndexPayload,
 ): Promise<void> {
   return invoke<void>('mongo_drop_index', { payload })
 }
 
 export async function mongoSetIndexHidden(
-  payload: MongoSetIndexHiddenPayload
+  payload: MongoSetIndexHiddenPayload,
 ): Promise<void> {
   return invoke<void>('mongo_set_index_hidden', { payload })
 }
 
 export async function mongoGetValidation(
-  payload: MongoNamespacePayload
+  payload: MongoNamespacePayload,
 ): Promise<MongoValidationSettings> {
   return invoke<MongoValidationSettings>('mongo_get_validation', { payload })
 }
 
 export async function mongoSetValidation(
-  payload: MongoSetValidationPayload
+  payload: MongoSetValidationPayload,
 ): Promise<void> {
   return invoke<void>('mongo_set_validation', { payload })
 }
 
 export async function mongoExport(
-  payload: MongoExportPayload
+  payload: MongoExportPayload,
 ): Promise<MongoExportResult> {
   return invoke<MongoExportResult>('mongo_export', { payload })
 }

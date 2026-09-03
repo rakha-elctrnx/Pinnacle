@@ -64,7 +64,9 @@ export const useFolderStore = create<FolderState>()((set, get) => ({
       (f) => f.id !== id && f.name.toLowerCase() === trimmed.toLowerCase(),
     )
     if (existing) return
-    const next = get().items.map((f) => (f.id === id ? { ...f, name: trimmed } : f))
+    const next = get().items.map((f) =>
+      f.id === id ? { ...f, name: trimmed } : f,
+    )
     persistFolders(next)
     set({ items: next })
   },

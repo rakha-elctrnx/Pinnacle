@@ -18,7 +18,7 @@ use application::commands::elastic_commands::{
 };
 // SQL COMMANDS
 use application::commands::query_commands::{
-    commit_table_changes, disconnect_connection, execute_sql, get_connection_health,
+    cancel_query, commit_table_changes, disconnect_connection, execute_sql, get_connection_health,
     sql_begin_transaction, sql_commit_transaction, sql_drop_table, sql_execute_ddl,
     sql_execute_in_transaction, sql_generate_ddl, sql_get_all_columns,
     sql_get_all_foreign_keys, sql_get_table_schema, sql_rollback_transaction,
@@ -95,6 +95,7 @@ pub fn run() {
             get_connection_health,
             sql_get_all_foreign_keys,
             sql_get_all_columns,
+            cancel_query,
             // ELASTICSEARCH COMMANDS
             elastic_test_connection,
             elastic_execute_query,

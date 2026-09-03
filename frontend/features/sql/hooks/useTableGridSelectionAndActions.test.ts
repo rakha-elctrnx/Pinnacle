@@ -15,11 +15,13 @@ describe('useTableGridSelectionAndActions context menu selection behavior', () =
       { id: '2', name: 'Bob', age: '25' },
     ]
 
-    useTableSelectionStore.getState().selectRange(
-      { rowIndex: 0, columnId: 'name' },
-      { rowIndex: 1, columnId: 'age' },
-      columns,
-    )
+    useTableSelectionStore
+      .getState()
+      .selectRange(
+        { rowIndex: 0, columnId: 'name' },
+        { rowIndex: 1, columnId: 'age' },
+        columns,
+      )
 
     const { result } = renderHook(() =>
       useTableGridSelectionAndActions({

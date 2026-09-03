@@ -19,7 +19,7 @@ export function TransactionStatusBar({
   onRollback,
 }: TransactionStatusBarProps) {
   return (
-    <div className="flex items-center gap-2 border-b border-border-default bg-blue-500/5 px-3 py-1.5 text-[11px]">
+    <div className="flex items-center gap-2 border-b border-border-default bg-primary-subtle px-3 py-1.5 text-[11px]">
       <span className="font-medium text-text-primary">
         Transaction:{' '}
         <span className="font-mono text-primary">
@@ -32,7 +32,7 @@ export function TransactionStatusBar({
       </span>
       {connectionType === 'mysql' && (
         <span
-          className="rounded bg-yellow-500/10 px-1.5 py-0.5 text-[10px] text-yellow-600"
+          className="rounded bg-[var(--color-warning)]/10 px-1.5 py-0.5 text-[10px] text-[var(--color-warning)]"
           title="MySQL DDL auto-commits"
         >
           MySQL DDL auto-commits

@@ -16,6 +16,8 @@ import {
   FolderClosed,
   Search,
   SlidersHorizontal,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react'
 import { CenteredLoadingState } from '../../_shared/components/ui/CenteredLoadingState'
 
@@ -154,10 +156,10 @@ export function IndexManager({
 
   function sortIndicator(field: string) {
     if (sortField !== field) return null
-    return (
-      <span className="ml-1 text-slate-400">
-        {sortDir === 'asc' ? '▲' : '▼'}
-      </span>
+    return sortDir === 'asc' ? (
+      <ChevronUp size={12} className="inline ml-1 text-text-muted" />
+    ) : (
+      <ChevronDown size={12} className="inline ml-1 text-text-muted" />
     )
   }
 
@@ -165,11 +167,11 @@ export function IndexManager({
     <div className="flex flex-col h-full">
       {/* Action error banner */}
       {actionError && (
-        <div className="flex items-center justify-between gap-2 border-b border-red-200 bg-red-50 px-3 py-1.5 text-caption text-red-600">
+        <div className="flex items-center justify-between gap-2 border-b border-border-danger bg-danger-subtle px-3 py-1.5 text-caption text-[var(--color-danger)]">
           <span className="truncate">{actionError}</span>
           <button
             onClick={() => setActionError(null)}
-            className="shrink-0 rounded px-1.5 py-0.5 text-micro text-red-500 hover:bg-red-100"
+            className="shrink-0 rounded px-1.5 py-0.5 text-micro text-[var(--color-danger)] hover:bg-danger-subtle"
           >
             Dismiss
           </button>
@@ -178,19 +180,19 @@ export function IndexManager({
 
       {/* Delete confirmation dialog */}
       {confirmDelete && (
-        <div className="flex items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-caption text-amber-700">
+        <div className="flex items-center justify-between gap-2 border-b border-border-default bg-warning-subtle px-3 py-1.5 text-caption text-[var(--color-warning)]">
           <span>Delete {confirmDelete.names.length} index(es)?</span>
           <div className="flex items-center gap-1">
             <button
               onClick={confirmDeleteAction}
               disabled={loading}
-              className="rounded px-2 py-0.5 text-caption text-white bg-red-500 hover:bg-red-600 disabled:opacity-50"
+              className="rounded px-2 py-0.5 text-caption text-text-inverse bg-[var(--color-danger)] hover:opacity-90 disabled:opacity-50"
             >
               Confirm
             </button>
             <button
               onClick={() => setConfirmDelete(null)}
-              className="rounded px-2 py-0.5 text-caption text-slate-500 hover:bg-slate-100"
+              className="rounded px-2 py-0.5 text-caption text-text-secondary hover:bg-bg-muted"
             >
               Cancel
             </button>
@@ -199,7 +201,7 @@ export function IndexManager({
       )}
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-3 py-1.5">
+      <div className="flex items-center justify-between gap-3 border-b border-border-default px-3 py-1.5">
         <div className="flex items-center gap-1">
           <div className="relative">
             <button
@@ -207,20 +209,20 @@ export function IndexManager({
               title="Filter options"
               className={`rounded-md p-1.5 transition-all ${
                 showHidden
-                  ? 'bg-blue-50 text-blue-600 shadow-[inset_0_0_0_1px_theme(colors.blue.300)]'
-                  : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700 hover:shadow-[inset_0_0_0_1px_theme(colors.slate.200)]'
+                  ? 'bg-primary-subtle text-primary shadow-[inset_0_0_0_1px_var(--color-border-focus)]'
+                  : 'text-text-muted hover:bg-bg-muted hover:text-text-primary'
               }`}
             >
               <SlidersHorizontal size={13} />
             </button>
             {showFilterDropdown && (
-              <div className="absolute top-full left-0 mt-1 w-48 rounded-md border border-slate-200 bg-white shadow-lg z-20 p-1.5">
-                <label className="flex items-center gap-2 text-caption text-slate-700 select-none cursor-pointer rounded px-2 py-1.5 hover:bg-slate-50">
+              <div className="absolute top-full left-0 mt-1 w-48 rounded-md border border-border-default bg-bg-base shadow-lg z-20 p-1.5">
+                <label className="flex items-center gap-2 text-caption text-text-primary select-none cursor-pointer rounded px-2 py-1.5 hover:bg-bg-subtle">
                   <input
                     type="checkbox"
                     checked={showHidden}
                     onChange={(e) => setShowHidden(e.target.checked)}
-                    className="accent-blue-500"
+                    className="accent-primary"
                   />
                   Show Hidden
                 </label>
@@ -228,13 +230,13 @@ export function IndexManager({
             )}
           </div>
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted" />
             <input
               type="text"
               placeholder="Search indices..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-56 rounded-md border border-slate-200 bg-white pl-7 pr-2.5 py-1 text-caption text-slate-700 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none"
+              className="w-56 rounded-md border border-border-default bg-bg-base pl-7 pr-2.5 py-1 text-caption text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
             />
           </div>
         </div>
@@ -245,7 +247,7 @@ export function IndexManager({
                 onClick={() => doAction('refresh', [...selected])}
                 disabled={loading}
                 title="Refresh selected"
-                className="rounded-md p-1.5 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-700 hover:shadow-[inset_0_0_0_1px_theme(colors.slate.200)] disabled:opacity-50"
+                className="rounded-md p-1.5 text-text-muted transition-all hover:bg-bg-muted hover:text-text-primary disabled:opacity-50"
               >
                 <RefreshCw size={13} />
               </button>
@@ -253,7 +255,7 @@ export function IndexManager({
                 onClick={() => doAction('open', [...selected])}
                 disabled={loading}
                 title="Open selected"
-                className="rounded-md p-1.5 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-700 hover:shadow-[inset_0_0_0_1px_theme(colors.slate.200)] disabled:opacity-50"
+                className="rounded-md p-1.5 text-text-muted transition-all hover:bg-bg-muted hover:text-text-primary disabled:opacity-50"
               >
                 <FolderOpen size={13} />
               </button>
@@ -261,7 +263,7 @@ export function IndexManager({
                 onClick={() => doAction('close', [...selected])}
                 disabled={loading}
                 title="Close selected"
-                className="rounded-md p-1.5 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-700 hover:shadow-[inset_0_0_0_1px_theme(colors.slate.200)] disabled:opacity-50"
+                className="rounded-md p-1.5 text-text-muted transition-all hover:bg-bg-muted hover:text-text-primary disabled:opacity-50"
               >
                 <FolderClosed size={13} />
               </button>
@@ -269,17 +271,17 @@ export function IndexManager({
                 onClick={() => doAction('delete', [...selected])}
                 disabled={loading}
                 title={`Delete ${selected.size} index(es)`}
-                className="rounded-md p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-500 hover:shadow-[inset_0_0_0_1px_theme(colors.red.200)] disabled:opacity-50"
+                className="rounded-md p-1.5 text-text-muted transition-all hover:bg-danger-subtle hover:text-[var(--color-danger)] disabled:opacity-50"
               >
                 <Trash2 size={13} />
               </button>
-              <div className="mx-1.5 h-3.5 w-px bg-slate-200" />
+              <div className="mx-1.5 h-3.5 w-px bg-border-default" />
             </>
           )}
           <button
             onClick={() => setShowCreate(!showCreate)}
             title="Create index"
-            className="rounded-md p-1.5 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-700 hover:shadow-[inset_0_0_0_1px_theme(colors.slate.200)]"
+            className="rounded-md p-1.5 text-text-muted transition-all hover:bg-bg-muted hover:text-text-primary"
           >
             <Plus size={13} />
           </button>
@@ -288,19 +290,19 @@ export function IndexManager({
 
       {/* Create index form */}
       {showCreate && (
-        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-200 bg-slate-50">
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border-default bg-bg-subtle">
           <input
             type="text"
             placeholder="Index name"
             value={newIndexName}
             onChange={(e) => setNewIndexName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && doCreate()}
-            className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-caption text-slate-700 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none w-56"
+            className="rounded-md border border-border-default bg-bg-base px-2.5 py-1 text-caption text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none w-56"
           />
           <button
             onClick={doCreate}
             disabled={loading || !newIndexName.trim()}
-            className="rounded-md px-2.5 py-1 text-caption text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 transition-colors"
+            className="rounded-md px-2.5 py-1 text-caption text-text-inverse bg-success-text hover:opacity-90 disabled:opacity-50 transition-colors"
           >
             Create
           </button>
@@ -309,7 +311,7 @@ export function IndexManager({
               setShowCreate(false)
               setNewIndexName('')
             }}
-            className="rounded-md px-2.5 py-1 text-caption text-slate-400 hover:text-slate-600 transition-colors"
+            className="rounded-md px-2.5 py-1 text-caption text-text-muted hover:text-text-secondary transition-colors"
           >
             Cancel
           </button>
@@ -317,16 +319,16 @@ export function IndexManager({
       )}
 
       {/* Table */}
-      <div className="relative flex-1 min-h-0 border border-slate-200">
-        <div className="scrollbar-thin h-full overflow-auto [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-track]:bg-slate-50">
+      <div className="relative flex-1 min-h-0 border border-border-default">
+        <div className="scrollbar-thin h-full overflow-auto [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-bg-hover [&::-webkit-scrollbar-track]:bg-bg-subtle">
           <table
             className="w-full border-collapse text-caption"
             style={{ tableLayout: 'fixed' }}
           >
-            <thead className="sticky top-0 z-10 bg-slate-100 shadow-[0_1px_0_0_theme(colors.slate.200)]">
-              <tr className="text-left text-slate-600">
+            <thead className="sticky top-0 z-10 bg-bg-muted shadow-[0_1px_0_0_var(--color-border-default)]">
+              <tr className="text-left text-text-secondary">
                 <th
-                  className="border-b border-r border-slate-200 px-2 py-1.5"
+                  className="border-b border-r border-border-default px-2 py-1.5"
                   style={{ width: 36 }}
                 >
                   <input
@@ -335,59 +337,59 @@ export function IndexManager({
                       selected.size === filtered.length && filtered.length > 0
                     }
                     onChange={toggleAll}
-                    className="accent-blue-500"
+                    className="accent-primary"
                   />
                 </th>
                 <th
-                  className="border-b border-r border-slate-200 px-2 py-1.5 cursor-pointer select-none text-label text-slate-700 whitespace-nowrap"
+                  className="border-b border-r border-border-default px-2 py-1.5 cursor-pointer select-none text-label text-text-primary whitespace-nowrap"
                   style={{ width: 60 }}
                   onClick={() => toggleSort('health')}
                 >
                   Health {sortIndicator('health')}
                 </th>
                 <th
-                  className="border-b border-r border-slate-200 px-2 py-1.5 cursor-pointer select-none text-label text-slate-700 whitespace-nowrap"
+                  className="border-b border-r border-border-default px-2 py-1.5 cursor-pointer select-none text-label text-text-primary whitespace-nowrap"
                   onClick={() => toggleSort('index')}
                 >
                   Index {sortIndicator('index')}
                 </th>
                 <th
-                  className="border-b border-r border-slate-200 px-2 py-1.5 cursor-pointer select-none text-label text-slate-700 whitespace-nowrap"
+                  className="border-b border-r border-border-default px-2 py-1.5 cursor-pointer select-none text-label text-text-primary whitespace-nowrap"
                   style={{ width: 80 }}
                   onClick={() => toggleSort('status')}
                 >
                   Status {sortIndicator('status')}
                 </th>
                 <th
-                  className="border-b border-r border-slate-200 px-2 py-1.5 text-right cursor-pointer select-none text-label text-slate-700 whitespace-nowrap"
+                  className="border-b border-r border-border-default px-2 py-1.5 text-right cursor-pointer select-none text-label text-text-primary whitespace-nowrap"
                   style={{ width: 90 }}
                   onClick={() => toggleSort('docs.count')}
                 >
                   Docs {sortIndicator('docs.count')}
                 </th>
                 <th
-                  className="border-b border-r border-slate-200 px-2 py-1.5 text-right cursor-pointer select-none text-label text-slate-700 whitespace-nowrap"
+                  className="border-b border-r border-border-default px-2 py-1.5 text-right cursor-pointer select-none text-label text-text-primary whitespace-nowrap"
                   style={{ width: 80 }}
                   onClick={() => toggleSort('store.size')}
                 >
                   Size {sortIndicator('store.size')}
                 </th>
                 <th
-                  className="border-b border-r border-slate-200 px-2 py-1.5 text-right cursor-pointer select-none text-label text-slate-700 whitespace-nowrap"
+                  className="border-b border-r border-border-default px-2 py-1.5 text-right cursor-pointer select-none text-label text-text-primary whitespace-nowrap"
                   style={{ width: 70 }}
                   onClick={() => toggleSort('pri')}
                 >
                   Shards {sortIndicator('pri')}
                 </th>
                 <th
-                  className="border-b border-r border-slate-200 px-2 py-1.5 text-right cursor-pointer select-none text-label text-slate-700 whitespace-nowrap"
+                  className="border-b border-r border-border-default px-2 py-1.5 text-right cursor-pointer select-none text-label text-text-primary whitespace-nowrap"
                   style={{ width: 80 }}
                   onClick={() => toggleSort('rep')}
                 >
                   Replicas {sortIndicator('rep')}
                 </th>
                 <th
-                  className="border-b border-slate-200 px-2 py-1.5 text-label text-slate-700 whitespace-nowrap"
+                  className="border-b border-border-default px-2 py-1.5 text-label text-text-primary whitespace-nowrap"
                   style={{ width: 64 }}
                 >
                   Actions
@@ -399,7 +401,7 @@ export function IndexManager({
                 <tr>
                   <td
                     colSpan={9}
-                    className="px-2 py-8 text-center text-slate-400"
+                    className="px-2 py-8 text-center text-text-muted"
                   >
                     No indices found
                   </td>
@@ -408,65 +410,65 @@ export function IndexManager({
               {filtered.map((idx) => (
                 <tr
                   key={idx.index}
-                  className="text-slate-700 even:bg-slate-50/50 hover:bg-blue-50/40"
+                  className="text-text-primary even:bg-bg-subtle/50 hover:bg-bg-hover"
                 >
-                  <td className="border-b border-r border-slate-100 px-2 py-1.5">
+                  <td className="border-b border-r border-border-default px-2 py-1.5">
                     <input
                       type="checkbox"
                       checked={selected.has(idx.index)}
                       onChange={() => toggleSelect(idx.index)}
-                      className="accent-blue-500"
+                      className="accent-primary"
                     />
                   </td>
-                  <td className="border-b border-r border-slate-100 px-2 py-1.5">
+                  <td className="border-b border-r border-border-default px-2 py-1.5">
                     <span
                       className={`inline-block h-2.5 w-2.5 rounded-full ${
                         idx.health === 'green'
-                          ? 'bg-emerald-500'
+                          ? 'bg-success-text'
                           : idx.health === 'yellow'
-                            ? 'bg-amber-400'
-                            : 'bg-red-500'
+                            ? 'bg-[var(--color-warning)]'
+                            : 'bg-[var(--color-danger)]'
                       }`}
                     />
                   </td>
-                  <td className="border-b border-r border-slate-100 px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                  <td className="border-b border-r border-border-default px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
                     <button
                       onClick={() => onSelectIndex(idx.index)}
-                      className="text-blue-600 hover:text-blue-500 text-mono hover:underline"
+                      className="text-primary hover:text-primary/80 text-mono hover:underline"
                     >
                       {idx.index}
                     </button>
                   </td>
-                  <td className="border-b border-r border-slate-100 px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
-                    <span className="text-body text-slate-600">
+                  <td className="border-b border-r border-border-default px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                    <span className="text-body text-text-secondary">
                       {idx.status}
                     </span>
                   </td>
-                  <td className="border-b border-r border-slate-100 px-2 py-1.5 text-right text-mono text-caption text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
+                  <td className="border-b border-r border-border-default px-2 py-1.5 text-right text-mono text-caption text-text-primary whitespace-nowrap overflow-hidden text-ellipsis">
                     {idx['docs.count'] ?? '—'}
                   </td>
-                  <td className="border-b border-r border-slate-100 px-2 py-1.5 text-right text-mono text-caption text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
+                  <td className="border-b border-r border-border-default px-2 py-1.5 text-right text-mono text-caption text-text-primary whitespace-nowrap overflow-hidden text-ellipsis">
                     {idx['store.size'] ?? '—'}
                   </td>
-                  <td className="border-b border-r border-slate-100 px-2 py-1.5 text-right text-mono text-caption text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
+                  <td className="border-b border-r border-border-default px-2 py-1.5 text-right text-mono text-caption text-text-primary whitespace-nowrap overflow-hidden text-ellipsis">
                     {idx.pri}
                   </td>
-                  <td className="border-b border-r border-slate-100 px-2 py-1.5 text-right text-mono text-caption text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
+                  <td className="border-b border-r border-border-default px-2 py-1.5 text-right text-mono text-caption text-text-primary whitespace-nowrap overflow-hidden text-ellipsis">
                     {idx.rep}
                   </td>
-                  <td className="border-b border-slate-100 px-2 py-1.5">
+                  <td className="border-b border-border-default px-2 py-1.5">
                     <div className="flex items-center gap-0.5">
                       <button
                         onClick={() => doAction('refresh', [idx.index])}
                         title="Refresh"
-                        className="rounded-md p-1 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-700 hover:shadow-[inset_0_0_0_1px_theme(colors.slate.200)]"
+                        className="rounded-md p-1 text-text-muted transition-all hover:bg-bg-muted hover:text-text-primary"
                       >
                         <RefreshCw className="h-3.5 w-3.5" />
                       </button>
                       <button
                         onClick={() => doAction('delete', [idx.index])}
                         title="Delete"
-                        className="rounded-md p-1 text-slate-400 transition-all hover:bg-red-50 hover:text-red-500 hover:shadow-[inset_0_0_0_1px_theme(colors.red.200)]"
+                        className="rounded-md p-1 text-text-muted transition-all hover:bg-danger-subtle hover:text-[var(--color-danger)]"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>

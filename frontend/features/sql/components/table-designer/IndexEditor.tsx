@@ -30,25 +30,27 @@ export function IndexEditor() {
     <section className="flex flex-col gap-3">
       <header className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-slate-800">Indexes</h3>
-          <p className="text-xs text-slate-500">
+          <h3 className="text-sm font-semibold text-text-primary">Indexes</h3>
+          <p className="text-xs text-text-secondary">
             Speed up queries on frequently searched columns.
           </p>
         </div>
         <button
           type="button"
           onClick={addIndex}
-          className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-700"
+          className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold text-text-inverse transition-colors hover:bg-primary-hover"
         >
           <Plus size={12} /> Add Index
         </button>
       </header>
 
       {pendingModel.indexes.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-          <ListTree size={28} className="mx-auto text-slate-300" />
-          <p className="mt-2 text-sm text-slate-500">No indexes defined.</p>
-          <p className="text-xs text-slate-400">
+        <div className="rounded-lg border border-dashed border-border-default bg-bg-subtle p-8 text-center">
+          <ListTree size={28} className="mx-auto text-text-muted" />
+          <p className="mt-2 text-sm text-text-secondary">
+            No indexes defined.
+          </p>
+          <p className="text-xs text-text-muted">
             Click "Add Index" to create one.
           </p>
         </div>
@@ -56,11 +58,11 @@ export function IndexEditor() {
         pendingModel.indexes.map((idx) => (
           <div
             key={idx.id}
-            className="rounded-lg border border-blue-200 bg-blue-50/40 p-3 space-y-3"
+            className="rounded-lg border border-border-focus/40 bg-primary-subtle/40 p-3 space-y-3"
           >
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <label className="block text-[10px] uppercase tracking-wide text-slate-500">
+                <label className="block text-[10px] uppercase tracking-wide text-text-secondary">
                   Index Name (optional)
                 </label>
                 <input
@@ -70,13 +72,13 @@ export function IndexEditor() {
                     updateIndex(idx.id, { name: e.target.value || null })
                   }
                   placeholder="Auto-generated if empty"
-                  className="mt-1 w-full max-w-xs rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
+                  className="mt-1 w-full max-w-xs rounded border border-border-default bg-bg-base px-2 py-1 text-xs outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus/20"
                 />
               </div>
               <button
                 type="button"
                 onClick={() => removeIndex(idx.id)}
-                className="rounded p-1 text-red-500 hover:bg-red-50"
+                className="rounded p-1 text-[var(--color-danger)] hover:bg-danger-subtle"
                 title="Remove index"
               >
                 <X size={12} />
@@ -85,7 +87,7 @@ export function IndexEditor() {
 
             {/* Columns */}
             <div>
-              <label className="block text-[10px] uppercase tracking-wide text-slate-500">
+              <label className="block text-[10px] uppercase tracking-wide text-text-secondary">
                 Columns
               </label>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -103,8 +105,8 @@ export function IndexEditor() {
                       }}
                       className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                         selected
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'border border-slate-200 bg-white text-slate-600 hover:border-blue-300'
+                          ? 'bg-primary text-text-inverse shadow-sm'
+                          : 'border border-border-default bg-bg-base text-text-secondary hover:border-border-focus'
                       }`}
                     >
                       {col.name}
@@ -117,7 +119,7 @@ export function IndexEditor() {
             {/* Type & Unique */}
             <div className="flex items-center gap-3">
               <div>
-                <label className="block text-[10px] uppercase tracking-wide text-slate-500">
+                <label className="block text-[10px] uppercase tracking-wide text-text-secondary">
                   Type
                 </label>
                 <select
@@ -127,7 +129,7 @@ export function IndexEditor() {
                       indexType: e.target.value as (typeof INDEX_TYPES)[number],
                     })
                   }
-                  className="mt-1 rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
+                  className="mt-1 rounded border border-border-default bg-bg-base px-2 py-1 text-xs outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus/20"
                 >
                   {INDEX_TYPES.map((t) => (
                     <option key={t} value={t}>
@@ -136,14 +138,14 @@ export function IndexEditor() {
                   ))}
                 </select>
               </div>
-              <label className="flex items-center gap-1.5 text-xs text-slate-700 pt-4">
+              <label className="flex items-center gap-1.5 text-xs text-text-primary pt-4">
                 <input
                   type="checkbox"
                   checked={idx.isUnique}
                   onChange={(e) =>
                     updateIndex(idx.id, { isUnique: e.target.checked })
                   }
-                  className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  className="h-3.5 w-3.5 rounded border-border-default text-primary focus:ring-border-focus"
                 />
                 Unique
               </label>

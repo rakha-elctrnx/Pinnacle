@@ -34,7 +34,9 @@ export function LoadingModalDialog({
     >
       <div className="flex items-center justify-center gap-2.5 rounded-lg border border-border-default/60 bg-bg-base/80 px-4 py-2.5 shadow-lg backdrop-blur-md ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-150 select-none">
         <RefreshCw size={14} className="animate-spin text-primary shrink-0" />
-        <span className="text-caption font-medium text-text-primary">{label}</span>
+        <span className="text-caption font-medium text-text-primary">
+          {label}
+        </span>
         <span className="text-micro font-mono text-text-muted tabular-nums">
           ({elapsedMs}ms)
         </span>

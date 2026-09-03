@@ -15,34 +15,34 @@ export function DetailsPanel({
   onExportData,
 }: DetailsPanelProps) {
   return (
-    <aside className="bg-slate-50">
-      <section className="space-y-3 border-slate-200 p-3">
+    <aside className="bg-bg-subtle">
+      <section className="space-y-3 border-border-default p-3">
         <div className="flex items-center justify-between">
-          <p className="text-subheading text-slate-800">Details Panel</p>
+          <p className="text-subheading text-text-primary">Details Panel</p>
         </div>
         {!selectedConnection ? (
-          <p className="text-body text-slate-500">
+          <p className="text-body text-text-secondary">
             Connection details and live statistics appear here.
           </p>
         ) : (
           <>
-            <div className="rounded-lg border border-slate-200 bg-white p-3 text-body text-slate-600">
+            <div className="rounded-lg border border-border-default bg-bg-base p-3 text-body text-text-secondary">
               <p>
-                <span className="text-subheading text-slate-800">Host:</span>{' '}
+                <span className="text-subheading text-text-primary">Host:</span>{' '}
                 {selectedConnection.host}
               </p>
               <p>
-                <span className="text-subheading text-slate-800">Port:</span>{' '}
+                <span className="text-subheading text-text-primary">Port:</span>{' '}
                 {selectedConnection.port}
               </p>
               <p>
-                <span className="text-subheading text-slate-800">
+                <span className="text-subheading text-text-primary">
                   Database:
                 </span>{' '}
                 {selectedConnection.database}
               </p>
               <p>
-                <span className="text-subheading text-slate-800">SSL:</span>{' '}
+                <span className="text-subheading text-text-primary">SSL:</span>{' '}
                 {selectedConnection.sslConfig
                   ? selectedConnection.sslConfig.mode
                   : selectedConnection.ssl
@@ -55,31 +55,35 @@ export function DetailsPanel({
               {detailsStats.map((stat) => (
                 <div
                   key={stat.label}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-body"
+                  className="rounded-lg border border-border-default bg-bg-base px-3 py-2 text-body"
                 >
-                  <p className="text-label text-slate-400">{stat.label}</p>
-                  <p className="text-subheading text-slate-700">{stat.value}</p>
+                  <p className="text-label text-text-muted">{stat.label}</p>
+                  <p className="text-subheading text-text-secondary">
+                    {stat.value}
+                  </p>
                 </div>
               ))}
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="mb-2 text-label text-slate-500">Productivity</p>
-              <div className="space-y-2 text-body text-slate-700">
-                <button className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-100">
-                  <Sparkles size={14} className="text-slate-500" /> Favorite
+            <div className="rounded-lg border border-border-default bg-bg-base p-3">
+              <p className="mb-2 text-label text-text-secondary">
+                Productivity
+              </p>
+              <div className="space-y-2 text-body text-text-secondary">
+                <button className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-bg-muted">
+                  <Sparkles size={14} className="text-text-muted" /> Favorite
                   this table/query
                 </button>
-                <button className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-100">
-                  <WandSparkles size={14} className="text-slate-500" /> Open
+                <button className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-bg-muted">
+                  <WandSparkles size={14} className="text-text-muted" /> Open
                   snippets and templates
                 </button>
                 <button
                   onClick={onExportData}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-100"
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-bg-muted"
                 >
-                  <Download size={14} className="text-slate-500" /> Export Table
-                  Data
+                  <Download size={14} className="text-text-muted" /> Export
+                  Table Data
                 </button>
               </div>
             </div>

@@ -3,7 +3,12 @@ import { Folder, Plus, Trash2, Eye, EyeOff } from 'lucide-react'
 import type { ConnectionPayload } from '../../_shared/services/tauriClient'
 import { CenteredLoadingState } from '../../_shared/components/ui/CenteredLoadingState'
 import type { MongoIndexInfo } from '../types/mongodb'
-import { mongoListIndexes, mongoCreateIndex, mongoDropIndex, mongoSetIndexHidden } from '../clients/mongodb'
+import {
+  mongoListIndexes,
+  mongoCreateIndex,
+  mongoDropIndex,
+  mongoSetIndexHidden,
+} from '../clients/mongodb'
 
 interface Props {
   payload: ConnectionPayload | null
@@ -22,7 +27,9 @@ export function MongoIndexesTab({ payload, database, collection }: Props) {
     setLoading(true)
     mongoListIndexes({ connection: payload, database, collection })
       .then((res) => setIndexes(res))
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : String(err)),
+      )
       .finally(() => setLoading(false))
   }
 
@@ -150,10 +157,18 @@ export function MongoIndexesTab({ payload, database, collection }: Props) {
             <tbody className="divide-y divide-border-default/50">
               {indexes.map((idx) => (
                 <tr key={idx.name} className="hover:bg-bg-muted/40">
-                  <td className="px-4 py-2.5 text-success font-semibold">{idx.name}</td>
-                  <td className="px-4 py-2.5 text-text-secondary">{JSON.stringify(idx.keys)}</td>
-                  <td className="px-4 py-2.5 text-text-muted">{idx.unique ? 'Yes' : 'No'}</td>
-                  <td className="px-4 py-2.5 text-text-muted">{idx.hidden ? 'Yes' : 'No'}</td>
+                  <td className="px-4 py-2.5 text-success font-semibold">
+                    {idx.name}
+                  </td>
+                  <td className="px-4 py-2.5 text-text-secondary">
+                    {JSON.stringify(idx.keys)}
+                  </td>
+                  <td className="px-4 py-2.5 text-text-muted">
+                    {idx.unique ? 'Yes' : 'No'}
+                  </td>
+                  <td className="px-4 py-2.5 text-text-muted">
+                    {idx.hidden ? 'Yes' : 'No'}
+                  </td>
                   <td className="px-4 py-2.5 text-right flex items-center justify-end gap-2">
                     <button
                       onClick={() => handleToggleHidden(idx.name, idx.hidden)}
@@ -161,7 +176,11 @@ export function MongoIndexesTab({ payload, database, collection }: Props) {
                       title={idx.hidden ? 'Unhide' : 'Hide'}
                       aria-label={`${idx.hidden ? 'Unhide' : 'Hide'} ${idx.name}`}
                     >
-                      {idx.hidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                      {idx.hidden ? (
+                        <Eye className="w-4 h-4" />
+                      ) : (
+                        <EyeOff className="w-4 h-4" />
+                      )}
                     </button>
                     {idx.name !== '_id_' && (
                       <button

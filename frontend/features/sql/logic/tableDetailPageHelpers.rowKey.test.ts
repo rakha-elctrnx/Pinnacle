@@ -22,7 +22,7 @@ describe('getRowKey', () => {
     expect(getRowKey(row, COMPOSITE_PK)).toBeNull()
   })
 
-  it("returns null when any key value is an empty string", () => {
+  it('returns null when any key value is an empty string', () => {
     const row: TableRow = { tenant_id: 't1', item_id: '' }
     expect(getRowKey(row, COMPOSITE_PK)).toBeNull()
   })
@@ -60,9 +60,7 @@ describe('buildRowId with composite primary keys', () => {
 
   it('falls back to readonly:index when the key is incomplete', () => {
     const row: TableRow = { tenant_id: 't1', item_id: null }
-    expect(buildRowId(row, 4, 'items', COMPOSITE_PK)).toBe(
-      'items:readonly:4',
-    )
+    expect(buildRowId(row, 4, 'items', COMPOSITE_PK)).toBe('items:readonly:4')
   })
 
   it('falls back to readonly:index for no-PK tables', () => {

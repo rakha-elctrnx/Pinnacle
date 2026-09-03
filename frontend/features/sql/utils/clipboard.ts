@@ -152,9 +152,7 @@ export function generateInsertSQL(
 ): string {
   if (rows.length === 0 || columns.length === 0) return ''
 
-  const colList = columns
-    .map((c) => quoteIdentifier(c, dbType))
-    .join(', ')
+  const colList = columns.map((c) => quoteIdentifier(c, dbType)).join(', ')
   const values = rows
     .map((row) => `  (${columns.map((col) => sqlValue(row[col])).join(', ')})`)
     .join(',\n')
@@ -183,8 +181,7 @@ export function generateUpdateSQL(
       const setClauses = columns
         .filter((col) => col !== pkColumn)
         .map(
-          (col) =>
-            `  ${quoteIdentifier(col, dbType)} = ${sqlValue(row[col])}`,
+          (col) => `  ${quoteIdentifier(col, dbType)} = ${sqlValue(row[col])}`,
         )
         .join(',\n')
       return `UPDATE ${quoteIdentifier(tableName, dbType)}\nSET\n${setClauses}\nWHERE ${quoteIdentifier(pkColumn, dbType)} = ${pkValue};`

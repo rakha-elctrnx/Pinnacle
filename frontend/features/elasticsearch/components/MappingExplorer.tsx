@@ -77,27 +77,27 @@ function TreeNode({
   return (
     <div>
       <div
-        className="flex items-center gap-1 py-1 px-2 hover:bg-slate-50 rounded cursor-pointer"
+        className="flex items-center gap-1 py-1 px-2 hover:bg-bg-subtle rounded cursor-pointer"
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
         onClick={() => hasChildren && setExpanded(!expanded)}
       >
         {hasChildren ? (
           expanded ? (
-            <ChevronDown className="h-3 w-3 text-slate-400 shrink-0" />
+            <ChevronDown className="h-3 w-3 text-text-muted shrink-0" />
           ) : (
-            <ChevronRight className="h-3 w-3 text-slate-400 shrink-0" />
+            <ChevronRight className="h-3 w-3 text-text-muted shrink-0" />
           )
         ) : (
           <span className="w-3 shrink-0" />
         )}
         <span className="text-body text-mono">{name}</span>
         {mapping.type && (
-          <span className="ml-2 text-caption text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">
+          <span className="ml-2 text-caption text-primary bg-primary-subtle px-1.5 py-0.5 rounded">
             {mapping.type}
           </span>
         )}
         {mapping.analyzer && (
-          <span className="ml-1 text-caption text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+          <span className="ml-1 text-caption text-[var(--color-warning)] bg-warning-subtle px-1.5 py-0.5 rounded">
             {mapping.analyzer}
           </span>
         )}

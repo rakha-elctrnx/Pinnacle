@@ -78,7 +78,7 @@ When adding a backend capability, touch all layers: Rust command → register in
 
 **Design system** (when building UI):
 
-- Primary `#009ddc`; supporting `#61bb47 #fcb827 #f6821f #e03a3e #973d97`.
+- Primary `#3b60cd` (light) / `#6e8de8` (dark) — chosen over the original `#009ddc` because `#009ddc` fails WCAG AA on white (3.06:1); `#3b60cd` passes at 5.61:1. Supporting `#61bb47 #fcb827 #f6821f #e03a3e #973d97`.
 - macOS-like feel: clean layout, generous spacing, rounded corners (12–16px), **dark mode first**, subtle glassmorphism, smooth transitions, sidebar nav, command palette (Cmd/Ctrl+K).
 - Inspirations: TablePlus, Raycast, Arc, Linear.
 

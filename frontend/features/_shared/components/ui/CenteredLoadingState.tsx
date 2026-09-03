@@ -6,7 +6,7 @@ import { RefreshCw } from 'lucide-react'
  * (SQL + Elasticsearch). Visual contract (matches DocumentExplorer):
  *   - Centered within the parent (panel) or the workspace (page).
  *   - Spinning `RefreshCw` icon at h-4 w-4.
- *   - `text-caption` label and `text-slate-400` tone.
+ *   - `text-caption` label and `text-text-muted` tone.
  *   - Elapsed time displayed in milliseconds (`ms`) while loading.
  *   - Returns `null` when `loading` is `false` so empty / error states
  *     can take over once the request settles.
@@ -91,8 +91,8 @@ export function CenteredLoadingState({
 
   const wrapperClass =
     variant === 'page'
-      ? 'flex h-full items-center justify-center bg-white text-slate-400'
-      : 'flex h-full items-center justify-center text-slate-400'
+      ? 'flex h-full items-center justify-center bg-bg-base text-text-muted'
+      : 'flex h-full items-center justify-center text-text-muted'
 
   const contentClass =
     showElapsed || label

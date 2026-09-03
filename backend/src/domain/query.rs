@@ -118,6 +118,8 @@ pub struct SshConfig {
 pub struct SqlQueryPayload {
     pub connection: ConnectionPayload,
     pub sql: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub query_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

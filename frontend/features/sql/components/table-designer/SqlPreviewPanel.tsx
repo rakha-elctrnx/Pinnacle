@@ -29,8 +29,8 @@ export function SqlPreviewPanel({
     return (
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
-          <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-blue-500" />
-          <p className="mt-2 text-xs text-slate-500">
+          <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-border-default border-t-primary" />
+          <p className="mt-2 text-xs text-text-secondary">
             Generating SQL preview...
           </p>
         </div>
@@ -42,8 +42,8 @@ export function SqlPreviewPanel({
     return (
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
-          <p className="text-sm text-slate-500">No SQL to preview.</p>
-          <p className="text-xs text-slate-400">
+          <p className="text-sm text-text-secondary">No SQL to preview.</p>
+          <p className="text-xs text-text-muted">
             Generate a preview after making changes.
           </p>
         </div>
@@ -56,12 +56,12 @@ export function SqlPreviewPanel({
       {/* Header + Copy */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-slate-800">
+          <span className="text-sm font-semibold text-text-primary">
             {ddlPlan.statements.length} statement
             {ddlPlan.statements.length !== 1 ? 's' : ''}
           </span>
           {ddlPlan.isDestructive && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+            <span className="inline-flex items-center gap-1 rounded-full bg-danger-subtle px-2 py-0.5 text-[10px] font-semibold text-[var(--color-danger)]">
               <AlertTriangle size={10} /> Destructive changes
             </span>
           )}
@@ -69,10 +69,10 @@ export function SqlPreviewPanel({
         <button
           type="button"
           onClick={handleCopy}
-          className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 transition-colors hover:bg-slate-50"
+          className="inline-flex items-center gap-1 rounded-md border border-border-default px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-subtle"
         >
           {copied ? (
-            <Check size={12} className="text-green-600" />
+            <Check size={12} className="text-success-text" />
           ) : (
             <Copy size={12} />
           )}
@@ -82,11 +82,13 @@ export function SqlPreviewPanel({
 
       {/* Warnings */}
       {ddlPlan.warnings.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-          <p className="text-xs font-semibold text-amber-800">Warnings</p>
+        <div className="rounded-lg border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 p-3">
+          <p className="text-xs font-semibold text-[var(--color-warning)]">
+            Warnings
+          </p>
           <ul className="mt-1 space-y-0.5">
             {ddlPlan.warnings.map((w, i) => (
-              <li key={i} className="text-xs text-amber-700">
+              <li key={i} className="text-xs text-[var(--color-warning)]">
                 • {w}
               </li>
             ))}
@@ -103,19 +105,22 @@ export function SqlPreviewPanel({
               key={stmt.order}
               className={`rounded-lg border p-3 ${
                 stmt.isDestructive
-                  ? 'border-red-200 bg-red-50/30'
-                  : 'border-slate-200 bg-white'
+                  ? 'border-border-danger bg-danger-subtle'
+                  : 'border-border-default bg-bg-base'
               }`}
             >
               <div className="flex items-center gap-2 mb-1.5">
-                <span className="text-[10px] font-mono text-slate-400">
+                <span className="text-[10px] font-mono text-text-muted">
                   #{stmt.order}
                 </span>
-                <span className="text-xs font-medium text-slate-700">
+                <span className="text-xs font-medium text-text-secondary">
                   {stmt.description}
                 </span>
                 {stmt.isDestructive && (
-                  <AlertTriangle size={11} className="text-red-500" />
+                  <AlertTriangle
+                    size={11}
+                    className="text-[var(--color-danger)]"
+                  />
                 )}
               </div>
               <pre className="overflow-x-auto rounded bg-slate-900 p-2 text-xs text-slate-100 font-mono whitespace-pre-wrap">

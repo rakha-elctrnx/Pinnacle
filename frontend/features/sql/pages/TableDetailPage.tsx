@@ -398,7 +398,9 @@ export function TableDetailPage() {
         totalPending={totalPending}
         isCommitPending={commitMutation.isPending}
         readOnly={readOnly}
-        showReadOnlyNotice={readOnly && !tableDataLoading && realTableIndexesLoaded}
+        showReadOnlyNotice={
+          readOnly && !tableDataLoading && realTableIndexesLoaded
+        }
         handleCommit={handleCommit}
         handleRevert={handleRevert}
         setShortcutsOpen={setShortcutsOpen}
@@ -546,7 +548,6 @@ export function TableDetailPage() {
           onViewDetails={handleViewDetails}
         />
       )}
-
 
       {/* ── Generate SQL modal ────────────────────────────────────────── */}
       <GenerateSqlModal

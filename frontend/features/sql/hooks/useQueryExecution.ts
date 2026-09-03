@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState, useMemo } from 'react'
 import {
   executeSql,
+  cancelQuery,
   sqlBeginTransaction,
   sqlCommitTransaction,
   sqlExecuteInTransaction,
@@ -45,6 +46,7 @@ export interface UseQueryExecutionReturn {
   setActiveQueryId: (id: string) => void
   createQueryId: () => string
   handleRunQuery: (mode: 'run' | 'run-selected' | 'explain') => Promise<void>
+  handleCancelQuery: () => Promise<void>
   registerEditor: (editor: monacoEditor.editor.IStandaloneCodeEditor) => void
   resetQueryData: () => void
   // Transaction mode
@@ -373,6 +375,7 @@ export function useQueryExecution({
   const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(
     null,
   )
+  const currentCancelIdRef = useRef<string | null>(null)
   const counterRef = useRef(0)
   const [queryStates, setQueryStates] = useState<Record<string, QueryState>>({})
   const [activeQueryId, setActiveQueryIdRaw] = useState('')
@@ -495,7 +498,8 @@ export function useQueryExecution({
 
       setIsRunningQuery(true)
       appendMessage(`${mode.toUpperCase()} started`)
-
+      const execQueryId = crypto.randomUUID()
+      currentCancelIdRef.current = execQueryId
       try {
         const basePayload = await getConnPayloadWithPassword(
           selectedConnection,
@@ -541,6 +545,7 @@ export function useQueryExecution({
           const result = await executeSql({
             connection: payload,
             sql,
+            queryId: execQueryId,
           })
 
           updateState(activeQueryId, {
@@ -578,6 +583,7 @@ export function useQueryExecution({
           setTransactionSteps([])
         }
       } finally {
+        currentCancelIdRef.current = null
         setIsRunningQuery(false)
       }
     },
@@ -694,6 +700,17 @@ export function useQueryExecution({
     appendMessage,
   ])
 
+  const handleCancelQuery = useCallback(async () => {
+    if (currentCancelIdRef.current) {
+      try {
+        await cancelQuery(currentCancelIdRef.current)
+        appendMessage('Cancellation requested...')
+      } catch (error) {
+        appendMessage(error instanceof Error ? error.message : String(error))
+      }
+    }
+  }, [appendMessage])
+
   const registerEditor = useCallback(
     (editor: monacoEditor.editor.IStandaloneCodeEditor) => {
       editorRef.current = editor
@@ -717,6 +734,7 @@ export function useQueryExecution({
       setActiveQueryId,
       createQueryId,
       handleRunQuery,
+      handleCancelQuery,
       registerEditor,
       resetQueryData,
       // Transaction mode
@@ -740,6 +758,7 @@ export function useQueryExecution({
       setActiveQueryId,
       createQueryId,
       handleRunQuery,
+      handleCancelQuery,
       registerEditor,
       resetQueryData,
       transactionMode,

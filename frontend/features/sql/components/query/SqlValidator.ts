@@ -1008,11 +1008,7 @@ function validateClauseOrder(
     const hasSelect = topKws.some((x) => x.kw === 'SELECT')
     if (!hasInto) {
       markers.push(
-        makeMarker(
-          first,
-          'INSERT requires INTO.',
-          mono.MarkerSeverity.Error,
-        ),
+        makeMarker(first, 'INSERT requires INTO.', mono.MarkerSeverity.Error),
       )
     }
     if (!hasValues && !hasSelect) {
@@ -1045,11 +1041,7 @@ function validateClauseOrder(
     const hasFrom = topKws.some((x) => x.kw === 'FROM')
     if (!hasFrom) {
       markers.push(
-        makeMarker(
-          first,
-          'DELETE requires FROM.',
-          mono.MarkerSeverity.Error,
-        ),
+        makeMarker(first, 'DELETE requires FROM.', mono.MarkerSeverity.Error),
       )
     }
   }

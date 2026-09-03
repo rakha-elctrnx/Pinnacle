@@ -2,19 +2,19 @@ import { useConnectionHealth } from '../../hooks/useConnectionHealth'
 
 const STATES: Record<string, { dot: string; label: string; text: string }> = {
   connected: {
-    dot: 'bg-emerald-500',
+    dot: 'bg-success-text',
     label: 'Connected',
-    text: 'text-emerald-600',
+    text: 'text-success-text',
   },
   reconnecting: {
-    dot: 'bg-amber-500',
+    dot: 'bg-[var(--color-warning)]',
     label: 'Reconnecting',
-    text: 'text-amber-600',
+    text: 'text-[var(--color-warning)]',
   },
   disconnected: {
-    dot: 'bg-slate-400',
+    dot: 'bg-text-muted',
     label: 'Disconnected',
-    text: 'text-slate-500',
+    text: 'text-text-secondary',
   },
 }
 

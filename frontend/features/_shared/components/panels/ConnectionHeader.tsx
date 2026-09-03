@@ -6,12 +6,12 @@ interface ConnectionHeaderProps {
 
 export function ConnectionHeader({ onRefresh }: ConnectionHeaderProps) {
   return (
-    <header className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+    <header className="border-b border-border-default bg-bg-subtle px-4 py-3">
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={onRefresh}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-subheading text-slate-700 hover:bg-slate-100"
+          className="inline-flex items-center gap-2 rounded-xl border border-border-default px-3 py-2 text-subheading text-text-secondary hover:bg-bg-muted"
         >
           <RefreshCw size={15} />
           Refresh

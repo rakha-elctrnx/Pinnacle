@@ -25,7 +25,12 @@ import {
   calculateAutoColumnWidths,
   useColumnResizer,
 } from '../../sql/hooks/useColumnResizer'
-import { mongoFindDocuments, mongoInsertDocument, mongoUpdateDocument, mongoDeleteDocument } from '../clients/mongodb'
+import {
+  mongoFindDocuments,
+  mongoInsertDocument,
+  mongoUpdateDocument,
+  mongoDeleteDocument,
+} from '../clients/mongodb'
 
 interface Props {
   payload: ConnectionPayload | null
@@ -42,7 +47,10 @@ export function MongoDocumentsTab({ payload, database, collection }: Props) {
   const [results, setResults] = useState<MongoFindResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [selectedDoc, setSelectedDoc] = useState<Record<string, unknown> | null>(null)
+  const [selectedDoc, setSelectedDoc] = useState<Record<
+    string,
+    unknown
+  > | null>(null)
   const [drawerMode, setDrawerMode] = useState<'view' | 'edit' | 'new'>('view')
   const [drawerJson, setDrawerJson] = useState('')
 
@@ -79,7 +87,6 @@ export function MongoDocumentsTab({ payload, database, collection }: Props) {
     },
     [payload, database, collection],
   )
-
 
   const parseFilterText = (): Record<string, unknown> | null => {
     try {
@@ -118,7 +125,10 @@ export function MongoDocumentsTab({ payload, database, collection }: Props) {
     setSortDirection(nextDir)
     const filter = parseFilterText()
     if (filter === null) return
-    void fetchDocs(filter, nextCol ? { [nextCol]: nextDir === 'asc' ? 1 : -1 } : undefined)
+    void fetchDocs(
+      filter,
+      nextCol ? { [nextCol]: nextDir === 'asc' ? 1 : -1 } : undefined,
+    )
   }
 
   const hasActiveFilters =
@@ -193,7 +203,9 @@ export function MongoDocumentsTab({ payload, database, collection }: Props) {
   }
 
   const handleDeleteSelected = () => {
-    const doc = documents.find((d) => selectedDocId !== null && docKey(d) === selectedDocId)
+    const doc = documents.find(
+      (d) => selectedDocId !== null && docKey(d) === selectedDocId,
+    )
     if (doc) void handleDelete(doc)
   }
 
@@ -232,9 +244,7 @@ export function MongoDocumentsTab({ payload, database, collection }: Props) {
 
   const boundedWidths = useMemo(
     () =>
-      widths.map((w) =>
-        Math.min(MAX_COL_WIDTH, Math.max(MIN_COL_WIDTH, w)),
-      ),
+      widths.map((w) => Math.min(MAX_COL_WIDTH, Math.max(MIN_COL_WIDTH, w))),
     [widths],
   )
 
@@ -627,7 +637,10 @@ export function MongoDocumentsTab({ payload, database, collection }: Props) {
           ) : (
             <div className="space-y-3 font-mono text-xs">
               {documents.map((doc, idx) => (
-                <div key={idx} className="p-3 bg-bg-subtle border border-border-default rounded-lg relative group">
+                <div
+                  key={idx}
+                  className="p-3 bg-bg-subtle border border-border-default rounded-lg relative group"
+                >
                   <div className="absolute top-3 right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => handleOpenEdit(doc)}
@@ -642,7 +655,9 @@ export function MongoDocumentsTab({ payload, database, collection }: Props) {
                       Delete
                     </button>
                   </div>
-                  <pre className="text-success-text overflow-x-auto">{JSON.stringify(doc, null, 2)}</pre>
+                  <pre className="text-success-text overflow-x-auto">
+                    {JSON.stringify(doc, null, 2)}
+                  </pre>
                 </div>
               ))}
             </div>
@@ -659,7 +674,6 @@ export function MongoDocumentsTab({ payload, database, collection }: Props) {
         onSave={() => void handleSaveDrawer()}
         onClose={() => setDrawerMode('view')}
       />
-
     </div>
   )
 }
@@ -788,7 +802,9 @@ function MongoDocumentDrawer({
   const isJsonValid = useMemo(() => {
     try {
       const parsed: unknown = JSON.parse(documentJson)
-      return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+      return (
+        parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+      )
     } catch {
       return false
     }

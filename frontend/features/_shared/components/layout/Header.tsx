@@ -195,9 +195,11 @@ export function Header() {
           When in browser (window.__TAURI_INTERNALS__ is undefined) or Tauri fullscreen,
           we do not render the spacer so "Pinnacle" is directly on the left edge.
         */}
-        {!isFullscreen && typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window && (
-          <div className="h-7 w-20 shrink-0" aria-hidden="true" />
-        )}
+        {!isFullscreen &&
+          typeof window !== 'undefined' &&
+          '__TAURI_INTERNALS__' in window && (
+            <div className="h-7 w-20 shrink-0" aria-hidden="true" />
+          )}
         <span className="truncate font-bold text-sm text-text-primary tracking-tight">
           Pinnacle
         </span>

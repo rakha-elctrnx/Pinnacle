@@ -75,6 +75,7 @@ pub async fn execute_sql(
     host_override: Option<(&str, u16)>,
     ssh_password: Option<&str>,
     key_passphrase: Option<&str>,
+    query_id: Option<String>,
 ) -> AppResult<QueryResult> {
     if !ensure_is_postgresql(payload) {
         return Err(AppError::UnsupportedDriver(payload.r#type.clone()));
@@ -104,7 +105,43 @@ pub async fn execute_sql(
                 .await?;
         }
 
-        if read {
+        // ── Query cancellation setup (Postgres only) ──
+        // Spawn a monitor task holding a lightweight connection that calls
+        // pg_cancel_backend(pid) when the cancel signal fires.
+        let cancel_handle = if let Some(qid) = &query_id {
+            let cancel_rx = super::cancel_registry::register_cancel(qid.clone()).await;
+            // Fetch backend PID of this connection
+            let pid_row = sqlx::query("SELECT pg_backend_pid() as pid")
+                .fetch_one(&mut *pooled)
+                .await?;
+            let backend_pid: i32 = pid_row.try_get("pid")?;
+
+            // Spawn monitor task with a separate lightweight connection
+            let conn_opts = build_connection_options(payload, host_override);
+            let qid_clone = qid.clone();
+            let monitor_handle = tokio::spawn(async move {
+                tokio::select! {
+                    _ = cancel_rx => {
+                        // Cancel signal fired — connect and call pg_cancel_backend
+                        if let Ok(cancel_pool) = sqlx::pool::PoolOptions::<sqlx::Postgres>::new()
+                            .max_connections(1)
+                            .connect_with(conn_opts)
+                            .await
+                        {
+                            let _ = sqlx::query(&format!("SELECT pg_cancel_backend({})", backend_pid))
+                                .execute(&cancel_pool)
+                                .await;
+                        }
+                        super::cancel_registry::unregister_cancel(&qid_clone).await;
+                    }
+                }
+            });
+            Some(monitor_handle)
+        } else {
+            None
+        };
+
+        let query_result = if read {
             let rows = (&mut *pooled).fetch_all(sqlx::query(sql)).await?;
             let columns: Vec<String> = if let Some(first) = rows.first() {
                 first
@@ -146,7 +183,17 @@ pub async fn execute_sql(
                 columns: vec![],
                 rows: vec![],
             })
+        };
+
+        // Clean up cancel registration and monitor task
+        if let Some(qid) = &query_id {
+            super::cancel_registry::unregister_cancel(qid).await;
         }
+        if let Some(handle) = cancel_handle {
+            handle.abort();
+        }
+
+        query_result
     })
     .await;
     super::sql::mark_result(conn_id.as_deref(), res).await

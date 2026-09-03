@@ -22,8 +22,8 @@ export function ExecutionResultPanel({
     return (
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
-          <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-blue-500" />
-          <p className="mt-2 text-xs text-slate-500">
+          <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-border-default border-t-primary" />
+          <p className="mt-2 text-xs text-text-secondary">
             Executing DDL statements...
           </p>
         </div>
@@ -34,7 +34,7 @@ export function ExecutionResultPanel({
   if (!result) {
     return (
       <div className="flex h-full items-center justify-center p-6">
-        <p className="text-sm text-slate-500">No execution results yet.</p>
+        <p className="text-sm text-text-secondary">No execution results yet.</p>
       </div>
     )
   }
@@ -45,22 +45,22 @@ export function ExecutionResultPanel({
       <div
         className={`flex items-center gap-3 rounded-lg p-3 ${
           result.success
-            ? 'bg-green-50 border border-green-200'
-            : 'bg-red-50 border border-red-200'
+            ? 'bg-success-subtle border border-border-default'
+            : 'bg-danger-subtle border border-border-danger'
         }`}
       >
         {result.success ? (
-          <CheckCircle size={18} className="text-green-600" />
+          <CheckCircle size={18} className="text-success-text" />
         ) : (
-          <XCircle size={18} className="text-red-600" />
+          <XCircle size={18} className="text-[var(--color-danger)]" />
         )}
         <div>
           <p
-            className={`text-sm font-semibold ${result.success ? 'text-green-800' : 'text-red-800'}`}
+            className={`text-sm font-semibold ${result.success ? 'text-success-text' : 'text-[var(--color-danger)]'}`}
           >
             {result.success ? 'Execution Successful' : 'Execution Failed'}
           </p>
-          <p className="text-xs text-slate-600">
+          <p className="text-xs text-text-secondary">
             {result.executedCount} of {result.statements.length} statement
             {result.statements.length !== 1 ? 's' : ''} executed
           </p>
@@ -74,24 +74,29 @@ export function ExecutionResultPanel({
             key={stmt.order}
             className={`flex items-center gap-2 rounded-lg border p-2.5 ${
               stmt.success
-                ? 'border-green-200 bg-green-50/30'
-                : 'border-red-200 bg-red-50/30'
+                ? 'border-border-default bg-success-subtle'
+                : 'border-border-danger bg-danger-subtle'
             }`}
           >
             {stmt.success ? (
-              <CheckCircle size={13} className="shrink-0 text-green-500" />
+              <CheckCircle size={13} className="shrink-0 text-success-text" />
             ) : (
-              <XCircle size={13} className="shrink-0 text-red-500" />
+              <XCircle
+                size={13}
+                className="shrink-0 text-[var(--color-danger)]"
+              />
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-mono truncate text-slate-700">
+              <p className="text-xs font-mono truncate text-text-secondary">
                 {stmt.sql}
               </p>
               {stmt.error && (
-                <p className="mt-0.5 text-[11px] text-red-600">{stmt.error}</p>
+                <p className="mt-0.5 text-[11px] text-[var(--color-danger)]">
+                  {stmt.error}
+                </p>
               )}
             </div>
-            <span className="shrink-0 text-[10px] text-slate-400">
+            <span className="shrink-0 text-[10px] text-text-muted">
               {stmt.elapsedMs}ms
             </span>
           </div>
@@ -104,7 +109,7 @@ export function ExecutionResultPanel({
           <button
             type="button"
             onClick={onRetry}
-            className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-text-inverse hover:bg-primary-hover"
           >
             <RefreshCw size={12} /> Retry
           </button>
@@ -113,7 +118,7 @@ export function ExecutionResultPanel({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border-default px-3 py-1.5 text-xs font-semibold text-text-secondary hover:bg-bg-subtle"
           >
             <X size={12} /> Close
           </button>

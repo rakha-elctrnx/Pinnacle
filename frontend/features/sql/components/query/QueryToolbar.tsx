@@ -5,8 +5,8 @@ import {
   WrapText,
   Minimize2,
   History,
-  LoaderCircle,
   ChevronDown,
+  CircleX,
 } from 'lucide-react'
 import { useState } from 'react'
 import { ActionButton } from '../../../_shared/components/ui/ActionButton'
@@ -23,6 +23,7 @@ interface QueryToolbarProps {
   transactionMode: boolean
   historyOpen: boolean
   onRunQuery: (mode: 'run' | 'run-selected' | 'explain') => void
+  onCancel?: () => void
   onToggleTransactionMode: () => void
   onBeautify: () => void
   onMinify: () => void
@@ -42,6 +43,7 @@ export function QueryToolbar({
   transactionMode,
   historyOpen,
   onRunQuery,
+  onCancel,
   onToggleTransactionMode,
   onBeautify,
   onMinify,
@@ -53,52 +55,53 @@ export function QueryToolbar({
 
   return (
     <div className="flex items-center gap-1 border-b border-border-default px-1.5 py-1.5 animate-in fade-in duration-200">
-      <div className="relative">
-        <div className="flex items-stretch">
-          <ActionButton
-            icon={
-              isRunningQuery ? (
-                <LoaderCircle size={14} className="animate-spin" />
-              ) : (
-                <Play size={14} />
-              )
-            }
-            aria-label={isRunningQuery ? 'Running…' : 'Run (Ctrl+Enter)'}
-            variant="accent"
-            disabled={isRunningQuery}
-            className="rounded-r-none"
-            onClick={() => onRunQuery('run')}
-          />
-          <button
-            type="button"
-            aria-label="Run options"
-            disabled={isRunningQuery}
-            onClick={() => setRunMenuOpen((v) => !v)}
-            className="flex items-center rounded-r-lg px-1 text-primary transition hover:bg-primary/10 active:bg-primary/15 active:scale-95 disabled:cursor-not-allowed disabled:text-[var(--color-disabled-text)]"
-          >
-            <ChevronDown size={12} />
-          </button>
-        </div>
-        <Dropdown
-          open={runMenuOpen}
-          onClose={() => setRunMenuOpen(false)}
-          align="left"
-          items={[
-            {
-              label: 'Run',
-              icon: <Play size={14} />,
-              shortcut: 'Ctrl+Enter',
-              action: () => onRunQuery('run'),
-            },
-            {
-              label: 'Run Selected',
-              icon: <ListEnd size={14} />,
-              shortcut: 'Ctrl+Shift+Enter',
-              action: () => onRunQuery('run-selected'),
-            },
-          ]}
+      {isRunningQuery ? (
+        <ActionButton
+          icon={<CircleX size={14} />}
+          aria-label="Cancel running query"
+          variant="danger"
+          onClick={onCancel}
         />
-      </div>
+      ) : (
+        <div className="relative">
+          <div className="flex items-stretch">
+            <ActionButton
+              icon={<Play size={14} />}
+              aria-label="Run (Ctrl+Enter)"
+              variant="accent"
+              className="rounded-r-none"
+              onClick={() => onRunQuery('run')}
+            />
+            <button
+              type="button"
+              aria-label="Run options"
+              onClick={() => setRunMenuOpen((v) => !v)}
+              className="flex items-center rounded-r-lg px-1 text-primary transition hover:bg-primary/10 active:bg-primary/15 active:scale-95"
+            >
+              <ChevronDown size={12} />
+            </button>
+          </div>
+          <Dropdown
+            open={runMenuOpen}
+            onClose={() => setRunMenuOpen(false)}
+            align="left"
+            items={[
+              {
+                label: 'Run',
+                icon: <Play size={14} />,
+                shortcut: 'Ctrl+Enter',
+                action: () => onRunQuery('run'),
+              },
+              {
+                label: 'Run Selected',
+                icon: <ListEnd size={14} />,
+                shortcut: 'Ctrl+Shift+Enter',
+                action: () => onRunQuery('run-selected'),
+              },
+            ]}
+          />
+        </div>
+      )}
       <div className="ml-1.5 flex items-center gap-1">
         <span className="text-[11px] font-mono text-text-muted">Tx:</span>
         <select

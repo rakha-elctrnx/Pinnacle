@@ -114,13 +114,13 @@ export function Combobox({
           openDropdown()
         }}
         placeholder={placeholder}
-        className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
+        className="w-full rounded border border-border-default bg-bg-base px-2 py-1 text-xs outline-none focus:border-border-focus focus:ring-1 focus:ring-focus-ring text-text-primary"
       />
       {open && (filtered.length > 0 || isCustom) && (
         <ul
           ref={listRef}
           style={dropStyle}
-          className="z-50 max-h-40 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg scrollbar-thin"
+          className="z-50 max-h-40 overflow-auto rounded-lg border border-border-default bg-bg-base py-1 shadow-lg scrollbar-thin"
         >
           {filtered.map((item) => (
             <li key={item.value}>
@@ -130,14 +130,14 @@ export function Combobox({
                   e.preventDefault()
                   select(item)
                 }}
-                className="block w-full px-2 py-1 text-left text-xs text-slate-700 hover:bg-blue-50"
+                className="block w-full px-2 py-1 text-left text-xs text-text-secondary hover:bg-primary-subtle"
               >
                 {item.label}
               </button>
             </li>
           ))}
           {isCustom && (
-            <li className="border-t border-slate-100 px-2 py-1 text-[10px] text-slate-400">
+            <li className="border-t border-border-default px-2 py-1 text-[10px] text-text-muted">
               Custom: {value}
             </li>
           )}

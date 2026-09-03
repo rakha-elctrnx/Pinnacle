@@ -125,12 +125,12 @@ export function errorCategoryLabel(category: ErrorCategory): string {
  */
 export function errorCategoryColor(category: ErrorCategory): string {
   const colors: Record<ErrorCategory, string> = {
-    auth_failed: 'text-red-600',
-    network_unreachable: 'text-orange-600',
-    timeout: 'text-amber-600',
-    permission_denied: 'text-yellow-700',
-    invalid_input: 'text-rose-600',
-    unknown: 'text-slate-600',
+    auth_failed: 'text-[var(--color-danger)]',
+    network_unreachable: 'text-[var(--color-warning)]',
+    timeout: 'text-[var(--color-warning)]',
+    permission_denied: 'text-[var(--color-warning)]',
+    invalid_input: 'text-[var(--color-danger)]',
+    unknown: 'text-text-secondary',
   }
   return colors[category]
 }

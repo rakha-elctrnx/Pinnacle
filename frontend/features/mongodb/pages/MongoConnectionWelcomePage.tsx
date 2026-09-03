@@ -11,7 +11,10 @@ export function MongoConnectionWelcomePage() {
       </div>
       <h1 className="text-display text-text-primary">MongoDB Connected</h1>
       <p className="mt-2 max-w-md text-center text-body-secondary leading-relaxed text-text-secondary">
-        Connected to <span className="font-mono text-text-primary">{connectionId}</span>. Expand a database and select a collection in the sidebar to browse documents, run aggregations, or manage its schema.
+        Connected to{' '}
+        <span className="font-mono text-text-primary">{connectionId}</span>.
+        Expand a database and select a collection in the sidebar to browse
+        documents, run aggregations, or manage its schema.
       </p>
     </div>
   )

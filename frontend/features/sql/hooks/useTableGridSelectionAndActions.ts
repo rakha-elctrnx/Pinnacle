@@ -225,13 +225,16 @@ export function useTableGridSelectionAndActions({
       const rows = getSelectedRows()
       return { rows, columns: realTableColumns }
     }
-    const rowIndices = [...new Set([...selectedCells].map((k) => Number(k.split(':')[0])))]
+    const rowIndices = [
+      ...new Set([...selectedCells].map((k) => Number(k.split(':')[0]))),
+    ]
       .filter((i) => i >= 0 && i < displayRows.length)
       .sort((a, b) => a - b)
     const selectedCols = realTableColumns.filter((col) =>
       [...selectedCells].some((k) => k.split(':')[1] === col),
     )
-    const activeColumns = selectedCols.length > 0 ? selectedCols : realTableColumns
+    const activeColumns =
+      selectedCols.length > 0 ? selectedCols : realTableColumns
     const rows = rowIndices.map((i) => displayRows[i])
     return { rows, columns: activeColumns }
   }, [selectedCells, getSelectedRows, displayRows, realTableColumns])
@@ -254,12 +257,7 @@ export function useTableGridSelectionAndActions({
   const handleContextCopyAsSQL = useCallback(async () => {
     const { rows, columns } = getSelectedGridData()
     if (rows.length === 0) return
-    const sql = generateInsertSQL(
-      rows,
-      columns,
-      tableName ?? 'table',
-      dbType,
-    )
+    const sql = generateInsertSQL(rows, columns, tableName ?? 'table', dbType)
     await copyToClipboard(sql)
   }, [getSelectedGridData, tableName, dbType])
 
@@ -269,7 +267,6 @@ export function useTableGridSelectionAndActions({
     const csv = formatCSVWithHeaders(rows, columns)
     await copyToClipboard(csv)
   }, [getSelectedGridData])
-
 
   const handleContextPaste = useCallback(async () => {
     const text = await readFromClipboard()
@@ -301,8 +298,9 @@ export function useTableGridSelectionAndActions({
         // only the pasted cells.
         const template: Record<string, unknown> = {}
         for (const col of realTableColumns) {
-          template[col] =
-            getDefaultValueForType(editableColumnMetaMap[col]?.dataType)
+          template[col] = getDefaultValueForType(
+            editableColumnMetaMap[col]?.dataType,
+          )
         }
         for (const [col, rawValue] of Object.entries(record)) {
           const meta = editableColumnMetaMap[col]
@@ -386,7 +384,10 @@ export function useTableGridSelectionAndActions({
         const meta = editableColumnMetaMap[col]
         // Reject NOT NULL columns — the backend would throw the same error.
         if (meta && !meta.isNullable) {
-          onToast?.({ kind: 'error', message: `Cannot set "${col}" to NULL — column is NOT NULL` })
+          onToast?.({
+            kind: 'error',
+            message: `Cannot set "${col}" to NULL — column is NOT NULL`,
+          })
           continue
         }
         stageEdit(rowId, col, rows[ri][col], null)
@@ -416,7 +417,14 @@ export function useTableGridSelectionAndActions({
       stageDelete(rowId)
     }
     resetSelection()
-  }, [primaryKeyColumns, getSelectedRows, displayRows, tableName, stageDelete, resetSelection])
+  }, [
+    primaryKeyColumns,
+    getSelectedRows,
+    displayRows,
+    tableName,
+    stageDelete,
+    resetSelection,
+  ])
 
   const handleContextGenerateSQL = useCallback(() => {
     const rows = getSelectedRows()
@@ -436,13 +444,7 @@ export function useTableGridSelectionAndActions({
     )
     setGeneratedSql(sql)
     setSqlModalOpen(true)
-  }, [
-    getSelectedRows,
-    realTableColumns,
-    tableName,
-    tableColumnsMeta,
-    dbType,
-  ])
+  }, [getSelectedRows, realTableColumns, tableName, tableColumnsMeta, dbType])
 
   const handleViewDetails = useCallback(() => {
     const rows = getSelectedRows()
@@ -456,7 +458,13 @@ export function useTableGridSelectionAndActions({
       rowIndex: idx,
       rowId: buildRowId(rows[0], idx, tableName, primaryKeyColumns),
     })
-  }, [getSelectedRows, displayRows, tableName, primaryKeyColumns, setDetailDrawerRow])
+  }, [
+    getSelectedRows,
+    displayRows,
+    tableName,
+    primaryKeyColumns,
+    setDetailDrawerRow,
+  ])
 
   // ── Keyboard shortcuts cheatsheet listener ───────────────────────────────
   useEffect(() => {

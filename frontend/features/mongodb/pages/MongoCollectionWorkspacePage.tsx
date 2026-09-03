@@ -114,7 +114,15 @@ export function MongoCollectionWorkspacePage() {
         {loading && !payload ? (
           <CenteredLoadingState loading label="Loading collection..." />
         ) : payload ? (
-          <Outlet context={{ payload, database: databaseName, collection: collectionName } satisfies MongoCollectionRouteContext} />
+          <Outlet
+            context={
+              {
+                payload,
+                database: databaseName,
+                collection: collectionName,
+              } satisfies MongoCollectionRouteContext
+            }
+          />
         ) : !error ? (
           <div className="flex h-full items-center justify-center text-caption text-text-muted">
             MongoDB connection data is unavailable.

@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  fetchTableDataCore,
-  type FetchTableDataDeps,
-} from './useExplorerData'
+import { fetchTableDataCore, type FetchTableDataDeps } from './useExplorerData'
 import type { ConnectionPayload } from '../../_shared/services/tauriClient'
 import type { ConnectionProfile } from '../../_shared/types/domain'
 import type { TableQueryResultCache } from '../store/tableDetailCacheStore'
@@ -28,19 +25,24 @@ describe('fetchTableDataCore result cache behavior', () => {
     const rowsWritten: Record<string, string>[][] = []
     let indexesWritten: unknown[] = []
 
-    const cacheMap = new Map<string, { resultCache: TableQueryResultCache | null }>()
+    const cacheMap = new Map<
+      string,
+      { resultCache: TableQueryResultCache | null }
+    >()
     const tabId = 'conn-1:table:users'
     const queryKey = 'conn-1::db::public::users::1::50::::'
-    const pkIndexes = [{
-      schemaName: 'public',
-      tableName: 'users',
-      columnName: ['id'],
-      indexName: 'primary',
-      indexDefinition: null,
-      isUnique: true,
-      isPrimary: true,
-      indexType: null,
-    }]
+    const pkIndexes = [
+      {
+        schemaName: 'public',
+        tableName: 'users',
+        columnName: ['id'],
+        indexName: 'primary',
+        indexDefinition: null,
+        isUnique: true,
+        isPrimary: true,
+        indexType: null,
+      },
+    ]
     cacheMap.set(tabId, {
       resultCache: {
         queryKey,
@@ -59,9 +61,12 @@ describe('fetchTableDataCore result cache behavior', () => {
         executeCalls++
         return { rowsAffected: 0, elapsedMs: 1, columns: [], rows: [] }
       },
-      resolvePayload: async () => ({ password: 'x' }) as unknown as ConnectionPayload,
+      resolvePayload: async () =>
+        ({ password: 'x' }) as unknown as ConnectionPayload,
       setTableDataLoading: () => {},
-      setRealTableIndexes: (idxs) => { indexesWritten = idxs },
+      setRealTableIndexes: (idxs) => {
+        indexesWritten = idxs
+      },
       setRealTableColumns: () => {},
       setRealTableRows: (r) => rowsWritten.push(r),
       setTotalRowCount: () => {},
@@ -90,7 +95,10 @@ describe('fetchTableDataCore result cache behavior', () => {
 
   it('bypasses cache and executes queries when bypassCache option is true', async () => {
     let executeCalls = 0
-    const cacheMap = new Map<string, { resultCache: TableQueryResultCache | null }>()
+    const cacheMap = new Map<
+      string,
+      { resultCache: TableQueryResultCache | null }
+    >()
     const tabId = 'conn-1:table:users'
     const queryKey = 'conn-1::db::public::users::1::50::::'
     cacheMap.set(tabId, {
@@ -109,17 +117,33 @@ describe('fetchTableDataCore result cache behavior', () => {
       execute: async (payload) => {
         executeCalls++
         if (/COUNT/i.test(payload.sql)) {
-          return { rowsAffected: 0, elapsedMs: 1, columns: ['count'], rows: [{ count: '2' }] }
+          return {
+            rowsAffected: 0,
+            elapsedMs: 1,
+            columns: ['count'],
+            rows: [{ count: '2' }],
+          }
         }
         if (/information_schema\.columns/i.test(payload.sql)) {
-          return { rowsAffected: 0, elapsedMs: 1, columns: ['column_name'], rows: [] }
+          return {
+            rowsAffected: 0,
+            elapsedMs: 1,
+            columns: ['column_name'],
+            rows: [],
+          }
         }
         if (/pg_indexes/i.test(payload.sql)) {
           return { rowsAffected: 0, elapsedMs: 1, columns: [], rows: [] }
         }
-        return { rowsAffected: 0, elapsedMs: 1, columns: ['id', 'name'], rows: [{ id: '2', name: 'Bob' }] }
+        return {
+          rowsAffected: 0,
+          elapsedMs: 1,
+          columns: ['id', 'name'],
+          rows: [{ id: '2', name: 'Bob' }],
+        }
       },
-      resolvePayload: async () => ({ password: 'x' }) as unknown as ConnectionPayload,
+      resolvePayload: async () =>
+        ({ password: 'x' }) as unknown as ConnectionPayload,
       setTableDataLoading: () => {},
       setRealTableIndexes: () => {},
       setRealTableColumns: () => {},
@@ -145,6 +169,8 @@ describe('fetchTableDataCore result cache behavior', () => {
     )
 
     expect(executeCalls).toBeGreaterThan(0)
-    expect(cacheMap.get(tabId)?.resultCache?.rows).toEqual([{ id: '2', name: 'Bob' }])
+    expect(cacheMap.get(tabId)?.resultCache?.rows).toEqual([
+      { id: '2', name: 'Bob' },
+    ])
   })
 })

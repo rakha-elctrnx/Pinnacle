@@ -6,7 +6,9 @@ import { TreeNodeItem } from '../TreeNodeItem'
 import type { TreeNode } from '../../types/shared'
 import type { TreeNodeContextMenuMeta } from '../../types/shared'
 
-type HandlerMock = Mock<(event: React.MouseEvent, meta: TreeNodeContextMenuMeta) => void>
+type HandlerMock = Mock<
+  (event: React.MouseEvent, meta: TreeNodeContextMenuMeta) => void
+>
 
 interface MountResult {
   container: HTMLElement
@@ -410,9 +412,7 @@ describe('Sidebar context menu — foldered trees (Folder/Connection/Database/Sc
       expect(el).toBeTruthy()
       fireEvent.contextMenu(el!)
 
-      const handlerMock = handlers[
-        handler as keyof typeof handlers
-      ] as Mock<
+      const handlerMock = handlers[handler as keyof typeof handlers] as Mock<
         (event: React.MouseEvent, meta: TreeNodeContextMenuMeta) => void
       >
       expect(handlerMock).toHaveBeenCalledTimes(1)

@@ -1,11 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import {
-  render,
-  fireEvent,
-  cleanup,
-  waitFor,
-} from '@testing-library/react'
+import { render, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import { useState, useEffect } from 'react'
 import { ConnectionSidebar } from '../ConnectionSidebar'
 import type {
@@ -13,10 +8,7 @@ import type {
   ExplorerTreeData,
   TreeNode,
 } from '../../../types/shared'
-import type {
-  ConnectionProfile,
-  Folder,
-} from '../../../types/domain'
+import type { ConnectionProfile, Folder } from '../../../types/domain'
 
 /** Namespace used by the mock to hold state + a notify callback for re-render. */
 const mockCtx = vi.hoisted(() => {
@@ -118,29 +110,31 @@ vi.mock('../../../context/DataExplorerContext', () => ({
             }
           }
           if (conn.type === 'postgresql' && db.schemas) {
-            const schemaChildren = db.schemas.map((s): TreeNode => ({
-              label: s.name,
-              nodeType: 'schema',
-              connectionId: conn.id,
-              databaseName: db.name,
-              schemaName: s.name,
-              children: [
-                {
-                  label: 'Tables',
-                  nodeType: 'category',
-                  connectionId: conn.id,
-                  databaseName: db.name,
-                  schemaName: s.name,
-                  children: s.tables.map((t) => ({
-                    label: t,
-                    nodeType: 'item',
+            const schemaChildren = db.schemas.map(
+              (s): TreeNode => ({
+                label: s.name,
+                nodeType: 'schema',
+                connectionId: conn.id,
+                databaseName: db.name,
+                schemaName: s.name,
+                children: [
+                  {
+                    label: 'Tables',
+                    nodeType: 'category',
                     connectionId: conn.id,
                     databaseName: db.name,
                     schemaName: s.name,
-                  })),
-                },
-              ],
-            }))
+                    children: s.tables.map((t) => ({
+                      label: t,
+                      nodeType: 'item',
+                      connectionId: conn.id,
+                      databaseName: db.name,
+                      schemaName: s.name,
+                    })),
+                  },
+                ],
+              }),
+            )
             return {
               label: db.name,
               nodeType: 'database',
@@ -331,7 +325,9 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
     mockCtx.store.focusedNodePath = 'connB'
     render(<Harness />)
 
-    const nodeEl = document.querySelector('[data-node-path="connB"]') as HTMLElement
+    const nodeEl = document.querySelector(
+      '[data-node-path="connB"]',
+    ) as HTMLElement
     expect(nodeEl).toBeTruthy()
     fireEvent.click(nodeEl)
     await waitFor(() => {
@@ -344,7 +340,9 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
     mockCtx.store.focusedNodePath = 'connB'
     render(<Harness />)
 
-    const nodeEl = document.querySelector('[data-node-path="connB"]') as HTMLElement
+    const nodeEl = document.querySelector(
+      '[data-node-path="connB"]',
+    ) as HTMLElement
     expect(nodeEl).toBeTruthy()
     fireEvent.contextMenu(nodeEl)
     await waitFor(() => {
@@ -358,7 +356,9 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
     mockCtx.store.focusedNodePath = 'connB'
     render(<Harness />)
 
-    const nodeEl = document.querySelector('[data-node-path="connB"]') as HTMLElement
+    const nodeEl = document.querySelector(
+      '[data-node-path="connB"]',
+    ) as HTMLElement
     expect(nodeEl).toBeTruthy()
     fireEvent.contextMenu(nodeEl)
     await waitFor(() => {
@@ -366,7 +366,6 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
     })
     expect(mockCtx.store.contextMenu?.itemId).toBe('conn-b')
   })
-
 
   it('ArrowRight on a SQL connection without cached tree data lazy-loads it', async () => {
     seedTree()
@@ -419,18 +418,33 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
   })
 
   it('renders dynamic Mongo collections when database is loaded without static placeholder nodes', async () => {
-    const mongoGrouped = makeProfile('mongo-2', 'Grouped Mongo', 'FolderA', 'mongodb')
+    const mongoGrouped = makeProfile(
+      'mongo-2',
+      'Grouped Mongo',
+      'FolderA',
+      'mongodb',
+    )
     const folder: Folder = { id: 'f1', name: 'FolderA' }
     mockCtx.store.folders = [folder]
     mockCtx.store.groupedConnections = { FolderA: [mongoGrouped] }
     mockCtx.store.selectedConnection = mongoGrouped
-    mockCtx.store.expandedTreePaths = ['FolderA', 'FolderA/Grouped%20Mongo', 'FolderA/Grouped%20Mongo/admin']
+    mockCtx.store.expandedTreePaths = [
+      'FolderA',
+      'FolderA/Grouped%20Mongo',
+      'FolderA/Grouped%20Mongo/admin',
+    ]
     mockCtx.store.treeDataMap = {
       'mongo-2': {
         databases: [
           {
             name: 'admin',
-            schemas: [{ name: 'admin', tables: ['users', 'logs'], views: ['active_users'] }],
+            schemas: [
+              {
+                name: 'admin',
+                tables: ['users', 'logs'],
+                views: ['active_users'],
+              },
+            ],
             loaded: true,
           },
         ],
@@ -439,8 +453,16 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
 
     render(<Harness />)
 
-    expect(document.querySelector('[data-node-path="FolderA/Grouped%20Mongo/admin/users"]')).not.toBeNull()
-    expect(document.querySelector('[data-node-path="FolderA/Grouped%20Mongo/admin/active_users%20(view)"]')).not.toBeNull()
+    expect(
+      document.querySelector(
+        '[data-node-path="FolderA/Grouped%20Mongo/admin/users"]',
+      ),
+    ).not.toBeNull()
+    expect(
+      document.querySelector(
+        '[data-node-path="FolderA/Grouped%20Mongo/admin/active_users%20(view)"]',
+      ),
+    ).not.toBeNull()
     expect(document.querySelector('[aria-label="Databases"]')).toBeNull()
     expect(document.querySelector('[aria-label="Collections"]')).toBeNull()
   })
@@ -504,7 +526,9 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
     mockCtx.notify?.()
 
     await waitFor(() => {
-      expect(document.activeElement?.getAttribute('data-node-path')).toBe('connB')
+      expect(document.activeElement?.getAttribute('data-node-path')).toBe(
+        'connB',
+      )
     })
     expect(scrollIntoView).not.toHaveBeenCalled()
   })
@@ -522,17 +546,28 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
   })
 
   it('sets selectedTreeNode state when clicking the Tables category node', async () => {
-    const sqlConn = makeProfile('conn-sql', 'SQL Connection', null, 'postgresql')
+    const sqlConn = makeProfile(
+      'conn-sql',
+      'SQL Connection',
+      null,
+      'postgresql',
+    )
     mockCtx.store.groupedConnections = { __ungrouped__: [sqlConn] }
     mockCtx.store.selectedConnection = sqlConn
-    mockCtx.store.expandedTreePaths = ['SQL%20Connection', 'SQL%20Connection/db', 'SQL%20Connection/db/public']
+    mockCtx.store.expandedTreePaths = [
+      'SQL%20Connection',
+      'SQL%20Connection/db',
+      'SQL%20Connection/db/public',
+    ]
     mockCtx.store.treeDataMap = {
       'conn-sql': {
         databases: [
           {
             name: 'db',
             loaded: true,
-            schemas: [{ name: 'public', tables: ['users'], views: [], functions: [] }],
+            schemas: [
+              { name: 'public', tables: ['users'], views: [], functions: [] },
+            ],
           },
         ],
       },

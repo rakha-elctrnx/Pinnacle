@@ -169,7 +169,10 @@ export function IndicesPage() {
     // Each segment is URI-encoded so slashes inside names don't collide.
     let treePath = buildPath('', 'Indices')
     if (groupName && selectedConnection) {
-      treePath = buildPath(buildPath(groupName, selectedConnection.name), 'Indices')
+      treePath = buildPath(
+        buildPath(groupName, selectedConnection.name),
+        'Indices',
+      )
     }
     treePath = buildPath(treePath, indexName)
 

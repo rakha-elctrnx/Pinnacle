@@ -30,27 +30,29 @@ export function ForeignKeyEditor() {
     <section className="flex flex-col gap-3">
       <header className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-slate-800">Foreign Keys</h3>
-          <p className="text-xs text-slate-500">
+          <h3 className="text-sm font-semibold text-text-primary">
+            Foreign Keys
+          </h3>
+          <p className="text-xs text-text-secondary">
             Define relationships between this table and other tables.
           </p>
         </div>
         <button
           type="button"
           onClick={addForeignKey}
-          className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-700"
+          className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold text-text-inverse transition-colors hover:bg-primary-hover"
         >
           <Plus size={12} /> Add Foreign Key
         </button>
       </header>
 
       {pendingModel.foreignKeys.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-          <Link size={28} className="mx-auto text-slate-300" />
-          <p className="mt-2 text-sm text-slate-500">
+        <div className="rounded-lg border border-dashed border-border-default bg-bg-subtle p-8 text-center">
+          <Link size={28} className="mx-auto text-text-muted" />
+          <p className="mt-2 text-sm text-text-secondary">
             No foreign keys defined.
           </p>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-text-muted">
             Click "Add Foreign Key" to create one.
           </p>
         </div>
@@ -58,11 +60,11 @@ export function ForeignKeyEditor() {
         pendingModel.foreignKeys.map((fk) => (
           <div
             key={fk.id}
-            className="rounded-lg border border-blue-200 bg-blue-50/40 p-3 space-y-3"
+            className="rounded-lg border border-border-focus/40 bg-primary-subtle/40 p-3 space-y-3"
           >
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <label className="block text-[10px] uppercase tracking-wide text-slate-500">
+                <label className="block text-[10px] uppercase tracking-wide text-text-secondary">
                   Constraint Name (optional)
                 </label>
                 <input
@@ -72,13 +74,13 @@ export function ForeignKeyEditor() {
                     updateForeignKey(fk.id, { name: e.target.value || null })
                   }
                   placeholder="Auto-generated if empty"
-                  className="mt-1 w-full max-w-xs rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
+                  className="mt-1 w-full max-w-xs rounded border border-border-default bg-bg-base px-2 py-1 text-xs outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus/20"
                 />
               </div>
               <button
                 type="button"
                 onClick={() => removeForeignKey(fk.id)}
-                className="rounded p-1 text-red-500 hover:bg-red-50"
+                className="rounded p-1 text-[var(--color-danger)] hover:bg-danger-subtle"
                 title="Remove foreign key"
               >
                 <X size={12} />
@@ -87,7 +89,7 @@ export function ForeignKeyEditor() {
 
             {/* Local columns */}
             <div>
-              <label className="block text-[10px] uppercase tracking-wide text-slate-500">
+              <label className="block text-[10px] uppercase tracking-wide text-text-secondary">
                 Local Columns
               </label>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -105,8 +107,8 @@ export function ForeignKeyEditor() {
                       }}
                       className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                         selected
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'border border-slate-200 bg-white text-slate-600 hover:border-blue-300'
+                          ? 'bg-primary text-text-inverse shadow-sm'
+                          : 'border border-border-default bg-bg-base text-text-secondary hover:border-border-focus'
                       }`}
                     >
                       {col.name}
@@ -119,7 +121,7 @@ export function ForeignKeyEditor() {
             {/* Reference target */}
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <label className="block text-[10px] uppercase tracking-wide text-slate-500">
+                <label className="block text-[10px] uppercase tracking-wide text-text-secondary">
                   Ref Schema
                 </label>
                 <input
@@ -131,11 +133,11 @@ export function ForeignKeyEditor() {
                     })
                   }
                   placeholder="public"
-                  className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
+                  className="mt-1 w-full rounded border border-border-default bg-bg-base px-2 py-1 text-xs outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus/20"
                 />
               </div>
               <div className="col-span-2">
-                <label className="block text-[10px] uppercase tracking-wide text-slate-500">
+                <label className="block text-[10px] uppercase tracking-wide text-text-secondary">
                   Ref Table
                 </label>
                 <input
@@ -145,13 +147,13 @@ export function ForeignKeyEditor() {
                     updateForeignKey(fk.id, { referencedTable: e.target.value })
                   }
                   placeholder="referenced_table"
-                  className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
+                  className="mt-1 w-full rounded border border-border-default bg-bg-base px-2 py-1 text-xs outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus/20"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[10px] uppercase tracking-wide text-slate-500">
+              <label className="block text-[10px] uppercase tracking-wide text-text-secondary">
                 Ref Columns
               </label>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -165,7 +167,7 @@ export function ForeignKeyEditor() {
                         next[i] = e.target.value
                         updateForeignKey(fk.id, { referencedColumns: next })
                       }}
-                      className="w-32 rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
+                      className="w-32 rounded border border-border-default bg-bg-base px-2 py-1 text-xs outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus/20"
                     />
                     <button
                       type="button"
@@ -175,7 +177,7 @@ export function ForeignKeyEditor() {
                         )
                         updateForeignKey(fk.id, { referencedColumns: next })
                       }}
-                      className="rounded p-0.5 text-red-400 hover:bg-red-50"
+                      className="rounded p-0.5 text-[var(--color-danger)] hover:bg-danger-subtle"
                     >
                       <X size={10} />
                     </button>
@@ -188,7 +190,7 @@ export function ForeignKeyEditor() {
                       referencedColumns: [...fk.referencedColumns, ''],
                     })
                   }
-                  className="rounded-full border border-dashed border-slate-300 px-2 py-1 text-[10px] text-slate-500 hover:border-blue-300 hover:text-blue-600"
+                  className="rounded-full border border-dashed border-border-default px-2 py-1 text-[10px] text-text-secondary hover:border-border-focus hover:text-primary"
                 >
                   + Column
                 </button>
@@ -198,7 +200,7 @@ export function ForeignKeyEditor() {
             {/* ON UPDATE / ON DELETE */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-[10px] uppercase tracking-wide text-slate-500">
+                <label className="block text-[10px] uppercase tracking-wide text-text-secondary">
                   ON UPDATE
                 </label>
                 <select
@@ -208,7 +210,7 @@ export function ForeignKeyEditor() {
                       onUpdate: e.target.value as ReferentialAction,
                     })
                   }
-                  className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
+                  className="mt-1 w-full rounded border border-border-default bg-bg-base px-2 py-1 text-xs outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus/20"
                 >
                   {REF_ACTIONS.map((a) => (
                     <option key={a} value={a}>
@@ -218,7 +220,7 @@ export function ForeignKeyEditor() {
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-wide text-slate-500">
+                <label className="block text-[10px] uppercase tracking-wide text-text-secondary">
                   ON DELETE
                 </label>
                 <select
@@ -228,7 +230,7 @@ export function ForeignKeyEditor() {
                       onDelete: e.target.value as ReferentialAction,
                     })
                   }
-                  className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
+                  className="mt-1 w-full rounded border border-border-default bg-bg-base px-2 py-1 text-xs outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus/20"
                 >
                   {REF_ACTIONS.map((a) => (
                     <option key={a} value={a}>

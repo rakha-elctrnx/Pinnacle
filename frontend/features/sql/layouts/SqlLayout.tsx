@@ -68,7 +68,6 @@ export function SqlLayout() {
     }
   }, [location.pathname, connectionId])
 
-
   // No connectionId in the URL (visiting /sql directly) — show empty state.
   // This is placed after all hooks to satisfy the rules-of-hooks rule.
   if (!connectionId) {

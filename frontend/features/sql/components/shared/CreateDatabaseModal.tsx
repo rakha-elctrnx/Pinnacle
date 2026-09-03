@@ -1,4 +1,12 @@
-import { AlertTriangle, Check, Database, Loader2, X, ChevronDown, ChevronRight } from 'lucide-react'
+import {
+  AlertTriangle,
+  Check,
+  Database,
+  Loader2,
+  X,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useDataExplorerContext } from '../../../_shared/context/DataExplorerContext'
 import { useConnectionStore } from '../../../_shared/store/connectionStore'
@@ -27,7 +35,12 @@ interface CustomSelectProps {
   options: SelectOption[]
   placeholder?: string
 }
-function CustomSelect({ value, onChange, options, placeholder }: CustomSelectProps) {
+function CustomSelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+}: CustomSelectProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [isSearching, setIsSearching] = useState(false)
@@ -81,7 +94,9 @@ function CustomSelect({ value, onChange, options, placeholder }: CustomSelectPro
       {open && (
         <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-lg border border-border-default bg-bg-base shadow-lg">
           {filtered.length === 0 ? (
-            <div className="px-3 py-4 text-center text-body text-text-muted">No options</div>
+            <div className="px-3 py-4 text-center text-body text-text-muted">
+              No options
+            </div>
           ) : (
             filtered.map((opt) => (
               <button
@@ -96,7 +111,9 @@ function CustomSelect({ value, onChange, options, placeholder }: CustomSelectPro
                   inputRef.current?.blur()
                 }}
                 className={`w-full px-3 py-2 text-left text-body transition hover:bg-bg-subtle ${
-                  opt.value === value ? 'bg-primary-subtle text-primary' : 'text-on-surface'
+                  opt.value === value
+                    ? 'bg-primary-subtle text-primary'
+                    : 'text-on-surface'
                 }`}
               >
                 {opt.label}
@@ -132,22 +149,32 @@ export function CreateDatabaseModal({
   const [collation, setCollation] = useState('')
 
   const isPostgres = target.connectionType === 'postgresql'
-  const isValid = /^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(dbName.trim()) && phase === 'confirm'
+  const isValid =
+    /^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(dbName.trim()) && phase === 'confirm'
 
   // Fetch available PG options (roles, templates, encodings)
   useEffect(() => {
     if (!isPostgres) return
-    const conn = useConnectionStore.getState().items.find(
-      (c) => c.id === target.connectionId,
-    )
+    const conn = useConnectionStore
+      .getState()
+      .items.find((c) => c.id === target.connectionId)
     if (!conn) return
     ;(async () => {
       try {
         const payload = await getConnPayloadWithPassword(conn)
         const [rolesRes, templatesRes, encodingsRes] = await Promise.all([
-          executeSql({ connection: payload, sql: 'SELECT rolname FROM pg_roles ORDER BY rolname' }),
-          executeSql({ connection: payload, sql: "SELECT datname FROM pg_database WHERE datistemplate = true ORDER BY datname" }),
-          executeSql({ connection: payload, sql: "SELECT DISTINCT pg_encoding_to_char(encoding) AS enc FROM pg_database WHERE encoding IS NOT NULL AND pg_encoding_to_char(encoding) IS NOT NULL ORDER BY enc" }),
+          executeSql({
+            connection: payload,
+            sql: 'SELECT rolname FROM pg_roles ORDER BY rolname',
+          }),
+          executeSql({
+            connection: payload,
+            sql: 'SELECT datname FROM pg_database WHERE datistemplate = true ORDER BY datname',
+          }),
+          executeSql({
+            connection: payload,
+            sql: 'SELECT DISTINCT pg_encoding_to_char(encoding) AS enc FROM pg_database WHERE encoding IS NOT NULL AND pg_encoding_to_char(encoding) IS NOT NULL ORDER BY enc',
+          }),
         ])
         if (rolesRes.rows?.length) {
           const roles = rolesRes.rows.map((r: Record<string, unknown>) => ({
@@ -161,14 +188,27 @@ export function CreateDatabaseModal({
             value: String(r.datname ?? ''),
             label: String(r.datname ?? ''),
           }))
-          setTemplateOptions([{ value: '', label: 'Default (template1)' }, ...tpls])
+          setTemplateOptions([
+            { value: '', label: 'Default (template1)' },
+            ...tpls,
+          ])
         }
         const knownEncodings = [
-          'UTF8', 'LATIN1', 'LATIN9', 'WIN1252', 'WIN1251',
-          'SQL_ASCII', 'EUC_JP', 'EUC_KR', 'UNICODE', 'MULE_INTERNAL',
+          'UTF8',
+          'LATIN1',
+          'LATIN9',
+          'WIN1252',
+          'WIN1251',
+          'SQL_ASCII',
+          'EUC_JP',
+          'EUC_KR',
+          'UNICODE',
+          'MULE_INTERNAL',
         ]
         const fetched = encodingsRes.rows?.length
-          ? encodingsRes.rows.map((r: Record<string, unknown>) => String(r.enc ?? ''))
+          ? encodingsRes.rows.map((r: Record<string, unknown>) =>
+              String(r.enc ?? ''),
+            )
           : []
         const merged = [...new Set([...fetched, ...knownEncodings])]
           .filter(Boolean)
@@ -187,9 +227,9 @@ export function CreateDatabaseModal({
     setErrorMessage(null)
 
     try {
-      const conn = useConnectionStore.getState().items.find(
-        (c) => c.id === target.connectionId,
-      )
+      const conn = useConnectionStore
+        .getState()
+        .items.find((c) => c.id === target.connectionId)
       if (!conn) {
         throw new Error('Connection profile not found.')
       }
@@ -290,13 +330,14 @@ export function CreateDatabaseModal({
                   className={inputClasses}
                   autoFocus
                 />
-                {dbName.trim() && !/^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(dbName.trim()) && (
-                  <p className="mt-1 flex items-center gap-1 text-caption text-danger">
-                    <AlertTriangle size={12} />
-                    Name must start with a letter or underscore and contain only
-                    letters, numbers, underscores, or hyphens.
-                  </p>
-                )}
+                {dbName.trim() &&
+                  !/^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(dbName.trim()) && (
+                    <p className="mt-1 flex items-center gap-1 text-caption text-danger">
+                      <AlertTriangle size={12} />
+                      Name must start with a letter or underscore and contain
+                      only letters, numbers, underscores, or hyphens.
+                    </p>
+                  )}
               </div>
 
               {/* Advanced Options */}
@@ -325,10 +366,14 @@ export function CreateDatabaseModal({
                           <CustomSelect
                             value={owner}
                             onChange={setOwner}
-                            options={ownerRoles.length > 1 ? ownerRoles : [
-                              { value: '', label: 'Default' },
-                              { value: 'postgres', label: 'postgres' },
-                            ]}
+                            options={
+                              ownerRoles.length > 1
+                                ? ownerRoles
+                                : [
+                                    { value: '', label: 'Default' },
+                                    { value: 'postgres', label: 'postgres' },
+                                  ]
+                            }
                           />
                         </div>
                         <div>
@@ -338,11 +383,15 @@ export function CreateDatabaseModal({
                           <CustomSelect
                             value={template}
                             onChange={setTemplate}
-                            options={templateOptions.length > 0 ? templateOptions : [
-                              { value: '', label: 'Default (template1)' },
-                              { value: 'template0', label: 'template0' },
-                              { value: 'template1', label: 'template1' },
-                            ]}
+                            options={
+                              templateOptions.length > 0
+                                ? templateOptions
+                                : [
+                                    { value: '', label: 'Default (template1)' },
+                                    { value: 'template0', label: 'template0' },
+                                    { value: 'template1', label: 'template1' },
+                                  ]
+                            }
                           />
                         </div>
                         <div>
@@ -352,19 +401,26 @@ export function CreateDatabaseModal({
                           <CustomSelect
                             value={encoding}
                             onChange={setEncoding}
-                            options={encodingOptions.length > 0 ? encodingOptions : [
-                              { value: '', label: 'Default (UTF8)' },
-                              { value: 'UTF8', label: 'UTF8' },
-                              { value: 'LATIN1', label: 'LATIN1' },
-                              { value: 'LATIN9', label: 'LATIN9' },
-                              { value: 'WIN1252', label: 'WIN1252' },
-                              { value: 'WIN1251', label: 'WIN1251' },
-                              { value: 'SQL_ASCII', label: 'SQL_ASCII' },
-                              { value: 'EUC_JP', label: 'EUC_JP' },
-                              { value: 'EUC_KR', label: 'EUC_KR' },
-                              { value: 'UNICODE', label: 'UNICODE' },
-                              { value: 'MULE_INTERNAL', label: 'MULE_INTERNAL' },
-                            ]}
+                            options={
+                              encodingOptions.length > 0
+                                ? encodingOptions
+                                : [
+                                    { value: '', label: 'Default (UTF8)' },
+                                    { value: 'UTF8', label: 'UTF8' },
+                                    { value: 'LATIN1', label: 'LATIN1' },
+                                    { value: 'LATIN9', label: 'LATIN9' },
+                                    { value: 'WIN1252', label: 'WIN1252' },
+                                    { value: 'WIN1251', label: 'WIN1251' },
+                                    { value: 'SQL_ASCII', label: 'SQL_ASCII' },
+                                    { value: 'EUC_JP', label: 'EUC_JP' },
+                                    { value: 'EUC_KR', label: 'EUC_KR' },
+                                    { value: 'UNICODE', label: 'UNICODE' },
+                                    {
+                                      value: 'MULE_INTERNAL',
+                                      label: 'MULE_INTERNAL',
+                                    },
+                                  ]
+                            }
                           />
                         </div>
                       </>
@@ -403,19 +459,58 @@ export function CreateDatabaseModal({
                             value={collation}
                             onChange={setCollation}
                             options={[
-                              { value: '', label: 'Default (utf8mb4_0900_ai_ci)' },
-                              { value: 'utf8mb4_unicode_ci', label: 'utf8mb4_unicode_ci' },
-                              { value: 'utf8mb4_general_ci', label: 'utf8mb4_general_ci' },
-                              { value: 'utf8mb4_0900_ai_ci', label: 'utf8mb4_0900_ai_ci' },
-                              { value: 'utf8_general_ci', label: 'utf8_general_ci' },
-                              { value: 'utf8_unicode_ci', label: 'utf8_unicode_ci' },
-                              { value: 'latin1_swedish_ci', label: 'latin1_swedish_ci' },
-                              { value: 'latin1_general_ci', label: 'latin1_general_ci' },
-                              { value: 'ascii_general_ci', label: 'ascii_general_ci' },
-                              { value: 'big5_chinese_ci', label: 'big5_chinese_ci' },
-                              { value: 'gbk_chinese_ci', label: 'gbk_chinese_ci' },
-                              { value: 'utf16_unicode_ci', label: 'utf16_unicode_ci' },
-                              { value: 'utf32_unicode_ci', label: 'utf32_unicode_ci' },
+                              {
+                                value: '',
+                                label: 'Default (utf8mb4_0900_ai_ci)',
+                              },
+                              {
+                                value: 'utf8mb4_unicode_ci',
+                                label: 'utf8mb4_unicode_ci',
+                              },
+                              {
+                                value: 'utf8mb4_general_ci',
+                                label: 'utf8mb4_general_ci',
+                              },
+                              {
+                                value: 'utf8mb4_0900_ai_ci',
+                                label: 'utf8mb4_0900_ai_ci',
+                              },
+                              {
+                                value: 'utf8_general_ci',
+                                label: 'utf8_general_ci',
+                              },
+                              {
+                                value: 'utf8_unicode_ci',
+                                label: 'utf8_unicode_ci',
+                              },
+                              {
+                                value: 'latin1_swedish_ci',
+                                label: 'latin1_swedish_ci',
+                              },
+                              {
+                                value: 'latin1_general_ci',
+                                label: 'latin1_general_ci',
+                              },
+                              {
+                                value: 'ascii_general_ci',
+                                label: 'ascii_general_ci',
+                              },
+                              {
+                                value: 'big5_chinese_ci',
+                                label: 'big5_chinese_ci',
+                              },
+                              {
+                                value: 'gbk_chinese_ci',
+                                label: 'gbk_chinese_ci',
+                              },
+                              {
+                                value: 'utf16_unicode_ci',
+                                label: 'utf16_unicode_ci',
+                              },
+                              {
+                                value: 'utf32_unicode_ci',
+                                label: 'utf32_unicode_ci',
+                              },
                             ]}
                           />
                         </div>
@@ -431,7 +526,8 @@ export function CreateDatabaseModal({
             <div className="flex flex-col items-center gap-3 py-6">
               <Loader2 size={28} className="animate-spin text-primary" />
               <p className="text-body-secondary">
-                Creating database <span className="text-mono">{dbName.trim()}</span>
+                Creating database{' '}
+                <span className="text-mono">{dbName.trim()}</span>
                 ...
               </p>
             </div>

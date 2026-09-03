@@ -6,8 +6,9 @@ import { TableToolbar } from './TableToolbar'
 
 afterEach(cleanup)
 
-
-function renderToolbar(overrides: Partial<Parameters<typeof TableToolbar>[0]> = {}) {
+function renderToolbar(
+  overrides: Partial<Parameters<typeof TableToolbar>[0]> = {},
+) {
   const props: Parameters<typeof TableToolbar>[0] = {
     filtersLength: 0,
     filterPanelOpen: false,
@@ -37,12 +38,8 @@ describe('TableToolbar export routing', () => {
   it('renders a single Export data action (no CSV/JSON dropdown)', () => {
     renderToolbar()
     expect(screen.getByRole('button', { name: 'Export data' })).toBeTruthy()
-    expect(
-      screen.queryByRole('button', { name: 'Export as CSV' }),
-    ).toBeNull()
-    expect(
-      screen.queryByRole('button', { name: 'Export as JSON' }),
-    ).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Export as CSV' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Export as JSON' })).toBeNull()
   })
 
   it('passes the current table name to the context export handler', () => {

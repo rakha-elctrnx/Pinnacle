@@ -17,14 +17,33 @@ function assert(cond: boolean, msg: string) {
 }
 
 // ── postgresql: double quotes, embedded quotes doubled ─────────────
-assert(quoteIdentifierForEngine('postgresql', 'users') === '"users"', 'pg: lowercase name quoted')
-assert(quoteIdentifierForEngine('postgresql', 'MyTable') === '"MyTable"', 'pg: uppercase name quoted')
-assert(quoteIdentifierForEngine('postgresql', 'select') === '"select"', 'pg: reserved word quoted')
-assert(quoteIdentifierForEngine('postgresql', 'Order Items') === '"Order Items"', 'pg: spaces quoted')
-assert(quoteIdentifierForEngine('postgresql', 'a-b.c') === '"a-b.c"', 'pg: punctuation quoted')
-assert(quoteIdentifierForEngine('postgresql', 'a"b') === '"a""b"', 'pg: embedded double quote doubled')
 assert(
-  qualifyIdentifierForEngine('postgresql', 'public', 'users') === '"public"."users"',
+  quoteIdentifierForEngine('postgresql', 'users') === '"users"',
+  'pg: lowercase name quoted',
+)
+assert(
+  quoteIdentifierForEngine('postgresql', 'MyTable') === '"MyTable"',
+  'pg: uppercase name quoted',
+)
+assert(
+  quoteIdentifierForEngine('postgresql', 'select') === '"select"',
+  'pg: reserved word quoted',
+)
+assert(
+  quoteIdentifierForEngine('postgresql', 'Order Items') === '"Order Items"',
+  'pg: spaces quoted',
+)
+assert(
+  quoteIdentifierForEngine('postgresql', 'a-b.c') === '"a-b.c"',
+  'pg: punctuation quoted',
+)
+assert(
+  quoteIdentifierForEngine('postgresql', 'a"b') === '"a""b"',
+  'pg: embedded double quote doubled',
+)
+assert(
+  qualifyIdentifierForEngine('postgresql', 'public', 'users') ===
+    '"public"."users"',
   'pg: schema-qualified two segments',
 )
 assert(
@@ -37,11 +56,26 @@ assert(
 )
 
 // ── mysql: backticks, embedded backticks doubled ───────────────────
-assert(quoteIdentifierForEngine('mysql', 'users') === '`users`', 'mysql: lowercase name quoted')
-assert(quoteIdentifierForEngine('mysql', 'MyTable') === '`MyTable`', 'mysql: uppercase name quoted')
-assert(quoteIdentifierForEngine('mysql', 'select') === '`select`', 'mysql: reserved word quoted')
-assert(quoteIdentifierForEngine('mysql', 'Order Items') === '`Order Items`', 'mysql: spaces quoted')
-assert(quoteIdentifierForEngine('mysql', 'a`b') === '`a``b`', 'mysql: embedded backtick doubled')
+assert(
+  quoteIdentifierForEngine('mysql', 'users') === '`users`',
+  'mysql: lowercase name quoted',
+)
+assert(
+  quoteIdentifierForEngine('mysql', 'MyTable') === '`MyTable`',
+  'mysql: uppercase name quoted',
+)
+assert(
+  quoteIdentifierForEngine('mysql', 'select') === '`select`',
+  'mysql: reserved word quoted',
+)
+assert(
+  quoteIdentifierForEngine('mysql', 'Order Items') === '`Order Items`',
+  'mysql: spaces quoted',
+)
+assert(
+  quoteIdentifierForEngine('mysql', 'a`b') === '`a``b`',
+  'mysql: embedded backtick doubled',
+)
 assert(
   qualifyIdentifierForEngine('mysql', 'mydb', 'users') === '`mydb`.`users`',
   'mysql: database-qualified two segments',
@@ -56,10 +90,17 @@ assert(
 )
 
 // ── sqlite: behaves like postgresql ────────────────────────────────
-assert(quoteIdentifierForEngine('sqlite', 'users') === '"users"', 'sqlite: lowercase name quoted')
-assert(quoteIdentifierForEngine('sqlite', 'a"b') === '"a""b"', 'sqlite: embedded double quote doubled')
 assert(
-  qualifyIdentifierForEngine('sqlite', 'public', 'users') === '"public"."users"',
+  quoteIdentifierForEngine('sqlite', 'users') === '"users"',
+  'sqlite: lowercase name quoted',
+)
+assert(
+  quoteIdentifierForEngine('sqlite', 'a"b') === '"a""b"',
+  'sqlite: embedded double quote doubled',
+)
+assert(
+  qualifyIdentifierForEngine('sqlite', 'public', 'users') ===
+    '"public"."users"',
   'sqlite: schema-qualified two segments',
 )
 assert(

@@ -33,8 +33,7 @@ export const useShellLayoutStore = create<ShellLayoutState>((set) => ({
   inspectorWidth: 320,
 
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
-  toggleSidebar: () =>
-    set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setSidebarWidth: (width) => set({ sidebarWidth: width }),
 
   setInspectorOpen: (open) => set({ inspectorOpen: open }),

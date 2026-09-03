@@ -47,7 +47,9 @@ describe('TreeNodeItem connection drag & threshold interaction tests', () => {
     fireEvent.pointerDown(treeItem, { clientX: 100, clientY: 100, button: 0 })
 
     expect(document.body.dataset.dragging).toBeFalsy()
-    expect(document.body.querySelector('div[style*="z-index: 9999"]')).toBeNull()
+    expect(
+      document.body.querySelector('div[style*="z-index: 9999"]'),
+    ).toBeNull()
 
     fireEvent.pointerUp(treeItem, { clientX: 100, clientY: 100 })
 
@@ -74,7 +76,9 @@ describe('TreeNodeItem connection drag & threshold interaction tests', () => {
     fireEvent.pointerMove(document, { clientX: 103, clientY: 103 }) // distance = sqrt(18) ~ 4.24px
 
     expect(document.body.dataset.dragging).toBeFalsy()
-    expect(document.body.querySelector('div[style*="z-index: 9999"]')).toBeNull()
+    expect(
+      document.body.querySelector('div[style*="z-index: 9999"]'),
+    ).toBeNull()
   })
 
   it('starts dragging once movement crosses threshold and creates ghost node', () => {
@@ -119,6 +123,8 @@ describe('TreeNodeItem connection drag & threshold interaction tests', () => {
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(document.body.dataset.dragging).toBeFalsy()
     expect(document.body.dataset.draggedConnectionId).toBeFalsy()
-    expect(document.body.querySelector('div[style*="z-index: 9999"]')).toBeNull()
+    expect(
+      document.body.querySelector('div[style*="z-index: 9999"]'),
+    ).toBeNull()
   })
 })

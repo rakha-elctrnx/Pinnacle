@@ -213,13 +213,14 @@ function MiniCalendar({
           className="w-16 shrink-0 cursor-pointer appearance-none rounded-md bg-transparent px-1 py-0.5 text-center text-caption font-medium tabular-nums text-text-primary outline-none transition-colors hover:bg-bg-muted focus-visible:ring-2 focus-visible:ring-focus-ring"
           title="Pilih tahun"
         >
-          {Array.from({ length: YEAR_RANGE }, (_, i) => selYear - YEAR_RANGE / 2 + i).map(
-            (y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ),
-          )}
+          {Array.from(
+            { length: YEAR_RANGE },
+            (_, i) => selYear - YEAR_RANGE / 2 + i,
+          ).map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
         </select>
 
         <button
@@ -371,7 +372,6 @@ function shiftDateBy(
   return `${y}-${m}-${d} ${time}${tz}`
 }
 
-
 type TableRow = Record<string, unknown>
 
 export interface EditableCellProps {
@@ -510,7 +510,15 @@ export function EditableCell({
     }
     el.addEventListener('table:enter-edit', handler)
     return () => el.removeEventListener('table:enter-edit', handler)
-  }, [isDeleted, isBinary, readOnly, effectiveValue, isTimestamp, isBoolean, isUuid])
+  }, [
+    isDeleted,
+    isBinary,
+    readOnly,
+    effectiveValue,
+    isTimestamp,
+    isBoolean,
+    isUuid,
+  ])
   // Validate, normalize, and commit edit
   const commitEdit = useCallback(() => {
     const normalized = normalizeCellValue(editValue, columnMeta)
@@ -671,10 +679,7 @@ export function EditableCell({
                 type="button"
                 tabIndex={-1}
                 onClick={() => {
-                  const normalized = normalizeCellValue(
-                    opt.value,
-                    columnMeta,
-                  )
+                  const normalized = normalizeCellValue(opt.value, columnMeta)
                   if (valuesEqual(rawValue, normalized)) {
                     unstageEdit(rowId, field)
                   } else {
@@ -826,7 +831,11 @@ export function EditableCell({
                 tabIndex={-1}
                 onClick={() => {
                   setEditValue(
-                    getPresetTimestamp('today', editValue, columnMeta?.dataType),
+                    getPresetTimestamp(
+                      'today',
+                      editValue,
+                      columnMeta?.dataType,
+                    ),
                   )
                   setValidationError(null)
                 }}
@@ -838,9 +847,7 @@ export function EditableCell({
                 type="button"
                 tabIndex={-1}
                 onClick={() => {
-                  setEditValue(
-                    shiftDateBy(editValue, -1, columnMeta?.dataType),
-                  )
+                  setEditValue(shiftDateBy(editValue, -1, columnMeta?.dataType))
                   setValidationError(null)
                 }}
                 className="rounded-md bg-bg-subtle p-1 text-text-muted transition-colors hover:bg-primary-subtle hover:text-primary"

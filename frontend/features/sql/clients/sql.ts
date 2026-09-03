@@ -14,7 +14,10 @@ import type {
  * strings (occasionally objects). Converting once here gives every caller a
  * consistent `err instanceof Error` contract without changing success types.
  */
-async function invokeNormalized<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+async function invokeNormalized<T>(
+  cmd: string,
+  args?: Record<string, unknown>,
+): Promise<T> {
   try {
     return await invoke<T>(cmd, args)
   } catch (raw) {
@@ -33,6 +36,7 @@ async function invokeNormalized<T>(cmd: string, args?: Record<string, unknown>):
 export interface SqlQueryPayload {
   connection: ConnectionPayload
   sql: string
+  queryId?: string
 }
 
 export interface QueryResult {
@@ -58,6 +62,10 @@ export async function testConnection(
 
 export async function executeSql(payload: SqlQueryPayload) {
   return invokeNormalized<QueryResult>('execute_sql', { payload })
+}
+
+export async function cancelQuery(queryId: string) {
+  return invokeNormalized<void>('cancel_query', { queryId })
 }
 
 // ── Transaction Mode ───────────────────────────────────────────────

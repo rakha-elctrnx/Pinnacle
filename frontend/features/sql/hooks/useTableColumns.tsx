@@ -225,7 +225,9 @@ export function useTableColumns({
             <EditableCell
               context={context}
               columnMeta={editableColumnMetaMap[column]}
-              readOnly={readOnly || (!context.row.original.__rowId && !rowKeyComplete)}
+              readOnly={
+                readOnly || (!context.row.original.__rowId && !rowKeyComplete)
+              }
               getRowId={(_row, index) =>
                 buildRowId(_row, index, tableName, primaryKeyColumns)
               }
@@ -255,7 +257,8 @@ export function useTableColumns({
     data: displayRows,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getRowId: (_row, index) => buildRowId(_row, index, tableName, primaryKeyColumns),
+    getRowId: (_row, index) =>
+      buildRowId(_row, index, tableName, primaryKeyColumns),
   })
 
   return {

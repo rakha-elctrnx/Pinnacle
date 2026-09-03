@@ -12,7 +12,12 @@ interface Props {
   onClose: () => void
 }
 
-export function MongoExportModal({ payload, database, collection, onClose }: Props) {
+export function MongoExportModal({
+  payload,
+  database,
+  collection,
+  onClose,
+}: Props) {
   const [format, setFormat] = useState<MongoExportFormat>('json')
   const [filterText, setFilterText] = useState('{}')
   const [isExporting, setIsExporting] = useState(false)
@@ -27,7 +32,9 @@ export function MongoExportModal({ payload, database, collection, onClose }: Pro
         filter = JSON.parse(filterText)
       }
     } catch (e) {
-      setError(`Invalid filter JSON: ${e instanceof Error ? e.message : String(e)}`)
+      setError(
+        `Invalid filter JSON: ${e instanceof Error ? e.message : String(e)}`,
+      )
       return
     }
 
@@ -74,9 +81,13 @@ export function MongoExportModal({ payload, database, collection, onClose }: Pro
       <div className="bg-bg-subtle border border-border-default rounded-xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden text-text-primary">
         <div className="flex items-center justify-between p-4 border-b border-border-default bg-bg-subtle">
           <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Download className="w-4 h-4 text-success" /> Export Collection ({collection})
+            <Download className="w-4 h-4 text-success" /> Export Collection (
+            {collection})
           </h3>
-          <button onClick={onClose} className="text-text-muted hover:text-text-secondary">
+          <button
+            onClick={onClose}
+            className="text-text-muted hover:text-text-secondary"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -95,7 +106,9 @@ export function MongoExportModal({ payload, database, collection, onClose }: Pro
           )}
 
           <div>
-            <label className="block text-text-muted mb-1 font-medium">Export Format</label>
+            <label className="block text-text-muted mb-1 font-medium">
+              Export Format
+            </label>
             <select
               value={format}
               onChange={(e) => setFormat(e.target.value as MongoExportFormat)}
@@ -108,7 +121,9 @@ export function MongoExportModal({ payload, database, collection, onClose }: Pro
           </div>
 
           <div>
-            <label className="block text-text-muted mb-1 font-medium">Filter (JSON)</label>
+            <label className="block text-text-muted mb-1 font-medium">
+              Filter (JSON)
+            </label>
             <textarea
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}

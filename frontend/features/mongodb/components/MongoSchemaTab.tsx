@@ -39,14 +39,19 @@ export function MongoSchemaTab({ payload, database, collection }: Props) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Cpu className="w-4 h-4 text-success" />
-          <span className="text-xs font-semibold text-text-primary">Schema Analysis (100 Sampled Docs)</span>
+          <span className="text-xs font-semibold text-text-primary">
+            Schema Analysis (100 Sampled Docs)
+          </span>
         </div>
         <button
           onClick={handleAnalyze}
           disabled={loading}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary-hover text-text-inverse rounded text-xs font-medium transition-colors"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Analyze Schema
+          <RefreshCw
+            className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`}
+          />{' '}
+          Analyze Schema
         </button>
       </div>
 
@@ -60,21 +65,34 @@ export function MongoSchemaTab({ payload, database, collection }: Props) {
         {loading ? (
           <div className="text-text-muted">Sampling schema...</div>
         ) : !result ? (
-          <div className="text-text-muted">Click Analyze Schema to sample document fields and types</div>
+          <div className="text-text-muted">
+            Click Analyze Schema to sample document fields and types
+          </div>
         ) : (
           <div className="space-y-4">
             <div className="text-text-muted text-[11px]">
-              Examined {result.sampledDocuments} documents in {result.samplingDurationMs}ms
+              Examined {result.sampledDocuments} documents in{' '}
+              {result.samplingDurationMs}ms
             </div>
             <div className="divide-y divide-border-default">
               {result.fields.map((field) => (
-                <div key={field.path} className="py-2 flex items-center justify-between">
-                  <span className="text-success font-semibold">{field.path}</span>
+                <div
+                  key={field.path}
+                  className="py-2 flex items-center justify-between"
+                >
+                  <span className="text-success font-semibold">
+                    {field.path}
+                  </span>
                   <div className="flex items-center gap-3">
-                    <span className="text-text-muted">{field.presencePercentage}% presence</span>
+                    <span className="text-text-muted">
+                      {field.presencePercentage}% presence
+                    </span>
                     <div className="flex gap-1">
                       {field.types.map((t) => (
-                        <span key={t.typeName} className="px-2 py-0.5 bg-bg-muted text-text-secondary rounded text-[10px]">
+                        <span
+                          key={t.typeName}
+                          className="px-2 py-0.5 bg-bg-muted text-text-secondary rounded text-[10px]"
+                        >
                           {t.typeName} ({t.percentage}%)
                         </span>
                       ))}

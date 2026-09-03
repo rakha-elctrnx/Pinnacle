@@ -5,9 +5,9 @@ import { buildEffectiveOrderBy } from './useExplorerData'
 
 describe('buildEffectiveOrderBy', () => {
   it('orders by all PK columns ascending when there is no user sort', () => {
-    expect(buildEffectiveOrderBy(undefined, ['tenant_id', 'item_id'], 'postgresql')).toBe(
-      '"tenant_id" ASC, "item_id" ASC',
-    )
+    expect(
+      buildEffectiveOrderBy(undefined, ['tenant_id', 'item_id'], 'postgresql'),
+    ).toBe('"tenant_id" ASC, "item_id" ASC')
   })
 
   it('returns empty string for a no-PK table with no user sort (no invented order)', () => {
@@ -16,13 +16,21 @@ describe('buildEffectiveOrderBy', () => {
 
   it('appends missing PK columns after the user sort as tiebreakers', () => {
     expect(
-      buildEffectiveOrderBy('"name" DESC', ['tenant_id', 'item_id'], 'postgresql'),
+      buildEffectiveOrderBy(
+        '"name" DESC',
+        ['tenant_id', 'item_id'],
+        'postgresql',
+      ),
     ).toBe('"name" DESC, "tenant_id" ASC, "item_id" ASC')
   })
 
   it('does not duplicate PK columns already present in the user sort', () => {
     expect(
-      buildEffectiveOrderBy('"tenant_id" DESC', ['tenant_id', 'item_id'], 'postgresql'),
+      buildEffectiveOrderBy(
+        '"tenant_id" DESC',
+        ['tenant_id', 'item_id'],
+        'postgresql',
+      ),
     ).toBe('"tenant_id" DESC, "item_id" ASC')
   })
 
@@ -33,9 +41,9 @@ describe('buildEffectiveOrderBy', () => {
   })
 
   it('uses backtick quoting for MySQL', () => {
-    expect(
-      buildEffectiveOrderBy(undefined, ['tenant id'], 'mysql'),
-    ).toBe('`tenant id` ASC')
+    expect(buildEffectiveOrderBy(undefined, ['tenant id'], 'mysql')).toBe(
+      '`tenant id` ASC',
+    )
   })
 
   it('escapes embedded quote characters in identifiers for both dialects', () => {

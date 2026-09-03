@@ -11,7 +11,7 @@
   /* Text */
   --color-text-primary: #363635;
   --color-text-secondary: #545452;
-  --color-text-muted: #737370;
+  --color-text-muted: #6e6e6b;
   --color-text-inverse: #ffffff;
   /* Brand */
   --color-primary: #3b60cd;
@@ -77,7 +77,7 @@
   --ls-label: 0.01em;
   /* Caption: metadata, timestamps, helper text */
   --text-caption: 11px;
-  --lh-caption: 14px;
+  --lh-caption: 15px;
   --fw-caption: 400;
   --ls-caption: 0.01em;
   /* Micro: badges, count pills, superscript */

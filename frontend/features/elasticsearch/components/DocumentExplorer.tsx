@@ -712,12 +712,15 @@ export function DocumentExplorer({
     }
   }, [])
 
-  const handleDrawerResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    drawerDragRef.current = { startX: e.clientX, startWidth: drawerWidth }
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-  }, [drawerWidth])
+  const handleDrawerResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      drawerDragRef.current = { startX: e.clientX, startWidth: drawerWidth }
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+    },
+    [drawerWidth],
+  )
 
   // ── Drawer dismissal: Escape + outside click ───────────────────────────
   useEffect(() => {
@@ -863,7 +866,6 @@ export function DocumentExplorer({
     handleDeleteDocument(contextMenu.docId)
     setContextMenu(null)
   }, [contextMenu, handleDeleteDocument])
-
 
   // ── No index selected ──────────────────────────────────────────────────
   if (!currentIndex) {

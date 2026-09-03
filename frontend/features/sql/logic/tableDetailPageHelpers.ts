@@ -65,8 +65,7 @@ export function buildSqlForCondition(
   }
   // LIKE wildcards are matched literally: escape %, _, and \ in user input,
   // then declare the explicit escape character per dialect.
-  const escapeLikePattern = (val: string) =>
-    val.replace(/([%_\\])/g, '\\$1')
+  const escapeLikePattern = (val: string) => val.replace(/([%_\\])/g, '\\$1')
   const likeOperator = dbType === 'postgresql' ? 'ILIKE' : 'LIKE'
   const likeEscapeClause = "ESCAPE '\\\\'"
   const escapedColumn = escapeColumn(column)
@@ -192,7 +191,9 @@ export function getRowKey(
   for (const column of primaryKeyColumns) {
     const value = row[column]
     if (value == null || value === '') return null
-    keyValues.push(typeof value === 'object' ? JSON.stringify(value) : String(value))
+    keyValues.push(
+      typeof value === 'object' ? JSON.stringify(value) : String(value),
+    )
   }
   return keyValues
 }

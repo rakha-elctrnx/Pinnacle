@@ -46,7 +46,7 @@ export function WelcomePage() {
         </div>
 
         {/* Hint */}
-        <p className="text-caption text-text-secondary/70 pt-2">
+        <p className="text-caption text-text-muted pt-2">
           Tip: you can also use the sidebar on the left to manage your
           connections.
         </p>

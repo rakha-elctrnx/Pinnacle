@@ -202,7 +202,6 @@ export function buildTreeNodes(
   })
 }
 
-
 /**
  * Get all flat table names from tree data (for quick lookup).
  */

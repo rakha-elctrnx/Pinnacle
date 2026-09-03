@@ -214,6 +214,7 @@ pub async fn execute_sql(
     sql: &str,
     ssh_password: Option<&str>,
     key_passphrase: Option<&str>,
+    query_id: Option<String>,
 ) -> AppResult<QueryResult> {
     ensure_supported_driver(payload.r#type.as_str())?;
 
@@ -285,7 +286,7 @@ pub async fn execute_sql(
             return mark_result(conn_id.as_deref(), res).await;
         }
         "postgresql" => {
-            return execute_sql_pg(payload, sql, ssh_password, key_passphrase).await;
+            return execute_sql_pg(payload, sql, ssh_password, key_passphrase, query_id).await;
         }
         "sqlite" => {
             let options = SqliteConnectOptions::new()
@@ -1368,7 +1369,7 @@ pub async fn drop_table(
     );
 
     let start = Instant::now();
-    let result = execute_sql(&payload.connection, &sql, ssh_password, key_passphrase).await;
+    let result = execute_sql(&payload.connection, &sql, ssh_password, key_passphrase, None).await;
     let elapsed = start.elapsed().as_millis();
 
     match result {
@@ -1874,8 +1875,9 @@ async fn execute_sql_pg(
     sql: &str,
     ssh_password: Option<&str>,
     key_passphrase: Option<&str>,
+    query_id: Option<String>,
 ) -> AppResult<QueryResult> {
-    super::postgresql::execute_sql(payload, sql, None, ssh_password, key_passphrase).await
+    super::postgresql::execute_sql(payload, sql, None, ssh_password, key_passphrase, query_id).await
 }
 #[cfg(test)]
 mod tests {

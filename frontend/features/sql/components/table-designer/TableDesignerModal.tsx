@@ -94,10 +94,12 @@ export function TableDesignerModal() {
   if (isLoadingSchema) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/60 backdrop-blur-sm">
-        <section className="mx-auto flex h-[92vh] w-full max-w-6xl flex-col items-center justify-center overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 mt-[4vh]">
+        <section className="mx-auto flex h-[92vh] w-full max-w-6xl flex-col items-center justify-center overflow-hidden rounded-2xl bg-bg-base shadow-2xl ring-1 ring-black/5 mt-[4vh]">
           <div className="flex flex-col items-center gap-4">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
-            <p className="text-sm text-slate-500">Loading table schema...</p>
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-border-default border-t-primary" />
+            <p className="text-sm text-text-secondary">
+              Loading table schema...
+            </p>
           </div>
         </section>
       </div>
@@ -108,23 +110,23 @@ export function TableDesignerModal() {
   if (loadError) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/60 backdrop-blur-sm">
-        <section className="mx-auto flex h-[92vh] w-full max-w-6xl flex-col items-center justify-center overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 mt-[4vh]">
+        <section className="mx-auto flex h-[92vh] w-full max-w-6xl flex-col items-center justify-center overflow-hidden rounded-2xl bg-bg-base shadow-2xl ring-1 ring-black/5 mt-[4vh]">
           <div className="flex flex-col items-center gap-4 px-8 text-center">
-            <div className="grid h-12 w-12 place-items-center rounded-full bg-red-50 text-red-500">
+            <div className="grid h-12 w-12 place-items-center rounded-full bg-danger-subtle text-[var(--color-danger)]">
               <AlertTriangle size={24} />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-900">
+              <h3 className="text-base font-semibold text-text-primary">
                 Failed to load table schema
               </h3>
-              <p className="mt-1 max-w-md text-sm text-slate-500">
+              <p className="mt-1 max-w-md text-sm text-text-secondary">
                 {loadError}
               </p>
             </div>
             <button
               type="button"
               onClick={close}
-              className="mt-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-200"
+              className="mt-2 rounded-lg bg-bg-muted px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-bg-hover"
             >
               Close
             </button>
@@ -141,20 +143,20 @@ export function TableDesignerModal() {
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/60 backdrop-blur-sm">
-      <section className="mx-auto flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 mt-[4vh]">
+      <section className="mx-auto flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-bg-base shadow-2xl ring-1 ring-black/5 mt-[4vh]">
         {/* ── Header ──────────────────────────────────────────── */}
-        <header className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
+        <header className="flex items-center justify-between border-b border-border-default px-5 py-3.5">
           <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-blue-50 text-blue-600">
+            <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary-subtle text-primary">
               <Database size={18} />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-slate-900">
+              <h2 className="text-base font-semibold text-text-primary">
                 {isCreating
                   ? 'Create New Table'
                   : `Edit Table: ${pendingModel.tableName}`}
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-text-muted">
                 {isCreating
                   ? 'Define a new table structure'
                   : 'Modify existing table structure'}
@@ -165,14 +167,14 @@ export function TableDesignerModal() {
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+            className="rounded-lg p-1.5 text-text-muted transition hover:bg-bg-subtle hover:text-text-secondary"
           >
             <X size={16} />
           </button>
         </header>
 
         {/* ── Tab Bar ─────────────────────────────────────────── */}
-        <div className="flex items-center gap-1 border-b border-slate-200 bg-slate-50 px-5">
+        <div className="flex items-center gap-1 border-b border-border-default bg-bg-subtle px-5">
           {TABS.map(({ id, label, icon: Icon }) => {
             const isActive = id === activeTab
             return (
@@ -182,8 +184,8 @@ export function TableDesignerModal() {
                 onClick={() => setActiveTab(id)}
                 className={`inline-flex items-center gap-1.5 border-b-2 px-3.5 py-2.5 text-xs font-medium transition-colors ${
                   isActive
-                    ? 'border-blue-600 text-blue-700'
-                    : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-text-secondary hover:border-border-default hover:text-text-primary'
                 }`}
               >
                 <Icon size={13} />
@@ -195,7 +197,7 @@ export function TableDesignerModal() {
           {/* Table name input (on structure tab) */}
           {activeTab === 'structure' && (
             <div className="ml-auto flex items-center gap-2">
-              <label className="text-[10px] uppercase tracking-wider text-slate-400">
+              <label className="text-[10px] uppercase tracking-wider text-text-muted">
                 Table Name
               </label>
               <input
@@ -203,10 +205,10 @@ export function TableDesignerModal() {
                 value={pendingModel.tableName}
                 onChange={(e) => updateTableName(e.target.value)}
                 placeholder="my_table"
-                className={`rounded-lg border bg-white px-3 py-1.5 text-sm font-medium outline-none transition focus:ring-2 ${
+                className={`rounded-lg border bg-bg-base px-3 py-1.5 text-sm font-medium outline-none transition focus:ring-2 ${
                   errors.some((e) => e.code === 'TABLE_NAME_REQUIRED')
-                    ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-                    : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
+                    ? 'border-border-danger focus:border-border-danger focus:ring-border-danger/20'
+                    : 'border-border-default focus:border-border-focus focus:ring-border-focus/20'
                 }`}
               />
             </div>
@@ -232,10 +234,13 @@ export function TableDesignerModal() {
 
         {/* ── Validation Errors Banner ────────────────────────── */}
         {hasErrors && (
-          <div className="border-t border-red-200 bg-red-50 px-5 py-2">
+          <div className="border-t border-border-danger bg-danger-subtle px-5 py-2">
             <div className="flex items-center gap-2">
-              <AlertTriangle size={13} className="shrink-0 text-red-500" />
-              <p className="text-xs text-red-700">
+              <AlertTriangle
+                size={13}
+                className="shrink-0 text-[var(--color-danger)]"
+              />
+              <p className="text-xs text-[var(--color-danger)]">
                 {errors.length} validation error{errors.length !== 1 ? 's' : ''}{' '}
                 found. Fix them before previewing or saving.
               </p>
@@ -244,11 +249,11 @@ export function TableDesignerModal() {
         )}
 
         {/* ── Footer Actions ──────────────────────────────────── */}
-        <footer className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-5 py-3">
+        <footer className="flex items-center justify-between border-t border-border-default bg-bg-subtle px-5 py-3">
           <div>
             {isDirty && (
-              <span className="inline-flex items-center gap-1 text-[11px] text-amber-600">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+              <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-warning)]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-warning)]" />
                 Unsaved changes
               </span>
             )}
@@ -257,7 +262,7 @@ export function TableDesignerModal() {
             <button
               type="button"
               onClick={handleClose}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100"
+              className="rounded-lg border border-border-default px-4 py-2 text-xs font-semibold text-text-secondary transition-colors hover:bg-bg-subtle"
             >
               Cancel
             </button>
@@ -265,7 +270,7 @@ export function TableDesignerModal() {
               type="button"
               onClick={handlePreview}
               disabled={hasErrors || isGeneratingDdl || isExecuting}
-              className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100 disabled:opacity-50"
+              className="rounded-lg border border-border-focus bg-primary-subtle px-4 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary-subtle/80 disabled:opacity-50"
             >
               {isGeneratingDdl ? 'Generating...' : 'Preview Changes'}
             </button>
@@ -273,7 +278,7 @@ export function TableDesignerModal() {
               type="button"
               onClick={handleSave}
               disabled={hasErrors || isExecuting || isGeneratingDdl}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+              className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-text-inverse transition-colors hover:bg-primary-hover disabled:opacity-50"
             >
               {isExecuting ? 'Saving...' : 'Save'}
             </button>
@@ -284,21 +289,24 @@ export function TableDesignerModal() {
       {/* ── Close Confirmation Dialog ─────────────────────────── */}
       {showCloseConfirm && (
         <div className="fixed inset-0 z-60 grid place-items-center bg-slate-900/40">
-          <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl ring-1 ring-black/5">
+          <div className="w-full max-w-sm rounded-xl bg-bg-base p-5 shadow-xl ring-1 ring-black/5">
             <div className="flex items-center gap-3 mb-3">
-              <AlertTriangle size={18} className="text-amber-500" />
-              <h3 className="text-sm font-semibold text-slate-900">
+              <AlertTriangle
+                size={18}
+                className="text-[var(--color-warning)]"
+              />
+              <h3 className="text-sm font-semibold text-text-primary">
                 Discard Unsaved Changes?
               </h3>
             </div>
-            <p className="text-xs text-slate-600 mb-4">
+            <p className="text-xs text-text-secondary mb-4">
               You have unsaved changes. Closing will discard all modifications.
             </p>
             <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowCloseConfirm(false)}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                className="rounded-lg border border-border-default px-3 py-1.5 text-xs font-semibold text-text-secondary hover:bg-bg-subtle"
               >
                 Keep Editing
               </button>
@@ -308,7 +316,7 @@ export function TableDesignerModal() {
                   setShowCloseConfirm(false)
                   close()
                 }}
-                className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+                className="rounded-lg bg-[var(--color-danger)] px-3 py-1.5 text-xs font-semibold text-text-inverse hover:bg-[var(--color-danger)]/90"
               >
                 Discard Changes
               </button>
@@ -326,16 +334,16 @@ function StructurePanel() {
   return (
     <div className="space-y-6 p-5">
       <ColumnEditor />
-      <div className="border-t border-slate-200 pt-4">
+      <div className="border-t border-border-default pt-4">
         <PrimaryKeyEditor />
       </div>
-      <div className="border-t border-slate-200 pt-4">
+      <div className="border-t border-border-default pt-4">
         <UniqueConstraintEditor />
       </div>
-      <div className="border-t border-slate-200 pt-4">
+      <div className="border-t border-border-default pt-4">
         <ForeignKeyEditor />
       </div>
-      <div className="border-t border-slate-200 pt-4">
+      <div className="border-t border-border-default pt-4">
         <IndexEditor />
       </div>
     </div>

@@ -10,7 +10,7 @@ use crate::{
         QueryResult, SchemaColumn, SchemaForeignKey, SqlQueryPayload, TableSchemaInfo,
         TransactionCommitResult, TransactionHandle, TransactionStepResult,
     },
-    infrastructure::connectors::{ddl, keyring, pool, sql, store, transaction},
+    infrastructure::connectors::{cancel_registry, ddl, keyring, pool, sql, store, transaction},
 };
 
 fn app_data(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -85,9 +85,31 @@ pub async fn execute_sql(
         payload.sql.as_str(),
         ssh_pw.as_deref(),
         key_pp.as_deref(),
+        payload.query_id.clone(),
     )
     .await
     .map_err(|err| err.to_string())
+}
+
+/// Cancel a running SQL query by its client-supplied `query_id`.
+///
+/// PostgreSQL: fires `pg_cancel_backend(pid)` via a monitor task that was
+/// spawned alongside the executing query. The backend query returns an error
+/// (cancellation signal) which surfaces normally through the execute path.
+///
+/// MySQL: cancellation is not supported for MySQL connections. The connection
+/// thread id returned by `information_schema.processlist` is per-pool and
+/// not reliably addressable without a dedicated admin connection that is out
+/// of scope for v1. MySQL queries rely on `statement_timeout_ms` for bounding
+/// run time.
+///
+/// Returns `InvalidInput` when `query_id` is not registered (query already
+/// finished or the id was never sent with the execute call).
+#[tauri::command]
+pub async fn cancel_query(query_id: String) -> Result<(), String> {
+    cancel_registry::fire_cancel(&query_id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

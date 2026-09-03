@@ -70,9 +70,9 @@ describe('quoteIdentifierForEngine', () => {
 describe('qualifyIdentifierForEngine', () => {
   describe('postgresql', () => {
     it('qualifies with database/schema as two quoted segments', () => {
-      expect(
-        qualifyIdentifierForEngine('postgresql', 'public', 'users'),
-      ).toBe('"public"."users"')
+      expect(qualifyIdentifierForEngine('postgresql', 'public', 'users')).toBe(
+        '"public"."users"',
+      )
     })
 
     it('falls back to a single segment without a qualifier', () => {
@@ -105,9 +105,9 @@ describe('qualifyIdentifierForEngine', () => {
       expect(qualifyIdentifierForEngine('sqlite', 'public', 'users')).toBe(
         '"public"."users"',
       )
-      expect(
-        qualifyIdentifierForEngine('sqlite', undefined, 'users'),
-      ).toBe('"users"')
+      expect(qualifyIdentifierForEngine('sqlite', undefined, 'users')).toBe(
+        '"users"',
+      )
       expect(qualifyIdentifierForEngine('sqlite', '', 'users')).toBe('"users"')
     })
   })

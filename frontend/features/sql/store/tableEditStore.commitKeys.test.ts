@@ -108,9 +108,7 @@ describe('commit payload built from row snapshots', () => {
     const { updates, deletes } = resolveAndBuild(
       realRows,
       {
-        'items:pk:["ghost"]': [
-          { field: 'qty', oldValue: '', newValue: '1' },
-        ],
+        'items:pk:["ghost"]': [{ field: 'qty', oldValue: '', newValue: '1' }],
       },
       ['items:pk:["ghost","x"]'],
     )

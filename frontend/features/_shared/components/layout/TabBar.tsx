@@ -23,7 +23,12 @@ function TabIcon({ tab }: { tab: Tab }) {
   }
 }
 
-function middleTruncate(text: string, maxLength = 24, startChars = 10, endChars = 10): string {
+function middleTruncate(
+  text: string,
+  maxLength = 24,
+  startChars = 10,
+  endChars = 10,
+): string {
   if (text.length <= maxLength) return text
   return `${text.slice(0, startChars)}...${text.slice(-endChars)}`
 }
@@ -60,9 +65,15 @@ export function TabBar() {
   // Auto-scroll active tab into view when active tab or tabs list changes
   useEffect(() => {
     if (!scrollRef.current || !activeTabId) return
-    const activeEl = scrollRef.current.querySelector<HTMLElement>(`[data-tab-id="${activeTabId}"]`)
+    const activeEl = scrollRef.current.querySelector<HTMLElement>(
+      `[data-tab-id="${activeTabId}"]`,
+    )
     if (activeEl) {
-      activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+      activeEl.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'nearest',
+      })
     }
   }, [activeTabId, tabs])
 
@@ -262,7 +273,7 @@ export function TabBar() {
               }}
               className={`group/tab relative flex h-7 shrink-0 cursor-pointer active:cursor-grabbing items-center gap-1 px-2 text-caption transition-colors ${
                 isActive
-                  ? 'bg-bg-base text-text-primary bg-primary/10 dark:bg-white/5'
+                  ? 'bg-bg-base text-text-primary bg-primary-subtle'
                   : 'text-text-muted hover:text-text-secondary'
               }`}
             >

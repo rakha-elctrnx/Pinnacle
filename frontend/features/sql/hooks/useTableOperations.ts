@@ -119,7 +119,9 @@ export function useTableOperations({
       if (!rowId) return false
       const hasEdits = pendingEdits[rowId] && pendingEdits[rowId].length > 0
       const isBeingEdited = detailDrawerRow?.row?.__rowId === rowId
-      const isNewestInsert = pendingInserts.length > 0 && pendingInserts[pendingInserts.length - 1].__rowId === rowId
+      const isNewestInsert =
+        pendingInserts.length > 0 &&
+        pendingInserts[pendingInserts.length - 1].__rowId === rowId
       return hasEdits || isBeingEdited || isNewestInsert
     })
     return [...filtered, ...activeInserts]
@@ -173,7 +175,10 @@ export function useTableOperations({
 
   const handleAddRow = useCallback(() => {
     if (primaryKeyColumns.length === 0) {
-      setToast({ kind: 'error', message: 'Read-only: this table has no primary key' })
+      setToast({
+        kind: 'error',
+        message: 'Read-only: this table has no primary key',
+      })
       return
     }
     if (realTableColumns.length === 0) {
@@ -198,7 +203,14 @@ export function useTableOperations({
       kind: 'success',
       message: 'New row ready — fill fields below to display it in the table',
     })
-  }, [primaryKeyColumns, realTableColumns, editableColumnMetaMap, stageInsert, selectSingle, displayRows.length])
+  }, [
+    primaryKeyColumns,
+    realTableColumns,
+    editableColumnMetaMap,
+    stageInsert,
+    selectSingle,
+    displayRows.length,
+  ])
 
   const handleDeleteRow = useCallback(() => {
     const cells = useTableSelectionStore.getState().selectedCells
@@ -287,7 +299,10 @@ export function useTableOperations({
     const pendingTotal = pendingChangeCount(useTableEditStore.getState())
     if (pendingTotal === 0) return
     if (primaryKeyColumns.length === 0) {
-      setToast({ kind: 'error', message: 'Read-only: this table has no primary key' })
+      setToast({
+        kind: 'error',
+        message: 'Read-only: this table has no primary key',
+      })
       return
     }
 
@@ -430,7 +445,6 @@ export function useTableOperations({
     redo()
     restoreActiveCellFocus()
   }, [redo, restoreActiveCellFocus])
-
 
   return {
     displayRows,

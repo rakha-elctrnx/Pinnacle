@@ -6,7 +6,9 @@ import { TableToolbar } from './TableToolbar'
 
 afterEach(cleanup)
 
-function renderToolbar(overrides: Partial<Parameters<typeof TableToolbar>[0]> = {}) {
+function renderToolbar(
+  overrides: Partial<Parameters<typeof TableToolbar>[0]> = {},
+) {
   const props: Parameters<typeof TableToolbar>[0] = {
     filtersLength: 0,
     filterPanelOpen: false,
@@ -35,11 +37,13 @@ function renderToolbar(overrides: Partial<Parameters<typeof TableToolbar>[0]> = 
 describe('TableToolbar read-only mode', () => {
   it('shows the literal read-only notice exactly once when confirmed and disables Add/Delete/Commit', () => {
     renderToolbar({ readOnly: true, showReadOnlyNotice: true })
-    expect(screen.getAllByText('Read-only: this table has no primary key')).toHaveLength(1)
-    expect(screen.getByRole('button', { name: 'Add Row' }).disabled).toBe(true)
     expect(
-      screen.getByRole('button', { name: 'Delete Row' }).disabled,
-    ).toBe(true)
+      screen.getAllByText('Read-only: this table has no primary key'),
+    ).toHaveLength(1)
+    expect(screen.getByRole('button', { name: 'Add Row' }).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: 'Delete Row' }).disabled).toBe(
+      true,
+    )
     expect(
       screen.getByRole('button', { name: 'Commit changes' }).disabled,
     ).toBe(true)
@@ -59,9 +63,7 @@ describe('TableToolbar read-only mode', () => {
     expect(
       screen.queryByText('Read-only: this table has no primary key'),
     ).toBeNull()
-    expect(screen.getByRole('button', { name: 'Add Row' }).disabled).toBe(
-      false,
-    )
+    expect(screen.getByRole('button', { name: 'Add Row' }).disabled).toBe(false)
   })
 
   it('commit stays disabled with pending changes while read-only', () => {
@@ -80,8 +82,8 @@ describe('TableToolbar read-only mode', () => {
       readOnly: false,
       activeCell: null,
     })
-    expect(
-      screen.getByRole('button', { name: 'Delete Row' }).disabled,
-    ).toBe(true)
+    expect(screen.getByRole('button', { name: 'Delete Row' }).disabled).toBe(
+      true,
+    )
   })
 })

@@ -204,7 +204,6 @@ export function RowDetailDrawer({
   const [activeTab, setActiveTab] = useState<'record' | 'value'>('record')
   const [focusedField, setFocusedField] = useState<string | null>(null)
 
-
   // ── Selection store ─────────────────────────────────────────────────
   const activeCell = useTableSelectionStore((s) => s.activeCell)
   const selectSingle = useTableSelectionStore((s) => s.selectSingle)
@@ -342,16 +341,13 @@ export function RowDetailDrawer({
   // ── Monaco Editor for Value tab ─────────────────────────────────────
   const editorRef = useRef<unknown>(null)
 
-  const handleEditorMount = useCallback(
-    (editorInstance: unknown) => {
-      interface MonacoEditorLike {
-        focus: () => void
-      }
-      editorRef.current = editorInstance
-      ;(editorInstance as MonacoEditorLike).focus()
-    },
-    [],
-  )
+  const handleEditorMount = useCallback((editorInstance: unknown) => {
+    interface MonacoEditorLike {
+      focus: () => void
+    }
+    editorRef.current = editorInstance
+    ;(editorInstance as MonacoEditorLike).focus()
+  }, [])
 
   const handleMonacoChange = useCallback(
     (val: string | undefined) => {

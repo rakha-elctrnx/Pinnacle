@@ -8,14 +8,17 @@ type ThemeContextType = {
 }
 
 const defaultThemeContext: ThemeContextType = {
-  theme: 'light',
+  theme: 'dark',
   switchTheme: () => {},
 }
 const ThemeContext = createContext<ThemeContextType>(defaultThemeContext)
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState(
-    localStorage.getItem('app-theme') || 'light',
+    localStorage.getItem('app-theme') ??
+      (window.matchMedia('(prefers-color-scheme: light)').matches
+        ? 'light'
+        : 'dark'),
   )
 
   const switchTheme = () => {

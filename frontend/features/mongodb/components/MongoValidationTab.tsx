@@ -10,7 +10,9 @@ interface Props {
 }
 
 export function MongoValidationTab({ payload, database, collection }: Props) {
-  const [validatorText, setValidatorText] = useState('{\n  "$jsonSchema": {}\n}')
+  const [validatorText, setValidatorText] = useState(
+    '{\n  "$jsonSchema": {}\n}',
+  )
   const [level, setLevel] = useState('strict')
   const [action, setAction] = useState('error')
   const [error, setError] = useState<string | null>(null)
@@ -28,7 +30,8 @@ export function MongoValidationTab({ payload, database, collection }: Props) {
         }
       })
       .catch((err) => {
-        if (isMounted) setError(err instanceof Error ? err.message : String(err))
+        if (isMounted)
+          setError(err instanceof Error ? err.message : String(err))
       })
 
     return () => {
@@ -52,7 +55,9 @@ export function MongoValidationTab({ payload, database, collection }: Props) {
       })
       setMessage('Validation rules updated successfully.')
     } catch (e) {
-      setError(`Failed to set validation: ${e instanceof Error ? e.message : String(e)}`)
+      setError(
+        `Failed to set validation: ${e instanceof Error ? e.message : String(e)}`,
+      )
     }
   }
 
@@ -61,7 +66,9 @@ export function MongoValidationTab({ payload, database, collection }: Props) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-success" />
-          <span className="text-xs font-semibold text-text-primary">Schema Validation ($jsonSchema)</span>
+          <span className="text-xs font-semibold text-text-primary">
+            Schema Validation ($jsonSchema)
+          </span>
         </div>
         <button
           onClick={handleSaveValidation}

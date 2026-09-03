@@ -46,8 +46,7 @@ describe('normalizeCellValue', () => {
   })
 
   it('preserves input strings to avoid BIGINT/DECIMAL precision loss', () => {
-    const big =
-      '9007199254740993' // Number.MAX_SAFE_INTEGER + 1 — loses precision as number
+    const big = '9007199254740993' // Number.MAX_SAFE_INTEGER + 1 — loses precision as number
     expect(normalizeCellValue(big, nullableText)).toBe(big)
     expect(normalizeCellValue('0.30000000000000004', nullableText)).toBe(
       '0.30000000000000004',
