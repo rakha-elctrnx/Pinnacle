@@ -4,7 +4,6 @@ import {
   PostgreSqlIcon,
   MySqlIcon,
   RedisIcon,
-  RabbitMqIcon,
   ElasticSearchIcon,
   MongoDbIcon,
   SqliteIcon,
@@ -36,12 +35,6 @@ export const databaseTypeOptions: DatabaseTypeOption[] = [
     hint: 'In-memory data store',
   },
   {
-    label: 'RabbitMQ',
-    value: 'rabbitmq',
-    Icon: RabbitMqIcon,
-    hint: 'Message broker',
-  },
-  {
     label: 'Elasticsearch',
     value: 'elasticsearch',
     Icon: ElasticSearchIcon,
@@ -62,7 +55,6 @@ export const defaultPortByType: Record<ConnectionType, number> = {
   mongodb: 27017,
   elasticsearch: 9200,
   redis: 6379,
-  rabbitmq: 5672,
 }
 
 export const defaultInitialDatabaseByType: Record<ConnectionType, string> = {
@@ -72,7 +64,6 @@ export const defaultInitialDatabaseByType: Record<ConnectionType, string> = {
   mongodb: 'admin',
   elasticsearch: 'default',
   redis: '0',
-  rabbitmq: '/',
 }
 
 export const seedSql = 'SELECT *\nFROM users\nLIMIT 100;'

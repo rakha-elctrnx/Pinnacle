@@ -11,7 +11,6 @@ import { sqlAdapter } from './sql-adapter'
 import { elasticAdapter } from './elastic-adapter'
 import { mongodbAdapter } from './mongodb-adapter'
 import { redisAdapter } from './redis-adapter'
-import { rabbitmqAdapter } from './rabbitmq-adapter'
 import { hasCapability, defaultConnectorRegistry } from '../registry'
 
 export type { ConnectorAdapter } from './adapter-types'
@@ -26,7 +25,6 @@ export { elasticAdapter } from './elastic-adapter'
 export { elasticAdapterHelpers } from './elastic-adapter'
 export { mongodbAdapter } from './mongodb-adapter'
 export { redisAdapter } from './redis-adapter'
-export { rabbitmqAdapter } from './rabbitmq-adapter'
 
 /**
  * Adapter registry — maps connection type strings to their runtime adapter.
@@ -42,7 +40,6 @@ export const adapterRegistry: Record<string, ConnectorAdapter> = {
   elasticsearch: elasticAdapter,
   mongodb: mongodbAdapter,
   redis: redisAdapter,
-  rabbitmq: rabbitmqAdapter,
 }
 
 /**

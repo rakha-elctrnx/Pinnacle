@@ -124,7 +124,6 @@ const ROUTE_PREFIX_MAP: Record<ConnectionType, string> = {
   mysql: '/sql',
   elasticsearch: '/elasticsearch',
   redis: '/redis',
-  rabbitmq: '/rabbitmq',
   mongodb: '/mongodb',
   sqlite: '/sql',
 }

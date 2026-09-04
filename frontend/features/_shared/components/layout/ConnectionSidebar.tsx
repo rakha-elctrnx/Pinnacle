@@ -84,12 +84,6 @@ function getStaticTreeNodes(
         },
         { label: 'Query Console', children: [] },
       ]
-    case 'rabbitmq':
-      return [
-        { label: 'Exchanges', children: [] },
-        { label: 'Queues', children: [] },
-        { label: 'Channels', children: [] },
-      ]
     default:
       return []
   }

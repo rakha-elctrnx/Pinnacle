@@ -30,7 +30,6 @@ Whether you're a backend engineer debugging a production query, a DBA inspecting
 | **MongoDB**       | 🚧 In progress |
 | **Redis**         | 🚧 In progress |
 | **Elasticsearch** | 🚧 In progress |
-| **RabbitMQ**      | 🚧 Planned     |
 
 ## 🛠 Tech Stack
 

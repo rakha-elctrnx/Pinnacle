@@ -9,7 +9,6 @@ pub enum ConnectionType {
     Mysql,
     Mongodb,
     Redis,
-    Rabbitmq,
     Elasticsearch,
     Sqlite,
 }
@@ -22,7 +21,6 @@ impl std::str::FromStr for ConnectionType {
             "mysql" => Ok(ConnectionType::Mysql),
             "mongodb" => Ok(ConnectionType::Mongodb),
             "redis" => Ok(ConnectionType::Redis),
-            "rabbitmq" | "rabbit_mq" => Ok(ConnectionType::Rabbitmq),
             "elasticsearch" | "es" => Ok(ConnectionType::Elasticsearch),
             "sqlite" => Ok(ConnectionType::Sqlite),
             _ => Err(format!("Unknown connection type: {}", s)),
@@ -37,7 +35,6 @@ impl std::fmt::Display for ConnectionType {
             ConnectionType::Mysql => write!(f, "mysql"),
             ConnectionType::Mongodb => write!(f, "mongodb"),
             ConnectionType::Redis => write!(f, "redis"),
-            ConnectionType::Rabbitmq => write!(f, "rabbitmq"),
             ConnectionType::Elasticsearch => write!(f, "elasticsearch"),
             ConnectionType::Sqlite => write!(f, "sqlite"),
         }

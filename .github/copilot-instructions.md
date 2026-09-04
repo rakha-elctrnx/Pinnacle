@@ -6,7 +6,7 @@ Pinnacle is a **local-first desktop data explorer** for developers. It connects 
 
 **Frontend:** React 19 + TypeScript (strict) · Vite · Tailwind CSS v4 · Zustand · TanStack Query · React Router v7 · Monaco Editor · AG Grid Community · React Flow (`@xyflow/react`).
 
-**Backend (Tauri v2 / Rust, edition 2021):** `sqlx` (Postgres, MySQL) · `redis-rs` · `lapin` (RabbitMQ) · `reqwest` (Elasticsearch, MongoDB REST) · `tokio` · `thiserror`.
+**Backend (Tauri v2 / Rust, edition 2021):** `sqlx` (Postgres, MySQL) · `redis-rs` · `reqwest` (Elasticsearch, MongoDB REST) · `tokio` · `thiserror`.
 
 **Package manager:** `pnpm`. **Storage:** Tauri Store + Stronghold (encrypted credentials).
 
@@ -47,7 +47,7 @@ When adding a backend capability, touch all layers: Rust command → register in
 **Frontend (`src/`):**
 
 - `features/data-explorer/` — main feature, self-contained: `components/`, `domain/`, `hooks/`, `layouts/`, `pages/`, `context/`, plus `constants.ts`, `types.ts`, `utils.ts`.
-- `domain/<service>/<capability>/` — domain logic grouped by service (sql, mongodb, redis, rabbitmq, elasticsearch) and `_shared/`.
+- `domain/<service>/<capability>/` — domain logic grouped by service (sql, mongodb, redis, elasticsearch) and `_shared/`.
 - `services/clients/` — Tauri `invoke` wrappers per service.
 - `hooks/<service>/queries/` — TanStack Query hooks.
 - `state/` — Zustand stores (`connectionStore`, `designerStore`, `shellLayoutStore`).
@@ -85,7 +85,7 @@ When adding a backend capability, touch all layers: Rust command → register in
 ## Scope & status
 
 - **MVP (v1.0):** PostgreSQL + MySQL — Connection Manager, SQL Editor, Query Execution, Result Viewer, CSV/JSON export.
-- Redis, RabbitMQ, Elasticsearch, MongoDB are later releases; some scaffolding already exists per service.
+- Redis, Elasticsearch and MongoDB arrived after the MVP; SQLite is supported too.
 
 ## Guardrails
 

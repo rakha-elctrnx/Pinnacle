@@ -37,22 +37,40 @@ fn load_all_stored(app_data: &PathBuf) -> AppResult<Vec<StoredConnection>> {
     }
     let content = std::fs::read_to_string(&path)?;
 
-    // Try the new wrapped format first; fall back to the legacy flat format
-    // so existing connection files keep working after the upgrade.
-    if let Ok(stored) = serde_json::from_str::<Vec<StoredConnection>>(&content) {
-        return Ok(stored);
+    // Per-item deserialization: a single entry with an unsupported or unknown
+    // connection type is skipped (see below) instead of failing the whole file,
+    // so one stale profile can't hide every other saved connection. A file that
+    // isn't a JSON array at all is a real error and must not be silently
+    // replaced by an empty list — a later save would overwrite it.
+    let raw_items: Vec<serde_json::Value> = serde_json::from_str(&content)?;
+
+    let mut result = Vec::new();
+    for raw in raw_items {
+        if let Ok(stored) = serde_json::from_value::<StoredConnection>(raw.clone()) {
+            result.push(stored);
+            continue;
+        }
+
+        if let Ok(metadata) = serde_json::from_value::<ConnectionMetadata>(raw.clone()) {
+            result.push(StoredConnection {
+                metadata,
+                password: None,
+                ssh_password: None,
+                key_passphrase: None,
+            });
+            continue;
+        }
+
+        let type_val = raw
+            .get("metadata")
+            .and_then(|m| m.get("type"))
+            .or_else(|| raw.get("type"))
+            .and_then(|t| t.as_str())
+            .unwrap_or("unknown");
+        log::warn!("Skipping connection entry with unsupported type: {}", type_val);
     }
 
-    let legacy: Vec<ConnectionMetadata> = serde_json::from_str(&content)?;
-    Ok(legacy
-        .into_iter()
-        .map(|metadata| StoredConnection {
-            metadata,
-            password: None,
-            ssh_password: None,
-            key_passphrase: None,
-        })
-        .collect())
+    Ok(result)
 }
 
 fn save_all_stored(app_data: &PathBuf, connections: &[StoredConnection]) -> AppResult<()> {
@@ -245,19 +263,20 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    fn test_data() -> PathBuf {
-        PathBuf::from(std::env::temp_dir()).join("pinnacle-test-store")
+    // Each test gets its own directory: cargo runs tests in parallel, and a
+    // shared path lets one test's cleanup delete another's fixture.
+    fn test_data(name: &str) -> PathBuf {
+        PathBuf::from(std::env::temp_dir()).join(format!("pinnacle-test-store-{name}"))
     }
 
-    fn clean_test_data() {
-        let path = test_data();
-        let _ = std::fs::remove_dir_all(&path);
+    fn clean_test_data(name: &str) {
+        let _ = std::fs::remove_dir_all(test_data(name));
     }
 
     #[tokio::test]
     async fn test_store_operations() {
-        clean_test_data();
-        let data = test_data();
+        clean_test_data("ops");
+        let data = test_data("ops");
 
         let metadata = ConnectionMetadata::new(
             "test-id-123".to_string(),
@@ -299,6 +318,56 @@ mod tests {
         let retrieved = get_metadata(&data, "test-id-123").await.unwrap();
         assert!(retrieved.is_none());
 
-        clean_test_data();
+        clean_test_data("ops");
+    }
+    #[tokio::test]
+    async fn test_load_all_stored_skips_unsupported_type() {
+        clean_test_data("skip-unsupported");
+        let data = test_data("skip-unsupported");
+        std::fs::create_dir_all(&data).unwrap();
+
+        // Element 1 is the wrapped (current) shape, element 2 the legacy flat
+        // shape — both must load. Element 3 has a `type` the backend no longer
+        // supports and must be skipped instead of failing the whole file.
+        let valid = serde_json::json!({
+            "id": "valid-pg",
+            "name": "Postgres Conn",
+            "type": "postgresql",
+            "host": "localhost",
+            "port": 5432,
+            "username": "postgres",
+            "database": "postgres",
+            "ssl": false,
+            "createdAt": "2026-01-01T00:00:00Z",
+            "updatedAt": "2026-01-01T00:00:00Z"
+        });
+        let json_content = serde_json::to_string(&serde_json::json!([
+            { "metadata": valid.clone() },
+            valid,
+            {
+                "metadata": {
+                    "id": "invalid-rmq",
+                    "name": "Rabbit Conn",
+                    "type": "rabbitmq",
+                    "host": "localhost",
+                    "port": 5672,
+                    "username": "guest",
+                    "database": "vhost",
+                    "ssl": false,
+                    "createdAt": "2026-01-01T00:00:00Z",
+                    "updatedAt": "2026-01-01T00:00:00Z"
+                }
+            }
+        ]))
+        .unwrap();
+
+        std::fs::write(store_path(&data), json_content).unwrap();
+
+        let loaded = load_all(&data).unwrap();
+        assert_eq!(loaded.len(), 2);
+        assert!(loaded.iter().all(|c| c.r#type == ConnectionType::Postgresql));
+        assert!(loaded.iter().any(|c| c.id == "valid-pg"));
+
+        clean_test_data("skip-unsupported");
     }
 }

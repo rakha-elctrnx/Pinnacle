@@ -50,12 +50,6 @@ const REDIS_CAPABILITIES: ConnectorCapabilityInterface = {
   capabilities: ['connect', 'test-connection'],
 }
 
-/** RabbitMQ — minimal capabilities for Phase 3. */
-const RABBITMQ_CAPABILITIES: ConnectorCapabilityInterface = {
-  label: 'RabbitMQ',
-  capabilities: ['connect', 'test-connection'],
-}
-
 /** MongoDB — progressive capabilities for Phase 3. */
 const MONGODB_CAPABILITIES: ConnectorCapabilityInterface = {
   label: 'MongoDB',
@@ -80,7 +74,6 @@ export const defaultConnectorRegistry: ConnectorRegistry = {
   mysql: SQL_CAPABILITIES,
   elasticsearch: ELASTICSEARCH_CAPABILITIES,
   redis: REDIS_CAPABILITIES,
-  rabbitmq: RABBITMQ_CAPABILITIES,
   mongodb: MONGODB_CAPABILITIES,
 }
 

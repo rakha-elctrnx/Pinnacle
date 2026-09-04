@@ -4,7 +4,6 @@ export type ConnectionType =
   | 'mysql'
   | 'mongodb'
   | 'redis'
-  | 'rabbitmq'
   | 'elasticsearch'
   | 'sqlite'
 
