@@ -165,11 +165,11 @@ describe('TreeNodeItem — connection node', () => {
   // Tree node paths are URI-encoded per segment: spaces become %20.
   const encodedPath = 'Test%20Postgres%20DB'
 
-  it('single click selects without activating or expanding the connection', () => {
+  it('single click selects and activates the connection', () => {
     const h = mount(connectionNode)
     clickRowOnce()
     expect(h.onSelectedTreeNode).toHaveBeenCalledWith(encodedPath)
-    expect(h.onConnectionSelect).not.toHaveBeenCalled()
+    expect(h.onConnectionSelect).toHaveBeenCalledWith(encodedPath, 'conn-1')
     expect(h.onConnectionToggle).not.toHaveBeenCalled()
   })
 
@@ -193,11 +193,11 @@ describe('TreeNodeItem — connection node', () => {
     expect(h.onSelectedTreeNode).not.toHaveBeenCalled()
   })
 
-  it('Space selects without activating the connection', () => {
+  it('Space selects and activates the connection', () => {
     const h = mount(connectionNode)
     act(() => fireEvent.keyDown(row(), { key: ' ' }))
     expect(h.onSelectedTreeNode).toHaveBeenCalledWith(encodedPath)
-    expect(h.onConnectionSelect).not.toHaveBeenCalled()
+    expect(h.onConnectionSelect).toHaveBeenCalledWith(encodedPath, 'conn-1')
     expect(h.onConnectionToggle).not.toHaveBeenCalled()
   })
 })
@@ -210,12 +210,12 @@ describe('TreeNodeItem — database / schema node', () => {
     children: [CHILD],
   }
 
-  it('single click selects the node without toggling/fetching', () => {
+  it('single click selects and expands the database node', () => {
     const h = mount(dbNode)
     clickRowOnce()
     expect(h.onSelectedTreeNode).toHaveBeenCalledWith('appdb')
-    expect(h.onToggleTreeNode).not.toHaveBeenCalled()
-    expect(h.onFetchDatabaseDetails).not.toHaveBeenCalled()
+    expect(h.onToggleTreeNode).toHaveBeenCalledWith('appdb')
+    expect(h.onFetchDatabaseDetails).toHaveBeenCalledWith('appdb')
   })
 
   it('double click toggles expand + fetches details', () => {
@@ -239,11 +239,12 @@ describe('TreeNodeItem — database / schema node', () => {
     expect(h.onSelectedTreeNode).not.toHaveBeenCalled()
   })
 
-  it('Space selects the node (onSelectedTreeNode)', () => {
+  it('Space selects and expands the database node', () => {
     const h = mount(dbNode)
     act(() => fireEvent.keyDown(row(), { key: ' ' }))
     expect(h.onSelectedTreeNode).toHaveBeenCalledWith('appdb')
-    expect(h.onToggleTreeNode).not.toHaveBeenCalled()
+    expect(h.onToggleTreeNode).toHaveBeenCalledWith('appdb')
+    expect(h.onFetchDatabaseDetails).toHaveBeenCalledWith('appdb')
   })
 
   it('double click on a schema node toggles expand without a detail fetch', () => {
@@ -338,11 +339,16 @@ describe('TreeNodeItem — leaf table / view / index node', () => {
   }
   const parentPath = 'conn/appdb/Tables'
 
-  it('single click only selects — never opens a tab', () => {
+  it('single click selects and opens the table detail', () => {
     const h = mount(tableNode, { parentPath })
     clickRowOnce()
     expect(h.onSelectedTreeNode).toHaveBeenCalledWith(parentPath + '/users')
-    expect(h.onTreeNodeClick).not.toHaveBeenCalled()
+    expect(h.onTreeNodeClick).toHaveBeenCalledWith(
+      'users',
+      'appdb',
+      parentPath + '/users',
+      undefined,
+    )
     expect(h.onToggleTreeNode).not.toHaveBeenCalled()
   })
 
@@ -360,11 +366,16 @@ describe('TreeNodeItem — leaf table / view / index node', () => {
     expect(h.onSelectedTreeNode).not.toHaveBeenCalled()
   })
 
-  it('Space only selects the leaf — never opens a tab', () => {
+  it('Space selects and opens the table detail', () => {
     const h = mount(tableNode, { parentPath })
     act(() => fireEvent.keyDown(row(), { key: ' ' }))
     expect(h.onSelectedTreeNode).toHaveBeenCalledWith(parentPath + '/users')
-    expect(h.onTreeNodeClick).not.toHaveBeenCalled()
+    expect(h.onTreeNodeClick).toHaveBeenCalledWith(
+      'users',
+      'appdb',
+      parentPath + '/users',
+      undefined,
+    )
     expect(h.onToggleTreeNode).not.toHaveBeenCalled()
   })
 
@@ -437,7 +448,12 @@ describe('TreeNodeItem — foldered / grouped trees (path-independent metadata)'
     expect(h.onSelectedTreeNode).toHaveBeenCalledWith(
       'Production/conn-1/appdb/public/Tables/users',
     )
-    expect(h.onTreeNodeClick).not.toHaveBeenCalled()
+    expect(h.onTreeNodeClick).toHaveBeenCalledWith(
+      'users',
+      'appdb',
+      'Production/conn-1/appdb/public/Tables/users',
+      'public',
+    )
   })
 
   it('Enter on a foldered leaf opens the detail tab with explicit metadata', () => {

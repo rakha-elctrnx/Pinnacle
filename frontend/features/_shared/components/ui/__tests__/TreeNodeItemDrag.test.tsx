@@ -56,7 +56,7 @@ describe('TreeNodeItem connection drag & threshold interaction tests', () => {
     expect(document.body.dataset.dragging).toBeFalsy()
 
     // Trigger click since pointer up alone doesn't fire click in synthetic test.
-    // A connection click selects the tree node but does not activate/open it.
+    // A connection click selects and activates (navigates) but never toggles.
     fireEvent.click(treeItem)
     await waitFor(() => {
       // Tree node paths are URI-encoded per segment: spaces become %20.
@@ -64,7 +64,10 @@ describe('TreeNodeItem connection drag & threshold interaction tests', () => {
         'Test%20Postgres%20DB',
       )
     })
-    expect(mockProps.onConnectionSelect).not.toHaveBeenCalled()
+    expect(mockProps.onConnectionSelect).toHaveBeenCalledWith(
+      'Test%20Postgres%20DB',
+      'conn-1',
+    )
     expect(mockProps.onConnectionToggle).not.toHaveBeenCalled()
   })
 

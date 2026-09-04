@@ -24,6 +24,8 @@ const mockCtx = vi.hoisted(() => {
     refreshConnectionData: null as
       | ((id: string, p: ConnectionProfile) => void)
       | null,
+    search: '',
+    connectionStatuses: {} as Record<string, string>,
     fetchDatabaseDetails: null as
       | ((dbName: string, connectionId?: string) => void)
       | null,
@@ -35,8 +37,8 @@ const mockCtx = vi.hoisted(() => {
 })
 
 vi.mock('../../../context/DataExplorerContext', () => ({
-  useDataExplorerContext: () => ({
-    search: '',
+    useDataExplorerContext: () => ({
+    search: mockCtx.store.search,
     items: [],
     groupedConnections: mockCtx.store.groupedConnections,
     folders: mockCtx.store.folders,
@@ -45,6 +47,7 @@ vi.mock('../../../context/DataExplorerContext', () => ({
     expandedTreePaths: mockCtx.store.expandedTreePaths,
     focusedNodePath: mockCtx.store.focusedNodePath,
     contextMenu: mockCtx.store.contextMenu,
+    connectionStatuses: mockCtx.store.connectionStatuses,
     openCreateConnection: vi.fn(),
     handleConnectionSelectionChange: vi.fn(),
     handleToggleTreeNode: (path: string) => {
@@ -54,8 +57,16 @@ vi.mock('../../../context/DataExplorerContext', () => ({
           : [...mockCtx.store.expandedTreePaths, path]
       mockCtx.notify?.()
     },
+    setSearch: (v: string) => {
+      mockCtx.store.search = v
+      mockCtx.notify?.()
+    },
     handleFetchDatabaseDetails: (dbName: string, connectionId?: string) => {
       mockCtx.store.fetchDatabaseDetails?.(dbName, connectionId)
+    },
+    setExpandedTreePaths: (v: string[]) => {
+      mockCtx.store.expandedTreePaths = v
+      mockCtx.notify?.()
     },
     handleRetryElasticIndices: vi.fn(),
     setExpandedConnectionId: vi.fn(),
@@ -233,6 +244,8 @@ beforeEach(() => {
   mockCtx.store.selectedTreeNode = null
   mockCtx.store.expandedTreePaths = []
   mockCtx.store.contextMenu = null
+  mockCtx.store.search = ''
+  mockCtx.store.connectionStatuses = {}
 })
 
 afterEach(() => {
@@ -466,7 +479,7 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
     expect(document.querySelector('[aria-label="Databases"]')).toBeNull()
     expect(document.querySelector('[aria-label="Collections"]')).toBeNull()
   })
-  it('single-clicking a MongoDB connection expands and loads its databases', async () => {
+  it('single-clicking a MongoDB connection activates it without expanding', () => {
     const mongo = makeProfile('mongo-1', 'Local Mongo', null, 'mongodb')
     mockCtx.store.groupedConnections = { __ungrouped__: [mongo] }
     mockCtx.store.selectedConnection = mongo
@@ -480,13 +493,11 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
 
     fireEvent.click(node)
 
-    await waitFor(() => {
-      expect(mockCtx.store.expandedTreePaths).toContain('Local%20Mongo')
-    })
-    expect(mockCtx.store.refreshConnectionData).toHaveBeenCalledWith(
-      'mongo-1',
-      mongo,
-    )
+    // Select-activate contract: selection + connection change; disclosure
+    // and the initial data fetch stay on chevron / double-click / Enter.
+    expect(mockCtx.store.selectedTreeNode).toBe('Local%20Mongo')
+    expect(mockCtx.store.expandedTreePaths).not.toContain('Local%20Mongo')
+    expect(mockCtx.store.refreshConnectionData).not.toHaveBeenCalled()
   })
 
   it('ArrowRight on a SQL connection with cached databases fetches the first DB details', async () => {
@@ -587,3 +598,103 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
     })
   })
 })
+
+  describe('ConnectionSidebar new UX behaviors', () => {
+    it('exposes the ungrouped drop zone on the scroll container', () => {
+      seedTree()
+      render(<Harness />)
+      expect(
+        document.querySelector('[data-sidebar-area="ungrouped"]'),
+      ).not.toBeNull()
+    })
+
+    it('renders a status dot per known connection status', () => {
+      seedTree()
+      mockCtx.store.expandedTreePaths = ['Production']
+      mockCtx.store.connectionStatuses = {
+        'conn-a': 'connected',
+        'conn-b': 'disconnected',
+      }
+      render(<Harness />)
+      const rowA = document.querySelector(
+        '[data-node-path="Production/connA"]',
+      ) as HTMLElement
+      const rowB = document.querySelector(
+        '[data-node-path="connB"]',
+      ) as HTMLElement
+      expect(rowA!.querySelector('.bg-success')).not.toBeNull()
+      expect(rowB!.querySelector('.bg-success')).toBeNull()
+      expect(rowB!.querySelector('.bg-text-muted\\/30')).not.toBeNull()
+    })
+
+    it('shows the empty state when there are no connections', () => {
+      mockCtx.store.groupedConnections = null
+      render(<Harness />)
+      expect(document.body.textContent).toContain('No connections yet')
+      const cta = Array.from(document.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('New connection'),
+      )
+      expect(cta).toBeTruthy()
+    })
+
+    it('filters connections and hides folders with zero matches', async () => {
+      seedTree()
+      render(<Harness />)
+      const input = document.querySelector(
+        'input[aria-label="Filter connections"]',
+      ) as HTMLInputElement
+      fireEvent.change(input, { target: { value: 'connB' } })
+      // The production pipeline filters groupedConnections before the tree
+      // renders, so the mock presents the post-filter grouping shape.
+      mockCtx.store.groupedConnections = {
+        __ungrouped__: [makeProfile('conn-b', 'connB', null)],
+      }
+      mockCtx.notify?.()
+      await waitFor(() => {
+        expect(
+          document.querySelector('[data-node-path="Production"]'),
+        ).toBeNull()
+      })
+      expect(document.querySelector('[data-node-path="connB"]')).not.toBeNull()
+    })
+
+    it('typeahead jumps to the first label matching the pressed key', async () => {
+      seedTree()
+      mockCtx.store.expandedTreePaths = ['Production']
+      const { getAllByRole } = render(<Harness />)
+      const tree = getAllByRole('tree')[0]
+      fireEvent.focus(tree)
+      await waitFor(() => {
+        expect(mockCtx.store.focusedNodePath).toBe('Production')
+      })
+      fireEvent.keyDown(tree, { key: 'c' })
+      await waitFor(() => {
+        expect(mockCtx.store.focusedNodePath).toBe('Production/connA')
+      })
+    })
+
+    it('collapse-all clears expanded paths', async () => {
+      seedTree()
+      mockCtx.store.expandedTreePaths = ['Production']
+      render(<Harness />)
+      const btn = document.querySelector(
+        'button[aria-label="Collapse all"]',
+      ) as HTMLButtonElement
+      fireEvent.click(btn)
+      await waitFor(() => {
+        expect(mockCtx.store.expandedTreePaths).toEqual([])
+      })
+    })
+
+    it('single click on a connection does not collapse an expanded folder', () => {
+      seedTree()
+      mockCtx.store.expandedTreePaths = ['Production']
+      render(<Harness />)
+      const connARow = document.querySelector(
+        '[data-node-path="Production/connA"]',
+      ) as HTMLElement
+      fireEvent.click(connARow)
+      expect(mockCtx.store.expandedTreePaths).toContain('Production')
+      expect(mockCtx.store.selectedTreeNode).toBe('Production/connA')
+    })
+  })

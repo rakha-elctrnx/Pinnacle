@@ -252,6 +252,7 @@ export interface DataExplorerOrchestratorResult {
   setSelectedConnectionId: React.Dispatch<React.SetStateAction<string | null>>
   setEditingId: React.Dispatch<React.SetStateAction<string | null>>
   setIsAddModalOpen: React.Dispatch<React.SetStateAction<boolean>>
+  setExpandedTreePaths: React.Dispatch<React.SetStateAction<string[]>>
 }
 
 export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
@@ -1204,6 +1205,7 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
     setEditingId,
     setIsAddModalOpen,
     setExpandedConnectionId,
+    setExpandedTreePaths,
     setContextMenu,
     setSelectedTreeNode,
     setFocusedNodePath,

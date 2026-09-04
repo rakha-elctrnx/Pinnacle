@@ -21,6 +21,7 @@ import type {
   TreeNode,
   ExplorerTreeData,
   TreeNodeContextMenuMeta,
+  ConnectionStatus,
 } from '../../types/shared'
 import type {
   ConnectionProfile,
@@ -30,6 +31,7 @@ import { databaseTypeOptions } from '../../constants'
 import { CenteredLoadingState } from './CenteredLoadingState'
 import { useState, useRef, useCallback, useEffect, memo } from 'react'
 import { buildPath, encodePathSegment } from '../../utils/treeNavigation'
+import { ConfirmDialog } from '../../../sql/components/table-cells/ConfirmDialog'
 
 interface ExplorerDataContext {
   treeDataMap: Record<string, ExplorerTreeData>
@@ -152,6 +154,8 @@ type TreeNodeItemProps = {
   explorerData?: ExplorerDataContext
   elasticIndicesError?: Record<string, string>
   elasticLoading?: Record<string, boolean>
+  /** Live connection status per connection id; drives the row status dot. */
+  connectionStatuses?: Record<string, ConnectionStatus>
   handleRetryElasticIndices?: (connectionId: string) => void
   focusedNodePath: string | null
   setFocusedNodePath: (path: string | null) => void
@@ -192,6 +196,7 @@ function TreeNodeItemBase({
   elasticIndicesError,
   elasticLoading,
   handleRetryElasticIndices,
+  connectionStatuses,
   focusedNodePath,
   setFocusedNodePath,
   folders,
@@ -296,22 +301,6 @@ function TreeNodeItemBase({
       cleanupDrag()
     }
   }, [cleanupDrag])
-
-  // ── Single vs double click detection ─────────────────────────
-  // A single click waits ~200ms to see whether a second click (double
-  // click) follows before firing the select action. Double click cancels
-  // the pending select and runs the primary action instead.
-  const clickTimeoutRef = useRef<number | null>(null)
-  const clearClickTimer = useCallback(() => {
-    if (clickTimeoutRef.current) {
-      clearTimeout(clickTimeoutRef.current)
-      clickTimeoutRef.current = null
-    }
-  }, [])
-
-  useEffect(() => {
-    return () => clearClickTimer()
-  }, [clearClickTimer])
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -423,6 +412,7 @@ function TreeNodeItemBase({
 
   const [showFolderMenu, setShowFolderMenu] = useState(false)
   const [folderMenuPos, setFolderMenuPos] = useState({ x: 0, y: 0 })
+  const [confirmDeleteFolder, setConfirmDeleteFolder] = useState(false)
   const folderMenuRef = useRef<HTMLDivElement>(null)
 
   // Close folder context menu on outside click
@@ -526,8 +516,8 @@ function TreeNodeItemBase({
 
   // Select action (single click / Space): updates tree selection only for
   // connection/container/leaf nodes. Category nodes retain their list-page
-  // navigation. Expansion and connection activation belong to the primary
-  // double-click/Enter action.
+  // navigation. Expansion and connection activation belong to the chevron,
+  // double-click, and Enter.
   const handleSelectAction = () => {
     setFocusedNodePath(nodePath)
 
@@ -535,11 +525,12 @@ function TreeNodeItemBase({
       // Folder: select/focus only
       onSelectedTreeNode(nodePath)
     } else if (isConnectionNode) {
+      // Connection: select + navigate only. Disclosure stays on the chevron /
+      // double-click / Enter so selecting never collapses the subtree.
       onSelectedTreeNode(nodePath)
       if (node.connectionId) {
         onConnectionSelect?.(nodePath, node.connectionId)
       }
-      handleToggleExpand()
     } else if (node.label === 'Queries') {
       // Queries category: select + open query list
       onSelectedTreeNode(nodePath)
@@ -576,11 +567,9 @@ function TreeNodeItemBase({
         )
       }
     }
-    clickTimeoutRef.current = null
   }
 
-  // Single click: select immediately + debounce the select action so a
-  // following double click can replace it with the primary action.
+  // Single click: select immediately. Double click runs the primary action.
   const handleRowClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (suppressClickRef.current) {
@@ -588,17 +577,13 @@ function TreeNodeItemBase({
       return
     }
     setFocusedNodePath(nodePath)
-    clearClickTimer()
-    clickTimeoutRef.current = setTimeout(() => {
-      handleSelectAction()
-    }, 200)
+    handleSelectAction()
   }
 
-  // Double click: cancel the pending single-click select and run the primary
-  // action (toggle expansion or open a leaf detail tab once).
+  // Double click: run the primary action (toggle expansion or open a leaf
+  // detail tab once).
   const handleRowDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-    clearClickTimer()
     handlePrimaryAction()
   }
 
@@ -657,6 +642,13 @@ function TreeNodeItemBase({
   // Check if this is an active connection (for styling)
   const isActiveConnection = isConnectionNode && isConnectionActive()
 
+  // Live status for this row's dot. Undefined = status never recorded (the
+  // connection was not opened in this session) → no dot is rendered.
+  const connectionStatus =
+    isConnectionNode && node.connectionId
+      ? connectionStatuses?.[node.connectionId]
+      : undefined
+
   return (
     <div className="flex flex-col w-full focus-visible:outline-none">
       {/* Row Header / Label bar */}
@@ -680,6 +672,10 @@ function TreeNodeItemBase({
           }
         }}
         onContextMenu={(e) => {
+          // Right-click selects the row first (macOS convention) so the menu
+          // always targets the node under the cursor.
+          setFocusedNodePath(nodePath)
+          onSelectedTreeNode(nodePath)
           if (isGroupNode && folders) {
             e.preventDefault()
             e.stopPropagation()
@@ -814,7 +810,9 @@ function TreeNodeItemBase({
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
-          <span className="truncate min-w-0">{node.label}</span>
+          <span className="truncate min-w-0" title={node.label}>
+            {node.label}
+          </span>
         )}
 
         {/* Group count badge */}
@@ -822,6 +820,25 @@ function TreeNodeItemBase({
           <span className="shrink-0 tabular-nums text-micro text-text-muted/60">
             {getGroupCount()}
           </span>
+        )}
+
+        {/* Connection status dot — mutually exclusive with the loading
+            spinner: it never renders while the connection is loading. */}
+        {isConnectionNode && !isConnectionLoading() && connectionStatus && (
+          <span
+            aria-hidden
+            title={`Connection status: ${connectionStatus}`}
+            className={[
+              'ml-auto shrink-0 h-1.5 w-1.5 rounded-full',
+              connectionStatus === 'connected'
+                ? 'bg-success'
+                : connectionStatus === 'connecting'
+                  ? 'bg-warning animate-pulse'
+                  : connectionStatus === 'error'
+                    ? 'bg-danger'
+                    : 'bg-text-muted/30',
+            ].join(' ')}
+          />
         )}
 
         {/* Loading indicator on the right */}
@@ -867,17 +884,8 @@ function TreeNodeItemBase({
             type="button"
             className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-danger hover:bg-danger-subtle/20 transition-colors"
             onClick={() => {
-              const folderId = getFolderId()
-              if (folderId && onDeleteFolder) {
-                if (
-                  window.confirm(
-                    `Delete folder "${node.label}"? Connections inside will be moved to ungrouped.`,
-                  )
-                ) {
-                  onDeleteFolder(folderId)
-                }
-              }
               setShowFolderMenu(false)
+              setConfirmDeleteFolder(true)
             }}
           >
             <Trash2 size={12} />
@@ -885,6 +893,21 @@ function TreeNodeItemBase({
           </button>
         </div>
       )}
+      {/* Folder delete confirmation */}
+      <ConfirmDialog
+        open={confirmDeleteFolder}
+        title={`Delete folder "${node.label}"?`}
+        message="Connections inside will be moved to ungrouped. This cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => {
+          const folderId = getFolderId()
+          if (folderId && onDeleteFolder) onDeleteFolder(folderId)
+          setConfirmDeleteFolder(false)
+        }}
+        onCancel={() => setConfirmDeleteFolder(false)}
+      />
+
 
       {/* Connection-specific content (error messages, loading states) */}
       {isConnectionNode && isExpanded && node.connectionId && (
@@ -961,6 +984,7 @@ function TreeNodeItemBase({
               explorerData={explorerData}
               elasticIndicesError={elasticIndicesError}
               elasticLoading={elasticLoading}
+              connectionStatuses={connectionStatuses}
               handleRetryElasticIndices={handleRetryElasticIndices}
               focusedNodePath={focusedNodePath}
               setFocusedNodePath={setFocusedNodePath}
@@ -1107,6 +1131,15 @@ function areTreeNodePropsEqual(
   }
   if (
     !!prev.elasticLoading?.[prevConnId] !== !!next.elasticLoading?.[nextConnId]
+  ) {
+    return false
+  }
+  // Status dot renders only on connection rows, so only those rows care.
+  if (
+    (prev.node.nodeType === 'connection' ||
+      next.node.nodeType === 'connection') &&
+    prev.connectionStatuses?.[prevConnId] !==
+      next.connectionStatuses?.[nextConnId]
   ) {
     return false
   }

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, FolderPlus, X, Check } from 'lucide-react'
+import { Plus, FolderPlus, X, Check, Search, ChevronsDownUp } from 'lucide-react'
 import { ActionButton } from '../ui/ActionButton'
 import { TreeNodeItem } from '../ui/TreeNodeItem'
 import type {
@@ -104,16 +104,22 @@ function buildUnifiedTree(
   explorerData: ExplorerDataContext,
   elasticIndices: Record<string, ElasticIndex[]> | null,
   expandedTreePaths: string[],
+  search: string,
 ): TreeNode[] {
   if (!groupedConnections) return []
 
   const tree: TreeNode[] = []
+  // A filter is active: folders with no matching connections are hidden so the
+  // tree collapses to matches only. Without a filter, empty folders stay
+  // visible as drop targets.
+  const filtering = search.trim().length > 0
 
   // Render folder nodes first
   for (const folder of folders) {
     const folderProfiles = groupedConnections[folder.name]
     // Empty folders (array with 0 items) are still rendered as group nodes
     if (folderProfiles === undefined) continue
+    if (filtering && folderProfiles.length === 0) continue
 
     const groupNode: TreeNode = {
       label: folder.name,
@@ -215,6 +221,10 @@ export function ConnectionSidebar() {
     handleRenameFolder,
     handleDeleteFolder,
     handleMoveConnectionToFolder,
+    connectionStatuses,
+    search,
+    setSearch,
+    setExpandedTreePaths,
   } = useDataExplorerContext()
 
   const navigate = useNavigate()
@@ -237,6 +247,7 @@ export function ConnectionSidebar() {
       explorerData,
       elasticIndices,
       expandedTreePaths,
+      search,
     )
   }, [
     groupedConnections,
@@ -244,7 +255,14 @@ export function ConnectionSidebar() {
     explorerData,
     elasticIndices,
     expandedTreePaths,
+    search,
   ])
+
+  // At least one connection exists (or a filter is active — keep the box
+  // reachable so the user can clear a filter that matches nothing).
+  const hasConnections =
+    search.trim().length > 0 ||
+    Object.values(groupedConnections ?? {}).some((list) => list.length > 0)
 
   // Compute visible nodes from the unified tree
   const visibleNodes = useMemo(
@@ -393,6 +411,39 @@ export function ConnectionSidebar() {
         e.preventDefault()
         const last = getLastVisibleNode(visibleNodes)
         if (last) setFocusedNodePath(last)
+        break
+      }
+
+      default: {
+        // Typeahead: jump to the next visible node whose label starts with the
+        // typed character, wrapping around the visible list. Only consume the
+        // key when a match exists, so unmatched keystrokes still bubble.
+        // Skip while a text field inside the tree owns the keystroke (inline
+        // folder rename) — those characters belong to the input.
+        const target = e.target as HTMLElement | null
+        const typingInField =
+          !!target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        if (
+          !typingInField &&
+          e.key.length === 1 &&
+          !e.metaKey &&
+          !e.ctrlKey &&
+          !e.altKey
+        ) {
+          const prefix = e.key.toLowerCase()
+          const total = visibleNodes.length
+          for (let step = 1; step <= total; step += 1) {
+            const candidate = visibleNodes[(idx + step) % total]
+            if (candidate.node.label.toLowerCase().startsWith(prefix)) {
+              e.preventDefault()
+              setFocusedNodePath(candidate.path)
+              break
+            }
+          }
+        }
         break
       }
     }
@@ -649,6 +700,13 @@ export function ConnectionSidebar() {
         </div>
         <div className="flex items-center gap-1">
           <ActionButton
+            icon={<ChevronsDownUp size={14} />}
+            aria-label="Collapse all"
+            variant="secondary"
+            className="duration-150 active:scale-95"
+            onClick={() => setExpandedTreePaths([])}
+          />
+          <ActionButton
             icon={<FolderPlus size={14} />}
             aria-label="New folder"
             variant="secondary"
@@ -664,6 +722,36 @@ export function ConnectionSidebar() {
           />
         </div>
       </div>
+
+      {/* Filter box — hidden when there are no connections at all; the empty
+          state below already guides the user toward creating one. */}
+      {hasConnections && (
+        <div className="flex shrink-0 items-center gap-1.5 px-3 pb-1.5">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-border-default bg-bg-base px-2 py-1 transition-colors focus-within:border-border-focus">
+            <Search size={12} className="shrink-0 text-text-muted" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setSearch('')
+              }}
+              placeholder="Filter connections…"
+              aria-label="Filter connections"
+              className="min-w-0 flex-1 bg-transparent text-caption text-text-primary outline-none placeholder:text-text-muted"
+            />
+            {search && (
+              <button
+                type="button"
+                aria-label="Clear filter"
+                onClick={() => setSearch('')}
+                className="shrink-0 text-text-muted transition-colors hover:text-text-secondary"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Inline new folder input */}
       {showNewFolderInput && (
@@ -714,7 +802,10 @@ export function ConnectionSidebar() {
       )}
 
       {/* Scrollable connection list (scrollbar scoped here) */}
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-text-muted/20 [&::-webkit-scrollbar-thumb:hover]:bg-text-muted/40 [&::-webkit-scrollbar-track]:bg-transparent">
+      <div
+        data-sidebar-area="ungrouped"
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-text-muted/20 [&::-webkit-scrollbar-thumb:hover]:bg-text-muted/40 [&::-webkit-scrollbar-track]:bg-transparent"
+      >
         <div
           ref={treeContainerRef}
           role="tree"
@@ -771,6 +862,7 @@ export function ConnectionSidebar() {
               explorerData={explorerData}
               elasticIndicesError={elasticIndicesError}
               elasticLoading={elasticLoading}
+              connectionStatuses={connectionStatuses}
               handleRetryElasticIndices={handleRetryElasticIndices}
               focusedNodePath={focusedNodePath}
               setFocusedNodePath={setFocusedNodePath}
@@ -781,6 +873,28 @@ export function ConnectionSidebar() {
             />
           ))}
         </div>
+        {unifiedTree.length === 0 && (
+          <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+            <p className="text-label text-text-secondary">
+              {search ? 'No connections match' : 'No connections yet'}
+            </p>
+            <p className="text-caption text-text-muted">
+              {search
+                ? 'Try a different search term.'
+                : 'Connect to a database to start exploring.'}
+            </p>
+            {!search && (
+              <button
+                type="button"
+                onClick={openCreateConnection}
+                className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1.5 text-label text-text-inverse transition-colors hover:bg-primary-hover active:scale-95"
+              >
+                <Plus size={14} />
+                New connection
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </aside>
   )

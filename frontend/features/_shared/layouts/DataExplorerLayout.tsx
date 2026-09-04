@@ -239,7 +239,6 @@ function DataExplorerLayoutChrome({
     contextMenuRef,
     isAddModalOpen,
     connectionStatuses,
-    openCreateConnection,
     editingId,
     queryExecution,
     explorerData,
@@ -1229,19 +1228,6 @@ function DataExplorerLayoutChrome({
                                 },
                               },
                               {
-                                label: 'New Connection',
-                                icon: <Plus size={14} />,
-                                action: openCreateConnection,
-                              },
-                              {
-                                label: 'Delete Connection',
-                                icon: <Trash2 size={14} />,
-                                action: () => {
-                                  handleDeleteConnection(contextMenu.itemId)
-                                },
-                                dangerous: true,
-                              } as ContextMenuItem,
-                              {
                                 label: 'Duplicate Connection',
                                 icon: <Copy size={14} />,
                                 action: () => {
@@ -1307,6 +1293,15 @@ function DataExplorerLayoutChrome({
                                 action: () => {
                                   handleRefreshConnection(contextMenu.itemId)
                                 },
+                              } as ContextMenuItem,
+                              { divider: true } as ContextMenuItem,
+                              {
+                                label: 'Delete Connection',
+                                icon: <Trash2 size={14} />,
+                                action: () => {
+                                  handleDeleteConnection(contextMenu.itemId)
+                                },
+                                dangerous: true,
                               } as ContextMenuItem,
                             ]
                           : []),
