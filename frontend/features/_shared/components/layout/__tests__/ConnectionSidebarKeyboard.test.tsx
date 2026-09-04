@@ -92,32 +92,55 @@ vi.mock('../../../context/DataExplorerContext', () => ({
         if (!treeData) return []
         return treeData.databases.map((db): TreeNode => {
           if (conn.type === 'mongodb') {
+            if (!db.loaded) {
+              return {
+                label: db.name,
+                nodeType: 'database',
+                connectionId: conn.id,
+                databaseName: db.name,
+              }
+            }
             const collections = db.schemas[0]?.tables || []
             const views = db.schemas[0]?.views || []
-            const children: TreeNode[] = [
-              ...collections.map(
-                (c): TreeNode => ({
-                  label: c,
-                  nodeType: 'item',
-                  connectionId: conn.id,
-                  databaseName: db.name,
-                }),
-              ),
-              ...views.map(
-                (v): TreeNode => ({
-                  label: `${v} (view)`,
-                  nodeType: 'item',
-                  connectionId: conn.id,
-                  databaseName: db.name,
-                }),
-              ),
-            ]
+            const categoryChildren: TreeNode[] = []
+            if (collections.length > 0) {
+              categoryChildren.push({
+                label: 'Collections',
+                nodeType: 'category',
+                connectionId: conn.id,
+                databaseName: db.name,
+                children: collections.map(
+                  (c): TreeNode => ({
+                    label: c,
+                    nodeType: 'item',
+                    connectionId: conn.id,
+                    databaseName: db.name,
+                  }),
+                ),
+              })
+            }
+            if (views.length > 0) {
+              categoryChildren.push({
+                label: 'Views',
+                nodeType: 'category',
+                connectionId: conn.id,
+                databaseName: db.name,
+                children: views.map(
+                  (v): TreeNode => ({
+                    label: `${v} (view)`,
+                    nodeType: 'item',
+                    connectionId: conn.id,
+                    databaseName: db.name,
+                  }),
+                ),
+              })
+            }
             return {
               label: db.name,
               nodeType: 'database',
               connectionId: conn.id,
               databaseName: db.name,
-              children: db.loaded ? children : undefined,
+              children: categoryChildren,
             }
           }
           if (conn.type === 'postgresql' && db.schemas) {
@@ -402,7 +425,7 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
     expect(mockCtx.store.fetchDatabaseDetails).not.toHaveBeenCalled()
   })
 
-  it('single-clicking a Mongo database node expands it and fetches database details', async () => {
+  it('single-clicking an unloaded Mongo database node expands it and fetches details without routing', async () => {
     const mongo = makeProfile('mongo-1', 'Local Mongo', null, 'mongodb')
     mockCtx.store.groupedConnections = { __ungrouped__: [mongo] }
     mockCtx.store.selectedConnection = mongo
@@ -413,6 +436,7 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
       },
     }
     mockCtx.store.fetchDatabaseDetails = vi.fn()
+    mockCtx.store.wrappedHandleTreeNodeClick = vi.fn()
 
     render(<Harness />)
     const dbNode = document.querySelector(
@@ -428,6 +452,7 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
       'testdb',
       'mongo-1',
     )
+    expect(mockCtx.store.wrappedHandleTreeNodeClick).not.toHaveBeenCalled()
   })
 
   it('renders dynamic Mongo collections when database is loaded without static placeholder nodes', async () => {
@@ -445,6 +470,8 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
       'FolderA',
       'FolderA/Grouped%20Mongo',
       'FolderA/Grouped%20Mongo/admin',
+      'FolderA/Grouped%20Mongo/admin/Collections',
+      'FolderA/Grouped%20Mongo/admin/Views',
     ]
     mockCtx.store.treeDataMap = {
       'mongo-2': {
@@ -468,16 +495,25 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
 
     expect(
       document.querySelector(
-        '[data-node-path="FolderA/Grouped%20Mongo/admin/users"]',
+        '[data-node-path="FolderA/Grouped%20Mongo/admin/Collections/users"]',
       ),
     ).not.toBeNull()
     expect(
       document.querySelector(
-        '[data-node-path="FolderA/Grouped%20Mongo/admin/active_users%20(view)"]',
+        '[data-node-path="FolderA/Grouped%20Mongo/admin/Views/active_users%20(view)"]',
       ),
     ).not.toBeNull()
     expect(document.querySelector('[aria-label="Databases"]')).toBeNull()
-    expect(document.querySelector('[aria-label="Collections"]')).toBeNull()
+    expect(
+      document.querySelector(
+        '[data-node-path="FolderA/Grouped%20Mongo/admin/Collections"]',
+      ),
+    ).not.toBeNull()
+    expect(
+      document.querySelector(
+        '[data-node-path="FolderA/Grouped%20Mongo/admin/Views"]',
+      ),
+    ).not.toBeNull()
   })
   it('single-clicking a MongoDB connection activates it without expanding', () => {
     const mongo = makeProfile('mongo-1', 'Local Mongo', null, 'mongodb')
@@ -696,5 +732,59 @@ describe('ConnectionSidebar tree keyboard navigation', () => {
       fireEvent.click(connARow)
       expect(mockCtx.store.expandedTreePaths).toContain('Production')
       expect(mockCtx.store.selectedTreeNode).toBe('Production/connA')
+    })
+    it('clicking MongoDB Collections or Views category node does not create a tab or navigate', () => {
+      const mongoGrouped = makeProfile(
+        'mongo-2',
+        'Grouped Mongo',
+        'FolderA',
+        'mongodb',
+      )
+      const folder: Folder = { id: 'f1', name: 'FolderA' }
+      mockCtx.store.folders = [folder]
+      mockCtx.store.groupedConnections = { FolderA: [mongoGrouped] }
+      mockCtx.store.selectedConnection = mongoGrouped
+      mockCtx.store.expandedTreePaths = [
+        'FolderA',
+        'FolderA/Grouped%20Mongo',
+        'FolderA/Grouped%20Mongo/admin',
+        'FolderA/Grouped%20Mongo/admin/Collections',
+        'FolderA/Grouped%20Mongo/admin/Views',
+      ]
+      mockCtx.store.treeDataMap = {
+        'mongo-2': {
+          databases: [
+            {
+              name: 'admin',
+              schemas: [
+                {
+                  name: 'admin',
+                  tables: ['users'],
+                  views: ['active_users'],
+                },
+              ],
+              loaded: true,
+            },
+          ],
+        },
+      }
+
+      render(<Harness />)
+
+      const collectionsCategoryNode = document.querySelector(
+        '[data-node-path="FolderA/Grouped%20Mongo/admin/Collections"]',
+      ) as HTMLElement
+      expect(collectionsCategoryNode).not.toBeNull()
+
+      fireEvent.doubleClick(collectionsCategoryNode)
+      expect(mockCtx.store.wrappedHandleTreeNodeClick).not.toHaveBeenCalled()
+
+      const viewsCategoryNode = document.querySelector(
+        '[data-node-path="FolderA/Grouped%20Mongo/admin/Views"]',
+      ) as HTMLElement
+      expect(viewsCategoryNode).not.toBeNull()
+
+      fireEvent.doubleClick(viewsCategoryNode)
+      expect(mockCtx.store.wrappedHandleTreeNodeClick).not.toHaveBeenCalled()
     })
   })

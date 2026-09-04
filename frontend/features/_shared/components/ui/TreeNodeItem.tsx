@@ -41,6 +41,7 @@ interface ExplorerDataContext {
 
 const CATEGORY_LABELS = [
   'Tables',
+  'Collections',
   'Views',
   'Functions',
   'Queries',
@@ -66,6 +67,7 @@ function isCategoryNode(label: string): boolean {
 function getCategoryIcon(label: string) {
   switch (label) {
     case 'Tables':
+    case 'Collections':
       return <Table size={11} className="shrink-0 text-primary" />
     case 'Views':
       return <Eye size={11} className="shrink-0 text-sky-500" />
@@ -228,11 +230,12 @@ function TreeNodeItemBase({
       !isConnectionNode &&
       !isDatabaseNode &&
       !isCategoryNode(node.label) &&
-      parentPath.split('/').length >= 2 &&
-      !['Tables', 'Views', 'Indices', 'Functions'].includes(parentCategory))
+      !['Tables', 'Collections', 'Views', 'Indices', 'Functions'].includes(parentCategory))
   const isLeaf = !hasChildren || (node.children && node.children.length === 0)
   const isLeafItem = isLeaf && !isCategoryNode(node.label)
-  const isTableItem = isLeafItem && parentCategory === 'Tables'
+  const isTableItem =
+    isLeafItem &&
+    (parentCategory === 'Tables' || parentCategory === 'Collections')
   const isViewItem = isLeafItem && parentCategory === 'Views'
   const isIndexItem = isLeafItem && parentCategory === 'Indices'
   const isQueriesFolder = node.label === 'Queries'

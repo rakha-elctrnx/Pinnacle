@@ -938,32 +938,59 @@ export function useExplorerData({
         }
 
         if (conn.type === 'mongodb') {
+          if (!db.loaded) {
+            return {
+              label: db.name,
+              nodeType: 'database',
+              connectionId: conn.id,
+              databaseName: db.name,
+            }
+          }
+
           const collections = db.schemas[0]?.tables || []
           const views = db.schemas[0]?.views || []
-          const children: TreeNode[] = [
-            ...collections.map(
-              (c): TreeNode => ({
-                label: c,
-                nodeType: 'item',
-                connectionId: conn.id,
-                databaseName: db.name,
-              }),
-            ),
-            ...views.map(
-              (v): TreeNode => ({
-                label: `${v} (view)`,
-                nodeType: 'item',
-                connectionId: conn.id,
-                databaseName: db.name,
-              }),
-            ),
-          ]
+          const categoryChildren: TreeNode[] = []
+
+          if (collections.length > 0) {
+            categoryChildren.push({
+              label: 'Collections',
+              nodeType: 'category',
+              connectionId: conn.id,
+              databaseName: db.name,
+              children: collections.map(
+                (c): TreeNode => ({
+                  label: c,
+                  nodeType: 'item',
+                  connectionId: conn.id,
+                  databaseName: db.name,
+                }),
+              ),
+            })
+          }
+
+          if (views.length > 0) {
+            categoryChildren.push({
+              label: 'Views',
+              nodeType: 'category',
+              connectionId: conn.id,
+              databaseName: db.name,
+              children: views.map(
+                (v): TreeNode => ({
+                  label: `${v} (view)`,
+                  nodeType: 'item',
+                  connectionId: conn.id,
+                  databaseName: db.name,
+                }),
+              ),
+            })
+          }
+
           return {
             label: db.name,
             nodeType: 'database',
             connectionId: conn.id,
             databaseName: db.name,
-            children: db.loaded ? children : undefined,
+            children: categoryChildren,
           }
         }
 

@@ -992,6 +992,11 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
                 )
               : null) ?? selectedConnection)
       if (mongoConn && mongoConn.type === 'mongodb') {
+        const isMongoCollectionsCategory = nodePath?.endsWith('/Collections') || nodeLabel === 'Collections'
+        const isMongoViewsCategory = nodePath?.endsWith('/Views') || nodeLabel === 'Views'
+        if (isMongoCollectionsCategory || isMongoViewsCategory) {
+          return
+        }
         const dbName = databaseName || mongoConn.database || 'admin'
         const globalTabId = `${mongoConn.id}:mongo:${dbName}:${nodeLabel}`
         useTabStore.getState().openTab({
