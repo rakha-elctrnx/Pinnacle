@@ -27,6 +27,25 @@ fn app_data(app: &tauri::AppHandle) -> AppResult<PathBuf> {
         .map_err(|e| AppError::Io(e.to_string()))
 }
 
+/// Resolve the `password_ref` a response should advertise for a connection.
+///
+/// `ConnectionResponse::from(metadata)` optimistically sets a ref for every
+/// connection; callers must correct it. An *empty* stored/keyring password means
+/// "no password configured" (e.g. a local Redis with no AUTH), not "password
+/// required but missing" — advertising a ref in that case makes frontend payload
+/// builders reject the empty lookup and fail the whole connection.
+async fn resolve_password_ref(data: &PathBuf, connection_id: &str) -> AppResult<String> {
+    let in_store = store::get_password(data, connection_id)
+        .await?
+        .is_some_and(|p| !p.is_empty());
+    let in_keyring = keyring::has_password(connection_id).await.unwrap_or(false);
+    Ok(if in_store || in_keyring {
+        format!("keyring://{}", connection_id)
+    } else {
+        String::new()
+    })
+}
+
 /// Save a connection (metadata + password)
 ///
 /// Passwords are persisted in the local store first. Saving to the OS keyring is
@@ -74,7 +93,9 @@ pub async fn save_connection(
     if let Some(key_passphrase) = &request.key_passphrase {
         let _ = keyring::save_key_passphrase(&metadata.id, key_passphrase).await;
     }
-    Ok(metadata.into())
+    let mut response: ConnectionResponse = metadata.into();
+    response.password_ref = resolve_password_ref(&data, &response.metadata.id).await?;
+    Ok(response)
 }
 
 /// List all connections
@@ -106,15 +127,7 @@ pub async fn list_connections(
     let mut connections: Vec<ConnectionResponse> = Vec::with_capacity(filtered.len());
     for metadata in filtered {
         let mut response: ConnectionResponse = metadata.into();
-        let has_password_in_store = store::get_password(&data, &response.metadata.id)
-            .await?
-            .is_some();
-        let has_password_in_keyring = keyring::has_password(&response.metadata.id)
-            .await
-            .unwrap_or(false);
-        if has_password_in_store || has_password_in_keyring {
-            response.password_ref = format!("keyring://{}", response.metadata.id);
-        }
+        response.password_ref = resolve_password_ref(&data, &response.metadata.id).await?;
         connections.push(response);
     }
 
@@ -231,15 +244,7 @@ pub async fn get_connection(
     match metadata {
         Some(m) => {
             let mut response: ConnectionResponse = m.into();
-            let has_password_in_store = store::get_password(&data, &response.metadata.id)
-                .await?
-                .is_some();
-            let has_password_in_keyring = keyring::has_password(&response.metadata.id)
-                .await
-                .unwrap_or(false);
-            if has_password_in_store || has_password_in_keyring {
-                response.password_ref = format!("keyring://{}", response.metadata.id);
-            }
+            response.password_ref = resolve_password_ref(&data, &response.metadata.id).await?;
             Ok(Some(response))
         }
         None => Ok(None),

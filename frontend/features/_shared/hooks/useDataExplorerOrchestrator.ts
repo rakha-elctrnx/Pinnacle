@@ -1013,6 +1013,49 @@ export function useDataExplorerOrchestrator(): DataExplorerOrchestratorResult {
         )
         return
       }
+      const redisConn =
+        selectedConnection && selectedConnection.type === 'redis'
+          ? selectedConnection
+          : ((nodePath
+              ? items.find(
+                  (item) =>
+                    item.type === 'redis' &&
+                    nodePath
+                      .split('/')
+                      .map(decodePathSegment)
+                      .includes(item.name),
+                )
+              : null) ?? (selectedConnection?.type === 'redis' ? selectedConnection : null))
+      if (redisConn && redisConn.type === 'redis') {
+        if (nodeLabel === 'Keys') {
+          const dbName = databaseName || 'db0'
+          const globalTabId = `${redisConn.id}:redis-db:${dbName}`
+          useTabStore.getState().openTab({
+            id: globalTabId,
+            label: dbName,
+            type: 'redis',
+            pageType: 'redis-db',
+            route: `/redis/${redisConn.id}/databases/${encodeURIComponent(dbName)}`,
+            connectionId: redisConn.id,
+            treePath: nodePath,
+          })
+          navigate(`/redis/${redisConn.id}/databases/${encodeURIComponent(dbName)}`)
+          return
+        }
+        if (nodeLabel === 'Command Console') {
+          const globalTabId = `${redisConn.id}:redis-console`
+          useTabStore.getState().openTab({
+            id: globalTabId,
+            label: 'Command Console',
+            type: 'redis',
+            pageType: 'redis-console',
+            route: `/redis/${redisConn.id}/console`,
+            connectionId: redisConn.id,
+          })
+          navigate(`/redis/${redisConn.id}/console`)
+          return
+        }
+      }
       // Resolve target connection (fallback to nodePath matching if selectedConnection isn't set yet)
       let conn = selectedConnection
       if (!conn && nodePath) {

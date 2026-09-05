@@ -44,10 +44,15 @@ const ELASTICSEARCH_CAPABILITIES: ConnectorCapabilityInterface = {
   ],
 }
 
-/** Redis — minimal capabilities for Phase 3. */
+/** Redis capabilities. */
 const REDIS_CAPABILITIES: ConnectorCapabilityInterface = {
   label: 'Redis',
-  capabilities: ['connect', 'test-connection'],
+  capabilities: [
+    'connect',
+    'test-connection',
+    'load-navigation-tree',
+    'get-default-context',
+  ],
 }
 
 /** MongoDB — progressive capabilities for Phase 3. */

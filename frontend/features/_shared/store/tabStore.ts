@@ -16,6 +16,8 @@ export type TabPageType =
   | 'elastic-query'
   | 'elastic-mappings'
   | 'mongo-collection'
+  | 'redis-db'
+  | 'redis-console'
 
 export interface Tab {
   /** Unique identifier — connection id for connection tabs, composite key for sub-pages. */

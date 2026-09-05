@@ -24,7 +24,7 @@ fn app_data(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 /// Looks up the local store first, then falls back to the OS keyring. Returns
 /// `(None, None)` when `connection_id` is absent (test-connection-before-save flow
 /// — the caller passes secrets inline) or when no SSH config is present.
-async fn resolve_ssh_secrets(
+pub(crate) async fn resolve_ssh_secrets(
     app: &tauri::AppHandle,
     payload: &ConnectionPayload,
 ) -> Result<(Option<String>, Option<String>), String> {
@@ -163,6 +163,7 @@ pub async fn sql_rollback_transaction(
 #[tauri::command]
 pub async fn disconnect_connection(connection_id: String) -> Result<(), String> {
     pool::disconnect(&connection_id).await;
+    crate::infrastructure::connectors::redis::evict_redis_connections(&connection_id).await;
     Ok(())
 }
 

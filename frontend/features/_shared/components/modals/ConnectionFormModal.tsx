@@ -359,7 +359,13 @@ export function ConnectionFormModal({
       }
       // ELSE IF REDIS → CALL REDIS TEST
       else if (isRedisType) {
-        const result = await redisTestConnection(payload)
+        const result = await redisTestConnection(
+          payload,
+          sshEnabled && sshAuthMethod === 'password' ? sshPassword : undefined,
+          sshEnabled && sshAuthMethod === 'privateKey'
+            ? keyPassphrase
+            : undefined,
+        )
         setTestConnectionResult({
           kind: result.ok ? 'success' : 'error',
           message: result.message,

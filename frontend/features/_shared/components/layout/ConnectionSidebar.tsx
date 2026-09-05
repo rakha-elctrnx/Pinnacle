@@ -64,11 +64,6 @@ function getStaticTreeNodes(
 ): TreeNode[] {
   switch (type) {
     case 'redis':
-      return [
-        { label: 'Keys', children: [] },
-        { label: 'Indexes', children: [] },
-        { label: 'Queries', children: [] },
-      ]
     case 'mongodb':
       return []
     case 'elasticsearch':
@@ -130,12 +125,16 @@ function buildUnifiedTree(
       }
 
       const dynamicTreeNodes =
-        isSqlConnectionType(profile.type) || profile.type === 'mongodb'
+        isSqlConnectionType(profile.type) ||
+        profile.type === 'mongodb' ||
+        profile.type === 'redis'
           ? explorerData.getTreeNodesForConnection(profile)
           : []
       const connectionIndices = elasticIndices?.[profile.id]
       const staticTreeNodes =
-        isSqlConnectionType(profile.type) || profile.type === 'mongodb'
+        isSqlConnectionType(profile.type) ||
+        profile.type === 'mongodb' ||
+        profile.type === 'redis'
           ? []
           : getStaticTreeNodes(profile.type, connectionIndices)
       const treeNodes =
@@ -164,12 +163,16 @@ function buildUnifiedTree(
       }
 
       const dynamicTreeNodes =
-        isSqlConnectionType(profile.type) || profile.type === 'mongodb'
+        isSqlConnectionType(profile.type) ||
+        profile.type === 'mongodb' ||
+        profile.type === 'redis'
           ? explorerData.getTreeNodesForConnection(profile)
           : []
       const connectionIndices = elasticIndices?.[profile.id]
       const staticTreeNodes =
-        isSqlConnectionType(profile.type) || profile.type === 'mongodb'
+        isSqlConnectionType(profile.type) ||
+        profile.type === 'mongodb' ||
+        profile.type === 'redis'
           ? []
           : getStaticTreeNodes(profile.type, connectionIndices)
       const treeNodes =
@@ -660,7 +663,9 @@ export function ConnectionSidebar() {
           .find((p) => p.id === connectionId)
         if (
           profile &&
-          (isSqlConnectionType(profile.type) || profile.type === 'mongodb')
+          (isSqlConnectionType(profile.type) ||
+            profile.type === 'mongodb' ||
+            profile.type === 'redis')
         ) {
           const treeData = explorerData.treeDataMap[connectionId]
           if (!treeData) {

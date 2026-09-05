@@ -24,6 +24,10 @@ import {
   MongoSchemaPage,
   MongoValidationPage,
 } from '../features/mongodb/pages/MongoCollectionWorkspacePage'
+import { RedisLayout } from '../features/redis/layouts/RedisLayout'
+import { RedisConnectionWelcomePage } from '../features/redis/pages/RedisConnectionWelcomePage'
+import { RedisKeysPage } from '../features/redis/pages/RedisKeysPage'
+import { RedisCommandPage } from '../features/redis/pages/RedisCommandPage'
 import { TableDesignerPage } from '../features/sql/pages/window/TableDesignerPage'
 
 /**
@@ -129,6 +133,20 @@ export const router = createBrowserRouter([
                   { path: 'validation', element: <MongoValidationPage /> },
                 ],
               },
+            ],
+          },
+        ],
+      },
+      {
+        path: 'redis',
+        element: <RedisLayout />,
+        children: [
+          {
+            path: ':connectionId',
+            children: [
+              { index: true, element: <RedisConnectionWelcomePage /> },
+              { path: 'databases/:dbName', element: <RedisKeysPage /> },
+              { path: 'console', element: <RedisCommandPage /> },
             ],
           },
         ],

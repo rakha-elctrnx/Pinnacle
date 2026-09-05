@@ -568,7 +568,7 @@ export function useExplorerData({
   // Fetch all database names for a connection
   const fetchTreeData = useCallback(
     async (connId: string, conn: ConnectionProfile) => {
-      if (!isSqlConnectionType(conn.type) && conn.type !== 'mongodb') return
+      if (!isSqlConnectionType(conn.type) && conn.type !== 'mongodb' && conn.type !== 'redis') return
       if (inflightTreeFetches.current.has(connId)) return
       inflightTreeFetches.current.add(connId)
       setTreeLoading((prev) => ({ ...prev, [connId]: true }))
@@ -585,6 +585,26 @@ export function useExplorerData({
             ...prev,
             [connId]: navResult,
           }))
+          return
+        } else if (conn.type === 'redis') {
+          const { redisShowAllDatabases } = await import(
+            '../../redis/clients/redis'
+          )
+          // getConnPayloadWithPassword omits `ssh`; Redis tunneling needs it explicitly.
+          const redisPayload = { ...payload, ssh: conn.ssh }
+          const dbs = await redisShowAllDatabases(redisPayload)
+          const databases: TreeDatabase[] = (
+            dbs.length ? dbs.map((d) => d.db) : ['db0']
+          ).map((name) => ({
+            name,
+            schemas: [],
+            loaded: true,
+          }))
+          setTreeDataMap((prev) => ({
+            ...prev,
+            [connId]: { databases, flatTables: [] },
+          }))
+          setConnectionStatuses((prev) => ({ ...prev, [connId]: 'connected' }))
           return
         } else if (conn.type === 'postgresql') {
           const dbRes = await executeSql({
@@ -910,7 +930,8 @@ export function useExplorerData({
       expandedConnectionId &&
       selectedConnection &&
       (isSqlConnectionType(selectedConnection.type) ||
-        selectedConnection.type === 'mongodb')
+        selectedConnection.type === 'mongodb' ||
+        selectedConnection.type === 'redis')
     ) {
       const existing = treeDataMap[expandedConnectionId]
       if (!existing) {
@@ -922,12 +943,35 @@ export function useExplorerData({
 
   const getTreeNodesForConnection = useCallback(
     (conn: ConnectionProfile): TreeNode[] => {
-      if (!isSqlConnectionType(conn.type) && conn.type !== 'mongodb') return []
+      if (
+        !isSqlConnectionType(conn.type) &&
+        conn.type !== 'mongodb' &&
+        conn.type !== 'redis'
+      )
+        return []
 
       const treeData = treeDataMap[conn.id]
       if (!treeData) return []
 
-      return treeData.databases.map((db): TreeNode => {
+      const nodes = treeData.databases.map((db): TreeNode => {
+        if (conn.type === 'redis') {
+          return {
+            label: db.name,
+            nodeType: 'database',
+            connectionId: conn.id,
+            databaseName: db.name,
+            children: [
+              {
+                label: 'Keys',
+                nodeType: 'category',
+                connectionId: conn.id,
+                databaseName: db.name,
+                children: [],
+              },
+            ],
+          }
+        }
+
         if (!db.loaded && conn.type !== 'mongodb') {
           return {
             label: db.name,
@@ -1141,6 +1185,15 @@ export function useExplorerData({
           databaseName: db.name,
         }
       })
+      if (conn.type === 'redis') {
+        nodes.push({
+          label: 'Command Console',
+          nodeType: 'item',
+          connectionId: conn.id,
+          children: [],
+        })
+      }
+      return nodes
     },
     [treeDataMap],
   )

@@ -29,7 +29,8 @@ use application::commands::export_commands::{estimate_table_export, execute_tabl
 
 // REDIS COMMANDS
 use application::commands::redis_commands::{
-    redis_execute_command, redis_show_all_databases, redis_test_connection,
+    redis_execute_command, redis_get_info, redis_get_key, redis_scan_keys,
+    redis_show_all_databases, redis_test_connection,
 };
 
 // CONNECTION COMMANDS
@@ -126,6 +127,9 @@ pub fn run() {
             redis_test_connection,
             redis_show_all_databases,
             redis_execute_command,
+            redis_scan_keys,
+            redis_get_key,
+            redis_get_info,
             // MONGODB COMMANDS
             mongo_parse_uri,
             mongo_test_connection,

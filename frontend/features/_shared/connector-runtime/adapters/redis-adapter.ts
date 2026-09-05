@@ -7,10 +7,11 @@ import type {
   QueryExecutionResult,
   TestConnectionResult,
 } from './adapter-types'
-
-function isReachablePayload(payload: ConnectionPayload): boolean {
-  return payload.host.trim().length > 0 && payload.port > 0
-}
+import {
+  redisExecuteCommand,
+  redisShowAllDatabases,
+  redisTestConnection,
+} from '../../../redis/clients/redis'
 
 export const redisAdapter: ConnectorAdapter = {
   label: 'Redis',
@@ -18,28 +19,54 @@ export const redisAdapter: ConnectorAdapter = {
   async testConnection(
     payload: ConnectionPayload,
   ): Promise<TestConnectionResult> {
-    if (isReachablePayload(payload)) {
-      return {
-        kind: 'success',
-        message: 'Connection test simulated for Redis',
+    try {
+      const result = await redisTestConnection(payload)
+      if (result.ok) {
+        return {
+          kind: 'success',
+          message: result.message || 'Connection successful',
+        }
       }
-    }
-
-    const message = 'Invalid Redis connection parameters'
-    return {
-      kind: 'error',
-      message,
-      normalizedError: normalizeError(message),
+      return {
+        kind: 'error',
+        message: result.message || 'Connection failed',
+        normalizedError: normalizeError(result.message),
+      }
+    } catch (err) {
+      return {
+        kind: 'error',
+        message: err instanceof Error ? err.message : 'Connection test failed',
+        normalizedError: normalizeError(err),
+      }
     }
   },
 
   async loadNavigationTree(
     payload: ConnectionPayload,
   ): Promise<NavigationTreeResult> {
-    void payload
-    return {
-      databases: [],
-      flatTables: [],
+    try {
+      const dbs = await redisShowAllDatabases(payload)
+      const rawDatabases = dbs.length
+        ? dbs
+        : [{ db: 'db0', keys: 0, expires: 0, avgTtl: 0 }]
+      const databases = rawDatabases.map((db) => ({
+        name: db.db,
+        schemas: [
+          {
+            name: db.db,
+            tables: [],
+            views: [],
+            functions: [],
+          },
+        ],
+        loaded: true,
+      }))
+      return {
+        databases,
+        flatTables: [],
+      }
+    } catch (err) {
+      throw normalizeError(err)
     }
   },
 
@@ -62,13 +89,18 @@ export const redisAdapter: ConnectorAdapter = {
     payload: ConnectionPayload,
     query: string,
   ): Promise<QueryExecutionResult> {
-    void payload
-    void query
-    return {
-      columns: [],
-      rows: [],
-      rowsAffected: 0,
-      elapsedMs: 0,
+    try {
+      const startTime = performance.now()
+      const rawResult = await redisExecuteCommand(payload, query)
+      const elapsedMs = Math.round(performance.now() - startTime)
+      return {
+        columns: ['result'],
+        rows: [{ result: rawResult }],
+        rowsAffected: 1,
+        elapsedMs,
+      }
+    } catch (err) {
+      throw normalizeError(err)
     }
   },
 
@@ -76,10 +108,9 @@ export const redisAdapter: ConnectorAdapter = {
     database: string
     schema: string
   } {
-    void payload
     return {
-      database: 'redis',
-      schema: 'default',
+      database: payload.database || 'db0',
+      schema: '',
     }
   },
 }

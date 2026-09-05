@@ -312,6 +312,60 @@ const MSG_MONGO_SERVER: &str =
 const MSG_MONGO_GENERIC: &str =
     "The MongoDB operation failed. Review the connection settings and retry.";
 
+const MSG_REDIS_AUTH_FAILED: &str =
+    "Redis authentication failed. Re-check username and password.";
+const MSG_REDIS_CONN_REFUSED: &str =
+    "Could not reach the Redis server. Verify host and port.";
+const MSG_REDIS_COMMAND: &str =
+    "The Redis server rejected the command. Review the command and retry.";
+const MSG_REDIS_GENERIC: &str =
+    "The Redis operation failed. Review the connection settings and retry.";
+
+pub fn sanitize_redis_error(err: &redis::RedisError) -> AppError {
+    use redis::ErrorKind;
+
+    let msg_lower = err.to_string().to_lowercase();
+    if err.kind() == ErrorKind::AuthenticationFailed
+        || msg_lower.contains("wrongpass")
+        || msg_lower.contains("noauth")
+        || msg_lower.contains("invalid password")
+    {
+        return AppError::Database(MSG_REDIS_AUTH_FAILED.to_string());
+    }
+
+    match err.kind() {
+        ErrorKind::InvalidClientConfig => AppError::InvalidInput(MSG_INVALID_CONFIG.to_string()),
+        ErrorKind::Io => {
+            if msg_lower.contains("connection refused")
+                || msg_lower.contains("could not connect")
+                || msg_lower.contains("no such host")
+            {
+                AppError::Database(MSG_REDIS_CONN_REFUSED.to_string())
+            } else if msg_lower.contains("timed out") || msg_lower.contains("timeout") {
+                AppError::Database(MSG_TIMEOUT.to_string())
+            } else {
+                AppError::Database(MSG_REDIS_GENERIC.to_string())
+            }
+        }
+        ErrorKind::Server(redis::ServerErrorKind::ResponseError) => {
+            AppError::Database(MSG_REDIS_COMMAND.to_string())
+        }
+        _ => AppError::Database(MSG_REDIS_GENERIC.to_string()),
+    }
+}
+
+impl From<redis::RedisError> for AppError {
+    fn from(err: redis::RedisError) -> Self {
+        sanitize_redis_error(&err)
+    }
+}
+
+impl From<&redis::RedisError> for AppError {
+    fn from(err: &redis::RedisError) -> Self {
+        sanitize_redis_error(err)
+    }
+}
+
 impl From<&mongodb::error::Error> for AppError {
     fn from(err: &mongodb::error::Error) -> Self {
         sanitize_mongo_error(err).to_app_error()
@@ -515,5 +569,29 @@ mod tests {
         assert!(!rendered.contains("postgres://"));
         assert!(!rendered.contains("user:secret"));
         assert!(rendered.contains("Connection refused"));
+    }
+
+    #[test]
+    fn test_sanitize_redis_error_auth_failed() {
+        let err: redis::RedisError = (
+            redis::ErrorKind::AuthenticationFailed,
+            "WRONGPASS invalid username-password pair or user is disabled",
+            "redis://user:supersecret@127.0.0.1:6379/0".to_string(),
+        )
+            .into();
+        let app_err: AppError = err.into();
+        let body = database_body(app_err);
+        assert!(body.contains("Redis authentication failed"));
+        assert!(!body.contains("supersecret"));
+        assert!(!body.contains("redis://"));
+    }
+
+    #[test]
+    fn test_sanitize_redis_error_conn_refused() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "connection refused");
+        let err: redis::RedisError = io_err.into();
+        let app_err: AppError = err.into();
+        let body = database_body(app_err);
+        assert!(body.contains("Could not reach the Redis server"));
     }
 }

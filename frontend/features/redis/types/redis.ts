@@ -12,7 +12,7 @@ export interface RedisDatabaseInfo {
   avgTtl: number
 }
 
-export interface RedisInfo {
+export interface RedisServerInfo {
   redisVersion?: string
   redisMode?: string
   os?: string
@@ -21,6 +21,24 @@ export interface RedisInfo {
   connectedClients?: number
   usedMemoryHuman?: string
   role?: string
+}
+
+export interface RedisKeySummary {
+  key: string
+  keyType: string
+  ttl: number
+}
+
+export interface RedisScanResult {
+  cursor: string
+  keys: RedisKeySummary[]
+}
+
+export interface RedisKeyDetail {
+  key: string
+  keyType: string
+  ttl: number
+  value: unknown
 }
 
 export interface RedisStringData {

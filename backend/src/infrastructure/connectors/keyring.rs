@@ -81,7 +81,8 @@ pub async fn delete_password(connection_id: &str) -> AppResult<()> {
 /// # Returns
 /// `true` if the password exists, `false` otherwise
 pub async fn has_password(connection_id: &str) -> AppResult<bool> {
-    Ok(get_password(connection_id).await?.is_some())
+    // An empty entry means "no password configured", not "password required".
+    Ok(get_password(connection_id).await?.is_some_and(|p| !p.is_empty()))
 }
 // ── SSH-layer secrets ───────────────────────────────────────────
 //
